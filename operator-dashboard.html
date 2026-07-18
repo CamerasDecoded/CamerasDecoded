@@ -79,6 +79,24 @@
     .protocol-item:last-child { border-bottom: none; }
     .protocol-item .name { color: #fff; }
     .protocol-item .status { color: #8deb00; }
+
+    /* Added missing CSS for the neon outline button */
+    .btn-neon-outline {
+      display: inline-block;
+      padding: 10px 30px;
+      background: transparent;
+      border: 1px solid #8deb00;
+      border-radius: 8px;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      transition: 0.2s;
+      text-decoration: none;
+    }
+    .btn-neon-outline:hover {
+      background: rgba(141, 235, 0, 0.1);
+      box-shadow: 0 0 15px rgba(141, 235, 0, 0.3);
+    }
   </style>
 </head>
 <body>
@@ -103,9 +121,9 @@
     </div>
     <div class="card">
       <h3>Snapshot Cards Downloaded</h3>
-      <div class="value">14</div>
+      <div class="value" id="cardCountValue">0</div> <!-- Added ID for dynamic updating -->
       <div class="sub">Saved to your library</div>
-      <div class="bar-bg"><div class="bar-fill" style="width:50%;"></div></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:0%;"></div></div>
     </div>
     <div class="card">
       <h3>Active Sessions</h3>
@@ -113,6 +131,13 @@
       <div class="sub">Recent operator sessions</div>
       <div class="bar-bg"><div class="bar-fill" style="width:30%;"></div></div>
     </div>
+  </div>
+
+  <!-- Go to Atlas Button -->
+  <div style="text-align: center; margin-top: 30px;">
+    <a href="#" id="goToAtlasBtn" class="btn-neon-outline" style="display: inline-block;">
+      🌐 Open Decoder Atlas
+    </a>
   </div>
 
   <div class="protocols-list">
@@ -129,5 +154,67 @@
     <p style="color:#b4b4b4; font-size:14px;">Earn by sharing the signal. Create content. Share your link. Earn 30–50% commission on every guide sale.</p>
     <a href="https://tally.so/r/ODk9YY" target="_blank" class="btn-neon-outline" style="margin-top: 10px;">Apply to the program →</a>
   </div>
+
+  <!-- FIREBASE SCRIPTS -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      
+      const firebaseConfig = {
+        apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+        authDomain: "cameras-decoded.firebaseapp.com",
+        projectId: "cameras-decoded",
+        storageBucket: "cameras-decoded.firebasestorage.app",
+        messagingSenderId: "1088920052790",
+        appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+        measurementId: "G-YN3M01WW0B"
+      };
+      firebase.initializeApp(firebaseConfig);
+      const auth = firebase.auth();
+      const db = firebase.firestore();
+
+      // --- STEP 1: Pass UID to Atlas subdomain ---
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          const atlasLink = document.getElementById('goToAtlasBtn');
+          if (atlasLink) {
+            // Append the user's UID to the subdomain link
+            atlasLink.href = `https://settings.camerasdecoded.com/?opToken=${user.uid}`;
+          }
+
+          // --- DYNAMIC DATA: Load real dashboard stats from Firestore ---
+          db.collection('users').doc(user.uid).get().then((doc) => {
+            if (doc.exists) {
+              const data = doc.data();
+              
+              // Update "Snapshot Cards Downloaded" stat
+              const cardCountElement = document.getElementById('cardCountValue');
+              const cardBarElement = document.querySelector('.card .bar-fill');
+              
+              if (data && data.savedCards) {
+                const count = data.savedCards.length;
+                if (cardCountElement) cardCountElement.innerText = count;
+                // Update the bar width (cap at 100%)
+                if (cardBarElement) cardBarElement.style.width = Math.min(count * 10, 100) + '%';
+              } else {
+                if (cardCountElement) cardCountElement.innerText = '0';
+                if (cardBarElement) cardBarElement.style.width = '0%';
+              }
+            }
+          }).catch((err) => {
+            console.error("Error loading dashboard data:", err);
+          });
+
+        } else {
+          // If user isn't logged in, redirect to login
+          window.location.href = 'login.html';
+        }
+      });
+
+    });
+  </script>
 </body>
 </html>
