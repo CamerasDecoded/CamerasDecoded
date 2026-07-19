@@ -656,6 +656,9 @@
   box-shadow: 0 0 15px rgba(141, 235, 0, 0.2); /* A soft glowing halo */
 }
   </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -1055,6 +1058,48 @@
     } else {
       // If not logged in, hide it
       dashboardLink.style.display = 'none';
+    }
+  });
+</script>
+<script>
+  // Initialize Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+    authDomain: "cameras-decoded.firebaseapp.com",
+    projectId: "cameras-decoded",
+    storageBucket: "cameras-decoded.firebasestorage.app",
+    messagingSenderId: "1088920052790",
+    appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+    measurementId: "G-YN3M01WW0B"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  const dashboardLink = document.getElementById('dashboardLink');
+
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      // User is logged in -> SHOW the link and fetch their role to set the right URL
+      dashboardLink.style.display = 'block';
+      
+      db.collection('users').doc(user.uid).get().then((doc) => {
+        if (doc.exists) {
+          const data = doc.data();
+          const role = data.role || 'Partner';
+          
+          if (role === 'Instructor') dashboardLink.href = 'instructor-dashboard.html';
+          else if (role === 'Operator') dashboardLink.href = 'operator-dashboard.html';
+          else dashboardLink.href = 'partner-dashboard.html';
+        }
+      }).catch(() => {
+        dashboardLink.href = 'partner-dashboard.html'; // Fallback
+      });
+
+    } else {
+      // User is logged out -> FORCE HIDE the link
+      dashboardLink.style.display = 'none';
+      dashboardLink.href = '#';
     }
   });
 </script>
