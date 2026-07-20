@@ -674,7 +674,10 @@
       <!-- Close Button for Mobile -->
       <div class="close-btn" id="closeToggle">✕</div>
       <a href="#" id="dashboardLink" class="nav-item" style="display:none;">Dashboard</a>
-      <a href="#" class="nav-item">Home</a>
+
+<!-- FIX: Add id="nav-home" to this link so the script knows where to insert Dashboard -->
+      <a href="#" class="nav-item" id="nav-home">Home</a>
+
       <a href="https://cameradecoded.gumroad.com/l/TheCameraConfidenceGuide?utm_campaign=founding-200-link&utm_content=website&utm_medium=website&utm_source=homepage-link&utm_term=learn-photography-videography-basics-beginner-easy-guide-tutorials-cheat-sheet-masterclass-cameras-camera-mirrorlesscamera-mirrorless-howto-how-to-help-manual-mastery-educational-education-lesson-pdf" class="nav-item">Guides</a>
       <a href="https://www.canva.com/design/DAHLEqnslTk/bFK6c7KIPin6Q4y95lfBlg/view" class="nav-item">Educators</a>
       <a href="https://camerasdecoded.my.canva.site/home/partner-page/" class="nav-item">Partners</a>
@@ -985,26 +988,27 @@
       </div>
     </footer>
 
-  </main>
+ </main>
+
+  <!-- MOBILE MENU TOGGLE SCRIPT -->
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const mobileToggle = document.getElementById('mobileToggle');
       const closeToggle = document.getElementById('closeToggle');
       const navGroup = document.getElementById('navGroup');
 
-      // When clicking the Hamburger
       mobileToggle.addEventListener('click', function() {
         navGroup.classList.add('open');
-        mobileToggle.style.display = 'none'; // Hide hamburger to prevent overlap
+        mobileToggle.style.display = 'none';
       });
 
-      // When clicking the X
       closeToggle.addEventListener('click', function() {
         navGroup.classList.remove('open');
-        mobileToggle.style.display = 'block'; // Bring hamburger back
+        mobileToggle.style.display = 'block';
       });
     });
   </script>
+
   <!-- INTERACTIVE SCROLL TO TOP UI ELEMENT -->
   <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
 
@@ -1021,8 +1025,12 @@
       }
     };
   </script>
+
+<!-- FIREBASE SCRIPTS (ADDED FIRESTORE COMPAT BELOW) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://gstatic.com"></script> <!-- Fixed: Added this line so Firestore works -->
+
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
@@ -1033,27 +1041,45 @@
     appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
     measurementId: "G-YN3M01WW0B"
   };
+  
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
 
+  // Grab our elements
   const dashboardLink = document.getElementById('dashboardLink');
+  const homeLink = document.getElementById('nav-home') || document.querySelector('.sidebar .nav-item'); // Finds your Home link
 
   auth.onAuthStateChanged((user) => {
     if (user) {
-      // If logged in, show the dashboard link
+      // 1. SUCCESS: Save user ID to localStorage so ://camerasdecoded.com can read it!
+      localStorage.setItem('cameras_decoded_uid', user.uid);
+
+      // 2. SUCCESS: Show the dashboard link
       dashboardLink.style.display = 'block';
-      // Fetch their role to direct them to the correct dashboard
+      
+      // 3. SUCCESS: Physically move the Dashboard link above the Home link in the sidebar layout
+      if (homeLink && homeLink.parentNode) {
+        homeLink.parentNode.insertBefore(dashboardLink, homeLink);
+      }
+
+      // 4. Fetch their role to direct them to the correct pre-built dashboard page
       const db = firebase.firestore();
       db.collection('users').doc(user.uid).get().then((doc) => {
         if(doc.exists) {
           const role = doc.data().role || 'Partner';
+          
+          // Match your exact file names here
           if(role === 'Instructor') dashboardLink.href = 'instructor-dashboard.html';
           else if(role === 'Operator') dashboardLink.href = 'operator-dashboard.html';
           else dashboardLink.href = 'partner-dashboard.html';
         }
+      }).catch((error) => {
+        console.log("Error fetching user role document:", error);
       });
+
     } else {
-      // If not logged in, hide it
+      // If not logged in, clear storage and hide the dashboard link
+      localStorage.removeItem('cameras_decoded_uid');
       dashboardLink.style.display = 'none';
     }
   });
