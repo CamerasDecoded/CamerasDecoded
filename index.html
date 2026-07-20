@@ -1049,45 +1049,47 @@
   const auth = firebase.auth();
 
   // Grab our elements
-  const dashboardLink = document.getElementById('dashboardLink');
-  const homeLink = document.getElementById('nav-home') 
-|| document.querySelector('.sidebar .nav-item'); // Finds your Home link
-dashboardLink.style.display = 'none';
+  const dashboardLinks = document.querySelectorAll('#dashboardLink');
+const homeLink = document.getElementById('nav-home');
 
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      // 1. SUCCESS: Save user ID to localStorage so ://camerasdecoded.com can read it!
-      localStorage.setItem('cameras_decoded_uid', user.uid);
+// Force-hide ALL instances found on page load instantly
+dashboardLinks.forEach(link => link.style.display = 'none');
 
-      // 2. SUCCESS: Show the dashboard link
-      dashboardLink.style.display = 'block';
-      
-      // 3. SUCCESS: Physically move the Dashboard link above the Home link in the sidebar layout
-      if (homeLink && homeLink.parentNode) {
-        homeLink.parentNode.insertBefore(dashboardLink, homeLink);
-      }
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    localStorage.setItem('cameras_decoded_uid', user.uid);
 
-      // 4. Fetch their role to direct them to the correct pre-built dashboard page
-      const db = firebase.firestore();
-      db.collection('users').doc(user.uid).get().then((doc) => {
-        if(doc.exists) {
-          const role = doc.data().role || 'Partner';
-          
-          // Match your exact file names here
-          if(role === 'Instructor') dashboardLink.href = 'instructor-dashboard.html';
-          else if(role === 'Operator') dashboardLink.href = 'operator-dashboard.html';
-          else dashboardLink.href = 'partner-dashboard.html';
-        }
-      }).catch((error) => {
-        console.log("Error fetching user role document:", error);
-      });
+    // 1. Reveal ALL dashboard links found on the page
+    dashboardLinks.forEach(link => link.style.display = 'block');
 
-    } else {
-      // If not logged in, clear storage and hide the dashboard link
-      localStorage.removeItem('cameras_decoded_uid');
-      dashboardLink.style.display = 'none';
+    // 2. Move the first desktop link right above the home link structurally
+    if (homeLink && homeLink.parentNode && dashboardLinks[0]) {
+      homeLink.parentNode.insertBefore(dashboardLinks[0], homeLink);
     }
-  });
+
+    // 3. Check Firestore for roles and update the link paths
+    const db = firebase.firestore();
+    db.collection('users').doc(user.uid).get().then((doc) => {
+      if(doc.exists) {
+        const role = doc.data().role || 'Operator';
+        
+        // Update the web address for every dashboard link on the page
+        dashboardLinks.forEach(link => {
+          if(role === 'Instructor') link.href = 'instructor-dashboard.html';
+          else if(role === 'Operator') link.href = 'operator-dashboard.html';
+          else if(role === 'Partner') link.href = 'partner-dashboard.html';
+        });
+      }
+    }).catch((error) => {
+      console.log("Firestore tracking error: ", error);
+    });
+
+  } else {
+    localStorage.removeItem('cameras_decoded_uid');
+    // Hide ALL dashboard link instances when logged out
+    dashboardLinks.forEach(link => link.style.display = 'none');
+  }
+});
 </script>
 </body>
 </html>
