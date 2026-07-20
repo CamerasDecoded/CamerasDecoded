@@ -1046,50 +1046,54 @@
   
   // Initialize standard instances
   firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
+const auth = firebase.auth();
 
-  // Grab our elements
-  const dashboardLinks = document.querySelectorAll('#dashboardLink');
+// Find the Home link node to use as our anchor point
 const homeLink = document.getElementById('nav-home');
 
-// Force-hide ALL instances found on page load instantly
-dashboardLinks.forEach(link => link.style.display = 'none');
+// 1. ABSOLUTE FORCE REMOVAL: Strip any hardcoded dashboard links out of the HTML layout instantly on load
+document.querySelectorAll('#dashboardLink').forEach(el => el.remove());
 
 auth.onAuthStateChanged((user) => {
+  // Always clean up any existing created elements first to avoid dynamic duplication
+  const activeDynamicLink = document.getElementById('dynamic-dashboard-node');
+  if (activeDynamicLink) activeDynamicLink.remove();
+
   if (user) {
+    // Save user state for subdomain synchronization
     localStorage.setItem('cameras_decoded_uid', user.uid);
 
-    // 1. Reveal ALL dashboard links found on the page
-    dashboardLinks.forEach(link => link.style.display = 'block');
+    // 2. CREATE FROM SCRATCH: Form a brand-new link anchor out of thin air
+    const newDashboardLink = document.createElement('a');
+    newDashboardLink.id = 'dynamic-dashboard-node';
+    newDashboardLink.className = 'nav-item';
+    newDashboardLink.innerText = 'Dashboard';
+    newDashboardLink.href = 'operator-dashboard.html'; // Safe fallback route
 
-    // 2. Move the first desktop link right above the home link structurally
-    if (homeLink && homeLink.parentNode && dashboardLinks[0]) {
-      homeLink.parentNode.insertBefore(dashboardLinks[0], homeLink);
+    // 3. INJECT STRUCTURALLY: Slide it right above Home in your sidebar container layout
+    if (homeLink && homeLink.parentNode) {
+      homeLink.parentNode.insertBefore(newDashboardLink, homeLink);
     }
 
-    // 3. Check Firestore for roles and update the link paths
+    // 4. DATABASE LOOKUP: Fetch user tier role and adjust the anchor file target route
     const db = firebase.firestore();
     db.collection('users').doc(user.uid).get().then((doc) => {
       if(doc.exists) {
         const role = doc.data().role || 'Operator';
-        
-        // Update the web address for every dashboard link on the page
-        dashboardLinks.forEach(link => {
-          if(role === 'Instructor') link.href = 'instructor-dashboard.html';
-          else if(role === 'Operator') link.href = 'operator-dashboard.html';
-          else if(role === 'Partner') link.href = 'partner-dashboard.html';
-        });
+        if(role === 'Instructor') newDashboardLink.href = 'instructor-dashboard.html';
+        else if(role === 'Operator') newDashboardLink.href = 'operator-dashboard.html';
+        else if(role === 'Partner') newDashboardLink.href = 'partner-dashboard.html';
       }
     }).catch((error) => {
       console.log("Firestore tracking error: ", error);
     });
 
   } else {
+    // Wipe local storage credentials if user is officially logged out
     localStorage.removeItem('cameras_decoded_uid');
-    // Hide ALL dashboard link instances when logged out
-    dashboardLinks.forEach(link => link.style.display = 'none');
   }
 });
+
 </script>
 </body>
 </html>
