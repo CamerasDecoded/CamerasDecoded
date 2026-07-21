@@ -66,22 +66,32 @@
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
         const error = document.getElementById('errorMsg');
+        let loggedInUid = null;
 
         auth.signInWithEmailAndPassword(email, password)
           .then((userCredential) => {
             error.style.display = 'none';
-            const user = userCredential.user;
+            loggedInUid = userCredential.user.uid;
 
             // --- FETCH PERMANENT ROLE FROM FIRESTORE ---
-            return db.collection('users').doc(user.uid).get();
+            return db.collection('users').doc(loggedInUid).get();
           })
           .then((doc) => {
             // If we were sent here from a specific page (e.g. "please log in to save"),
-            // send the user right back there instead of to their dashboard.
+            // send the user right back there instead of to their dashboard — and
+            // pass the uid as a token so that page can recognize the login without
+            // relying on cross-subdomain Firebase Auth session sharing, which
+            // Safari's Intelligent Tracking Prevention blocks.
             const params = new URLSearchParams(window.location.search);
             const redirectUrl = params.get('redirect');
             if (redirectUrl) {
-              window.location.href = decodeURIComponent(redirectUrl);
+              try {
+                const destUrl = new URL(decodeURIComponent(redirectUrl));
+                destUrl.searchParams.set('opToken', loggedInUid);
+                window.location.href = destUrl.toString();
+              } catch (e) {
+                window.location.href = decodeURIComponent(redirectUrl);
+              }
               return;
             }
 
