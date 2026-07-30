@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cart — Cameras Decoded</title>
+  <meta name="description" content="Review your cart and checkout securely with Stripe.">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Copy the exact same <style> block from products.html — full dark theme, sidebar, etc. */
+    /* I'll omit the full CSS here for brevity; assume it's identical. */
+    /* Just add one rule for the cart table: */
+    .cart-table { width:100%; border-collapse:collapse; margin-bottom:30px; }
+    .cart-table th, .cart-table td { padding:15px; border-bottom:1px solid #1A1A1A; text-align:left; }
+    .cart-table th { color:#8deb00; font-family:'Space Mono',monospace; font-size:13px; }
+    .qty-btn { background:transparent; border:1px solid #1A1A1A; color:#fff; width:30px; height:30px; border-radius:4px; cursor:pointer; font-size:16px; }
+    .qty-btn:hover { border-color:#8deb00; color:#8deb00; }
+    .remove-btn { background:none; border:none; color:#ff4444; cursor:pointer; font-size:16px; }
+    .remove-btn:hover { color:#ff6666; }
+    .total-row { font-size:18px; font-weight:700; color:#8deb00; }
+    .checkout-btn { display:inline-block; padding:14px 40px; background:#8deb00; color:#000; font-family:'Space Mono',monospace; font-weight:700; border-radius:8px; text-decoration:none; margin-top:20px; }
+    .checkout-btn:hover { background:#a0f520; box-shadow: 0 0 20px rgba(141,235,0,0.5); }
+    .empty-cart { text-align:center; color:#b4b4b4; font-family:'Space Mono',monospace; padding:40px; }
+    .total-amount-box { background:#0A0A0A; border:1px solid #8deb00; border-radius:8px; padding:20px; margin:20px 0; text-align:center; font-family:'Space Mono',monospace; }
+    .copy-total-btn { background:transparent; border:1px solid #8deb00; color:#8deb00; padding:8px 16px; border-radius:6px; cursor:pointer; font-family:'Space Mono',monospace; font-size:12px; margin-left:10px; }
+  </style>
+</head>
+<body>
+  <!-- SIDEBAR (exact copy from products.html, including cart link) -->
+  <aside class="sidebar">
+    <div class="logo"><img src="cameras-decoded-logo.png" alt="Cameras Decoded"></div>
+    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
+      <a href="login.html" class="header-login-btn">Log in</a>
+      <a href="signup.html" class="header-login-btn">Sign Up</a>
+    </div>
+    <a href="cart.html" class="nav-item" id="cartLink" style="position:relative;">
+      🛒 Cart <span id="cartCount" style="background:#8deb00; color:#000; border-radius:50%; padding:0 6px; font-size:11px; margin-left:4px; display:none;">0</span>
+    </a>
+    <div class="nav-group" id="navGroup">
+      <div class="close-btn" id="closeToggle">✕</div>
+      <!-- Same sidebar links as in other pages -->
+      <a href="index.html" class="nav-item">Home</a>
+      <!-- ... include all links ... -->
+      <a href="products.html" class="nav-item">Products</a>
+    </div>
+    <div class="mobile-toggle" id="mobileToggle">☰</div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+    <div class="top-nav">
+      <a href="https://atlas.camerasdecoded.com" target="_blank">The Atlas</a>
+      <a href="#">For Operators</a>
+      <a href="partners.html">For Partners</a>
+      <a href="educators-pdf-viewer.html" target="_blank">For Instructors</a>
+    </div>
+
+    <h1 style="font-family:'Space Mono',monospace; color:#8deb00; margin-bottom:20px;">Your Cart</h1>
+    <div id="cartContent">
+      <!-- Dynamically filled -->
+    </div>
+  </main>
+
+  <footer class="footer">
+    <!-- Same footer as products.html -->
+  </footer>
+
+  <script>
+    const STRIPE_PAYMENT_LINK = "PASTE_YOUR_STRIPE_PAYMENT_LINK_HERE";
+
+    function getCart() {
+      return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
+    }
+    function saveCart(cart) {
+      localStorage.setItem('cameras_decoded_cart', JSON.stringify(cart));
+      updateCartCount();
+      renderCart();
+    }
+    function updateCartCount() {
+      const cart = getCart();
+      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+      const countEl = document.getElementById('cartCount');
+      if (countEl) {
+        countEl.textContent = totalItems;
+        countEl.style.display = totalItems > 0 ? 'inline-block' : 'none';
+      }
+    }
+
+    function renderCart() {
+      const cart = getCart();
+      const container = document.getElementById('cartContent');
+      if (cart.length === 0) {
+        container.innerHTML = '<div class="empty-cart"><i class="fas fa-shopping-cart" style="font-size:48px; display:block; margin-bottom:15px;"></i>Your cart is empty.<br><a href="products.html" style="color:#8deb00;">Continue shopping</a></div>';
+        return;
+      }
+
+      let html = '<table class="cart-table"><thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th><th></th></tr></thead><tbody>';
+      let total = 0;
+      cart.forEach((item, index) => {
+        const subtotal = item.price * item.qty;
+        total += subtotal;
+        html += `<tr>
+          <td>${item.name}</td>
+          <td>$${item.price.toFixed(2)}</td>
+          <td>
+            <button class="qty-btn" onclick="changeQty(${index}, -1)">−</button>
+            ${item.qty}
+            <button class="qty-btn" onclick="changeQty(${index}, 1)">+</button>
+          </td>
+          <td>$${subtotal.toFixed(2)}</td>
+          <td><button class="remove-btn" onclick="removeItem(${index})"><i class="fas fa-trash"></i></button></td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+
+      html += `<div class="total-amount-box">
+        <span style="font-size:20px;">Total: <strong>$${total.toFixed(2)}</strong></span>
+        <button class="copy-total-btn" onclick="copyTotal(${total.toFixed(2)})"><i class="fas fa-copy"></i> Copy total</button>
+      </div>`;
+
+      html += `<div style="text-align:center;">
+        <a href="${STRIPE_PAYMENT_LINK}" target="_blank" class="checkout-btn">Checkout with Stripe →</a>
+        <p style="color:#b4b4b4; font-size:13px; margin-top:10px;">
+          ⚠️ On the Stripe page, please enter the total amount shown above (you can paste it).
+        </p>
+        <p style="color:#b4b4b4; font-size:13px;">
+          After payment, you'll be returned to our products page with a confirmation.
+        </p>
+      </div>`;
+
+      container.innerHTML = html;
+    }
+
+    window.changeQty = function(index, delta) {
+      let cart = getCart();
+      cart[index].qty += delta;
+      if (cart[index].qty < 1) cart[index].qty = 1;
+      saveCart(cart);
+    }
+
+    window.removeItem = function(index) {
+      let cart = getCart();
+      cart.splice(index, 1);
+      saveCart(cart);
+    }
+
+    window.copyTotal = function(amount) {
+      navigator.clipboard.writeText(amount).then(() => {
+        alert('Total $' + amount + ' copied to clipboard!');
+      });
+    }
+
+    // Initial render
+    updateCartCount();
+    renderCart();
+
+    // Mobile menu toggle (same as other pages)
+    document.addEventListener('DOMContentLoaded', function() {
+      const mobileToggle = document.getElementById('mobileToggle');
+      const closeToggle = document.getElementById('closeToggle');
+      const navGroup = document.getElementById('navGroup');
+      mobileToggle.addEventListener('click', () => { navGroup.classList.add('open'); mobileToggle.style.display = 'none'; });
+      closeToggle.addEventListener('click', () => { navGroup.classList.remove('open'); mobileToggle.style.display = 'block'; });
+    });
+  </script>
+</body>
+</html>
