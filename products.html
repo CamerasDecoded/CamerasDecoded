@@ -180,6 +180,25 @@
       font-family: 'Space Mono', monospace;
     }
 
+    /* Post-purchase account prompt (shown only if not logged in) */
+    .account-prompt {
+      display: none;
+      background: rgba(29, 179, 27, 0.08);
+      border: 1px solid #8deb00;
+      border-radius: 8px;
+      padding: 18px 24px;
+      margin-bottom: 30px;
+      text-align: center;
+      font-family: 'Space Mono', monospace;
+      color: #8deb00;
+      font-size: 14px;
+    }
+    .account-prompt a {
+      color: #8deb00;
+      text-decoration: underline;
+      font-weight: 700;
+    }
+
     /* Filter & Search Bar */
     .filter-bar {
       display: flex;
@@ -485,6 +504,12 @@
       ✅ Payment successful! Thank you for your order. Your items are being prepared.
     </div>
 
+    <!-- Account prompt (hidden until needed) -->
+    <div class="account-prompt" id="accountPrompt">
+      ✦ Save your purchase for future access.<br>
+      <a href="signup.html">Create an account in 5 seconds</a> – no extra charge, just your personal operator library.
+    </div>
+
     <!-- BANNER -->
     <div class="products-hero">
       <h1>Our Products</h1>
@@ -540,7 +565,24 @@
     </footer>
   </main>
 
+  <!-- Firebase SDKs (needed for auth check) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <script>
+    // Firebase config (same as on your other pages)
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+    firebase.initializeApp(firebaseConfig);
+
     // --- Product data ---
     const products = [
       { name: "Camera Confidence Guide", category: "guides", price: "$47", description: "The complete 100+ page operator system. Hyperlinked PDF.", image: "", badge: "Founding 200", link: "#" },
@@ -680,12 +722,20 @@
       }
     });
 
-    // Success banner check (query param from Stripe redirect)
+    // Success banner + account prompt check
     if (window.location.search.includes('payment=success')) {
       document.getElementById('successBanner').style.display = 'block';
       // Clean URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, '', newUrl);
+
+      // Check if user is logged in; if not, show the account prompt
+      firebase.auth().onAuthStateChanged((user) => {
+        if (!user) {
+          const prompt = document.getElementById('accountPrompt');
+          if (prompt) prompt.style.display = 'block';
+        }
+      });
     }
 
     // Sidebar active highlight
