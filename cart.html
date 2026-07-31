@@ -166,18 +166,6 @@
       text-align: center;
       font-family: 'Space Mono', monospace;
     }
-    .copy-total-btn {
-      background: transparent;
-      border: 1px solid #8deb00;
-      color: #8deb00;
-      padding: 8px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      margin-left: 10px;
-    }
-    .copy-total-btn:hover { background: rgba(141,235,0,0.1); }
 
     .checkout-btn {
       display: inline-block;
@@ -347,8 +335,6 @@
   </main>
 
   <script>
-    https://buy.stripe.com/test_eVqdRb1xDgy81GPcqugYU00
-
     function getCart() {
       return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
     }
@@ -374,7 +360,7 @@
     function renderCart() {
       const cart = getCart();
       const container = document.getElementById('cartContent');
-      const distinctItems = cart.length;                         // number of different products
+      const distinctItems = cart.length;
       const singleItem = distinctItems === 1;
       const cartIsEmpty = distinctItems === 0;
 
@@ -423,19 +409,25 @@
       // Total box
       html += `<div class="total-amount-box">
         <span style="font-size:20px;">Total: <strong>$${total.toFixed(2)}</strong></span>
-        <button class="copy-total-btn" onclick="copyTotal(${total.toFixed(2)})"><i class="fas fa-copy"></i> Copy total</button>
       </div>`;
 
-      // Checkout button
+      // Checkout button using the item's payment link
+      const checkoutLink = singleItem && cart[0].paymentLink && cart[0].paymentLink !== "#" ? cart[0].paymentLink : null;
+
       html += `<div style="text-align:center;">
-        <a href="${singleItem ? STRIPE_PAYMENT_LINK : '#'}" target="${singleItem ? '_blank' : '_self'}" class="checkout-btn${singleItem ? '' : ' disabled'}" onclick="${singleItem ? '' : 'return false;'}">Checkout with Stripe →</a>
-        <p style="color:#b4b4b4; font-size:13px; margin-top:10px;">
-          ⚠️ On the Stripe page, please enter the total amount shown above (you can paste it).
-        </p>
-        <p style="color:#b4b4b4; font-size:13px;">
-          After payment, you'll be returned to our products page with a confirmation.
-        </p>
-      </div>`;
+        <a href="${checkoutLink || '#'}" target="${checkoutLink ? '_blank' : '_self'}" class="checkout-btn${checkoutLink ? '' : ' disabled'}" onclick="${checkoutLink ? '' : 'return false;'}">Checkout with Stripe →</a>`;
+      
+      if (checkoutLink) {
+        html += `<p style="color:#b4b4b4; font-size:13px; margin-top:10px;">
+          You'll be redirected to Stripe to complete your purchase at the exact amount shown.
+        </p>`;
+      } else {
+        html += `<p style="color:#b4b4b4; font-size:13px; margin-top:10px;">
+          Payment link not yet available for this product. Please check back soon.
+        </p>`;
+      }
+
+      html += `</div>`;
 
       container.innerHTML = html;
     }
@@ -451,12 +443,6 @@
       let cart = getCart();
       cart.splice(index, 1);
       saveCart(cart);
-    };
-
-    window.copyTotal = function(amount) {
-      navigator.clipboard.writeText(amount).then(() => {
-        alert('Total $' + amount + ' copied to clipboard!');
-      });
     };
 
     updateCartUI();
