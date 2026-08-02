@@ -73,10 +73,13 @@
     #post-body ul, #post-body ol { color: #d0d0d0; font-size: 16px; margin: 0 0 18px 22px; }
     #post-body li { margin-bottom: 8px; }
     #post-body img { max-width: 100%; border-radius: 8px; margin: 20px 0; border: 1px solid #1A1A1A; }
-    /* A markdown ">" blockquote automatically becomes an Inner-Signal-style pull quote */
     #post-body blockquote { background: #0A0A0A; border-left: 3px solid #8deb00; padding: 18px 22px; margin: 30px 0; border-radius: 4px; color: #ffffff; font-style: italic; }
     #post-body blockquote p { margin: 0; }
     #post-body code { background: #111; color: #8deb00; padding: 2px 6px; border-radius: 4px; font-family: 'Space Mono', monospace; font-size: 14px; }
+
+    /* --- COMMENT SECTION STYLES --- */
+    #commentInput:focus { border-color: #8deb00 !important; box-shadow: 0 0 10px rgba(141, 235, 0, 0.2); }
+    #commentSubmitBtn:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 15px rgba(141, 235, 0, 0.3); transform: scale(1.02); }
 
     /* --- RELATED POSTS --- */
     .related-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 20px 0 40px 0; }
@@ -84,7 +87,7 @@
     .related-item:hover { border-color: #8deb00; }
     .related-item a { color: #8deb00; font-size: 13px; font-family: 'Space Mono', monospace; }
 
-    /* --- CTA BOXES (same pattern as the Atlas snapshot card pages) --- */
+    /* --- CTA BOXES --- */
     .cta-box { background: #0A0A0A; border: 1px solid #1A1A1A; border-radius: 8px; padding: 28px; margin: 34px 0; text-align: center; }
     .cta-box .btn { display: inline-block; background: transparent; color: #8deb00; font-family: 'Space Mono', monospace; font-size: 14px; padding: 12px 30px; border: 1px solid #8deb00; border-radius: 30px; margin-top: 10px; transition: 0.2s; }
     .cta-box .btn:hover { background: #8deb00; color: #000000; }
@@ -213,6 +216,33 @@ Wrap up the post here.
     </script>
     <div id="post-body"></div>
 
+    <!-- ================================================================ -->
+    <!-- 📡 DECODER REPLIES (COMMENT SECTION)                             -->
+    <!-- ================================================================ -->
+    <div id="articleComments" style="margin-top: 50px; border-top: 1px solid #1A1A1A; padding-top: 30px;">
+      <h3 style="font-family: 'Space Mono', monospace; color: #8deb00; font-size: 22px; margin-bottom: 4px;">📡 Decoder Replies</h3>
+      <p class="grey-text" style="margin-bottom: 20px; font-size: 14px;">Share your thoughts, tips, and questions.</p>
+
+      <!-- Comment form -->
+      <div id="commentFormContainer">
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+          <input type="text" id="commentInput" placeholder="Write a reply…" style="flex: 1; min-width: 200px; padding: 12px 16px; background: #0F0F0F; border: 1px solid #1A1A1A; border-radius: 8px; color: #fff; font-family: 'Montserrat', sans-serif; font-size: 14px; outline: none; transition: border 0.2s;">
+          <button id="commentSubmitBtn" style="padding: 12px 28px; background: transparent; border: 1px solid #8deb00; border-radius: 8px; color: #8deb00; font-family: 'Space Mono', monospace; font-size: 14px; cursor: pointer; transition: 0.2s;">Reply</button>
+        </div>
+        <div id="commentError" style="color: #ff4444; font-size: 13px; font-family: 'Space Mono', monospace; display: none; margin-bottom: 12px;">⚠️ Your comment contains restricted language. Please revise.</div>
+        <div id="loginPrompt" style="color: #b4b4b4; font-size: 14px; display: none; margin-bottom: 12px;"><a href="login.html" style="color: #8deb00;">Log in</a> to join the conversation.</div>
+      </div>
+
+      <!-- Comments feed -->
+      <div id="commentFeed" style="display: flex; flex-direction: column; gap: 14px; margin-top: 10px;">
+        <div style="color: #b4b4b4; font-size: 14px; font-family: 'Space Mono', monospace;">Loading replies…</div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- END COMMENT SECTION                                              -->
+    <!-- ================================================================ -->
+
     <h2 style="font-family:'Space Mono',monospace; font-size:20px; color:#8deb00; margin-top:44px; margin-bottom:16px; border-top:1px solid #1A1A1A; padding-top:32px;">Related Reading</h2>
     <div class="related-grid">
       <div class="related-item"><a href="#">Related Post Title One</a></div>
@@ -256,13 +286,193 @@ Wrap up the post here.
     document.getElementById('post-body').innerHTML = marked.parse(rawMarkdown);
   </script>
 
+  <!-- ================================================================ -->
+  <!-- FIREBASE SDKs + COMMENT WIDGET LOGIC                             -->
+  <!-- ================================================================ -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <script>
+    // ---------- FIREBASE CONFIG ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ---------- UNIQUE ARTICLE ID (auto-detects from the filename) ----------
+    // e.g., "sony-a7iv-review" from "sony-a7iv-review.html"
+    const ARTICLE_ID = window.location.pathname.split('/').pop().replace('.html', '') || 'default-article';
+    console.log('Article ID for comments:', ARTICLE_ID);
+
+    // ---------- BANNED WORDS (same list as community page) ----------
+    const BANNED_WORDS = [
+      'fuck', 'shit', 'asshole', 'bitch', 'cunt', 'dick', 'piss',
+      'bastard', 'damn', 'hell', 'crap', 'suck', 'ass', 'fag', 'queer',
+      'nigger', 'kike', 'spic', 'chink', 'gook', 'towelhead',
+      'hate', 'kill', 'murder', 'rape', 'terrorist', 'bomb'
+    ];
+
+    // ---------- STATE ----------
+    let currentUser = null;
+    let currentUserData = null;
+    let unsubscribeComments = null;
+
+    // ---------- DOM REFS ----------
+    const commentInput = document.getElementById('commentInput');
+    const commentSubmitBtn = document.getElementById('commentSubmitBtn');
+    const commentFeed = document.getElementById('commentFeed');
+    const commentError = document.getElementById('commentError');
+    const loginPrompt = document.getElementById('loginPrompt');
+    const commentFormContainer = document.getElementById('commentFormContainer');
+
+    // ---------- HELPERS ----------
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatDate(date) {
+      if (!date) return '';
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function containsBannedWords(text) {
+      const lower = text.toLowerCase();
+      return BANNED_WORDS.some(word => lower.includes(word));
+    }
+
+    // ---------- LOAD COMMENTS (real-time) ----------
+    function loadComments() {
+      if (unsubscribeComments) unsubscribeComments();
+
+      const commentsRef = db.collection('articles').doc(ARTICLE_ID).collection('comments')
+        .orderBy('createdAt', 'asc');
+
+      unsubscribeComments = commentsRef.onSnapshot((snapshot) => {
+        if (snapshot.empty) {
+          commentFeed.innerHTML = `<div style="color: #b4b4b4; font-size: 14px; font-family: 'Space Mono', monospace; padding: 10px 0;">No replies yet. Be the first to decode this article!</div>`;
+          return;
+        }
+
+        let html = '';
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const date = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+          html += `
+            <div style="background: #0F0F0F; padding: 14px 18px; border-radius: 8px; border-left: 2px solid #8deb00;">
+              <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: #b4b4b4; margin-bottom: 4px;">
+                <span style="color: #8deb00; font-weight: 600;">${escapeHtml(data.authorName || 'Operator')}</span>
+                <span>${formatDate(date)}</span>
+              </div>
+              <div style="color: #ddd; font-size: 15px; line-height: 1.6;">${escapeHtml(data.body)}</div>
+            </div>
+          `;
+        });
+        commentFeed.innerHTML = html;
+      }, (error) => {
+        console.error('Comment listener error:', error);
+        commentFeed.innerHTML = `<div style="color: #ff4444; font-size: 14px; font-family: 'Space Mono', monospace;">Error loading comments. Please refresh.</div>`;
+      });
+    }
+
+    // ---------- SUBMIT COMMENT ----------
+    async function submitComment() {
+      const body = commentInput.value.trim();
+      if (!body) {
+        alert('Please write a reply.');
+        return;
+      }
+
+      if (!currentUser) {
+        alert('Please log in to comment.');
+        return;
+      }
+
+      if (containsBannedWords(body)) {
+        commentError.style.display = 'block';
+        return;
+      }
+      commentError.style.display = 'none';
+
+      const authorName = currentUserData?.name || currentUser.displayName || currentUser.email || 'Operator';
+
+      try {
+        await db.collection('articles').doc(ARTICLE_ID).collection('comments').add({
+          body: body,
+          authorUid: currentUser.uid,
+          authorName: authorName,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        commentInput.value = '';
+      } catch (err) {
+        console.error('Comment submit error:', err);
+        alert('Failed to post comment. Please try again.');
+      }
+    }
+
+    // ---------- EVENT LISTENERS ----------
+    commentSubmitBtn.addEventListener('click', submitComment);
+
+    commentInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitComment();
+    });
+
+    // ---------- AUTH LISTENER ----------
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        currentUser = user;
+        loginPrompt.style.display = 'none';
+        commentFormContainer.style.display = 'block';
+
+        // Fetch user data from Firestore
+        db.collection('users').doc(user.uid).get().then((doc) => {
+          if (doc.exists) {
+            currentUserData = doc.data();
+          } else {
+            currentUserData = { name: user.displayName || user.email || 'Operator' };
+          }
+        }).catch((err) => {
+          console.error('Error fetching user data:', err);
+          currentUserData = { name: user.displayName || user.email || 'Operator' };
+        });
+
+        // Start loading comments
+        loadComments();
+
+      } else {
+        currentUser = null;
+        currentUserData = null;
+        loginPrompt.style.display = 'block';
+        commentFormContainer.style.display = 'none';
+        commentFeed.innerHTML = `<div style="color: #b4b4b4; font-size: 14px; font-family: 'Space Mono', monospace; padding: 10px 0;">Please log in to view and post replies.</div>`;
+
+        if (unsubscribeComments) {
+          unsubscribeComments();
+          unsubscribeComments = null;
+        }
+      }
+    });
+
+    // ---------- MOBILE TOGGLE (copy from original) ----------
     document.addEventListener('DOMContentLoaded', function() {
       const mobileToggle = document.getElementById('mobileToggle');
       const closeToggle = document.getElementById('closeToggle');
       const navGroup = document.getElementById('navGroup');
-      mobileToggle.addEventListener('click', function() { navGroup.classList.add('open'); mobileToggle.style.display = 'none'; });
-      closeToggle.addEventListener('click', function() { navGroup.classList.remove('open'); mobileToggle.style.display = 'block'; });
+      if (mobileToggle && closeToggle && navGroup) {
+        mobileToggle.addEventListener('click', function() { navGroup.classList.add('open'); mobileToggle.style.display = 'none'; });
+        closeToggle.addEventListener('click', function() { navGroup.classList.remove('open'); mobileToggle.style.display = 'block'; });
+      }
     });
   </script>
 </body>
