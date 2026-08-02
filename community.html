@@ -740,10 +740,23 @@
       postModal.classList.add('open');
     });
 
-    modalClose.addEventListener('click', () => postModal.classList.remove('open'));
-    postModal.addEventListener('click', (e) => {
-      if (e.target === postModal) postModal.classList.remove('open');
-    });
+    modalClose.addEventListener('click', () => {
+  postModal.classList.remove('open');
+  editingPostId = null;
+  document.querySelector('#postModal h3').textContent = '✧ New Transmission';
+  document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
+  document.getElementById('formError').style.display = 'none';
+});
+
+postModal.addEventListener('click', (e) => {
+  if (e.target === postModal) {
+    postModal.classList.remove('open');
+    editingPostId = null;
+    document.querySelector('#postModal h3').textContent = '✧ New Transmission';
+    document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
+    document.getElementById('formError').style.display = 'none';
+  }
+});
 
     // ---------- SUBMIT POST ----------
     postForm.addEventListener('submit', async (e) => {
@@ -768,22 +781,36 @@
 
       const authorName = currentUserData?.name || currentUser.displayName || currentUser.email || 'Operator';
 
-      try {
-        await db.collection('posts').add({
-          title: title,
-          body: body,
-          authorUid: currentUser.uid,
-          authorName: authorName,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          upvotes: 0,
-          upvotedBy: [] // array of uids
-        });
-        postModal.classList.remove('open');
-        // Feed will update automatically via listener
-      } catch (err) {
-        console.error('Error posting:', err);
-        alert('Failed to post. Please try again.');
-      }
+try {
+  if (editingPostId) {
+    // ---- EDIT EXISTING POST ----
+    await db.collection('posts').doc(editingPostId).update({
+      title: title,
+      body: body
+      // Keep createdAt, upvotes, authorUid unchanged
+    });
+    editingPostId = null;
+    // Reset modal heading/button back to "New Post" mode
+    document.querySelector('#postModal h3').textContent = '✧ New Transmission';
+    document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
+  } else {
+    // ---- CREATE NEW POST ----
+    await db.collection('posts').add({
+      title: title,
+      body: body,
+      authorUid: currentUser.uid,
+      authorName: authorName,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      upvotes: 0,
+      upvotedBy: []
+    });
+  }
+  postModal.classList.remove('open');
+  // Feed will update automatically via listener
+} catch (err) {
+  console.error('Error saving post:', err);
+  alert('Failed to save. Please try again.');
+}
     });
 
     // ---------- FEED LISTENER (real-time) ----------
@@ -851,7 +878,14 @@
               <button class="action-btn toggle-comments" data-postid="${post.id}">
                 <i class="fas fa-comment"></i> Comments
               </button>
-              ${isMine ? `<button class="action-btn delete-post" data-postid="${post.id}" style="color:#ff4444;"><i class="fas fa-trash"></i> Delete</button>` : ''}
+              ${isMine ? `
+  <button class="action-btn edit-post" data-postid="${post.id}" data-title="${escapeHtml(post.title)}" data-body="${escapeHtml(post.body)}" style="color:#8deb00;">
+    <i class="fas fa-pen"></i> Edit
+  </button>
+  <button class="action-btn delete-post" data-postid="${post.id}" style="color:#ff4444;">
+    <i class="fas fa-trash"></i> Delete
+  </button>
+` : ''}
             </div>
             <!-- Comments section (collapsed by default) -->
             <div class="comment-section" id="comments-${post.id}" style="display:none;">
@@ -881,6 +915,9 @@
       });
       document.querySelectorAll('.delete-post').forEach(btn => {
         btn.addEventListener('click', handleDeletePost);
+      });
+      document.querySelectorAll('.edit-post').forEach(btn => {
+        btn.addEventListener('click', handleEditPost);
       });
     }
 
@@ -1031,6 +1068,35 @@
         alert('Failed to delete post.');
       }
     }
+// ---------- EDIT POST ----------
+let editingPostId = null;
+
+function handleEditPost(e) {
+  const btn = e.currentTarget;
+  const postId = btn.dataset.postid;
+  const currentTitle = btn.dataset.title;
+  const currentBody = btn.dataset.body;
+
+  if (!currentUser) {
+    alert('Please log in to edit.');
+    return;
+  }
+
+  // Populate the modal with existing content
+  document.getElementById('postTitle').value = currentTitle || '';
+  document.getElementById('postBody').value = currentBody || '';
+  document.getElementById('formError').style.display = 'none';
+
+  // Store the post ID we're editing
+  editingPostId = postId;
+
+  // Change the modal heading and button text
+  document.querySelector('#postModal h3').textContent = '✧ Edit Transmission';
+  document.querySelector('#postModal .btn-submit').textContent = 'Update Signal';
+
+  // Open the modal
+  postModal.classList.add('open');
+}
 
     // ---------- FILTER PILLS ----------
     filterPills.forEach(pill => {
