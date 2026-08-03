@@ -358,7 +358,7 @@
     .sale-price {
       font-size: 22px;
       font-weight: 700;
-      color: #e0b12d; /* gold to highlight the sale */
+      color: #e0b12d;
     }
     .regular-price {
       font-size: 18px;
@@ -500,6 +500,7 @@
     </div>
     <div class="nav-group" id="navGroup">
       <div class="close-btn" id="closeToggle">✕</div>
+      <a href="#" id="dashboardLink" class="nav-item" style="display: none;">Dashboard</a>
       <a href="index.html" class="nav-item" id="nav-home">Home</a>
       <a href="products.html" class="nav-item">Products</a>
       <a href="educators-pdf-viewer.html" class="nav-item">Instructors</a>
@@ -615,14 +616,46 @@
       measurementId: "G-YN3M01WW0B"
     };
     firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
 
-    // --- Product data ---
+    // ========== DASHBOARD LINK LOGIC (copied from blog-updates.html) ==========
+    const homeLink = document.getElementById('nav-home');
+    document.querySelectorAll('#dashboardLink').forEach(el => el.remove());
+    
+    auth.onAuthStateChanged((user) => {
+      const activeDynamicLink = document.getElementById('dynamic-dashboard-node');
+      if (activeDynamicLink) activeDynamicLink.remove();
+      if (user) {
+        localStorage.setItem('cameras_decoded_uid', user.uid);
+        const newDashboardLink = document.createElement('a');
+        newDashboardLink.id = 'dynamic-dashboard-node';
+        newDashboardLink.className = 'nav-item';
+        newDashboardLink.innerText = 'Dashboard';
+        newDashboardLink.href = 'operator-dashboard.html';
+        if (homeLink && homeLink.parentNode) {
+          homeLink.parentNode.insertBefore(newDashboardLink, homeLink);
+        }
+        const db = firebase.firestore();
+        db.collection('users').doc(user.uid).get().then((doc) => {
+          if(doc.exists) {
+            const role = doc.data().role || 'Operator';
+            if(role === 'Instructor') newDashboardLink.href = 'instructor-dashboard.html';
+            else if(role === 'Operator') newDashboardLink.href = 'operator-dashboard.html';
+            else if(role === 'Partner') newDashboardLink.href = 'partner-dashboard.html';
+          }
+        }).catch(() => {});
+      } else {
+        localStorage.removeItem('cameras_decoded_uid');
+      }
+    });
+
+    // ========== PRODUCT DATA & RENDER ==========
     const products = [
       { 
         name: "Camera Confidence Guide", 
         category: "guides", 
         price: "$47", 
-        originalPrice: "$97",   // sale – show strikethrough
+        originalPrice: "$97",
         description: "The complete 100+ page operator system. Hyperlinked PDF.", 
         image: "ccg-mainsite.jpg", 
         badge: "Founding 200", 
@@ -706,7 +739,6 @@
         html += `<div class="category-section"><div class="category-heading">${cat.charAt(0).toUpperCase() + cat.slice(1)}</div>`;
         html += '<div class="products-grid">';
         items.forEach(item => {
-          // Price display logic
           let priceHtml = '';
           if (item.originalPrice) {
             priceHtml = `
@@ -818,12 +850,7 @@
       updateCartUI();
     });
   </script>
-<!-- Firebase SDK (already on your pages) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-<!-- Your new sidebar script -->
-<script src="sidebar-auth.js"></script>
+  <!-- Remove the sidebar-auth.js reference – everything is now inlined -->
 </body>
 </html>
