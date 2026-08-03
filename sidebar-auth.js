@@ -1,32 +1,25 @@
 // sidebar-auth.js — Dynamically show/hide Dashboard link in sidebar
-// Self‑contained: initializes Firebase if not already done.
+// Assumes Firebase is already initialized by the page.
 
 (function() {
-  // 1. Ensure Firebase is loaded
+  // 1. Check if Firebase is loaded
   if (typeof firebase === 'undefined') {
     console.warn('Firebase not loaded – Dashboard link not added.');
     return;
   }
 
-  // 2. Initialize Firebase only if no app exists
-  if (!firebase.apps.length) {
-    const config = {
-      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-      authDomain: "cameras-decoded.firebaseapp.com",
-      projectId: "cameras-decoded",
-      storageBucket: "cameras-decoded.firebasestorage.app",
-      messagingSenderId: "1088920052790",
-      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-      measurementId: "G-YN3M01WW0B"
-    };
-    firebase.initializeApp(config);
+  // 2. Check if Firebase has been initialized
+  if (firebase.apps.length === 0) {
+    console.warn('Firebase not initialized – Dashboard link not added.');
+    return;
   }
 
+  // 3. Now Firebase is ready
   const auth = firebase.auth();
   const db = firebase.firestore();
 
   function insertDashboardLink(user) {
-    // Find the Home link – assumes id="nav-home" OR href="index.html"
+    // Find the Home link – looks for id="nav-home" or href="index.html"
     const homeLink = document.getElementById('nav-home') || 
                      document.querySelector('a[href="index.html"]');
     if (!homeLink) return;
@@ -38,7 +31,7 @@
     if (!user) return; // Not logged in
 
     // Determine correct dashboard URL based on user role
-    let dashboardUrl = 'operator-dashboard.html'; // default
+    let dashboardUrl = 'operator-dashboard.html';
     db.collection('users').doc(user.uid).get()
       .then((doc) => {
         if (doc.exists) {
@@ -56,7 +49,7 @@
         homeLink.parentNode.insertBefore(newLink, homeLink);
       })
       .catch(() => {
-        // Fallback: use operator dashboard if role lookup fails
+        // Fallback if role lookup fails
         const newLink = document.createElement('a');
         newLink.id = 'dynamic-dashboard-node';
         newLink.className = 'nav-item';
