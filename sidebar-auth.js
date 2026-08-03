@@ -1,23 +1,5 @@
 // sidebar-auth.js — Dynamically show/hide Dashboard link in sidebar
-
-// Firebase config (must match your existing config)
-const firebaseConfig = {
-  apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-  authDomain: "cameras-decoded.firebaseapp.com",
-  projectId: "cameras-decoded",
-  storageBucket: "cameras-decoded.firebasestorage.app",
-  messagingSenderId: "1088920052790",
-  appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-  measurementId: "G-YN3M01WW0B"
-};
-
-// Initialize Firebase (only if not already initialized)
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-
-const auth = firebase.auth();
-const db = firebase.firestore();
+// Assumes Firebase is already initialized on the page
 
 // Insert Dashboard link just above the Home link
 function insertDashboardLink(user) {
@@ -35,6 +17,7 @@ function insertDashboardLink(user) {
 
   // Determine correct dashboard URL based on user role
   let dashboardUrl = 'operator-dashboard.html'; // default
+  const db = firebase.firestore();
   db.collection('users').doc(user.uid).get()
     .then((doc) => {
       if (doc.exists) {
@@ -62,7 +45,12 @@ function insertDashboardLink(user) {
     });
 }
 
-// Listen to auth state changes
-auth.onAuthStateChanged((user) => {
-  insertDashboardLink(user);
-});
+// Listen to auth state changes (only if Firebase is available)
+if (typeof firebase !== 'undefined' && firebase.auth) {
+  const auth = firebase.auth();
+  auth.onAuthStateChanged((user) => {
+    insertDashboardLink(user);
+  });
+} else {
+  console.warn('Firebase not initialized – Dashboard link not added.');
+}
