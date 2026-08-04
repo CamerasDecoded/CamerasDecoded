@@ -337,7 +337,7 @@
     </div>
     <div class="nav-group" id="navGroup">
       <div class="close-btn" id="closeToggle">✕</div>
-      <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
+      <a href="index.html" class="nav-item" id="nav-home"><i class="fas fa-home"></i> Home</a>
       <a href="community.html" class="nav-item active"><i class="fas fa-users"></i> Community</a>
       <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
       <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
@@ -355,7 +355,7 @@
     <div class="mobile-toggle" id="mobileToggle">☰</div>
   </aside>
 
-  <!-- FLOATING GLASS HEADER (links renamed, mobile position adjusted) -->
+  <!-- FLOATING GLASS HEADER -->
   <div class="floating-header" id="floatingHeader">
     <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
     <div class="floating-nav-links">
@@ -432,9 +432,23 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="firebase-init.js"></script>
 
   <script>
+    // ========== FIREBASE INIT ==========
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ========== BANNED WORDS ==========
     const BANNED_WORDS = [
       'fuck', 'shit', 'asshole', 'bitch', 'cunt', 'dick', 'piss',
       'bastard', 'damn', 'hell', 'crap', 'suck', 'ass', 'fag', 'queer',
@@ -442,6 +456,7 @@
       'hate', 'kill', 'murder', 'rape', 'terrorist', 'bomb'
     ];
 
+    // ========== STATE ==========
     let currentUser = null;
     let currentUserData = null;
     let allPosts = [];
@@ -449,6 +464,7 @@
     let unsubscribeFeed = null;
     let editingPostId = null;
 
+    // ========== DOM REFS ==========
     const feedContainer = document.getElementById('feedContainer');
     const newPostBtn = document.getElementById('newPostBtn');
     const postModal = document.getElementById('postModal');
@@ -459,6 +475,7 @@
     const formError = document.getElementById('formError');
     const filterPills = document.querySelectorAll('.filter-pill');
 
+    // ========== CART UI ==========
     function getCart() {
       return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
     }
@@ -477,39 +494,58 @@
     }
     updateCartUI();
 
-    const homeLink = document.querySelector('.sidebar .nav-item[href="index.html"]');
-    function removeDashboardLink() {
+    // ========== DASHBOARD LINK ==========
+    function insertDashboardLink() {
+      const homeLink = document.getElementById('nav-home');
+      if (!homeLink) return;
       const existing = document.getElementById('dynamic-dashboard-node');
       if (existing) existing.remove();
-    }
-    function insertDashboardLink() {
-      if (!homeLink) return;
-      removeDashboardLink();
       const dashLink = document.createElement('a');
       dashLink.id = 'dynamic-dashboard-node';
       dashLink.className = 'nav-item';
-      dashLink.innerText = 'Dashboard';
+      dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
       dashLink.href = 'operator-dashboard.html';
       homeLink.parentNode.insertBefore(dashLink, homeLink);
     }
 
+    function removeDashboardLink() {
+      const existing = document.getElementById('dynamic-dashboard-node');
+      if (existing) existing.remove();
+    }
+
+    // ========== HELPERS ==========
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatDate(date) {
+      if (!date) return '';
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function containsBannedWords(text) {
+      const lower = text.toLowerCase();
+      return BANNED_WORDS.some(word => lower.includes(word));
+    }
+
+    // ========== AUTH STATE ==========
     auth.onAuthStateChanged(async (user) => {
       if (user) {
         currentUser = user;
         try {
           const doc = await db.collection('users').doc(user.uid).get();
-          if (doc.exists) {
-            currentUserData = doc.data();
-          } else {
-            currentUserData = { name: user.displayName || user.email || 'Operator' };
-          }
+          currentUserData = doc.exists ? doc.data() : { name: user.displayName || user.email || 'Operator' };
         } catch (e) {
           console.error('Error fetching user:', e);
           currentUserData = { name: user.displayName || user.email || 'Operator' };
         }
         newPostBtn.style.display = 'inline-block';
-        startFeedListener();
         insertDashboardLink();
+
+        // Update dashboard link role
         db.collection('users').doc(user.uid).get().then((doc) => {
           if (doc.exists) {
             const role = doc.data().role || 'Operator';
@@ -520,7 +556,9 @@
               else if (role === 'Partner') dash.href = 'partner-dashboard.html';
             }
           }
-        }).catch((error) => console.log("Firestore role fetch error:", error));
+        }).catch(() => {});
+
+        startFeedListener();
       } else {
         currentUser = null;
         currentUserData = null;
@@ -531,118 +569,366 @@
       }
     });
 
-    function containsBannedWords(text) { const lower = text.toLowerCase(); return BANNED_WORDS.some(word => lower.includes(word)); }
-
-    newPostBtn.addEventListener('click', () => {
-      if (!currentUser) { alert('Please log in to post.'); return; }
-      postTitle.value = ''; postBody.value = ''; formError.style.display = 'none'; editingPostId = null;
-      document.querySelector('#postModal h3').textContent = '✧ New Transmission';
-      document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
-      postModal.classList.add('open');
-    });
-    modalClose.addEventListener('click', () => {
-      postModal.classList.remove('open'); editingPostId = null;
-      document.querySelector('#postModal h3').textContent = '✧ New Transmission';
-      document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
-      document.getElementById('formError').style.display = 'none';
-    });
-    postModal.addEventListener('click', (e) => {
-      if (e.target === postModal) {
-        postModal.classList.remove('open'); editingPostId = null;
-        document.querySelector('#postModal h3').textContent = '✧ New Transmission';
-        document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
-        document.getElementById('formError').style.display = 'none';
-      }
-    });
-
-    postForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (!currentUser) { alert('Please log in.'); return; }
-      const title = postTitle.value.trim();
-      const body = postBody.value.trim();
-      if (!title) { alert('Title is required.'); return; }
-      if (containsBannedWords(title) || containsBannedWords(body)) { formError.style.display = 'block'; return; }
-      formError.style.display = 'none';
-      const authorName = currentUserData?.name || currentUser.displayName || currentUser.email || 'Operator';
-      try {
-        if (editingPostId) {
-          await db.collection('posts').doc(editingPostId).update({ title, body });
-          editingPostId = null;
-          document.querySelector('#postModal h3').textContent = '✧ New Transmission';
-          document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
-        } else {
-          await db.collection('posts').add({
-            title, body, authorUid: currentUser.uid, authorName,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(), upvotes: 0, upvotedBy: []
-          });
-        }
-        postModal.classList.remove('open');
-      } catch (err) { console.error('Error saving post:', err); alert('Failed to save. Please try again.'); }
-    });
-
+    // ========== FEED LISTENER ==========
     function startFeedListener() {
       if (unsubscribeFeed) unsubscribeFeed();
       const query = db.collection('posts').orderBy('createdAt', 'desc').limit(50);
       unsubscribeFeed = query.onSnapshot((snapshot) => {
         const posts = [];
-        snapshot.forEach(doc => { const data = doc.data(); posts.push({ id: doc.id, ...data, createdAt: data.createdAt ? data.createdAt.toDate() : new Date() }); });
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          posts.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt ? data.createdAt.toDate() : new Date()
+          });
+        });
         allPosts = posts;
         renderFeed(currentFilter);
-      }, (error) => { console.error('Feed listener error:', error); feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-exclamation-triangle"></i><br>Error loading feed. Please refresh.</div>`; });
+      }, (error) => {
+        console.error('Feed listener error:', error);
+        feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-exclamation-triangle"></i><br>Error loading feed. Please refresh.</div>`;
+      });
     }
 
+    // ========== RENDER FEED ==========
     function renderFeed(filter) {
-      if (!currentUser) { feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-lock"></i><br>Please <a href="login.html" style="color:#8deb00;">log in</a> to see the signal.</div>`; return; }
+      if (!currentUser) {
+        feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-lock"></i><br>Please <a href="login.html" style="color:#8deb00;">log in</a> to see the signal.</div>`;
+        return;
+      }
+
       let filtered = allPosts;
-      if (filter === 'mine') filtered = allPosts.filter(p => p.authorUid === currentUser.uid);
-      if (filtered.length === 0) { feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-satellite-dish"></i><br>No transmissions yet. Be the first to signal!</div>`; return; }
+      if (filter === 'mine') {
+        filtered = allPosts.filter(p => p.authorUid === currentUser.uid);
+      }
+
+      if (filtered.length === 0) {
+        feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-satellite-dish"></i><br>No transmissions yet. Be the first to signal!</div>`;
+        return;
+      }
+
       let html = '';
       filtered.forEach(post => {
         const isMine = post.authorUid === currentUser.uid;
         const upvoted = post.upvotedBy && post.upvotedBy.includes(currentUser.uid);
+
         html += `
           <div class="post-card" data-postid="${post.id}">
             <div class="post-title">${escapeHtml(post.title)}</div>
-            <div class="post-meta"><span class="author">${escapeHtml(post.authorName || 'Operator')}</span><span>${formatDate(post.createdAt)}</span>${isMine ? '<span style="color:#8deb00; font-size:12px;">(Your transmission)</span>' : ''}</div>
+            <div class="post-meta">
+              <span class="author">${escapeHtml(post.authorName || 'Operator')}</span>
+              <span>${formatDate(post.createdAt)}</span>
+              ${isMine ? '<span style="color:#8deb00; font-size:12px;">(Your transmission)</span>' : ''}
+            </div>
             <div class="post-body">${escapeHtml(post.body || '')}</div>
             <div class="post-actions">
-              <button class="action-btn upvote-btn ${upvoted ? 'upvoted' : ''}" data-postid="${post.id}"><i class="fas fa-arrow-up"></i> <span class="upvote-count">${post.upvotes || 0}</span></button>
-              <button class="action-btn toggle-comments" data-postid="${post.id}"><i class="fas fa-comment"></i> Comments</button>
-              ${isMine ? `<button class="action-btn edit-post" data-postid="${post.id}" data-title="${escapeHtml(post.title)}" data-body="${escapeHtml(post.body)}" style="color:#8deb00;"><i class="fas fa-pen"></i> Edit</button><button class="action-btn delete-post" data-postid="${post.id}" style="color:#ff4444;"><i class="fas fa-trash"></i> Delete</button>` : ''}
+              <button class="action-btn upvote-btn ${upvoted ? 'upvoted' : ''}" data-postid="${post.id}">
+                <i class="fas fa-arrow-up"></i> <span class="upvote-count">${post.upvotes || 0}</span>
+              </button>
+              <button class="action-btn toggle-comments" data-postid="${post.id}">
+                <i class="fas fa-comment"></i> Comments
+              </button>
+              ${isMine ? `
+                <button class="action-btn edit-post" data-postid="${post.id}" data-title="${escapeHtml(post.title)}" data-body="${escapeHtml(post.body)}" style="color:#8deb00;">
+                  <i class="fas fa-pen"></i> Edit
+                </button>
+                <button class="action-btn delete-post" data-postid="${post.id}" style="color:#ff4444;">
+                  <i class="fas fa-trash"></i> Delete
+                </button>
+              ` : ''}
             </div>
             <div class="comment-section" id="comments-${post.id}" style="display:none;">
-              <div class="comment-form"><input type="text" class="comment-input" placeholder="Write a reply…" data-postid="${post.id}"><button class="comment-submit" data-postid="${post.id}">Reply</button></div>
+              <div class="comment-form">
+                <input type="text" class="comment-input" placeholder="Write a reply…" data-postid="${post.id}">
+                <button class="comment-submit" data-postid="${post.id}">Reply</button>
+              </div>
               <div class="comment-list" id="commentList-${post.id}"></div>
             </div>
-          </div>`;
+          </div>
+        `;
       });
+
       feedContainer.innerHTML = html;
+
+      // Attach event listeners
       document.querySelectorAll('.upvote-btn').forEach(btn => btn.addEventListener('click', handleUpvote));
       document.querySelectorAll('.toggle-comments').forEach(btn => btn.addEventListener('click', toggleComments));
       document.querySelectorAll('.comment-submit').forEach(btn => btn.addEventListener('click', handleCommentSubmit));
       document.querySelectorAll('.delete-post').forEach(btn => btn.addEventListener('click', handleDeletePost));
       document.querySelectorAll('.edit-post').forEach(btn => btn.addEventListener('click', handleEditPost));
+
+      // Enter key on comment inputs
+      document.querySelectorAll('.comment-input').forEach(input => {
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const postId = input.dataset.postid;
+            const submitBtn = document.querySelector(`.comment-submit[data-postid="${postId}"]`);
+            if (submitBtn) submitBtn.click();
+          }
+        });
+      });
     }
 
-    function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
-    function formatDate(date) { if (!date) return ''; return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+    // ========== UPVOTE ==========
+    async function handleUpvote(e) {
+      const btn = e.currentTarget;
+      const postId = btn.dataset.postid;
+      if (!currentUser) { alert('Please log in to upvote.'); return; }
 
-    async function handleUpvote(e) { /* unchanged */ }
-    function toggleComments(e) { /* unchanged */ }
-    async function loadComments(postId) { /* unchanged */ }
-    async function handleCommentSubmit(e) { /* unchanged */ }
-    async function handleDeletePost(e) { /* unchanged */ }
-    function handleEditPost(e) { /* unchanged */ }
+      try {
+        const postRef = db.collection('posts').doc(postId);
+        const doc = await postRef.get();
+        if (!doc.exists) return;
 
-    filterPills.forEach(pill => { pill.addEventListener('click', () => { filterPills.forEach(p => p.classList.remove('active')); pill.classList.add('active'); currentFilter = pill.dataset.filter; renderFeed(currentFilter); }); });
+        const data = doc.data();
+        const upvotedBy = data.upvotedBy || [];
+        const isUpvoted = upvotedBy.includes(currentUser.uid);
 
+        if (isUpvoted) {
+          await postRef.update({
+            upvotes: firebase.firestore.FieldValue.increment(-1),
+            upvotedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
+          });
+        } else {
+          await postRef.update({
+            upvotes: firebase.firestore.FieldValue.increment(1),
+            upvotedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+          });
+        }
+      } catch (err) {
+        console.error('Upvote error:', err);
+        alert('Failed to upvote. Please try again.');
+      }
+    }
+
+    // ========== TOGGLE COMMENTS ==========
+    function toggleComments(e) {
+      const btn = e.currentTarget;
+      const postId = btn.dataset.postid;
+      const section = document.getElementById(`comments-${postId}`);
+      if (!section) return;
+
+      if (section.style.display === 'none') {
+        section.style.display = 'block';
+        loadComments(postId);
+      } else {
+        section.style.display = 'none';
+      }
+    }
+
+    // ========== LOAD COMMENTS ==========
+    async function loadComments(postId) {
+      const listEl = document.getElementById(`commentList-${postId}`);
+      if (!listEl) return;
+      listEl.innerHTML = '<div style="color:#666; font-size:13px;">Loading comments…</div>';
+
+      try {
+        const snapshot = await db.collection('posts')
+          .doc(postId)
+          .collection('comments')
+          .orderBy('createdAt', 'asc')
+          .limit(20)
+          .get();
+
+        if (snapshot.empty) {
+          listEl.innerHTML = '<div style="color:#666; font-size:13px;">No comments yet. Be the first!</div>';
+          return;
+        }
+
+        let html = '';
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          html += `
+            <div class="comment-item">
+              <div class="c-meta">
+                <span class="c-author">${escapeHtml(data.authorName || 'Operator')}</span>
+                <span>${formatDate(data.createdAt ? data.createdAt.toDate() : new Date())}</span>
+              </div>
+              <div class="c-body">${escapeHtml(data.body)}</div>
+            </div>
+          `;
+        });
+        listEl.innerHTML = html;
+      } catch (err) {
+        console.error('Load comments error:', err);
+        listEl.innerHTML = '<div style="color:#ff4444; font-size:13px;">Error loading comments.</div>';
+      }
+    }
+
+    // ========== COMMENT SUBMIT ==========
+    async function handleCommentSubmit(e) {
+      const btn = e.currentTarget;
+      const postId = btn.dataset.postid;
+      if (!currentUser) { alert('Please log in to comment.'); return; }
+
+      const input = document.querySelector(`.comment-input[data-postid="${postId}"]`);
+      if (!input) return;
+      const body = input.value.trim();
+      if (!body) { alert('Please write a comment.'); return; }
+
+      if (containsBannedWords(body)) {
+        alert('Your comment contains inappropriate language. Please revise.');
+        return;
+      }
+
+      try {
+        await db.collection('posts')
+          .doc(postId)
+          .collection('comments')
+          .add({
+            body,
+            authorUid: currentUser.uid,
+            authorName: currentUserData?.name || currentUser.displayName || currentUser.email || 'Operator',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        input.value = '';
+        loadComments(postId);
+      } catch (err) {
+        console.error('Comment error:', err);
+        alert('Failed to post comment. Please try again.');
+      }
+    }
+
+    // ========== DELETE POST ==========
+    async function handleDeletePost(e) {
+      const btn = e.currentTarget;
+      const postId = btn.dataset.postid;
+      if (!currentUser) return;
+      if (!confirm('Delete this transmission permanently?')) return;
+
+      try {
+        // Delete all comments first
+        const comments = await db.collection('posts')
+          .doc(postId)
+          .collection('comments')
+          .get();
+        const batch = db.batch();
+        comments.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+
+        // Delete the post
+        await db.collection('posts').doc(postId).delete();
+      } catch (err) {
+        console.error('Delete error:', err);
+        alert('Failed to delete. Please try again.');
+      }
+    }
+
+    // ========== EDIT POST ==========
+    function handleEditPost(e) {
+      const btn = e.currentTarget;
+      const postId = btn.dataset.postid;
+      const title = btn.dataset.title;
+      const body = btn.dataset.body;
+
+      if (!currentUser) return;
+
+      editingPostId = postId;
+      postTitle.value = title || '';
+      postBody.value = body || '';
+      formError.style.display = 'none';
+      document.querySelector('#postModal h3').textContent = '✧ Edit Transmission';
+      document.querySelector('#postModal .btn-submit').textContent = 'Update Signal';
+      postModal.classList.add('open');
+    }
+
+    // ========== FILTER PILLS ==========
+    filterPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        filterPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentFilter = pill.dataset.filter;
+        renderFeed(currentFilter);
+      });
+    });
+
+    // ========== MODAL CONTROLS ==========
+    newPostBtn.addEventListener('click', () => {
+      if (!currentUser) { alert('Please log in to post.'); return; }
+      postTitle.value = '';
+      postBody.value = '';
+      formError.style.display = 'none';
+      editingPostId = null;
+      document.querySelector('#postModal h3').textContent = '✧ New Transmission';
+      document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
+      postModal.classList.add('open');
+    });
+
+    modalClose.addEventListener('click', () => {
+      postModal.classList.remove('open');
+      editingPostId = null;
+      document.querySelector('#postModal h3').textContent = '✧ New Transmission';
+      document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
+      formError.style.display = 'none';
+    });
+
+    postModal.addEventListener('click', (e) => {
+      if (e.target === postModal) {
+        postModal.classList.remove('open');
+        editingPostId = null;
+        document.querySelector('#postModal h3').textContent = '✧ New Transmission';
+        document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
+        formError.style.display = 'none';
+      }
+    });
+
+    // ========== POST FORM SUBMIT ==========
+    postForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentUser) { alert('Please log in.'); return; }
+
+      const title = postTitle.value.trim();
+      const body = postBody.value.trim();
+      if (!title) { alert('Title is required.'); return; }
+
+      if (containsBannedWords(title) || containsBannedWords(body)) {
+        formError.style.display = 'block';
+        return;
+      }
+      formError.style.display = 'none';
+
+      const authorName = currentUserData?.name || currentUser.displayName || currentUser.email || 'Operator';
+
+      try {
+        if (editingPostId) {
+          await db.collection('posts').doc(editingPostId).update({ title, body });
+        } else {
+          await db.collection('posts').add({
+            title,
+            body,
+            authorUid: currentUser.uid,
+            authorName,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            upvotes: 0,
+            upvotedBy: []
+          });
+        }
+        postModal.classList.remove('open');
+        editingPostId = null;
+        document.querySelector('#postModal h3').textContent = '✧ New Transmission';
+        document.querySelector('#postModal .btn-submit').textContent = 'Transmit Signal';
+      } catch (err) {
+        console.error('Error saving post:', err);
+        alert('Failed to save. Please try again.');
+      }
+    });
+
+    // ========== MOBILE TOGGLE ==========
     document.addEventListener('DOMContentLoaded', function() {
       const mobileToggle = document.getElementById('mobileToggle');
       const closeToggle = document.getElementById('closeToggle');
       const navGroup = document.getElementById('navGroup');
       if (mobileToggle && closeToggle && navGroup) {
-        mobileToggle.addEventListener('click', function() { navGroup.classList.add('open'); mobileToggle.style.display = 'none'; });
-        closeToggle.addEventListener('click', function() { navGroup.classList.remove('open'); mobileToggle.style.display = 'block'; });
+        mobileToggle.addEventListener('click', function() {
+          navGroup.classList.add('open');
+          mobileToggle.style.display = 'none';
+        });
+        closeToggle.addEventListener('click', function() {
+          navGroup.classList.remove('open');
+          mobileToggle.style.display = 'block';
+        });
       }
     });
   </script>
