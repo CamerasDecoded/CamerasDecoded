@@ -120,22 +120,73 @@
     .main-content {
       flex: 1;
       padding: var(--space-md) var(--space-lg) var(--space-lg) var(--space-lg);
+      padding-top: 80px; /* space for floating header */
       max-width: 1200px;
-      animation: fadeIn 0.5s ease-in-out forwards;
     }
-    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
 
-    .top-nav {
+    /* ---------- FLOATING GLASS HEADER ---------- */
+    .floating-header {
+      position: fixed;
+      top: 12px;
+      left: 240px;
+      right: 0;
+      z-index: 99;
       display: flex;
-      justify-content: flex-end;
-      gap: 30px;
-      margin-bottom: 30px;
+      align-items: center;
+      gap: 20px;
+      padding: 10px 24px;
+      background: rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(141, 235, 0, 0.15);
+      border-radius: 30px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
       font-family: 'Space Mono', monospace;
       font-size: 13px;
       color: #b4b4b4;
+      margin: 0 12px;
+    }
+
+    .floating-header a { color: #8deb00; transition: color 0.2s; }
+    .floating-header a:hover { color: #a0f520; }
+
+    .floating-home-icon { font-size: 17px; flex-shrink: 0; }
+
+    .floating-nav-links {
+      display: flex;
+      flex: 1;
+      justify-content: center;
+      gap: 25px;
+      flex-wrap: wrap;
       align-items: center;
     }
-    .top-nav a { color: #8deb00; }
+
+    .cart-header-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid #8deb00;
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      transition: 0.2s;
+      text-decoration: none;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+    .cart-header-link:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 12px rgba(141, 235, 0, 0.3); }
+    .cart-count-badge {
+      background: #8deb00;
+      color: #000;
+      border-radius: 50%;
+      padding: 1px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      display: inline-block;
+    }
 
     .hero-section {
       text-align: center;
@@ -233,9 +284,12 @@
       .sidebar .logo img { height: 50px; width: auto; margin: 0; }
       .sidebar .nav-group { display: flex; flex-wrap: wrap; gap: 10px; }
       .sidebar .nav-item { padding: 4px 0; border-bottom: none; font-size: 11px; }
-      .main-content { padding: 20px; }
-      .top-nav { display: none; }
+      .main-content { padding: 20px; padding-top: 100px; }
       .hero-section h1 { font-size: 36px; }
+
+      .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; border-radius: 25px; gap: 10px; }
+      .floating-nav-links { gap: 12px; }
+      #cartHeaderLabel { display: none; }
     }
     .nav-group { display: block; }
     .mobile-toggle, .close-btn { display: none; cursor: pointer; color: #8deb00; font-size: 28px; }
@@ -291,13 +345,21 @@
     <div class="mobile-toggle" id="mobileToggle">☰</div>
   </aside>
 
-  <main class="main-content">
-    <div class="top-nav">
-      <a href="https://atlas.camerasdecoded.com" target="_blank">The Atlas</a>
-      <a href="https://camerasdecoded.substack.com/p/decoding-the-system-welcome-to-the?r=88nm3w&utm_campaign=post-expanded-share&utm_medium=web&triedRedirect=true" target="_blank">For Operators</a>
-      <a href="partners.html">For Partners</a>
-      <a href="educators-pdf-viewer.html">For Instructors</a>
+  <!-- FLOATING GLASS HEADER (outside main) -->
+  <div class="floating-header" id="floatingHeader">
+    <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
+    <div class="floating-nav-links">
+      <a href="https://camerasdecoded.substack.com/p/decoding-the-system-welcome-to-the?r=88nm3w&utm_campaign=post-expanded-share&utm_medium=web&triedRedirect=true" target="_blank">Operators</a>
+      <a href="partners.html">Partners</a>
+      <a href="educators-pdf-viewer.html">Instructors</a>
     </div>
+    <a href="cart.html" class="cart-header-link" id="cartHeaderLink">
+      <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
+      <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
+    </a>
+  </div>
+
+  <main class="main-content">
 
     <div class="hero-section">
       <h1>THE FOUNDING 200</h1>
@@ -338,7 +400,6 @@
   </main>
 
   <script>
-    // sample founder data + pagination (unchanged)
     const founders = [
       { name: "Alex Rivera", business: "Rivera Visuals", website: "https://riveravisuals.com", quote: "The Inner Signal changed how I show up to every shoot. No more imposter syndrome.", badge: "founding-badges/alex-rivera.png" },
       { name: "Jamie Chen", business: "Chen Photography", website: "https://chenphoto.co", quote: "Finally, a curriculum that teaches confidence, not just settings.", badge: "founding-badges/jamie-chen.png" },
@@ -371,9 +432,30 @@
     const container = document.getElementById('foundersContainer');
     const paginationDiv = document.getElementById('paginationControls');
 
-    function renderPage(page) { /* unchanged */ }
-    function renderPagination() { /* unchanged */ }
-    window.goToPage = function(page) { /* unchanged */ };
+    function renderPage(page) {
+      currentPage = page;
+      const start = (page - 1) * itemsPerPage;
+      const end = start + itemsPerPage;
+      const pageItems = founders.slice(start, end);
+      let html = '<div class="founders-grid">';
+      pageItems.forEach(founder => {
+        html += `<div class="founder-card"><img src="${founder.badge}" alt="${founder.name} badge" class="founder-badge" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22%231A1A1A%22 stroke=%22%23e0b12d%22 stroke-width=%222%22/%3E%3Ctext x=%2250%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%238deb00%22 font-family=%22Space Mono%22 font-size=%2216%22%3E200%3C/text%3E%3C/svg%3E';"><div class="founder-name">${founder.name}</div><div class="founder-business">${founder.business}</div><a href="${founder.website}" target="_blank" class="founder-website">${founder.website.replace('https://','')}</a><p class="founder-quote">"${founder.quote}"</p></div>`;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+      const cards = container.querySelectorAll('.founder-card');
+      cards.forEach((card, index) => { card.style.animationDelay = `${index * 0.05}s`; card.classList.add('visible'); });
+      renderPagination();
+    }
+
+    function renderPagination() {
+      if (totalPages <= 1) { paginationDiv.innerHTML = ''; return; }
+      let html = '';
+      for (let i = 1; i <= totalPages; i++) { html += `<button class="page-btn${i === currentPage ? ' active' : ''}" onclick="goToPage(${i})">${i}</button>`; }
+      paginationDiv.innerHTML = html;
+    }
+
+    window.goToPage = function(page) { renderPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 
     renderPage(1);
 
@@ -381,10 +463,7 @@
       const mobileToggle = document.getElementById('mobileToggle');
       const closeToggle = document.getElementById('closeToggle');
       const navGroup = document.getElementById('navGroup');
-      if (mobileToggle && closeToggle && navGroup) {
-        mobileToggle.addEventListener('click', () => { navGroup.classList.add('open'); mobileToggle.style.display = 'none'; });
-        closeToggle.addEventListener('click', () => { navGroup.classList.remove('open'); mobileToggle.style.display = 'block'; });
-      }
+      if (mobileToggle && closeToggle && navGroup) { mobileToggle.addEventListener('click', () => { navGroup.classList.add('open'); mobileToggle.style.display = 'none'; }); closeToggle.addEventListener('click', () => { navGroup.classList.remove('open'); mobileToggle.style.display = 'block'; }); }
     });
   </script>
 
@@ -396,17 +475,14 @@
 
   <script>
     const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
-    function removeDashboardLink() {
-      const existing = document.getElementById('dynamic-dashboard-node');
-      if (existing) existing.remove();
-    }
+    function removeDashboardLink() { const existing = document.getElementById('dynamic-dashboard-node'); if (existing) existing.remove(); }
     function insertDashboardLink() {
       if (!homeNav) return;
       removeDashboardLink();
       const dashLink = document.createElement('a');
       dashLink.id = 'dynamic-dashboard-node';
       dashLink.className = 'nav-item';
-      dashLink.innerText = 'Dashboard';   // plain text, no icon
+      dashLink.innerText = 'Dashboard';
       dashLink.href = 'operator-dashboard.html';
       homeNav.parentNode.insertBefore(dashLink, homeNav);
     }
@@ -416,20 +492,9 @@
         localStorage.setItem('cameras_decoded_uid', user.uid);
         insertDashboardLink();
         db.collection('users').doc(user.uid).get().then((doc) => {
-          if (doc.exists) {
-            const role = doc.data().role || 'Operator';
-            const dash = document.getElementById('dynamic-dashboard-node');
-            if (dash) {
-              if (role === 'Instructor') dash.href = 'instructor-dashboard.html';
-              else if (role === 'Operator') dash.href = 'operator-dashboard.html';
-              else if (role === 'Partner') dash.href = 'partner-dashboard.html';
-            }
-          }
+          if (doc.exists) { const role = doc.data().role || 'Operator'; const dash = document.getElementById('dynamic-dashboard-node'); if (dash) { if (role === 'Instructor') dash.href = 'instructor-dashboard.html'; else if (role === 'Operator') dash.href = 'operator-dashboard.html'; else if (role === 'Partner') dash.href = 'partner-dashboard.html'; } }
         }).catch(() => {});
-      } else {
-        localStorage.removeItem('cameras_decoded_uid');
-        removeDashboardLink();
-      }
+      } else { localStorage.removeItem('cameras_decoded_uid'); removeDashboardLink(); }
     });
   </script>
 </body>
