@@ -37,15 +37,15 @@
       min-height: 100vh;
     }
 
-    /* ---------- BOOSTED GREEN GLOW ---------- */
+    /* ---------- GREEN-TO-BLACK GRADIENT (original, behind everything) ---------- */
     body::before {
       content: "";
       position: fixed;
       top: 0;
       left: 0;
       width: 100vw;
-      height: 600px;
-      background: linear-gradient(180deg, rgba(29, 179, 27, 0.30) 0%, transparent 100%);
+      height: 100vh; /* now full height */
+      background: linear-gradient(180deg, rgba(29, 179, 27, 0.35) 0%, rgba(0, 0, 0, 0.95) 70%, #000000 100%);
       pointer-events: none;
       z-index: -1;
     }
@@ -59,7 +59,19 @@
       height: 100vh;
       z-index: 0;
       pointer-events: none;
-      opacity: 0.2;  /* lowered from 0.35 – more transparent */
+      opacity: 0.2;
+    }
+
+    /* ----- BOTTOM FADE OVERLAY – makes rain "fall into black" ----- */
+    #rain-fade {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100vw;
+      height: 45vh;
+      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 60%, #000000 100%);
+      pointer-events: none;
+      z-index: 0;
     }
 
     /* ----- ATLAS OVERLAY BUTTON ----- */
@@ -875,6 +887,9 @@
   <!-- BINARY RAIN CANVAS -->
   <canvas id="binary-rain"></canvas>
 
+  <!-- BOTTOM FADE OVERLAY – makes rain fall into black -->
+  <div id="rain-fade"></div>
+
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="logo"><img src="cameras-decoded-logo.png" alt="Cameras Decoded"></div>
@@ -1362,7 +1377,7 @@
       });
     })();
 
-    // --- BINARY RAIN – refined: lower opacity, higher frequency ---
+    // --- BINARY RAIN – with gradient fade at bottom ---
     (function() {
       const canvas = document.getElementById('binary-rain');
       const ctx = canvas.getContext('2d');
@@ -1375,11 +1390,11 @@
       const fontSize = 16;
       const columns = Math.floor(width / fontSize);
       const drops = Array(columns).fill(1);
-      const speed = 0.55; // slightly faster than before for more activity
+      const speed = 0.55;
 
       function draw() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-        ctx.fillRect(0, 0, width, height);
+        // Clear with transparency so gradient shows through
+        ctx.clearRect(0, 0, width, height);
 
         ctx.font = fontSize + 'px "Space Mono", monospace';
         ctx.textAlign = 'center';
@@ -1389,30 +1404,34 @@
           const x = i * fontSize + fontSize / 2;
           const y = drops[i] * fontSize;
 
+          // Brightness fades toward bottom – this makes the rain fall into darkness
+          const fadeFactor = Math.max(0, 1 - (y / height) * 0.9);
+          const alpha = fadeFactor * 0.8;
+
           if (char === '1') {
-            ctx.shadowColor = '#8deb00';
+            ctx.shadowColor = `rgba(141, 235, 0, ${alpha * 0.6})`;
             ctx.shadowBlur = 8;
-            ctx.fillStyle = '#8deb00';
+            ctx.fillStyle = `rgba(141, 235, 0, ${alpha})`;
           } else {
-            ctx.shadowColor = '#3a7a1a';
+            ctx.shadowColor = `rgba(58, 122, 26, ${alpha * 0.4})`;
             ctx.shadowBlur = 4;
-            ctx.fillStyle = '#4caf50';
+            ctx.fillStyle = `rgba(76, 175, 80, ${alpha * 0.7})`;
           }
 
           ctx.fillText(char, x, y);
 
-          // Sparkle on '1'
-          if (char === '1' && Math.random() < 0.025) {
+          // Sparkle on '1' – also fades with position
+          if (char === '1' && Math.random() < 0.025 && alpha > 0.3) {
             ctx.shadowBlur = 15;
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
             ctx.beginPath();
             ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
           }
 
-          // Reset more frequently (higher frequency)
-          if (y > height && Math.random() > 0.97) { // was 0.99 – now resets more often
+          // Reset more frequently for higher density
+          if (y > height && Math.random() > 0.97) {
             drops[i] = 0;
           }
           drops[i] += speed;
