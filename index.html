@@ -50,6 +50,18 @@
       z-index: -1;
     }
 
+    /* ----- BINARY RAIN CANVAS (background effect) ----- */
+    #binary-rain {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;          /* allow clicks to pass through */
+      opacity: 0.25;                 /* subtle, adjust as desired */
+    }
+
     /* ----- ATLAS OVERLAY BUTTON ----- */
     .atlas-overlay-btn {
         position: absolute;
@@ -101,6 +113,8 @@
       position: sticky;
       top: 0;
       flex-shrink: 0;
+      z-index: 2;                    /* above rain canvas */
+      position: relative;
     }
     .sidebar .logo img {
       display: block;
@@ -151,6 +165,8 @@
       padding: var(--space-md) var(--space-lg) var(--space-lg) var(--space-lg);
       padding-top: 80px; /* space for the fixed floating header */
       max-width: 1200px;
+      position: relative;
+      z-index: 2;                    /* above rain canvas */
     }
 
     /* ---------- FLOATING GLASS HEADER (always visible, pill shaped, centered links) ---------- */
@@ -159,7 +175,7 @@
       top: 12px;
       left: 240px;            /* sidebar width on desktop */
       right: 0;
-      z-index: 99;
+      z-index: 99;            /* keep above everything */
       display: flex;
       align-items: center;
       gap: 20px;
@@ -497,6 +513,7 @@
       max-width: 700px; margin: var(--space-md) auto;
       border: 1px solid #1A1A1A; border-radius: 12px; overflow: hidden;
       background: #0A0A0A;
+      position: relative;
     }
     .atlas-mockup-container img { width: 100%; height: auto; display: block; }
 
@@ -829,6 +846,9 @@
   </style>
 </head>
 <body>
+
+  <!-- BINARY RAIN CANVAS (background) -->
+  <canvas id="binary-rain"></canvas>
 
   <!-- SIDEBAR (new structure) -->
  <aside class="sidebar">
@@ -1264,7 +1284,6 @@
           const priceEl = card.querySelector('.pc-price');
           const periodEl = card.querySelector('.pc-period');
           if (priceEl && periodEl) {
-            // Extract the price value without the period span
             const priceValue = prices[tier][mode];
             priceEl.childNodes[0].nodeValue = priceValue + ' ';
             periodEl.textContent = mode === 'monthly' ? '/mo' : (priceValue === 'CUSTOM' ? '' : '/yr');
@@ -1276,6 +1295,60 @@
         this.classList.toggle('annual');
         const mode = this.classList.contains('annual') ? 'annual' : 'monthly';
         updatePricing(mode);
+      });
+    })();
+
+    // --- BINARY RAIN (1s and 0s) ---
+    (function() {
+      const canvas = document.getElementById('binary-rain');
+      const ctx = canvas.getContext('2d');
+
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+
+      // Character size and columns
+      const fontSize = 20;
+      const columns = Math.floor(width / fontSize);
+      const drops = Array(columns).fill(1);
+
+      function draw() {
+        // Semi-transparent black to create fading trail
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.fillStyle = '#8deb00'; // green
+        ctx.font = fontSize + 'px monospace';
+        ctx.fontWeight = 'bold';
+
+        for (let i = 0; i < drops.length; i++) {
+          const char = Math.random() > 0.5 ? '1' : '0';
+          ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+          
+          // Reset drop if it goes off screen
+          if (drops[i] * fontSize > height && Math.random() > 0.975) {
+            drops[i] = 0;
+          }
+          drops[i]++;
+        }
+        requestAnimationFrame(draw);
+      }
+
+      draw();
+
+      // Adjust on resize
+      window.addEventListener('resize', () => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        const newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) {
+          drops.push(...Array(newColumns - drops.length).fill(1));
+        } else {
+          drops.length = newColumns;
+        }
       });
     })();
   </script>
