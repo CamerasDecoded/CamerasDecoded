@@ -896,7 +896,12 @@
 
     async function startFeedListener() {
       if (unsubscribeFeed) unsubscribeFeed();
-      if (typeof firebase === 'undefined' || !firebase.firestore) return;
+      // Check if firebase is available
+      if (typeof firebase === 'undefined' || !firebase.firestore) {
+        console.warn('Firebase not available – feed listener not started.');
+        feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-exclamation-triangle"></i><br>Firebase not loaded. Please refresh.</div>`;
+        return;
+      }
       const db = firebase.firestore();
       const query = db.collection('posts').orderBy('createdAt', 'desc').limit(50);
       unsubscribeFeed = query.onSnapshot((snapshot) => {
@@ -1161,52 +1166,63 @@
 
     // ===== FIREBASE AUTH – SINGLE LISTENER =====
     // Wait for Firebase to be initialized (from firebase-init.js)
-    // We'll use a direct listener on the global auth object
-    if (typeof firebase !== 'undefined' && firebase.auth) {
-      const auth = firebase.auth();
-      auth.onAuthStateChanged((user) => {
-        if (user) {
-          // User is signed in
-          currentUser = user;
-          localStorage.setItem('cameras_decoded_uid', user.uid);
+    // We'll attach the listener once the page loads.
+    document.addEventListener('DOMContentLoaded', function() {
+      // If Firebase is available, set up auth listener
+      if (typeof firebase !== 'undefined' && firebase.auth) {
+        const auth = firebase.auth();
+        auth.onAuthStateChanged((user) => {
+          console.log('Auth state changed:', user ? 'Logged in' : 'Logged out');
+          if (user) {
+            // User is signed in
+            currentUser = user;
+            localStorage.setItem('cameras_decoded_uid', user.uid);
 
-          // Fetch user data and then insert dashboard link and start feed
-          const db = firebase.firestore();
-          db.collection('users').doc(user.uid).get().then((doc) => {
-            if (doc.exists) {
-              currentUserData = doc.data();
-              const role = doc.data().role || 'Operator';
-              let dashboardUrl = 'operator-dashboard.html';
-              if (role === 'Instructor') dashboardUrl = 'instructor-dashboard.html';
-              else if (role === 'Operator') dashboardUrl = 'operator-dashboard.html';
-              else if (role === 'Partner') dashboardUrl = 'partner-dashboard.html';
-              insertDashboardLink(dashboardUrl);
-            } else {
+            // Fetch user data and then insert dashboard link and start feed
+            const db = firebase.firestore();
+            db.collection('users').doc(user.uid).get().then((doc) => {
+              if (doc.exists) {
+                currentUserData = doc.data();
+                const role = doc.data().role || 'Operator';
+                let dashboardUrl = 'operator-dashboard.html';
+                if (role === 'Instructor') dashboardUrl = 'instructor-dashboard.html';
+                else if (role === 'Operator') dashboardUrl = 'operator-dashboard.html';
+                else if (role === 'Partner') dashboardUrl = 'partner-dashboard.html';
+                insertDashboardLink(dashboardUrl);
+              } else {
+                currentUserData = { name: user.displayName || user.email || 'Operator' };
+                insertDashboardLink('operator-dashboard.html');
+              }
+            }).catch(() => {
               currentUserData = { name: user.displayName || user.email || 'Operator' };
               insertDashboardLink('operator-dashboard.html');
-            }
-          }).catch(() => {
-            currentUserData = { name: user.displayName || user.email || 'Operator' };
-            insertDashboardLink('operator-dashboard.html');
-          });
+            });
 
-          // Show "New Post" button and start feed
-          newPostBtn.style.display = 'inline-block';
-          startFeedListener();
-        } else {
-          // User is signed out
-          currentUser = null;
-          currentUserData = null;
-          newPostBtn.style.display = 'none';
-          feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-lock"></i><br>Please <a href="login.html" style="color:#8deb00;">log in</a> to see the signal.</div>`;
-          if (unsubscribeFeed) { unsubscribeFeed(); unsubscribeFeed = null; }
-          removeDashboardLink();
-        }
-      });
-    } else {
-      // Firebase not loaded – show fallback
-      feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-lock"></i><br>Please <a href="login.html" style="color:#8deb00;">log in</a> to see the signal.</div>`;
-    }
+            // Show "New Post" button and start feed
+            newPostBtn.style.display = 'inline-block';
+            // If feed listener not already started, start it.
+            if (!unsubscribeFeed) {
+              startFeedListener();
+            }
+          } else {
+            // User is signed out
+            currentUser = null;
+            currentUserData = null;
+            newPostBtn.style.display = 'none';
+            feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-lock"></i><br>Please <a href="login.html" style="color:#8deb00;">log in</a> to see the signal.</div>`;
+            if (unsubscribeFeed) {
+              unsubscribeFeed();
+              unsubscribeFeed = null;
+            }
+            removeDashboardLink();
+          }
+        });
+      } else {
+        // Firebase not loaded – show fallback
+        console.warn('Firebase not loaded – community features unavailable.');
+        feedContainer.innerHTML = `<div class="feed-empty"><i class="fas fa-lock"></i><br>Please <a href="login.html" style="color:#8deb00;">log in</a> to see the signal.</div>`;
+      }
+    });
 
     // ===== SCROLL TO TOP =====
     window.onscroll = function() {
@@ -1224,10 +1240,7 @@
 
   <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
 
-  <!-- FIREBASE SCRIPTS (load before our script) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- LOAD FIREBASE INIT (includes all SDKs and initialization) -->
   <script src="firebase-init.js"></script>
 
 </body>
