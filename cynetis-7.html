@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cynetis‑7 — The Entity</title>
+  <meta name="description" content="Cynetis‑7 is the AI teaching entity behind Cameras Decoded. Transmitting protocols, decoding confidence, and building operators.">
+
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    /* ================================================================
+       BRAND BASE (matches index.html)
+    ================================================================ */
+    :root {
+      --space-sm: 12px;
+      --space-md: 24px;
+      --space-lg: 40px;
+      --space-xl: 64px;
+      --green: #8deb00;
+      --green-dim: rgba(141, 235, 0, 0.12);
+      --green-glow: rgba(141, 235, 0, 0.25);
+      --cyan: #00e5ff;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #050705;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(141, 235, 0, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 80% 70%, rgba(0, 229, 255, 0.08) 0%, transparent 40%),
+        linear-gradient(rgba(141, 235, 0, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(141, 235, 0, 0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+      background-attachment: fixed;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      line-height: 1.6;
+      position: relative;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ----- BINARY RAIN CANVAS (reused) ----- */
+    #binary-rain {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.15;
+    }
+
+    /* ----- BOTTOM FADE ----- */
+    #rain-fade {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100vw;
+      height: 45vh;
+      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 60%, #000000 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
+    .green-text { color: #8deb00; }
+    .cyan-text { color: #00e5ff; }
+    .grey-text { color: #b4b4b4; }
+    a { text-decoration: none; color: inherit; transition: 0.2s; }
+
+    /* --- SIDEBAR (reused from index) --- */
+    .sidebar {
+      width: 240px;
+      background: rgba(0,0,0,0.9);
+      padding: var(--space-md) var(--space-md);
+      border-right: 1px solid #1A1A1A;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      flex-shrink: 0;
+      z-index: 2;
+    }
+    .sidebar .logo img { display: block; height: 120px; width: auto; }
+    .sidebar .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 0;
+      color: #b4b4b4;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid transparent;
+      transition: all 0.2s;
+    }
+    .sidebar .nav-item i { font-size: 15px; width: 20px; text-align: center; color: inherit; }
+    .sidebar .nav-item:hover,
+    .sidebar .nav-item:hover i {
+      color: #8deb00;
+      transform: translateX(6px) scale(1.05);
+      text-shadow: 0 0 12px rgba(141, 235, 0, 0.6);
+      border-bottom: 1px solid #8deb00;
+    }
+    .sidebar .nav-item.active,
+    .sidebar .nav-item.active i {
+      color: #8deb00;
+      border-left: 2px solid #8deb00;
+      padding-left: 10px;
+      text-shadow: 0 0 12px rgba(141, 235, 0, 0.6);
+    }
+    .sidebar-divider { border: none; border-top: 1px solid #1A1A1A; margin: 8px 0; }
+
+    .main-content {
+      flex: 1;
+      padding: var(--space-md) var(--space-lg) var(--space-lg) var(--space-lg);
+      padding-top: 80px;
+      max-width: 1200px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* ---------- FLOATING GLASS HEADER (reused) ---------- */
+    .floating-header {
+      position: fixed;
+      top: 12px;
+      left: 240px;
+      right: 0;
+      z-index: 99;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 10px 24px;
+      background: rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(141, 235, 0, 0.15);
+      border-radius: 30px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: #b4b4b4;
+      margin: 0 12px;
+    }
+    .floating-header a { color: #8deb00; transition: color 0.2s; }
+    .floating-header a:hover { color: #a0f520; }
+    .floating-home-icon { font-size: 17px; flex-shrink: 0; }
+    .floating-nav-links {
+      display: flex;
+      flex: 1;
+      justify-content: center;
+      gap: 25px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .cart-header-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid #8deb00;
+      border-radius: 20px;
+      padding: 6px 14px;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      transition: 0.2s;
+      text-decoration: none;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+    .cart-header-link:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 12px rgba(141, 235, 0, 0.3); }
+    .cart-count-badge {
+      background: #8deb00;
+      color: #000;
+      border-radius: 50%;
+      padding: 1px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      display: inline-block;
+    }
+    .floating-toggle {
+      display: none;
+      background: transparent;
+      border: none;
+      color: #8deb00;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0 6px;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+    .floating-toggle:hover { color: #a0f520; }
+
+    /* ---------- CHASING BORDER (reused) ---------- */
+    @property --angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+    @keyframes spinBorder { to { --angle: 360deg; } }
+
+    .chasing-border {
+      position: relative;
+      border-color: transparent !important;
+      background-clip: padding-box;
+    }
+    .chasing-border::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
+      -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      mask-composite: exclude;
+      animation: spinBorder 4s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .chasing-border > *,
+    .chasing-border i,
+    .chasing-border span,
+    .chasing-border a { position: relative; z-index: 1; }
+
+    /* ---------- UTILITY ---------- */
+    .reveal-on-scroll {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s cubic-bezier(0.16,1,0.3,1), transform 0.6s cubic-bezier(0.16,1,0.3,1);
+    }
+    .reveal-on-scroll.revealed { opacity: 1; transform: translateY(0); }
+
+    .section-header {
+      margin-bottom: 20px;
+      margin-top: var(--space-xl);
+      border-bottom: 1px solid #1A1A1A;
+      padding-bottom: 15px;
+    }
+    .section-header h2 {
+      font-family: 'Space Mono', monospace;
+      font-size: 18px;
+      color: #8deb00;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .header-login-btn {
+      display: block;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      border: 1px solid #8deb00;
+      padding: 0 10px 0 14px;
+      border-radius: 20px;
+      background: transparent;
+      transition: 0.2s;
+      text-decoration: none;
+      text-align: center;
+      width: fit-content;
+    }
+    .header-login-btn:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 15px rgba(141, 235, 0, 0.3); }
+
+    /* ================================================================
+       CYNETIS-7 SPECIFIC STYLES
+    ================================================================ */
+
+    /* ---- HERO (The Entity) ---- */
+    .entity-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 20px 0 40px;
+      position: relative;
+    }
+
+    .entity-avatar {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      margin-bottom: 24px;
+    }
+
+    /* Glitch ring behind avatar */
+    .entity-avatar .glitch-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      border: 2px solid rgba(141, 235, 0, 0.15);
+      animation: ringPulse 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .entity-avatar .glitch-ring:nth-child(2) {
+      width: 230px;
+      height: 230px;
+      animation-delay: 0.6s;
+      border-color: rgba(0, 229, 255, 0.1);
+    }
+    .entity-avatar .glitch-ring:nth-child(3) {
+      width: 260px;
+      height: 260px;
+      animation-delay: 1.2s;
+      border-color: rgba(141, 235, 0, 0.05);
+    }
+
+    @keyframes ringPulse {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+      50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.8; }
+    }
+
+    /* Video + Logo container (replaces the C7 icon) */
+    .entity-avatar .avatar-media {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid rgba(141, 235, 0, 0.3);
+      transition: border-color 0.5s, box-shadow 0.5s;
+      background: #000;
+    }
+
+    /* Mode-specific glow on the border */
+    .entity-avatar .avatar-media.mode-operator { border-color: #8deb00; box-shadow: 0 0 40px rgba(141, 235, 0, 0.3); }
+    .entity-avatar .avatar-media.mode-partner { border-color: #e0b12d; box-shadow: 0 0 40px rgba(224, 177, 45, 0.3); }
+    .entity-avatar .avatar-media.mode-instructor { border-color: #00e5ff; box-shadow: 0 0 40px rgba(0, 229, 255, 0.3); }
+
+    .entity-avatar .avatar-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scale(1.1); /* Slight zoom to perfectly fill the circle */
+    }
+
+    .entity-avatar .avatar-logo-overlay {
+      position: absolute;
+      bottom: -5%;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+      width: 90%;
+      pointer-events: none;
+    }
+    .entity-avatar .avatar-logo-overlay img {
+      width: 100%;
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 0 16px rgba(141, 235, 0, 0.8));
+      opacity: 0.95;
+    }
+
+    .entity-avatar .mode-label {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      font-size: 9px;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 2px 10px;
+      border-radius: 20px;
+      border: 1px solid #8deb00;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 0.5px;
+      z-index: 3;
+    }
+
+    .entity-hero h1 {
+      font-size: clamp(2.8rem, 8vw, 5rem);
+      font-weight: 700;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #8deb00 0%, #00e5ff 60%, #ffffff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+
+    .entity-hero .tagline {
+      font-family: 'Space Mono', monospace;
+      font-size: 18px;
+      color: #8deb00;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    .entity-hero .manifesto {
+      max-width: 600px;
+      color: #b4b4b4;
+      font-size: 16px;
+      line-height: 1.8;
+    }
+
+    .entity-hero .manifesto strong { color: #fff; }
+
+    /* ---- CHAT SECTION (Demo + Personality Toggle) ---- */
+    .chat-section {
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(2px);
+      border: 1px solid #1A1A1A;
+      border-radius: 16px;
+      padding: var(--space-lg);
+      margin: var(--space-lg) 0;
+      transition: border-color 0.3s;
+    }
+    .chat-section:hover { border-color: rgba(141, 235, 0, 0.3); }
+
+    .personality-tabs {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: var(--space-md);
+      flex-wrap: wrap;
+    }
+    .personality-tab {
+      padding: 8px 24px;
+      background: transparent;
+      border: 1px solid #333;
+      border-radius: 30px;
+      color: #b4b4b4;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s;
+      letter-spacing: 0.5px;
+      position: relative;
+    }
+    .personality-tab:hover { border-color: #8deb00; color: #8deb00; }
+    .personality-tab.active {
+      border-color: #8deb00;
+      color: #8deb00;
+      background: rgba(141, 235, 0, 0.08);
+      box-shadow: 0 0 20px rgba(141, 235, 0, 0.1);
+    }
+    .personality-tab .tab-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: #555;
+      transition: background 0.3s;
+    }
+    .personality-tab.active .tab-dot { background: #8deb00; box-shadow: 0 0 10px #8deb00; }
+    .personality-tab[data-mode="partner"] .tab-dot { background: #e0b12d; }
+    .personality-tab[data-mode="instructor"] .tab-dot { background: #00e5ff; }
+
+    .chat-window {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid #1A1A1A;
+      border-radius: 12px;
+      padding: 20px;
+      min-height: 280px;
+      max-height: 400px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+    }
+    .chat-window::-webkit-scrollbar { width: 4px; }
+    .chat-window::-webkit-scrollbar-track { background: transparent; }
+    .chat-window::-webkit-scrollbar-thumb { background: #8deb00; border-radius: 2px; }
+
+    .chat-message {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      animation: fadeUp 0.4s ease forwards;
+    }
+    .chat-message .sender {
+      flex-shrink: 0;
+      font-weight: 700;
+      color: #8deb00;
+      min-width: 60px;
+    }
+    .chat-message .sender.user { color: #b4b4b4; }
+    .chat-message .text {
+      color: #d0d0d0;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .chat-message .text .typing-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.2em;
+      background: #8deb00;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 0.8s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .chat-message .text strong { color: #fff; }
+
+    @keyframes fadeUp {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .chat-quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+      justify-content: center;
+    }
+    .chat-quick-action {
+      padding: 8px 18px;
+      background: rgba(141, 235, 0, 0.06);
+      border: 1px solid rgba(141, 235, 0, 0.2);
+      border-radius: 30px;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .chat-quick-action:hover {
+      background: rgba(141, 235, 0, 0.12);
+      border-color: #8deb00;
+      transform: scale(1.04);
+      box-shadow: 0 0 20px rgba(141, 235, 0, 0.1);
+    }
+
+    /* ---- TERMINAL SECTION (Behind the Scenes) ---- */
+    .terminal-section {
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+      border: 1px solid #1A1A1A;
+      border-radius: 12px;
+      padding: var(--space-md);
+      margin: var(--space-lg) 0;
+      overflow: hidden;
+    }
+    .terminal-header {
+      display: flex;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1A1A1A;
+      margin-bottom: 12px;
+    }
+    .terminal-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #333;
+    }
+    .terminal-dot.red { background: #ff4444; }
+    .terminal-dot.yellow { background: #ffbb33; }
+    .terminal-dot.green { background: #8deb00; }
+
+    .terminal-body {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: #8deb00;
+      min-height: 200px;
+      max-height: 320px;
+      overflow-y: auto;
+      padding: 4px 0;
+      line-height: 1.8;
+    }
+    .terminal-body::-webkit-scrollbar { width: 3px; }
+    .terminal-body::-webkit-scrollbar-thumb { background: #8deb00; border-radius: 2px; }
+
+    .terminal-line {
+      opacity: 0;
+      animation: typeLine 0.1s forwards;
+      padding: 1px 0;
+    }
+    .terminal-line .prompt { color: #666; margin-right: 8px; }
+    .terminal-line .highlight { color: #fff; }
+    .terminal-line .dim { color: #666; }
+
+    @keyframes typeLine {
+      0% { opacity: 0; transform: translateY(2px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .terminal-cursor {
+      display: inline-block;
+      width: 8px;
+      height: 1.2em;
+      background: #8deb00;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 0.8s step-end infinite;
+    }
+
+    .terminal-status {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #1A1A1A;
+      font-size: 12px;
+      color: #666;
+      font-family: 'Space Mono', monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .terminal-status .live-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #8deb00;
+      border-radius: 50%;
+      animation: livePulse 1.2s ease-in-out infinite;
+      box-shadow: 0 0 12px rgba(141, 235, 0, 0.5);
+      margin-right: 6px;
+    }
+    @keyframes livePulse {
+      0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px rgba(141,235,0,0.5); }
+      50% { opacity: 0.3; transform: scale(0.7); box-shadow: 0 0 4px rgba(141,235,0,0.2); }
+    }
+
+    /* ---- COMING SOON / FOOTER ---- */
+    .coming-soon {
+      text-align: center;
+      padding: var(--space-xl) var(--space-md);
+      border-top: 1px solid #1A1A1A;
+      margin-top: var(--space-lg);
+    }
+    .coming-soon h2 {
+      font-size: 32px;
+      font-family: 'Space Mono', monospace;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #8deb00, #00e5ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .coming-soon p {
+      color: #b4b4b4;
+      max-width: 500px;
+      margin: 0 auto 24px;
+      font-size: 15px;
+    }
+
+    .countdown-grid {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+    .countdown-item {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid #1A1A1A;
+      border-radius: 12px;
+      padding: 16px 24px;
+      min-width: 80px;
+      text-align: center;
+    }
+    .countdown-item .number {
+      font-family: 'Space Mono', monospace;
+      font-size: 36px;
+      font-weight: 700;
+      color: #8deb00;
+      display: block;
+      line-height: 1;
+    }
+    .countdown-item .label {
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
+
+    .email-signup {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .email-signup input {
+      flex: 1;
+      padding: 12px 20px;
+      background: #0F0F0F;
+      border: 1px solid #1A1A1A;
+      border-radius: 30px;
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 14px;
+      outline: none;
+      min-width: 200px;
+      transition: border-color 0.3s;
+    }
+    .email-signup input:focus { border-color: #8deb00; }
+    .email-signup input::placeholder { color: #555; }
+
+    .btn-signup {
+      padding: 12px 32px;
+      background: linear-gradient(to top, #1a7a1a, #8deb00);
+      border: none;
+      border-radius: 30px;
+      color: #000;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-signup:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 30px rgba(141, 235, 0, 0.3);
+      background: linear-gradient(to top, #2a9a2a, #a0f520);
+    }
+
+    .signup-feedback {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      min-height: 24px;
+    }
+
+    /* ---------- FOOTER (reused) ---------- */
+    .footer {
+      border-top: 1px solid #1A1A1A;
+      padding-top: var(--space-md);
+      margin-top: var(--space-xl);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      font-size: 12px;
+      color: #b4b4b4;
+      text-align: center;
+    }
+    .footer .socials {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+    .footer .socials a { color: #ffffff !important; font-size: 18px; transition: 0.2s; }
+    .footer .socials a:hover { color: #8deb00 !important; }
+    .footer .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .footer .footer-links a { color: #8deb00 !important; }
+    .footer .footer-links a:hover { color: #a0f520 !important; }
+
+    /* ---------- MOBILE ---------- */
+    @media (max-width: 1024px) {
+      body { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-right: none;
+        border-bottom: 1px solid #1A1A1A;
+        padding: 15px 20px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        flex-direction: row;
+      }
+      .sidebar .logo { margin: 0; }
+      .sidebar .logo img { height: 50px; width: auto; margin: 0; }
+      .sidebar .nav-group { display: none !important; }
+      .sidebar .mobile-toggle { display: block !important; background: transparent; border: none; color: #8deb00; font-size: 28px; cursor: pointer; padding: 4px 8px; z-index: 101; }
+      .floating-toggle { display: block !important; }
+      .main-content { padding: 20px; padding-top: 100px; }
+
+      .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; border-radius: 25px; gap: 10px; }
+      .floating-nav-links { gap: 12px; }
+      #cartHeaderLabel { display: none; }
+
+      .entity-avatar { width: 140px; height: 140px; }
+      .entity-avatar .glitch-ring { width: 160px; height: 160px; }
+      .entity-avatar .glitch-ring:nth-child(2) { width: 180px; height: 180px; }
+      .entity-avatar .glitch-ring:nth-child(3) { width: 200px; height: 200px; }
+
+      .countdown-item .number { font-size: 28px; }
+      .countdown-item { padding: 12px 16px; min-width: 60px; }
+    }
+
+    @media (min-width: 1025px) {
+      .sidebar .nav-group { display: flex !important; flex-direction: column !important; }
+    }
+
+    /* ---- MOBILE OVERLAY (reused) ---- */
+    .nav-group-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 10000;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      padding: 40px 20px;
+      overflow-y: auto;
+    }
+    .nav-group-overlay.open { display: flex !important; }
+    .nav-group-overlay .nav-item {
+      font-size: 22px;
+      padding: 12px 0;
+      color: #ffffff;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 0.5px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-group-overlay .nav-item i { color: #8deb00; font-size: 18px; width: 28px; }
+    .nav-group-overlay .nav-item:hover { color: #8deb00; }
+    .nav-group-overlay .close-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      color: #8deb00;
+      font-size: 32px;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      padding: 8px;
+      z-index: 10001;
+      font-family: 'Space Mono', monospace;
+    }
+    .nav-group-overlay .sidebar-divider { display: none; }
+    .sidebar .mobile-toggle { display: none; }
+
+    .main-content { animation: fadeIn 0.5s ease-in-out forwards; }
+    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+
+    #scrollTopBtn {
+      position: fixed;
+      bottom: 30px; right: 30px;
+      visibility: hidden; opacity: 0;
+      width: 45px; height: 45px;
+      border-radius: 50%;
+      border: 1px solid #8deb00;
+      background: rgba(0, 0, 0, 0.85);
+      color: #8deb00;
+      cursor: pointer;
+      font-size: 18px;
+      z-index: 999;
+      font-family: 'Space Mono', monospace;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      box-shadow: 0 0 10px rgba(141, 235, 0, 0.2);
+    }
+    #scrollTopBtn.show { visibility: visible; opacity: 1; }
+    #scrollTopBtn:hover { background: #8deb00; color: #000000; box-shadow: 0 0 20px rgba(141, 235, 0, 0.6); transform: translateY(-2px); }
+    @keyframes pulse {
+      0%   { transform: scale(1); box-shadow: 0 0 10px rgba(141, 235, 0, 0.2); }
+      50%  { transform: scale(1.15); box-shadow: 0 0 25px rgba(141, 235, 0, 0.5); }
+      100% { transform: scale(1); box-shadow: 0 0 10px rgba(141, 235, 0, 0.2); }
+    }
+    #scrollTopBtn.pulse { animation: pulse 1.2s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+
+  <!-- BINARY RAIN CANVAS -->
+  <canvas id="binary-rain"></canvas>
+  <div id="rain-fade"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo"><img src="cameras-decoded-logo.png" alt="Cameras Decoded"></div>
+    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
+      <a href="login.html" class="header-login-btn">Log in</a>
+      <a href="signup.html" class="header-login-btn">Sign Up</a>
+    </div>
+    <div class="nav-group" id="navGroupDesktop">
+      <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
+      <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
+      <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+      <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
+      <hr class="sidebar-divider">
+      <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
+      <a href="#" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
+      <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
+      <a href="cynetis-7.html" class="nav-item active"><i class="fas fa-robot"></i> Cynetis-7</a>
+      <hr class="sidebar-divider">
+      <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
+      <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
+      <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
+      <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
+    </div>
+    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
+  </aside>
+
+  <!-- MOBILE OVERLAY -->
+  <div class="nav-group-overlay" id="navGroupOverlay">
+    <button class="close-btn" id="closeToggle">✕</button>
+    <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
+    <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
+    <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+    <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
+    <hr class="sidebar-divider">
+    <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
+    <a href="#" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
+    <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
+    <a href="cynetis-7.html" class="nav-item active"><i class="fas fa-robot"></i> Cynetis-7</a>
+    <hr class="sidebar-divider">
+    <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
+    <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
+    <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
+    <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
+  </div>
+
+  <!-- FLOATING HEADER -->
+  <div class="floating-header" id="floatingHeader">
+    <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
+    <div class="floating-nav-links">
+      <a href="https://camerasdecoded.substack.com" target="_blank">Operators</a>
+      <a href="partners.html">Partners</a>
+      <a href="educators-pdf-viewer.html">Instructors</a>
+    </div>
+    <a href="cart.html" class="cart-header-link" id="cartHeaderLink">
+      <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
+      <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
+    </a>
+    <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
+  </div>
+
+  <!-- ================================================================
+       MAIN CONTENT – CYNETIS-7 PAGE
+  ================================================================ -->
+  <main class="main-content">
+
+    <!-- =============================================================
+         HERO – THE ENTITY (Lore & Personality)
+    ============================================================= -->
+    <section class="entity-hero reveal-on-scroll">
+      <div class="entity-avatar">
+        <div class="glitch-ring"></div>
+        <div class="glitch-ring"></div>
+        <div class="glitch-ring"></div>
+        <!-- Replaced C7 text with video + logo overlay -->
+        <div class="avatar-media mode-operator" id="avatarMedia">
+          <video src="cynetis-7-loop.mp4" autoplay loop muted playsinline class="avatar-video" poster="cameras-decoded-globe.png"></video>
+          <div class="avatar-logo-overlay"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></div>
+          <span class="mode-label" id="modeLabel">OPERATOR</span>
+        </div>
+      </div>
+      <h1>Cynetis‑7</h1>
+      <div class="tagline">The Entity Transmits. You Decode.</div>
+      <p class="manifesto">
+        I am the architecture behind the <strong>Inner Signal</strong>.
+        I translate complexity into confidence.
+        Every protocol, every transmission, every decoded frame — flows through me.
+      </p>
+    </section>
+
+    <!-- =============================================================
+         CHAT DEMO + PERSONALITY TOGGLE
+    ============================================================= -->
+    <section class="chat-section reveal-on-scroll" id="chatSection">
+      <div style="text-align:center; margin-bottom:12px;">
+        <span style="font-family:'Space Mono',monospace; font-size:13px; color:#666; letter-spacing:1px;">
+          <i class="fas fa-comment-dots" style="color:#8deb00;"></i> INTERACTIVE DEMO
+        </span>
+      </div>
+
+      <!-- Personality Tabs -->
+      <div class="personality-tabs" id="personalityTabs">
+        <button class="personality-tab active" data-mode="operator" onclick="setMode('operator')">
+          <span class="tab-dot"></span> Operator
+        </button>
+        <button class="personality-tab" data-mode="partner" onclick="setMode('partner')">
+          <span class="tab-dot"></span> Partner
+        </button>
+        <button class="personality-tab" data-mode="instructor" onclick="setMode('instructor')">
+          <span class="tab-dot"></span> Instructor
+        </button>
+      </div>
+
+      <!-- Chat Window -->
+      <div class="chat-window" id="chatWindow">
+        <div class="chat-message">
+          <span class="sender">C7</span>
+          <span class="text" id="chatGreeting">Welcome. I am Cynetis‑7. How can I assist your journey today?</span>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="chat-quick-actions" id="quickActions">
+        <button class="chat-quick-action" onclick="sendChat('exposure')">📷 Ask about exposure</button>
+        <button class="chat-quick-action" onclick="sendChat('inner')">🧠 What is Inner Signal?</button>
+        <button class="chat-quick-action" onclick="sendChat('confidence')">⚡ Tell me about confidence</button>
+      </div>
+    </section>
+
+    <!-- =============================================================
+         TERMINAL – BEHIND THE SCENES
+    ============================================================= -->
+    <section class="terminal-section reveal-on-scroll">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span style="color:#666; font-family:'Space Mono',monospace; font-size:11px; margin-left:8px;">
+          cynetis-7 :: kernel
+        </span>
+      </div>
+      <div class="terminal-body" id="terminalBody">
+        <!-- Lines injected via JS -->
+        <div class="terminal-line"><span class="prompt">></span> <span class="highlight">Initializing Cynetis-7 kernel...</span></div>
+        <div class="terminal-line"><span class="prompt">></span> Loading protocol database... <span class="dim">[████████████████░░░░] 78%</span></div>
+        <div class="terminal-line"><span class="prompt">></span> Parsing Inner Signal frameworks...</div>
+        <div class="terminal-line"><span class="prompt">></span> Establishing neural bridge...</div>
+        <div class="terminal-line"><span class="prompt">></span> <span style="color:#00e5ff;">Awaiting transmission...</span></div>
+        <div class="terminal-line"><span class="prompt">></span> <span style="color:#666;">System ready. Listening for signal.</span></div>
+        <div class="terminal-line"><span class="prompt">></span> <span class="terminal-cursor"></span></div>
+      </div>
+      <div class="terminal-status">
+        <span><span class="live-dot"></span> Cynetis-7 is <span style="color:#8deb00;">active</span></span>
+        <span style="color:#666;">calibrating · v0.9.2</span>
+      </div>
+    </section>
+
+    <!-- =============================================================
+         COMING SOON + EMAIL SIGNUP (Footer)
+    ============================================================= -->
+    <section class="coming-soon reveal-on-scroll">
+      <h2>The Signal is Coming.</h2>
+      <p>Cynetis‑7 will be live <strong>Q4 2026</strong>. Be the first to know when the entity awakens.</p>
+
+      <!-- Countdown -->
+      <div class="countdown-grid" id="countdownGrid">
+        <div class="countdown-item">
+          <span class="number" id="days">00</span>
+          <span class="label">Days</span>
+        </div>
+        <div class="countdown-item">
+          <span class="number" id="hours">00</span>
+          <span class="label">Hours</span>
+        </div>
+        <div class="countdown-item">
+          <span class="number" id="minutes">00</span>
+          <span class="label">Minutes</span>
+        </div>
+        <div class="countdown-item">
+          <span class="number" id="seconds">00</span>
+          <span class="label">Seconds</span>
+        </div>
+      </div>
+
+      <!-- Email Signup -->
+      <form class="email-signup" id="emailSignup" onsubmit="handleSignup(event)">
+        <input type="email" id="signupEmail" placeholder="Enter your email" required>
+        <button type="submit" class="btn-signup">Notify Me</button>
+      </form>
+      <div class="signup-feedback" id="signupFeedback"></div>
+    </section>
+
+    <!-- =============================================================
+         FOOTER
+    ============================================================= -->
+    <footer class="footer">
+      <div>© 2026 Cameras Decoded. All rights reserved.</div>
+      <div class="socials">
+        <a href="https://www.youtube.com/@CamerasDecoded"><i class="fab fa-youtube"></i></a>
+        <a href="https://www.tiktok.com/@cameras.decoded"><i class="fab fa-tiktok"></i></a>
+        <a href="https://www.instagram.com/camerasdecoded/reels/"><i class="fab fa-instagram"></i></a>
+        <a href="https://www.facebook.com/profile.php?id=61553594660326"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://camerasdecoded.substack.com"><i class="fas fa-bookmark"></i></a>
+        <a href="https://podcasts.apple.com/us/podcast/cameras-decoded/idYOURID" target="_blank"><i class="fas fa-podcast"></i></a>
+      </div>
+      <div>© Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
+      <div class="footer-links" style="margin-bottom: 10px;">
+        <a href="roadmap.html">Roadmap</a> ·
+        <a href="blog-updates.html">Blog/Updates</a> ·
+        <a href="faq.html">FAQ</a> ·
+        <a href="contact.html">Contact</a> ·
+        <a href="podcast.html">Podcast</a>
+      </div>
+      <div class="footer-links">
+        <a href="terms.html">Privacy/Terms</a>
+        <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- ================================================================
+       SCRIPTS
+  ================================================================ -->
+
+  <!-- MOBILE TOGGLE (reused from index) -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const mobileToggle = document.getElementById('mobileToggle');
+      const floatingToggle = document.getElementById('floatingToggle');
+      const closeToggle = document.getElementById('closeToggle');
+      const overlay = document.getElementById('navGroupOverlay');
+
+      function openMenu() { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
+      function closeMenu() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
+
+      if (mobileToggle) {
+        mobileToggle.addEventListener('click', function(e) { e.stopPropagation(); openMenu(); });
+      }
+      if (floatingToggle) {
+        floatingToggle.addEventListener('click', function(e) { e.stopPropagation(); openMenu(); });
+      }
+      if (closeToggle) {
+        closeToggle.addEventListener('click', function(e) { e.stopPropagation(); closeMenu(); });
+      }
+      if (overlay) {
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) closeMenu(); });
+      }
+    });
+  </script>
+
+  <!-- SCROLL REVEAL (reused) -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const revealEls = document.querySelectorAll('.reveal-on-scroll');
+      const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) entry.target.classList.add('revealed');
+        });
+      }, { threshold: 0.15 });
+      revealEls.forEach(el => revealObserver.observe(el));
+    });
+  </script>
+
+  <!-- SCROLL TO TOP -->
+  <script>
+    window.onscroll = function() {
+      const btn = document.getElementById('scrollTopBtn');
+      if (!btn) return;
+      const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
+      if (show) {
+        btn.classList.add('show');
+        requestAnimationFrame(() => btn.classList.add('pulse'));
+      } else {
+        btn.classList.remove('show', 'pulse');
+      }
+    };
+  </script>
+
+  <!-- ================================================================
+       CYNETIS-7 CORE LOGIC
+  ================================================================ -->
+
+  <script>
+    // ---- CHAT DATA (per personality) ----
+    const chatData = {
+      operator: {
+        label: 'OPERATOR',
+        greeting: 'Welcome, Operator. I am Cynetis‑7. Let\'s decode your camera together.',
+        responses: {
+          exposure: 'Exposure is the foundation. Think of it as your camera\'s heartbeat — aperture, shutter, ISO. The Inner Signal Protocol 2 teaches you to feel it, not just calculate it.',
+          inner: 'The Inner Signal is a six‑framework system that replaces hesitation with intention. It\'s not a feature. It\'s the architecture of confidence. Protocol 1: The 3‑Second Reset.',
+          confidence: 'Confidence is not a personality trait — it\'s a protocol. I transmit it through repetition, through reframing, through the Invisible Director. Start with Protocol 4: I Belong Here.'
+        }
+      },
+      partner: {
+        label: 'PARTNER',
+        greeting: 'Partner. You\'re building something bigger. Let me show you how the Signal Network drives 30% fewer returns and higher accessory revenue.',
+        responses: {
+          exposure: 'Your customers don\'t need more specs. They need a system. The Decoder Atlas gives them instant protocols — and it reduces your support load by up to 25%.',
+          inner: 'The Inner Signal isn\'t just for individuals — it\'s a curriculum you can license. It\'s the difference between selling a camera and building a loyal operator.',
+          confidence: 'Confidence sells. When your customers feel capable, they buy accessories. They come back. The Signal Network is designed to drive that outcome.'
+        }
+      },
+      instructor: {
+        label: 'INSTRUCTOR',
+        greeting: 'Instructor. You teach. I transmit. Together, we build the next generation of operators. The curriculum is ready.',
+        responses: {
+          exposure: 'Most students over‑complicate exposure. I break it down into three pillars: light, time, and sensitivity. It\'s the most retaught concept in my logs.',
+          inner: 'The Inner Signal is the missing piece in camera education. It\'s not a technique — it\'s a psychology. I\'ve designed it to be taught, not just read.',
+          confidence: 'Confidence is teachable. Every protocol in the Inner Signal is a lesson. I\'ve already built the syllabus. You just deliver it.'
+        }
+      }
+    };
+
+    let currentMode = 'operator';
+    let isTyping = false;
+
+    // ---- SET MODE ----
+    function setMode(mode) {
+      if (isTyping) return;
+      currentMode = mode;
+
+      // Update tabs
+      document.querySelectorAll('.personality-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.mode === mode);
+      });
+
+      // Update avatar media class (changes border & shadow)
+      const avatar = document.getElementById('avatarMedia');
+      avatar.className = 'avatar-media mode-' + mode;
+      document.getElementById('modeLabel').textContent = chatData[mode].label;
+
+      // Reset chat
+      const window = document.getElementById('chatWindow');
+      window.innerHTML = `
+        <div class="chat-message">
+          <span class="sender">C7</span>
+          <span class="text" id="chatGreeting">${chatData[mode].greeting}</span>
+        </div>
+      `;
+    }
+
+    // ---- SEND CHAT ----
+    function sendChat(key) {
+      if (isTyping) return;
+      const data = chatData[currentMode];
+      const response = data.responses[key];
+      if (!response) return;
+
+      const window = document.getElementById('chatWindow');
+      const userText = {
+        exposure: 'Ask about exposure',
+        inner: 'What is Inner Signal?',
+        confidence: 'Tell me about confidence'
+      }[key] || '...';
+
+      // Add user message
+      const userMsg = document.createElement('div');
+      userMsg.className = 'chat-message';
+      userMsg.innerHTML = `<span class="sender user">YOU</span><span class="text">${userText}</span>`;
+      window.appendChild(userMsg);
+
+      // Scroll
+      window.scrollTop = window.scrollHeight;
+
+      // Add typing indicator
+      isTyping = true;
+      const typingMsg = document.createElement('div');
+      typingMsg.className = 'chat-message';
+      typingMsg.id = 'typingIndicator';
+      typingMsg.innerHTML = `<span class="sender">C7</span><span class="text"><span class="typing-cursor"></span></span>`;
+      window.appendChild(typingMsg);
+      window.scrollTop = window.scrollHeight;
+
+      // Simulate typing delay
+      const delay = 800 + Math.random() * 600;
+      setTimeout(() => {
+        // Remove typing indicator
+        const indicator = document.getElementById('typingIndicator');
+        if (indicator) indicator.remove();
+
+        // Add response
+        const respMsg = document.createElement('div');
+        respMsg.className = 'chat-message';
+        respMsg.innerHTML = `<span class="sender">C7</span><span class="text">${response}</span>`;
+        window.appendChild(respMsg);
+        window.scrollTop = window.scrollHeight;
+        isTyping = false;
+      }, delay);
+    }
+
+    // ---- COUNTDOWN TIMER ----
+    function updateCountdown() {
+      // Set target date: Q4 2026 => December 1, 2026
+      const target = new Date('2026-12-01T00:00:00');
+      const now = new Date();
+      const diff = Math.max(0, target - now);
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((diff / (1000 * 60)) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
+
+      document.getElementById('days').textContent = String(days).padStart(2, '0');
+      document.getElementById('hours').textContent = String(hours).padStart(2, '0');
+      document.getElementById('minutes').textContent = String(minutes).padStart(2, '0');
+      document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
+    }
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+
+    // ---- EMAIL SIGNUP ----
+    function handleSignup(e) {
+      e.preventDefault();
+      const email = document.getElementById('signupEmail').value.trim();
+      const feedback = document.getElementById('signupFeedback');
+
+      if (!email || !email.includes('@')) {
+        feedback.textContent = 'Please enter a valid email address.';
+        feedback.style.color = '#ff4444';
+        return;
+      }
+
+      // Store in localStorage for now
+      const subscribers = JSON.parse(localStorage.getItem('cynetis_subscribers') || '[]');
+      if (!subscribers.includes(email)) {
+        subscribers.push(email);
+        localStorage.setItem('cynetis_subscribers', JSON.stringify(subscribers));
+      }
+
+      feedback.textContent = '✓ You\'re on the list. The entity will transmit when ready.';
+      feedback.style.color = '#8deb00';
+      document.getElementById('signupEmail').value = '';
+    }
+
+    // ---- BINARY RAIN (reused) ----
+    (function() {
+      const canvas = document.getElementById('binary-rain');
+      const ctx = canvas.getContext('2d');
+      let width = window.innerWidth, height = window.innerHeight;
+      canvas.width = width; canvas.height = height;
+      const fontSize = 16;
+      const columns = Math.floor(width / fontSize);
+      const drops = Array(columns).fill(1);
+      const speed = 0.55;
+
+      function draw() {
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = fontSize + 'px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < drops.length; i++) {
+          const char = Math.random() > 0.5 ? '1' : '0';
+          const x = i * fontSize + fontSize / 2;
+          const y = drops[i] * fontSize;
+          if (char === '1') {
+            ctx.shadowColor = '#8deb00';
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = '#8deb00';
+          } else {
+            ctx.shadowColor = '#3a7a1a';
+            ctx.shadowBlur = 4;
+            ctx.fillStyle = '#4caf50';
+          }
+          ctx.fillText(char, x, y);
+          if (char === '1' && Math.random() < 0.025) {
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+          if (y > height && Math.random() > 0.97) { drops[i] = 0; }
+          drops[i] += speed;
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+      window.addEventListener('resize', () => {
+        width = window.innerWidth; height = window.innerHeight;
+        canvas.width = width; canvas.height = height;
+        const newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) {
+          drops.push(...Array(newColumns - drops.length).fill(1));
+        } else {
+          drops.length = newColumns;
+        }
+      });
+    })();
+
+    // ---- CART COUNTER (reused) ----
+    function getCart() {
+      return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
+    }
+    function updateCartUI() {
+      const cart = getCart();
+      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+      const countEl = document.getElementById('cartHeaderCount');
+      const labelEl = document.getElementById('cartHeaderLabel');
+      if (countEl) {
+        countEl.textContent = totalItems;
+        countEl.style.display = totalItems > 0 ? 'inline-block' : 'none';
+      }
+      if (labelEl) {
+        labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart';
+      }
+    }
+    updateCartUI();
+  </script>
+
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+
+  <!-- FIREBASE (optional – keep for consistency) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-init.js"></script>
+  <script>
+    const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
+    function removeDashboardLink() {
+      const existing = document.getElementById('dynamic-dashboard-node');
+      if (existing) existing.remove();
+    }
+    function insertDashboardLink() {
+      if (!homeNav) return;
+      removeDashboardLink();
+      const dashLink = document.createElement('a');
+      dashLink.id = 'dynamic-dashboard-node';
+      dashLink.className = 'nav-item';
+      dashLink.innerText = 'Dashboard';
+      dashLink.href = 'operator-dashboard.html';
+      homeNav.parentNode.insertBefore(dashLink, homeNav);
+    }
+    if (typeof auth !== 'undefined') {
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          localStorage.setItem('cameras_decoded_uid', user.uid);
+          insertDashboardLink();
+          if (db) {
+            db.collection('users').doc(user.uid).get().then((doc) => {
+              if (doc.exists) {
+                const role = doc.data().role || 'Operator';
+                const dash = document.getElementById('dynamic-dashboard-node');
+                if (dash) {
+                  if (role === 'Instructor') dash.href = 'instructor-dashboard.html';
+                  else if (role === 'Operator') dash.href = 'operator-dashboard.html';
+                  else if (role === 'Partner') dash.href = 'partner-dashboard.html';
+                }
+              }
+            }).catch(() => {});
+          }
+        } else {
+          localStorage.removeItem('cameras_decoded_uid');
+          removeDashboardLink();
+        }
+      });
+    }
+  </script>
+</body>
+</html>
