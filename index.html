@@ -44,24 +44,10 @@
       display: flex;
       min-height: 100vh;
       position: relative;
-      overflow-x: hidden; /* Fix mobile zoom-out misalignment */
+      overflow-x: hidden;
     }
 
-    /* ----- SCROLL PROGRESS BAR (throttled) ----- */
-    #scroll-progress-bar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 0%;
-      height: 3px;
-      background: linear-gradient(90deg, #8deb00, #00e5ff);
-      z-index: 9999;
-      box-shadow: 0 0 20px rgba(141, 235, 0, 0.4);
-      transition: width 0.05s linear;
-      will-change: width;
-    }
-
-    /* ----- BINARY RAIN CANVAS ----- */
+    /* ----- BINARY RAIN CANVAS (performance optimised) ----- */
     #binary-rain {
       position: fixed;
       top: 0;
@@ -71,6 +57,7 @@
       z-index: 0;
       pointer-events: none;
       opacity: 0.2;
+      will-change: transform; /* hint GPU */
     }
 
     /* ----- BOTTOM FADE OVERLAY ----- */
@@ -90,7 +77,7 @@
     .grey-text { color: #b4b4b4; }
     a { text-decoration: none; color: inherit; transition: 0.2s; }
 
-    /* --- DESKTOP SIDEBAR (unchanged) --- */
+    /* --- DESKTOP SIDEBAR --- */
     .sidebar {
       width: 240px;
       background: rgba(0,0,0,0.9);
@@ -176,7 +163,6 @@
       font-size: 13px;
       color: #b4b4b4;
       margin: 0 12px;
-      /* Fix centering on mobile: will be overridden below */
     }
     .floating-header a { color: #8deb00; transition: color 0.2s; }
     .floating-header a:hover { color: #a0f520; }
@@ -190,7 +176,7 @@
       align-items: center;
     }
 
-    /* ---- Chasing border (unchanged) ---- */
+    /* ---- Chasing border (pure GPU) ---- */
     @property --angle {
       syntax: '<angle>';
       initial-value: 0deg;
@@ -222,6 +208,7 @@
       animation: spinBorder 4s linear infinite;
       pointer-events: none;
       z-index: 0;
+      will-change: transform; /* GPU accelerate */
     }
     .chasing-border > *,
     .chasing-border i,
@@ -442,7 +429,7 @@
       box-shadow: 0 0 60px rgba(29, 179, 27, 0.25), inset 0 0 30px rgba(0,0,0,0.8);
       background-color: #000;
       overflow: hidden;
-      transition: transform 0.1s ease-out;
+      will-change: transform;
     }
     .globe-image {
       width: 100%;
@@ -577,6 +564,7 @@
         rgba(141, 235, 0, 0.015) 4px
       );
       animation: scanlineMove 8s linear infinite;
+      will-change: transform;
     }
     @keyframes scanlineMove {
       0% { transform: translateY(0); }
@@ -612,6 +600,7 @@
       transform: translate(-50%, -50%) scale(1);
       transform-origin: center center;
       box-sizing: border-box;
+      will-change: transform, opacity;
     }
     .pulse-ring.delay-1 { animation-delay: 0.8s; }
     .pulse-ring.delay-2 { animation-delay: 1.6s; }
@@ -709,7 +698,6 @@
         padding: 14px 28px;
         font-size: 15px;
       }
-      /* Keep the ring exactly sized to the button */
       .pulse-ring {
         width: calc(100% + 24px);
         height: calc(100% + 24px);
@@ -746,7 +734,7 @@
       cursor: pointer;
       transition: 0.2s;
       letter-spacing: 0.5px;
-      flex: 0 1 auto;  /* prevents stretching, keeps them in a row */
+      flex: 0 1 auto;
       white-space: nowrap;
     }
     .selector-tab:hover {
@@ -1094,7 +1082,6 @@
       .hero-globe-container { max-width: 280px; }
       .ticker { flex-direction: column; align-items: flex-start; }
 
-      /* FIX: Floating header centered on mobile */
       .floating-header {
         left: 10px !important;
         right: 10px !important;
@@ -1134,7 +1121,7 @@
       .hero-globe-container { max-width: 220px; }
     }
 
-    /* ---- MOBILE OVERLAY (unchanged) ---- */
+    /* ---- MOBILE OVERLAY ---- */
     .nav-group-overlay {
       display: none;
       position: fixed;
@@ -1237,9 +1224,6 @@
 </head>
 <body>
 
-  <!-- SCROLL PROGRESS BAR -->
-  <div id="scroll-progress-bar"></div>
-
   <!-- BINARY RAIN CANVAS -->
   <canvas id="binary-rain"></canvas>
   <div id="rain-fade"></div>
@@ -1323,7 +1307,7 @@
       <i class="fas fa-chevron-down"></i>
     </div>
 
-    <!-- ONBOARDING CTA (ORIGINAL SIZE) -->
+    <!-- ONBOARDING CTA -->
     <div class="onboarding-cta-wrapper reveal-on-scroll reveal-delay-1">
       <a href="onboarding.html" class="btn-onboarding">
         <span>Daily Protocol</span>
@@ -1351,7 +1335,7 @@
       </video>
     </div>
 
-    <!-- THREE PATHWAYS (tabs now in a row again) -->
+    <!-- THREE PATHWAYS -->
     <section class="reveal-on-scroll reveal-left">
       <div class="section-header"><h2>THREE PATHWAYS</h2></div>
       <p class="grey-text" style="margin-bottom:24px;">Every visitor has a door. Choose yours.</p>
@@ -1396,14 +1380,14 @@
       <div class="signal-scanline"></div>
     </section>
 
-    <!-- FOUNDING 200 (added more circles for seamless scroll) -->
+    <!-- FOUNDING 200 -->
     <div class="founding-wrapper reveal-on-scroll reveal-left">
       <div class="section-header"><h2>THE FOUNDING 200</h2></div>
       <div style="font-size:24px; font-weight:700; margin-bottom:4px; text-align:center;">200</div>
       <p class="grey-text" style="margin-bottom:24px; text-align:center;">Founding Decoder slots. First operators to activate the signal. Names permanently encoded in the guide.</p>
       <div class="founding-carousel">
         <div class="founding-track">
-          <!-- 20 circles (enough to fill twice the viewport width) -->
+          <!-- 20 circles for seamless loop -->
           <div class="founding-circle"><span>8</span></div>
           <div class="founding-circle"><span>8</span></div>
           <div class="founding-circle"><span>8</span></div>
@@ -1414,7 +1398,6 @@
           <div class="founding-circle"><span>8</span></div>
           <div class="founding-circle"><span>8</span></div>
           <div class="founding-circle"><span>8</span></div>
-          <!-- Duplicate for seamless loop -->
           <div class="founding-circle"><span>8</span></div>
           <div class="founding-circle"><span>8</span></div>
           <div class="founding-circle"><span>8</span></div>
@@ -1523,45 +1506,106 @@
     </footer>
   </main>
 
-  <!-- SCRIPTS (throttled animations, no jitter) -->
+  <!-- SCRIPTS (performance optimised) -->
   <script>
     // ============================================================
-    //  SCROLL PROGRESS BAR (throttled with requestAnimationFrame)
+    //  BINARY RAIN – draw every 2nd frame (30 fps) to reduce repaints
     // ============================================================
-    let ticking = false;
-    window.addEventListener('scroll', () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-          const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-          const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
-          document.getElementById('scroll-progress-bar').style.width = scrolled + '%';
-          ticking = false;
-        });
-        ticking = true;
+    (function() {
+      const canvas = document.getElementById('binary-rain');
+      const ctx = canvas.getContext('2d');
+
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+
+      const fontSize = 16;
+      const columns = Math.floor(width / fontSize);
+      const drops = Array(columns).fill(1);
+      const speed = 0.55;
+      let frameCount = 0;
+
+      function draw() {
+        frameCount++;
+        // Skip every other frame to halve the load
+        if (frameCount % 2 === 0) {
+          requestAnimationFrame(draw);
+          return;
+        }
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.font = fontSize + 'px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+
+        for (let i = 0; i < drops.length; i++) {
+          const char = Math.random() > 0.5 ? '1' : '0';
+          const x = i * fontSize + fontSize / 2;
+          const y = drops[i] * fontSize;
+
+          if (char === '1') {
+            ctx.shadowColor = '#8deb00';
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = '#8deb00';
+          } else {
+            ctx.shadowColor = '#3a7a1a';
+            ctx.shadowBlur = 4;
+            ctx.fillStyle = '#4caf50';
+          }
+
+          ctx.fillText(char, x, y);
+
+          if (char === '1' && Math.random() < 0.025) {
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+
+          if (y > height && Math.random() > 0.97) {
+            drops[i] = 0;
+          }
+          drops[i] += speed;
+        }
+        requestAnimationFrame(draw);
       }
-    });
+
+      draw();
+
+      window.addEventListener('resize', () => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        const newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) {
+          drops.push(...Array(newColumns - drops.length).fill(1));
+        } else {
+          drops.length = newColumns;
+        }
+      });
+    })();
 
     // ============================================================
-    //  PARALLAX ON HERO GLOBE (throttled)
+    //  PARALLAX – only update when scroll position changes > 2px
     // ============================================================
     const heroGlobe = document.getElementById('heroGlobe');
     if (heroGlobe) {
-      let parallaxTicking = false;
+      let lastScrollY = window.scrollY;
       window.addEventListener('scroll', () => {
-        if (!parallaxTicking) {
-          window.requestAnimationFrame(() => {
-            const scrollY = window.scrollY;
-            const heroSection = document.getElementById('heroSection');
-            if (!heroSection) { parallaxTicking = false; return; }
-            const rect = heroSection.getBoundingClientRect();
-            if (rect.bottom > 0 && rect.top < window.innerHeight) {
-              const offset = scrollY * 0.06;
-              heroGlobe.style.transform = `translateY(${offset}px)`;
-            }
-            parallaxTicking = false;
-          });
-          parallaxTicking = true;
+        const currentScroll = window.scrollY;
+        if (Math.abs(currentScroll - lastScrollY) < 2) return; // skip tiny changes
+        lastScrollY = currentScroll;
+        const heroSection = document.getElementById('heroSection');
+        if (!heroSection) return;
+        const rect = heroSection.getBoundingClientRect();
+        if (rect.bottom > 0 && rect.top < window.innerHeight) {
+          const offset = currentScroll * 0.06;
+          heroGlobe.style.transform = `translateY(${offset}px)`;
         }
       });
     }
@@ -1770,79 +1814,6 @@
       setTimeout(typeEffect, 800);
     })();
 
-    // ============================================================
-    //  BINARY RAIN
-    // ============================================================
-    (function() {
-      const canvas = document.getElementById('binary-rain');
-      const ctx = canvas.getContext('2d');
-
-      let width = window.innerWidth;
-      let height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
-
-      const fontSize = 16;
-      const columns = Math.floor(width / fontSize);
-      const drops = Array(columns).fill(1);
-      const speed = 0.55;
-
-      function draw() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-        ctx.fillRect(0, 0, width, height);
-
-        ctx.font = fontSize + 'px "Space Mono", monospace';
-        ctx.textAlign = 'center';
-
-        for (let i = 0; i < drops.length; i++) {
-          const char = Math.random() > 0.5 ? '1' : '0';
-          const x = i * fontSize + fontSize / 2;
-          const y = drops[i] * fontSize;
-
-          if (char === '1') {
-            ctx.shadowColor = '#8deb00';
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = '#8deb00';
-          } else {
-            ctx.shadowColor = '#3a7a1a';
-            ctx.shadowBlur = 4;
-            ctx.fillStyle = '#4caf50';
-          }
-
-          ctx.fillText(char, x, y);
-
-          if (char === '1' && Math.random() < 0.025) {
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-          }
-
-          if (y > height && Math.random() > 0.97) {
-            drops[i] = 0;
-          }
-          drops[i] += speed;
-        }
-        requestAnimationFrame(draw);
-      }
-
-      draw();
-
-      window.addEventListener('resize', () => {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        canvas.width = width;
-        canvas.height = height;
-        const newColumns = Math.floor(width / fontSize);
-        if (newColumns > drops.length) {
-          drops.push(...Array(newColumns - drops.length).fill(1));
-        } else {
-          drops.length = newColumns;
-        }
-      });
-    })();
   </script>
 
   <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
