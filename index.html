@@ -298,16 +298,26 @@
     .floating-toggle:hover { color: #a0f520; }
 
     /* ================================================================
-       TYPEWRITER – DYNAMIC HEIGHT (adjusts with text)
+       TYPEWRITER – FIXED HEIGHT (video stays put)
     ================================================================ */
     .typewriter-wrapper {
       text-align: center;
-      padding: 20px 20px 15px;
+      padding: 10px 20px 15px;
       max-width: 1000px;
       margin: 0 auto;
       position: relative;
       z-index: 2;
-      transition: padding 0.2s ease;
+      /* A TRUE fixed height (not min-height) sized for the tallest possible
+         two-line wrap across the phrase rotation. min-height only sets a
+         floor — it still lets the box grow taller when a longer phrase
+         wraps to a second line, which is what was pushing the video below
+         it up and down. A fixed height + overflow:hidden makes that
+         physically impossible regardless of which phrase is showing. */
+      height: clamp(150px, 24vh, 260px);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .typewriter-headline {
       font-family: 'Montserrat', sans-serif;
@@ -317,7 +327,7 @@
       letter-spacing: -0.04em;
       color: #fff;
       text-shadow: 0 2px 40px rgba(0,0,0,0.3);
-      /* REMOVED min-height so it collapses/expands naturally */
+      /* Reduced min-height so it's centered within the wrapper */
     }
     .typewriter-headline .highlight {
       background: linear-gradient(135deg, #8deb00 0%, #00e5ff 75%);
@@ -346,7 +356,30 @@
       50% { opacity: 0; }
     }
 
-    /* --- HERO (adjusts with typewriter height) --- */
+    /* --- SCROLL CUE (fills the whitespace gap, points toward the brand video below) --- */
+    .scroll-cue {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 50px 0;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      opacity: 0.75;
+    }
+    .scroll-cue i {
+      font-size: 18px;
+      animation: scrollBounce 1.8s ease-in-out infinite;
+    }
+    @keyframes scrollBounce {
+      0%, 100% { transform: translateY(0); opacity: 0.5; }
+      50% { transform: translateY(8px); opacity: 1; }
+    }
+
+    /* --- HERO (no shifting) --- */
     .hero {
       display: flex;
       flex-direction: column;
@@ -354,7 +387,6 @@
       text-align: center;
       margin-top: 0;
       margin-bottom: var(--space-lg);
-      transition: margin-top 0.3s ease;
     }
     .hero-globe-container {
       width: 100%;
@@ -426,6 +458,7 @@
     .hero h1 { font-size: 32px; margin: 8px 0; }
     .hero .subtitle { font-size: 15px; color: #b4b4b4; }
 
+    /* ----- Brand Explainer Video – FIXED POSITION ----- */
     .hero-spread {
       width: 100%;
       margin-bottom: var(--space-lg);
@@ -434,7 +467,7 @@
       border: 1px solid #1A1A1A;
       background: #0F0F0F;
       display: flex;
-      transition: margin-top 0.3s ease;
+      /* No margin-top shifting; stays fixed */
     }
 
     /* --- ONBOARDING CTA --- */
@@ -950,6 +983,17 @@
       .typewriter-headline {
         font-size: clamp(2.2rem, 7vw, 3.5rem);
       }
+      .typewriter-wrapper {
+        min-height: clamp(80px, 14vh, 120px);
+        padding: 8px 16px 10px;
+      }
+    }
+
+    @media (max-width: 500px) {
+      .typewriter-wrapper {
+        min-height: 80px;
+        padding: 6px 12px 8px;
+      }
     }
 
     /* ---- MOBILE OVERLAY ---- */
@@ -1135,7 +1179,7 @@
   <main class="main-content">
 
     <!-- ================================================================
-         TYPEWRITER – DYNAMIC HEIGHT (adjusts with text)
+         TYPEWRITER – FIXED HEIGHT (video stays put)
     ================================================================ -->
     <div class="typewriter-wrapper reveal-on-scroll">
       <h1 class="typewriter-headline">
@@ -1157,7 +1201,13 @@
       <div class="subtitle">Transmitted by Cynetis‑7 · Built by the Signal Keeper</div>
     </div>
 
-    <!-- Brand Explainer Video -->
+    <!-- Scroll cue — the whitespace + lead-the-eye affordance toward the brand video -->
+    <div class="scroll-cue">
+      <span>See the signal in motion</span>
+      <i class="fas fa-chevron-down"></i>
+    </div>
+
+    <!-- Brand Explainer Video – FIXED, NO JUMPING -->
     <div class="hero-spread">
       <video src="brand-explainer-1080.mp4" poster="video-poster.jpg" controls>
         <p style="color:#b4b4b4; padding:20px; text-align:center; font-family:'Space Mono',monospace;">
@@ -1494,7 +1544,7 @@
       }
     });
 
-    // ===== TYPEWRITER EFFECT (webAI style) =====
+    // ===== TYPEWRITER EFFECT =====
     (function() {
       const phrases = [
         'not a personality trait.',
