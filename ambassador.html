@@ -14,7 +14,7 @@
   <meta property="og:type" content="website">
 
   <style>
-    /* ========== GLOBAL STYLES (preserved from original) ========== */
+    /* ========== GLOBAL STYLES (preserved) ========== */
     :root {
       --space-sm: 12px;
       --space-md: 24px;
@@ -237,7 +237,32 @@
     .rank-2 { color: #c0c0c0; }
     .rank-3 { color: #cd7f32; }
     .medal { margin-right: 4px; }
-    .tier-badge { display: inline-block; padding: 2px 12px; border-radius: 20px; background: rgba(141,235,0,0.1); border: 1px solid #8deb00; color: #8deb00; font-family: 'Space Mono', monospace; font-size: 11px; }
+
+    /* ----- COLOR‑CODED TIER BADGES ----- */
+    .tier-badge {
+      display: inline-block;
+      padding: 2px 12px;
+      border-radius: 20px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      border: 1px solid;
+    }
+    .tier-badge.signal-creator {
+      background: rgba(0, 130, 255, 0.1);
+      border-color: #0082ff;
+      color: #0082ff;
+    }
+    .tier-badge.operator-creator {
+      background: rgba(141, 235, 0, 0.1);
+      border-color: #8deb00;
+      color: #8deb00;
+    }
+    .tier-badge.transmission-elite {
+      background: rgba(255, 85, 40, 0.1);
+      border-color: #ff5528;
+      color: #ff5528;
+    }
+
     .earnings-cell { font-family: 'Space Mono', monospace; color: #8deb00; font-weight: 700; }
     .leaderboard-cta { text-align: center; margin-top: 20px; font-size: 14px; color: #b4b4b4; }
 
@@ -685,6 +710,13 @@
     }
 
     // --- LEADERBOARD (Firestore) ---
+    function getTierClass(tierName) {
+      if (tierName === 'Signal Creator') return 'signal-creator';
+      if (tierName === 'Operator Creator') return 'operator-creator';
+      if (tierName === 'Transmission Elite') return 'transmission-elite';
+      return '';
+    }
+
     function renderLeaderboard(ambassadors) {
       const container = document.getElementById('leaderboardContainer');
       if (!ambassadors || ambassadors.length === 0) {
@@ -713,11 +745,12 @@
         if (rank === 1) { rankClass = 'rank-1'; medal = '🥇'; }
         else if (rank === 2) { rankClass = 'rank-2'; medal = '🥈'; }
         else if (rank === 3) { rankClass = 'rank-3'; medal = '🥉'; }
+        const tierClass = getTierClass(amb.tier || '');
         html += `
           <tr>
             <td class="rank-cell ${rankClass}">${medal} ${rank}</td>
             <td>${amb.name || 'Operator'}</td>
-            <td><span class="tier-badge">${amb.tier || 'Signal Creator'}</span></td>
+            <td><span class="tier-badge ${tierClass}">${amb.tier || 'Signal Creator'}</span></td>
             <td class="earnings-cell">$${(amb.earnings || 0).toFixed(0)}</td>
           </tr>
         `;
@@ -726,46 +759,20 @@
       container.innerHTML = html;
     }
 
-    // Seed test data if collection is empty
-    async function seedLeaderboard() {
-      if (typeof db === 'undefined') return;
-      const snapshot = await db.collection('ambassadors').limit(1).get();
-      if (!snapshot.empty) return;
-      const batch = db.batch();
-      const sampleAmbassadors = [
-        { name: "Alex Rivera", tier: "Operator Creator", earnings: 847 },
-        { name: "Jamie Chen", tier: "Signal Creator", earnings: 412 },
-        { name: "Morgan Blake", tier: "Transmission Elite", earnings: 1200 },
-        { name: "Taylor Kim", tier: "Operator Creator", earnings: 765 },
-        { name: "Jordan Miles", tier: "Signal Creator", earnings: 220 },
-        { name: "Casey Smith", tier: "Transmission Elite", earnings: 1580 },
-        { name: "Riley Peters", tier: "Operator Creator", earnings: 630 },
-        { name: "Quinn Anderson", tier: "Signal Creator", earnings: 95 },
-      ];
-      sampleAmbassadors.forEach(data => {
-        const docRef = db.collection('ambassadors').doc();
-        batch.set(docRef, data);
-      });
-      await batch.commit();
-      console.log('Leaderboard seeded with test data');
-    }
-
-    // Start listening after seeding check
+    // Start listening (data already imported manually)
     if (typeof db !== 'undefined') {
-      seedLeaderboard().then(() => {
-        db.collection('ambassadors')
-          .orderBy('earnings', 'desc')
-          .onSnapshot((snapshot) => {
-            const ambassadors = [];
-            snapshot.forEach(doc => {
-              ambassadors.push({ id: doc.id, ...doc.data() });
-            });
-            renderLeaderboard(ambassadors);
-          }, (error) => {
-            console.error('Leaderboard error:', error);
-            document.getElementById('leaderboardContainer').innerHTML = '<p style="color:#666; text-align:center;">Could not load leaderboard.</p>';
+      db.collection('ambassadors')
+        .orderBy('earnings', 'desc')
+        .onSnapshot((snapshot) => {
+          const ambassadors = [];
+          snapshot.forEach(doc => {
+            ambassadors.push({ id: doc.id, ...doc.data() });
           });
-      });
+          renderLeaderboard(ambassadors);
+        }, (error) => {
+          console.error('Leaderboard error:', error);
+          document.getElementById('leaderboardContainer').innerHTML = '<p style="color:#666; text-align:center;">Could not load leaderboard.</p>';
+        });
     } else {
       document.getElementById('leaderboardContainer').innerHTML = '<p style="color:#666; text-align:center;">Leaderboard will be available soon.</p>';
     }
