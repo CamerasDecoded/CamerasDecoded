@@ -16,6 +16,8 @@
       --card-bg: rgba(15, 15, 15, 0.85);
       --border: #1A1A1A;
       --text-muted: #b4b4b4;
+      --gold: #e0b12d;
+      --gold-glow: rgba(224, 177, 45, 0.3);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -35,7 +37,7 @@
       overflow-x: hidden;
     }
 
-    /* ---- Particles canvas (floating dots, not binary rain) ---- */
+    /* ---- Particles canvas (floating dots) ---- */
     #particles {
       position: fixed;
       top: 0;
@@ -58,9 +60,10 @@
       backdrop-filter: blur(4px);
       animation: fadeSlide 0.6s ease forwards;
       border: 3px solid transparent;
+      min-height: 360px;
     }
 
-    /* ---- Chasing light border (your custom sizes) ---- */
+    /* ---- Chasing light border ---- */
     @property --angle {
       syntax: '<angle>';
       initial-value: 0deg;
@@ -70,9 +73,9 @@
     .login-wrapper::before {
       content: '';
       position: absolute;
-      inset: -0.7px;          /* your inset */
-      border-radius: 24.7px;   /* 24 + 0.7 */
-      padding: 0.7px;          /* border thickness */
+      inset: -0.7px;
+      border-radius: 24.7px;
+      padding: 0.7px;
       background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
       -webkit-mask: 
         linear-gradient(black, black) content-box,
@@ -125,7 +128,7 @@
     .input-group input {
       width: 100%;
       padding: 12px 16px;
-      background: #0F0F0F;   /* solid */
+      background: #0F0F0F;
       border: 1px solid var(--border);
       border-radius: 10px;
       color: #fff;
@@ -190,9 +193,93 @@
     .back-link:hover {
       color: var(--green);
     }
-
     .back-link i {
       margin-right: 6px;
+    }
+
+    /* ---- Role Selection (hidden by default) ---- */
+    #roleSelection {
+      display: none;
+      animation: fadeSlide 0.4s ease forwards;
+    }
+    #roleSelection h2 {
+      font-family: 'Space Mono', monospace;
+      font-size: 20px;
+      color: var(--green);
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    #roleSelection p.sub {
+      color: var(--text-muted);
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin: 12px 0 20px;
+      perspective: 1200px;
+    }
+    .role-card {
+      background: #0F0F0F;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: var(--text-muted);
+      transform-style: preserve-3d;
+      transform: rotateY(0deg) scale(1);
+    }
+    .role-card i {
+      font-size: 28px;
+      color: #555;
+      margin-bottom: 6px;
+      transition: 0.3s;
+    }
+    .role-card h4 {
+      font-family: 'Space Mono', monospace;
+      font-size: 15px;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    .role-card p {
+      font-size: 11px;
+      line-height: 1.3;
+      color: var(--text-muted);
+    }
+    .role-card:hover {
+      border-color: var(--green);
+      transform: rotateY(5deg) scale(1.02);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+    .role-card.selected {
+      border-color: var(--green);
+      background: var(--green-dim);
+      box-shadow: 0 0 30px rgba(141, 235, 0, 0.06);
+    }
+    .role-card.selected i {
+      color: var(--green);
+    }
+    /* Highlight the most common choice (Operator) with gold glow */
+    .role-card.operator-highlight {
+      border-color: var(--gold);
+      box-shadow: 0 0 30px var(--gold-glow), inset 0 0 30px var(--gold-glow);
+    }
+    .role-card.operator-highlight:hover {
+      box-shadow: 0 0 50px var(--gold-glow), inset 0 0 50px var(--gold-glow);
+    }
+    @media (max-width: 500px) {
+      .role-grid {
+        grid-template-columns: 1fr;
+        perspective: none;
+      }
+      .role-card:hover {
+        transform: none;
+      }
     }
 
     /* ---- Toast notifications ---- */
@@ -244,31 +331,41 @@
 </head>
 <body>
 
-  <!-- Particles Canvas (floating dots, not binary rain) -->
   <canvas id="particles"></canvas>
 
-  <!-- Main Login Card -->
   <div class="login-wrapper">
-    <h1>LOGIN</h1>
-    <form id="loginForm">
-      <div class="input-group">
-        <label>Email Address</label>
-        <input type="email" id="email" placeholder="you@example.com" required>
+    <!-- Login Form -->
+    <div id="loginFormContainer">
+      <h1>LOGIN</h1>
+      <form id="loginForm">
+        <div class="input-group">
+          <label>Email Address</label>
+          <input type="email" id="email" placeholder="you@example.com" required>
+        </div>
+        <div class="input-group">
+          <label>Password</label>
+          <input type="password" id="password" placeholder="Enter your password" required>
+        </div>
+        <button type="submit" class="btn-login">Access Dashboard</button>
+        <div id="errorMsg" class="error-msg">Invalid email or password.</div>
+      </form>
+      <a href="signup.html" class="back-link"><i class="fas fa-arrow-left"></i> No account? Sign Up</a>
+      <a href="https://camerasdecoded.com" style="display:block; margin-top: 16px; color: var(--text-muted); font-size: 12px; text-decoration: none; font-family: 'Space Mono', monospace; transition: color 0.2s; text-align:center; position:relative; z-index:3;">
+        <i class="fas fa-home"></i> Return to Cameras Decoded
+      </a>
+    </div>
+
+    <!-- Role Selection (hidden initially) -->
+    <div id="roleSelection">
+      <h2>Choose Your Dashboard</h2>
+      <p class="sub">You have multiple roles. Select which one you'd like to access.</p>
+      <div class="role-grid" id="roleGrid">
+        <!-- Cards will be inserted dynamically -->
       </div>
-      <div class="input-group">
-        <label>Password</label>
-        <input type="password" id="password" placeholder="Enter your password" required>
-      </div>
-      <button type="submit" class="btn-login">Access Dashboard</button>
-      <div id="errorMsg" class="error-msg">Invalid email or password.</div>
-    </form>
-    <a href="signup.html" class="back-link"><i class="fas fa-arrow-left"></i> No account? Sign Up</a>
-    <a href="https://camerasdecoded.com" style="display:block; margin-top: 16px; color: var(--text-muted); font-size: 12px; text-decoration: none; font-family: 'Space Mono', monospace; transition: color 0.2s; text-align:center; position:relative; z-index:3;">
-      <i class="fas fa-home"></i> Return to Cameras Decoded
-    </a>
+      <a href="#" class="back-link" onclick="showLoginForm()" style="margin-top:8px;"><i class="fas fa-arrow-left"></i> Back to Login</a>
+    </div>
   </div>
 
-  <!-- Toast Container -->
   <div id="cd-toast-container"></div>
 
   <!-- Toast helper -->
@@ -311,55 +408,142 @@
       const auth = firebase.auth();
       const db = firebase.firestore();
 
+      // DOM refs
+      const loginForm = document.getElementById('loginForm');
+      const loginContainer = document.getElementById('loginFormContainer');
+      const roleSelection = document.getElementById('roleSelection');
+      const roleGrid = document.getElementById('roleGrid');
+      const errorMsg = document.getElementById('errorMsg');
+
+      // Helper to show/hide sections
+      function showLoginForm() {
+        loginContainer.style.display = 'block';
+        roleSelection.style.display = 'none';
+      }
+      function showRoleSelection() {
+        loginContainer.style.display = 'none';
+        roleSelection.style.display = 'block';
+      }
+
+      // Store user data in localStorage
+      function storeUserData(userData) {
+        localStorage.setItem('cameras_decoded_user', JSON.stringify(userData));
+      }
+
+      // Redirect to dashboard based on selected role
+      function redirectToDashboard(role, uid) {
+        let url = '';
+        if (role === 'Operator') url = 'operator-dashboard.html';
+        else if (role === 'Instructor') url = 'instructor-dashboard.html';
+        else url = 'partner-dashboard.html'; // Partner default
+        // Check for redirect param from query string
+        const params = new URLSearchParams(window.location.search);
+        const redirectUrl = params.get('redirect');
+        if (redirectUrl) {
+          try {
+            const destUrl = new URL(decodeURIComponent(redirectUrl));
+            destUrl.searchParams.set('opToken', uid);
+            window.location.href = destUrl.toString();
+            return;
+          } catch (e) {
+            window.location.href = decodeURIComponent(redirectUrl);
+            return;
+          }
+        }
+        window.location.href = url;
+      }
+
       // --- Login Form Submit ---
-      document.getElementById('loginForm').addEventListener('submit', (e) => {
+      loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const error = document.getElementById('errorMsg');
-        let loggedInUid = null;
+        errorMsg.style.display = 'none';
 
         auth.signInWithEmailAndPassword(email, password)
           .then((userCredential) => {
-            error.style.display = 'none';
-            loggedInUid = userCredential.user.uid;
-            return db.collection('users').doc(loggedInUid).get();
-          })
-          .then((doc) => {
-            // Check for redirect parameter
-            const params = new URLSearchParams(window.location.search);
-            const redirectUrl = params.get('redirect');
-            if (redirectUrl) {
-              try {
-                const destUrl = new URL(decodeURIComponent(redirectUrl));
-                destUrl.searchParams.set('opToken', loggedInUid);
-                window.location.href = destUrl.toString();
-              } catch (e) {
-                window.location.href = decodeURIComponent(redirectUrl);
+            const uid = userCredential.user.uid;
+            return db.collection('users').doc(uid).get().then((doc) => {
+              if (!doc.exists) {
+                throw new Error('User data not found.');
               }
-              return;
-            }
+              const data = doc.data();
+              // Build user data object
+              const userData = {
+                uid: uid,
+                name: data.name || '',
+                email: data.email || email,
+                username: data.username || '',
+                role: data.role || 'Partner',
+                roles: data.roles || [data.role || 'Partner'],
+                // include other fields if needed
+                ...data
+              };
+              // Store full user data
+              storeUserData(userData);
 
-            if (doc.exists) {
-              const userRole = doc.data().role || 'Partner';
-              if(userRole === 'Instructor') {
-                window.location.href = 'instructor-dashboard.html';
-              } else if(userRole === 'Operator') {
-                window.location.href = 'operator-dashboard.html';
+              // Determine available roles
+              let availableRoles = [];
+              if (userData.roles && Array.isArray(userData.roles) && userData.roles.length > 0) {
+                availableRoles = userData.roles;
+              } else if (userData.role) {
+                availableRoles = [userData.role];
               } else {
-                window.location.href = 'partner-dashboard.html';
+                availableRoles = ['Partner']; // fallback
               }
-            } else {
-              cdToast('Account data not found. Please contact support.', 'error');
-            }
+              // Remove duplicates and sort
+              availableRoles = [...new Set(availableRoles)];
+
+              if (availableRoles.length === 1) {
+                // Single role → redirect immediately
+                redirectToDashboard(availableRoles[0], uid);
+              } else {
+                // Multiple roles → show selection
+                showRoleSelection();
+                populateRoleCards(availableRoles, uid);
+              }
+            });
           })
           .catch((err) => {
-            error.style.display = 'block';
-            error.innerText = err.message;
+            errorMsg.style.display = 'block';
+            errorMsg.innerText = err.message;
           });
       });
 
-      // --- Particles (floating dots, same as signup) ---
+      // --- Populate role cards ---
+      function populateRoleCards(roles, uid) {
+        roleGrid.innerHTML = '';
+        const roleIcons = {
+          'Operator': 'fa-camera',
+          'Partner': 'fa-store',
+          'Instructor': 'fa-chalkboard-teacher'
+        };
+        const roleDescriptions = {
+          'Operator': 'For photographers & videographers',
+          'Partner': 'For stores & training programs',
+          'Instructor': 'For working photographers who teach'
+        };
+        // Highlight the most common: Operator
+        roles.forEach(role => {
+          const card = document.createElement('div');
+          card.className = 'role-card' + (role === 'Operator' ? ' operator-highlight' : '');
+          card.innerHTML = `
+            <i class="fas ${roleIcons[role] || 'fa-user'}"></i>
+            <h4>${role}</h4>
+            <p>${roleDescriptions[role] || ''}</p>
+          `;
+          card.addEventListener('click', () => {
+            // Store selected role in user data
+            const userData = JSON.parse(localStorage.getItem('cameras_decoded_user') || '{}');
+            userData.selectedRole = role;
+            storeUserData(userData);
+            redirectToDashboard(role, uid);
+          });
+          roleGrid.appendChild(card);
+        });
+      }
+
+      // --- Particles (floating dots) ---
       (function() {
         const canvas = document.getElementById('particles');
         const ctx = canvas.getContext('2d');
@@ -407,6 +591,9 @@
         animate();
       })();
 
+      // If already logged in, redirect? We'll let the page handle it.
+      // But if user is already authenticated and comes to login page, we could auto-redirect,
+      // but we want them to choose role if multiple. We'll not auto-redirect.
     });
   </script>
 </body>
