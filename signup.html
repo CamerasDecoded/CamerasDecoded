@@ -2846,7 +2846,7 @@
         }
 
         // ========================
-        //  FIREBASE ACTIVATION — FIXED with referral system
+        //  FIREBASE ACTIVATION — with referral counting
         // ========================
         window.activateSignal = function() {
             const btn = document.getElementById('activateBtn');
@@ -2898,12 +2898,10 @@
             if (!referralCode || referralCode.length < 3) {
                 referralCode = Math.random().toString(36).substring(2, 8);
             }
-            // (Optional: we could check uniqueness later via Cloud Function)
             userData.referralCode = referralCode;
             if (referredBy) {
                 userData.referredBy = referredBy;
             }
-            // Add default referral stats
             userData.totalReferrals = 0;
             userData.totalCommissionEarned = 0;
             userData.ambassadorTier = 'signal'; // default for operators
@@ -2966,8 +2964,39 @@
                     return cred.user.updateProfile({ displayName: name }).then(() => cred.user);
                 })
                 .then(user => {
+                    // Save user document
                     return db.collection('users').doc(user.uid).set(userData)
                         .then(() => user);
+                })
+                .then(user => {
+                    // ---- Create referralCodes document (so others can find this user) ----
+                    return db.collection('referralCodes').doc(referralCode).set({
+                        uid: user.uid,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }).then(() => user);
+                })
+                .then(user => {
+                    // ---- If referredBy exists, increment referrer's totalReferrals ----
+                    if (referredBy) {
+                        // Look up the referrer's UID using the referral code
+                        return db.collection('referralCodes').doc(referredBy).get()
+                            .then(doc => {
+                                if (doc.exists) {
+                                    const referrerUid = doc.data().uid;
+                                    // Increment referrer's totalReferrals
+                                    return db.collection('users').doc(referrerUid).update({
+                                        totalReferrals: firebase.firestore.FieldValue.increment(1)
+                                    });
+                                } else {
+                                    // Invalid referral code – just log and ignore
+                                    console.warn('Invalid referral code:', referredBy);
+                                    return Promise.resolve();
+                                }
+                            })
+                            .then(() => user);
+                    } else {
+                        return user;
+                    }
                 })
                 .then(user => {
                     // Success - show referral link
@@ -2977,7 +3006,7 @@
                     // Display referral link
                     const linkEl = document.getElementById('newReferralLink');
                     if (linkEl) {
-                        linkEl.textContent = `camerasdecoded.com/ref/${userData.referralCode}`;
+                        linkEl.textContent = `camerasdecoded.com/ref/${referralCode}`;
                     }
                     // Clear referral from localStorage
                     localStorage.removeItem('signup_referral');

@@ -275,7 +275,7 @@
       margin-top: 2px;
     }
 
-    /* ----- PROFILE SECTION (new) ----- */
+    /* ----- PROFILE SECTION ----- */
     .profile-section {
       background: #0A0A0A;
       border: 1px solid #1A1A1A;
@@ -397,6 +397,100 @@
       background: #8deb00;
       border-radius: 2px;
       transition: width 0.6s ease;
+    }
+
+    /* ----- COMMISSION HISTORY ----- */
+    .commission-section {
+      background: #0A0A0A;
+      border: 1px solid #1A1A1A;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 30px;
+    }
+    .commission-section .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .commission-section .header h3 {
+      font-family: 'Space Mono', monospace;
+      color: #8deb00;
+      font-size: 18px;
+    }
+    .commission-section .header .test-btn {
+      padding: 6px 16px;
+      background: transparent;
+      border: 1px solid #e0b12d;
+      border-radius: 20px;
+      color: #e0b12d;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .commission-section .header .test-btn:hover {
+      background: rgba(224,177,45,0.1);
+      box-shadow: 0 0 20px rgba(224,177,45,0.2);
+    }
+    .commission-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .commission-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: #0F0F0F;
+      border-radius: 6px;
+      border-left: 3px solid #8deb00;
+      font-size: 14px;
+    }
+    .commission-item .left .name {
+      color: #fff;
+      font-weight: 500;
+    }
+    .commission-item .left .date {
+      color: #666;
+      font-size: 12px;
+      font-family: 'Space Mono', monospace;
+    }
+    .commission-item .right .amount {
+      color: #8deb00;
+      font-weight: 700;
+    }
+    .commission-item .right .status {
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      padding: 2px 10px;
+      border-radius: 12px;
+      margin-left: 10px;
+    }
+    .commission-item .right .status.pending {
+      background: rgba(255,170,0,0.12);
+      color: #ffaa00;
+      border: 1px solid rgba(255,170,0,0.2);
+    }
+    .commission-item .right .status.paid {
+      background: rgba(141,235,0,0.12);
+      color: #8deb00;
+      border: 1px solid rgba(141,235,0,0.2);
+    }
+    .commission-item .right .status.failed {
+      background: rgba(255,68,68,0.12);
+      color: #ff4444;
+      border: 1px solid rgba(255,68,68,0.2);
+    }
+    .commission-empty {
+      color: #666;
+      font-size: 13px;
+      font-style: italic;
+      padding: 10px 0;
+      text-align: center;
     }
 
     .section-header {
@@ -755,6 +849,8 @@
       .profile-section { grid-template-columns: 1fr 1fr; }
       .referral-section .row { flex-direction: column; align-items: stretch; }
       .referral-section .stats { justify-content: space-around; }
+      .commission-section .header { flex-direction: column; align-items: stretch; }
+      .commission-item { flex-direction: column; align-items: flex-start; gap: 6px; }
       .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; border-radius: 25px; gap: 10px; }
       .floating-nav-links { gap: 12px; }
       #cartHeaderLabel { display: none; }
@@ -990,6 +1086,17 @@
       </div>
     </div>
 
+    <!-- ===== COMMISSION HISTORY ===== -->
+    <div class="commission-section" id="commissionSection">
+      <div class="header">
+        <h3><i class="fas fa-coin" style="color:#8deb00; margin-right:8px;"></i>Commission History</h3>
+        <button class="test-btn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
+      </div>
+      <div class="commission-list" id="commissionList">
+        <div class="commission-empty">No commissions yet. Earn commissions when people buy through your referral link.</div>
+      </div>
+    </div>
+
     <!-- PROTOCOL LIBRARY -->
     <div class="section-header">
       <h2><i class="fas fa-book-open" style="color:#8deb00; margin-right:8px;"></i>My Protocol Library</h2>
@@ -1156,9 +1263,27 @@
     updateCartUI();
 
     // ============================================================
-    //  FIREBASE + DASHBOARD LOGIC
+    //  FIREBASE + DASHBOARD LOGIC (with commission history & test)
     // ============================================================
-    // ----- Hardcoded protocol library (will be replaced by Firestore later) -----
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    let userDocRef = null;
+
+    // ============================================================
+    //  PROTOCOL LIBRARY (hardcoded – replace with Firestore later)
+    // ============================================================
     const PROTOCOL_LIBRARY = [
       { id: 'proto_001', title: 'Mastering Real Estate HDR', genre: 'real-estate', type: 'video', description: 'Learn to shoot interior HDR with confidence using your camera\'s bracketing modes.', brand: 'Sony' },
       { id: 'proto_002', title: 'Street Photography: Zone Focus', genre: 'street', type: 'guide', description: 'Pre‑focus and capture decisive moments without hesitation.', brand: 'Canon' },
@@ -1200,7 +1325,7 @@
     };
     function getCommunityLink(slug) { return `https://camerasdecoded.com/community.html#${slug}`; }
 
-    // ----- Render helpers (same as before) -----
+    // ----- Render helpers -----
     function renderItemList(containerId, items, map, linkFn, emptyMsg) {
       const container = document.getElementById(containerId);
       if (!container) return;
@@ -1279,10 +1404,7 @@
       container.innerHTML = html;
     }
 
-    // ----- Firestore operations -----
-    let currentUser = null;
-    let userDocRef = null;
-
+    // ----- Firestore operations (saved content) -----
     function saveProtocol(protocolId) {
       if (!userDocRef) return;
       userDocRef.update({ savedProtocols: firebase.firestore.FieldValue.arrayUnion(protocolId) })
@@ -1329,7 +1451,7 @@
       if (plan) badge.textContent = plan + ' ● Active';
     }
 
-    // ----- Update referral section (for Operators) -----
+    // ----- Update referral section -----
     function updateReferralSection(data) {
       const code = data.referralCode || '';
       const link = `camerasdecoded.com/ref/${code}`;
@@ -1337,7 +1459,6 @@
       document.getElementById('totalReferrals').textContent = data.totalReferrals || 0;
       document.getElementById('totalCommission').textContent = '$' + (data.totalCommissionEarned || 0);
 
-      // Determine tier based on referrals and commission
       const referrals = data.totalReferrals || 0;
       const commission = data.totalCommissionEarned || 0;
       let tier = 'signal';
@@ -1351,7 +1472,6 @@
       }
       document.getElementById('ambassadorTier').textContent = tierName;
 
-      // Show progress bar unless already at top tier
       const progressEl = document.getElementById('tierProgress');
       if (tier === 'transmission_elite') {
         progressEl.style.display = 'none';
@@ -1359,7 +1479,6 @@
       }
       progressEl.style.display = 'flex';
 
-      // Next tier thresholds
       let nextTierName = 'Operator Creator';
       let needRefs = 10;
       let needSales = 500;
@@ -1369,11 +1488,88 @@
         needSales = 5000;
       }
       document.getElementById('nextTierBadge').textContent = 'Next: ' + nextTierName;
-
-      // Progress based on referrals (primary metric) or sales (secondary)
       const progress = Math.min(100, (referrals / needRefs) * 100);
       document.getElementById('progressLabel').textContent = `${referrals} / ${needRefs} referrals`;
       document.getElementById('progressFill').style.width = progress + '%';
+    }
+
+    // ----- Commission history -----
+    function renderCommissionHistory(commissions) {
+      const list = document.getElementById('commissionList');
+      if (!list) return;
+      if (!commissions || commissions.length === 0) {
+        list.innerHTML = `<div class="commission-empty">No commissions yet. Earn commissions when people buy through your referral link.</div>`;
+        return;
+      }
+      // Sort by createdAt descending (newest first)
+      const sorted = commissions.slice().sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || new Date(0);
+        return dateB - dateA;
+      });
+      let html = '';
+      sorted.forEach(c => {
+        const date = c.createdAt?.toDate?.() || new Date();
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const statusClass = c.status || 'pending';
+        const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+        html += `
+          <div class="commission-item">
+            <div class="left">
+              <div class="name">${c.productName || 'Purchase'}</div>
+              <div class="date">${dateStr}</div>
+            </div>
+            <div class="right">
+              <span class="amount">$${c.amount.toFixed(2)}</span>
+              <span class="status ${statusClass}">${statusLabel}</span>
+            </div>
+          </div>
+        `;
+      });
+      list.innerHTML = html;
+    }
+
+    // ----- Simulate purchase (test commission) -----
+    function simulatePurchase() {
+      if (!userDocRef) {
+        alert('Please log in first.');
+        return;
+      }
+      // Get current user data to determine tier and commission rate
+      userDocRef.get().then(doc => {
+        if (!doc.exists) return;
+        const data = doc.data();
+        const tier = data.ambassadorTier || 'signal';
+        let rate = 0.30; // default Signal Creator
+        if (tier === 'operator') rate = 0.40;
+        else if (tier === 'transmission_elite') rate = 0.50;
+        // Simulate a $50 purchase
+        const purchaseAmount = 50;
+        const commissionAmount = purchaseAmount * rate;
+        // Create a commission document
+        const commissionRef = userDocRef.collection('commissions').doc();
+        const commissionData = {
+          productName: 'Camera Confidence Guide (test)',
+          amount: commissionAmount,
+          status: 'pending',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          purchaseId: 'test-' + Date.now(),
+          purchaseAmount: purchaseAmount,
+          rate: rate,
+          tier: tier
+        };
+        return commissionRef.set(commissionData).then(() => {
+          // Update totalCommissionEarned on user
+          return userDocRef.update({
+            totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount)
+          });
+        }).then(() => {
+          alert(`✅ Test commission created! $${commissionAmount.toFixed(2)} earned (${Math.round(rate*100)}% rate).`);
+        });
+      }).catch(err => {
+        console.error('Simulate error:', err);
+        alert('Error creating test commission: ' + err.message);
+      });
     }
 
     // ----- Copy referral link -----
@@ -1396,19 +1592,6 @@
     //  INIT FIREBASE AND LISTEN
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
-      const firebaseConfig = {
-        apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-        authDomain: "cameras-decoded.firebaseapp.com",
-        projectId: "cameras-decoded",
-        storageBucket: "cameras-decoded.firebasestorage.app",
-        messagingSenderId: "1088920052790",
-        appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-        measurementId: "G-YN3M01WW0B"
-      };
-      firebase.initializeApp(firebaseConfig);
-      const auth = firebase.auth();
-      const db = firebase.firestore();
-
       auth.onAuthStateChanged((user) => {
         if (!user) {
           window.location.href = 'login.html';
@@ -1424,7 +1607,6 @@
         // Listen to user doc
         userDocRef.onSnapshot((doc) => {
           if (!doc.exists) {
-            // Create default doc if missing
             userDocRef.set({
               savedProtocols: [],
               savedCards: [],
@@ -1447,18 +1629,15 @@
             return;
           }
           const data = doc.data();
-          // Update profile
           updateProfile(data);
-          // Update referral section
           updateReferralSection(data);
-          // Update saved items
+          // Update saved content
           const savedProtocols = data.savedProtocols || [];
           const savedCards = data.savedCards || [];
           const savedBlogs = data.savedBlogs || [];
           const savedPodcasts = data.savedPodcasts || [];
           const savedCommunity = data.savedCommunityPosts || [];
           updateStats(savedProtocols, savedCards, savedBlogs, savedPodcasts, savedCommunity);
-          // Render protocols with current filter
           const currentFilter = document.querySelector('.filter-tab.active')?.dataset.genre || 'all';
           renderProtocols(savedProtocols, currentFilter);
           renderRecommended(savedProtocols);
@@ -1467,6 +1646,15 @@
           renderItemList('podcastsList', savedPodcasts, podcastsMap, getPodcastLink, 'No podcast episodes saved yet.');
           renderItemList('communityList', savedCommunity, communityMap, getCommunityLink, 'No community posts saved yet.');
         }, (error) => console.error('Snapshot error:', error));
+
+        // Listen to commissions subcollection
+        userDocRef.collection('commissions').onSnapshot((snapshot) => {
+          const commissions = [];
+          snapshot.forEach(doc => {
+            commissions.push({ id: doc.id, ...doc.data() });
+          });
+          renderCommissionHistory(commissions);
+        }, (error) => console.error('Commission listener error:', error));
 
         // Filter tab clicks
         document.querySelectorAll('.filter-tab').forEach(tab => {
