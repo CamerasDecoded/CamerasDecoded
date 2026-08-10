@@ -564,7 +564,7 @@
             }
         }
 
-        /* ---- Gear / Lens / Interest chips (unchanged) ---- */
+        /* ---- Gear / Lens / Interest chips ---- */
         .gear-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -666,7 +666,7 @@
             font-weight: 700;
         }
 
-        /* ---- Confidence Slider (unchanged) ---- */
+        /* ---- Confidence Slider ---- */
         .confidence-section {
             margin: 18px 0 16px;
             padding: 20px 0 10px;
@@ -1057,7 +1057,7 @@
             font-size: 14px;
             margin-top: 4px;
         }
-        /* New: referral link on success */
+        /* Referral link on success */
         .signal-locked .referral-success-link {
             color: var(--green);
             font-family: 'Space Mono', monospace;
@@ -1644,6 +1644,7 @@
                         return false;
                     }
                     emailError.style.display = 'none';
+                    // Save to formData immediately (already done in saveFormData on input change)
                     return true;
                 }
             }, {
@@ -1669,7 +1670,6 @@
                       <span class="lens-chip" data-lens="16-35mm-f2.8" onclick="toggleLens(this)">16-35mm f/2.8</span>
                       <span class="lens-chip" data-lens="24-105mm-f4" onclick="toggleLens(this)">24-105mm f/4</span>
                       <span class="lens-chip" data-lens="macro" onclick="toggleLens(this)">Macro</span>
-                      <!-- Additional lenses for wider appeal -->
                       <span class="lens-chip" data-lens="24-70mm-f4" onclick="toggleLens(this)">24-70mm f/4</span>
                       <span class="lens-chip" data-lens="50mm-f1.2" onclick="toggleLens(this)">50mm f/1.2</span>
                       <span class="lens-chip" data-lens="85mm-f1.8" onclick="toggleLens(this)">85mm f/1.8</span>
@@ -2850,20 +2850,21 @@
             card.innerHTML = rows;
         }
 
-        // ========================
-        //  FIREBASE ACTIVATION — with referral counting
-        // ========================
-        // (Now that Firebase is loaded from the head, we can use it here)
+        // ================================================================
+        //  ACTIVATE SIGNAL — FIXED: reads all fields from formData
+        // ================================================================
         window.activateSignal = function() {
             const btn = document.getElementById('activateBtn');
             const spinner = document.getElementById('signupSpinner');
             const errorEl = document.getElementById('signupError');
             const locked = document.getElementById('signalLocked');
 
-            const name = document.getElementById('fullName').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
+            // --- Read ALL fields from formData (persisted across steps) ---
+            const name = formData['fullName'] || '';
+            const email = formData['email'] || '';
+            const username = formData['username'] || '';
+            const password = document.getElementById('password')?.value?.trim() || '';
+
             if (!name || !email || !username || !password) {
                 errorEl.textContent = 'Please fill in all required fields.';
                 errorEl.style.display = 'block';
@@ -2888,7 +2889,7 @@
             const auth = firebase.auth();
             const db = firebase.firestore();
 
-            // ---- Build userData ----
+            // ---- Build userData using formData and globals ----
             let userData = {
                 name,
                 email,
@@ -2897,9 +2898,8 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             };
 
-            // ---- REFERRAL: read from localStorage ----
+            // ---- REFERRAL ----
             const referredBy = localStorage.getItem('signup_referral') || null;
-            // Generate referral code: use username if possible, else random
             let referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
             if (!referralCode || referralCode.length < 3) {
                 referralCode = Math.random().toString(36).substring(2, 8);
@@ -2910,20 +2910,19 @@
             }
             userData.totalReferrals = 0;
             userData.totalCommissionEarned = 0;
-            userData.ambassadorTier = 'signal'; // default for operators
+            userData.ambassadorTier = 'signal';
 
-            // ---- Role-specific fields (same as before) ----
+            // ---- Role-specific fields (read from formData) ----
             if (selectedRole === 'Operator') {
-                const phone = document.getElementById('phone').value.trim();
-                const confidence = parseInt(document.getElementById('confidenceSlider').value);
-                const challenge = document.getElementById('challenge').value;
-                const shootFrequency = document.getElementById('shootFrequency').value;
-                const learningStyle = document.getElementById('learningStyle').value;
-                const referralCodeUser = document.getElementById('referralCode').value.trim();
-                const brands = Array.from(document.querySelectorAll('.gear-card.selected')).map(el => el.dataset.brand);
-                const lenses = Array.from(document.querySelectorAll('.lens-chip.selected')).map(el => el.dataset.lens);
-                const interests = Array.from(document.querySelectorAll('.interest-chip.selected')).map(el => el.dataset
-                    .interest);
+                const phone = formData['phone'] || '';
+                const confidence = parseInt(formData['confidenceSlider']) || 0;
+                const challenge = formData['challenge'] || '';
+                const shootFrequency = formData['shootFrequency'] || '';
+                const learningStyle = formData['learningStyle'] || '';
+                const referralCodeUser = formData['referralCode'] || '';
+                const brands = formData['selectedGear'] || [];
+                const lenses = formData['selectedLenses'] || [];
+                const interests = formData['selectedInterests'] || [];
                 let billingInterval = 'monthly';
                 if (isWeekly) billingInterval = 'weekly';
                 else if (isAnnual) billingInterval = 'annual';
@@ -2944,9 +2943,9 @@
                     savedCommunityPosts: []
                 };
             } else if (selectedRole === 'Partner') {
-                const companyName = document.getElementById('companyName').value.trim();
-                const tier = document.getElementById('partnerSelectedTier').value;
-                const isAnnualPartner = document.getElementById('partnerIsAnnual').value === 'true';
+                const companyName = formData['companyName'] || '';
+                const tier = partnerSelectedTier;
+                const isAnnualPartner = partnerIsAnnual;
                 userData = {
                     ...userData,
                     companyName,
@@ -2954,8 +2953,8 @@
                     billingInterval: isAnnualPartner ? 'annual' : 'monthly',
                 };
             } else if (selectedRole === 'Instructor') {
-                const teachingExperience = document.getElementById('teachingExperience').value;
-                const isAnnualInst = document.getElementById('instructorIsAnnual').value === 'true';
+                const teachingExperience = formData['teachingExperience'] || '';
+                const isAnnualInst = instructorIsAnnual;
                 userData = {
                     ...userData,
                     teachingExperience,
@@ -2970,31 +2969,27 @@
                     return cred.user.updateProfile({ displayName: name }).then(() => cred.user);
                 })
                 .then(user => {
-                    // Save user document
                     return db.collection('users').doc(user.uid).set(userData)
                         .then(() => user);
                 })
                 .then(user => {
-                    // ---- Create referralCodes document (so others can find this user) ----
+                    // Create referralCodes document
                     return db.collection('referralCodes').doc(referralCode).set({
                         uid: user.uid,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     }).then(() => user);
                 })
                 .then(user => {
-                    // ---- If referredBy exists, increment referrer's totalReferrals ----
+                    // Increment referrer's totalReferrals if referredBy exists
                     if (referredBy) {
-                        // Look up the referrer's UID using the referral code
                         return db.collection('referralCodes').doc(referredBy).get()
                             .then(doc => {
                                 if (doc.exists) {
                                     const referrerUid = doc.data().uid;
-                                    // Increment referrer's totalReferrals
                                     return db.collection('users').doc(referrerUid).update({
                                         totalReferrals: firebase.firestore.FieldValue.increment(1)
                                     });
                                 } else {
-                                    // Invalid referral code – just log and ignore
                                     console.warn('Invalid referral code:', referredBy);
                                     return Promise.resolve();
                                 }
@@ -3005,18 +3000,15 @@
                     }
                 })
                 .then(user => {
-                    // Success - show referral link
+                    // Success
                     btn.style.display = 'none';
                     spinner.style.display = 'none';
                     locked.style.display = 'block';
-                    // Display referral link
                     const linkEl = document.getElementById('newReferralLink');
                     if (linkEl) {
                         linkEl.textContent = `camerasdecoded.com/ref/${referralCode}`;
                     }
-                    // Clear referral from localStorage
                     localStorage.removeItem('signup_referral');
-                    // Redirect after 3s
                     let redirect = 'operator-dashboard.html';
                     if (selectedRole === 'Partner') redirect = 'partner-dashboard.html';
                     else if (selectedRole === 'Instructor') redirect = 'instructor-dashboard.html';
@@ -3110,14 +3102,22 @@
         })();
     </script>
 
-    <!-- FIREBASE CONFIG (already loaded from head, but we keep the config here for the inline script) -->
+    <!-- FIREBASE CONFIG (already loaded from head) -->
     <script>
-        // This is just to ensure the config is set; Firebase was already initialized from the head.
-        // The SDKs are loaded, so we can safely call firebase.initializeApp if not already done.
-        // Since we already loaded the SDKs in the head, we just need to ensure the config is set.
-        // The inline script above uses 'firebase' directly.
-        // The config is already passed to initializeApp in the inline script.
-        // No additional code needed here.
+        // Firebase is already initialized from the head.
+        // This script block is just for safety – no changes needed.
+        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+            const firebaseConfig = {
+                apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+                authDomain: "cameras-decoded.firebaseapp.com",
+                projectId: "cameras-decoded",
+                storageBucket: "cameras-decoded.firebasestorage.app",
+                messagingSenderId: "1088920052790",
+                appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+                measurementId: "G-YN3M01WW0B"
+            };
+            firebase.initializeApp(firebaseConfig);
+        }
     </script>
 
 </body>
