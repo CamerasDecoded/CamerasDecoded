@@ -1268,7 +1268,9 @@
       <a href="signup.html" class="header-login-btn">Sign Up</a>
     </div>
     <div class="nav-group" id="navGroupDesktop">
+      <!-- Dashboard link will be inserted here by JS (above Home) -->
       <a href="index.html" class="nav-item active"><i class="fas fa-home"></i> Home</a>
+      <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
       <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
       <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
       <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
@@ -1289,7 +1291,9 @@
   <!-- MOBILE OVERLAY -->
   <div class="nav-group-overlay" id="navGroupOverlay">
     <button class="close-btn" id="closeToggle">✕</button>
+    <!-- Dashboard link will be inserted here by JS (above Home) -->
     <a href="index.html" class="nav-item active"><i class="fas fa-home"></i> Home</a>
+    <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
     <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
     <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
     <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
@@ -1303,13 +1307,15 @@
     <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
     <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
     <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
+    <!-- Dashboard link container (JS will insert above Home) -->
+    <div id="mobileDashboardContainer"></div>
   </div>
 
   <!-- FLOATING GLASS HEADER -->
   <div class="floating-header" id="floatingHeader">
     <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
     <div class="floating-nav-links">
-      <a href="operators.html" target="_blank">Operators</a>
+      <a href="https://camerasdecoded.substack.com/p/decoding-the-system-welcome-to-the?r=88nm3w&utm_campaign=post-expanded-share&utm_medium=web&triedRedirect=true" target="_blank">Operators</a>
       <a href="partners.html">Partners</a>
       <a href="educators-pdf-viewer.html">Instructors</a>
     </div>
@@ -1893,44 +1899,73 @@
 
   <script>
     // ============================================================
-    //  FIREBASE AUTH + FIRESTORE (unchanged)
+    //  FIREBASE AUTH + DASHBOARD LINK (desktop & mobile)
     // ============================================================
     const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
+    const mobileContainer = document.getElementById('mobileDashboardContainer');
+
     function removeDashboardLink() {
-      const existing = document.getElementById('dynamic-dashboard-node');
-      if (existing) existing.remove();
-    }
-    function insertDashboardLink() {
-      if (!homeNav) return;
-      removeDashboardLink();
-      const dashLink = document.createElement('a');
-      dashLink.id = 'dynamic-dashboard-node';
-      dashLink.className = 'nav-item';
-      dashLink.innerText = 'Dashboard';
-      dashLink.href = 'operator-dashboard.html';
-      homeNav.parentNode.insertBefore(dashLink, homeNav);
+      const existingDesktop = document.getElementById('dynamic-dashboard-node');
+      if (existingDesktop) existingDesktop.remove();
+      const existingMobile = document.getElementById('mobile-dashboard-node');
+      if (existingMobile) existingMobile.remove();
     }
 
-    auth.onAuthStateChanged((user) => {
-      if (user) {
-        localStorage.setItem('cameras_decoded_uid', user.uid);
-        insertDashboardLink();
-        db.collection('users').doc(user.uid).get().then((doc) => {
-          if (doc.exists) {
-            const role = doc.data().role || 'Operator';
-            const dash = document.getElementById('dynamic-dashboard-node');
-            if (dash) {
-              if (role === 'Instructor') dash.href = 'instructor-dashboard.html';
-              else if (role === 'Operator') dash.href = 'operator-dashboard.html';
-              else if (role === 'Partner') dash.href = 'partner-dashboard.html';
-            }
-          }
-        }).catch(() => {});
-      } else {
-        localStorage.removeItem('cameras_decoded_uid');
-        removeDashboardLink();
+    function insertDashboardLink(dashboardUrl) {
+      // Desktop: insert before Home (above)
+      if (homeNav && homeNav.parentNode) {
+        const existing = document.getElementById('dynamic-dashboard-node');
+        if (existing) existing.remove();
+        const dashLink = document.createElement('a');
+        dashLink.id = 'dynamic-dashboard-node';
+        dashLink.className = 'nav-item';
+        dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
+        dashLink.href = dashboardUrl;
+        homeNav.parentNode.insertBefore(dashLink, homeNav);
       }
-    });
+
+      // Mobile: insert into container (above Home)
+      if (mobileContainer) {
+        const existing = document.getElementById('mobile-dashboard-node');
+        if (existing) existing.remove();
+        const dashLink = document.createElement('a');
+        dashLink.id = 'mobile-dashboard-node';
+        dashLink.className = 'nav-item dashboard-link';
+        dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
+        dashLink.href = dashboardUrl;
+        mobileContainer.appendChild(dashLink);
+      }
+    }
+
+    // Wait for Firebase
+    if (typeof auth !== 'undefined' && auth) {
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          localStorage.setItem('cameras_decoded_uid', user.uid);
+          if (typeof db !== 'undefined' && db) {
+            db.collection('users').doc(user.uid).get().then((doc) => {
+              if (doc.exists) {
+                const role = doc.data().role || 'Operator';
+                let dashboardUrl = 'operator-dashboard.html';
+                if (role === 'Instructor') dashboardUrl = 'instructor-dashboard.html';
+                else if (role === 'Operator') dashboardUrl = 'operator-dashboard.html';
+                else if (role === 'Partner') dashboardUrl = 'partner-dashboard.html';
+                insertDashboardLink(dashboardUrl);
+              } else {
+                insertDashboardLink('operator-dashboard.html');
+              }
+            }).catch(() => {
+              insertDashboardLink('operator-dashboard.html');
+            });
+          } else {
+            insertDashboardLink('operator-dashboard.html');
+          }
+        } else {
+          localStorage.removeItem('cameras_decoded_uid');
+          removeDashboardLink();
+        }
+      });
+    }
 
     // ============================================================
     //  CART COUNTER
