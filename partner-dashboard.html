@@ -14,7 +14,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <style>
-    /* ===== ALL STYLES UNCHANGED (same as your working version) ===== */
+    /* ===== ALL STYLES UNCHANGED (same as before) ===== */
     :root { --space-sm: 12px; --space-md: 24px; --space-lg: 40px; --space-xl: 64px; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -297,6 +297,22 @@
       background: rgba(224,177,45,0.1);
       box-shadow: 0 0 20px rgba(224,177,45,0.2);
     }
+    .commission-section .header .reset-demo {
+      display: none;
+      padding: 4px 12px;
+      background: transparent;
+      border: 1px solid #555;
+      border-radius: 16px;
+      color: #999;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .commission-section .header .reset-demo:hover {
+      border-color: #ff4444;
+      color: #ff4444;
+    }
     .commission-list {
       display: flex;
       flex-direction: column;
@@ -575,6 +591,8 @@
       <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
       <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
     </a>
+    <!-- ===== LOGOUT BUTTON (fixed) ===== -->
+    <button class="logout-btn" onclick="handleLogout()">Logout</button>
     <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
   </div>
 
@@ -586,7 +604,7 @@
       <div class="partner-id">Partner ID: <span id="partnerUniqueId">—</span></div>
     </div>
 
-    <!-- STATS -->
+    <!-- STATS (all zero – no mock numbers) -->
     <div class="stat-grid">
       <div class="stat-card"><div class="label">Clicks</div><div class="value" id="clickCount">0</div><div class="sub">last 30 days</div></div>
       <div class="stat-card"><div class="label">Downloads</div><div class="value" id="downloadCount">0</div><div class="sub">total resources</div></div>
@@ -628,18 +646,21 @@
       <div class="tier-badge">Flat 20% commission on every sale</div>
     </div>
 
-    <!-- ===== COMMISSION HISTORY ===== -->
+    <!-- ===== COMMISSION HISTORY (with improved simulation) ===== -->
     <div class="commission-section" id="commissionSection">
       <div class="header">
         <h3><i class="fas fa-coin" style="color:#8deb00; margin-right:8px;"></i>Commission History</h3>
-        <button class="test-btn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
+        <div>
+          <button class="test-btn" id="simulateBtn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
+          <button class="reset-demo" id="resetDemoBtn" onclick="resetDemoCommission()" style="display:none;">↻ Reset demo</button>
+        </div>
       </div>
       <div class="commission-list" id="commissionList">
         <div class="commission-empty">No commissions yet. Earn commissions when people buy through your referral link.</div>
       </div>
     </div>
 
-    <!-- AGREEMENTS -->
+    <!-- AGREEMENTS (unchanged) -->
     <div class="section-header"><h2>Agreements</h2></div>
     <div class="agreement-list">
       <div class="agreement-item">
@@ -656,7 +677,7 @@
       </div>
     </div>
 
-    <!-- RESOURCES -->
+    <!-- RESOURCES (unchanged) -->
     <div class="section-header"><h2>Resources</h2></div>
     <div class="resource-grid">
       <div class="resource-item">
@@ -834,6 +855,7 @@
       const billing = data.billingInterval || 'monthly';
       document.getElementById('profileBilling').textContent = billing.charAt(0).toUpperCase() + billing.slice(1);
       document.getElementById('partnerUniqueId').textContent = data.partnerId || '—';
+      // Stats – read from Firestore (default to 0 if not set)
       document.getElementById('clickCount').textContent = data.clicks || 0;
       document.getElementById('downloadCount').textContent = data.downloads || 0;
       document.getElementById('agreementCount').textContent = data.agreements || 0;
@@ -880,38 +902,117 @@
         `;
       });
       list.innerHTML = html;
+
+      // Check if there's a demo commission (we'll store its ID in a global)
+      const demo = commissions.find(c => c.isDemo === true);
+      const resetBtn = document.getElementById('resetDemoBtn');
+      const simBtn = document.getElementById('simulateBtn');
+      if (demo) {
+        resetBtn.style.display = 'inline-block';
+        simBtn.textContent = 'Demo used';
+        simBtn.disabled = true;
+        simBtn.style.opacity = '0.5';
+        simBtn.style.cursor = 'default';
+        // Store the demo ID globally for reset
+        window.demoCommissionId = demo.id;
+      } else {
+        resetBtn.style.display = 'none';
+        simBtn.textContent = 'Simulate Purchase';
+        simBtn.disabled = false;
+        simBtn.style.opacity = '1';
+        simBtn.style.cursor = 'pointer';
+        window.demoCommissionId = null;
+      }
     }
 
-    // ----- Simulate purchase (partner – flat 20%) -----
+    // ----- Simulate purchase (partner – flat 20%) with improved UX -----
     function simulatePurchase() {
       if (!userDocRef) {
         alert('Please log in first.');
         return;
       }
+      // Check if a demo already exists
+      if (window.demoCommissionId) {
+        alert('A demo commission already exists. You can reset it using the "Reset demo" button.');
+        return;
+      }
+
       const rate = 0.20;
       const purchaseAmount = 50;
       const commissionAmount = purchaseAmount * rate;
       const commissionRef = userDocRef.collection('commissions').doc();
       const commissionData = {
-        productName: 'Camera Confidence Guide (test)',
+        productName: '📘 Camera Confidence Guide (demo)',
         amount: commissionAmount,
         status: 'pending',
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        purchaseId: 'test-' + Date.now(),
+        purchaseId: 'demo-' + Date.now(),
         purchaseAmount: purchaseAmount,
         rate: rate,
-        tier: 'partner'
+        tier: 'partner',
+        isDemo: true  // mark so we can identify it
       };
       commissionRef.set(commissionData).then(() => {
         return userDocRef.update({
           totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount)
         });
       }).then(() => {
-        alert(`✅ Test commission created! $${commissionAmount.toFixed(2)} earned (20% rate).`);
+        // Show a friendly toast notification
+        showToast(`✅ Demo commission: $${commissionAmount.toFixed(2)} earned (20% rate).`);
+        // The snapshot listener will update the UI automatically.
       }).catch(err => {
         console.error('Simulate error:', err);
         alert('Error creating test commission: ' + err.message);
       });
+    }
+
+    // ----- Reset demo commission -----
+    function resetDemoCommission() {
+      if (!window.demoCommissionId) {
+        alert('No demo commission to reset.');
+        return;
+      }
+      if (!userDocRef) return;
+      // Remove the demo commission document and decrement totalCommissionEarned
+      const commissionRef = userDocRef.collection('commissions').doc(window.demoCommissionId);
+      commissionRef.get().then(doc => {
+        if (!doc.exists) return;
+        const amount = doc.data().amount || 0;
+        // Delete the document
+        return commissionRef.delete().then(() => {
+          // Decrement totalCommissionEarned
+          return userDocRef.update({
+            totalCommissionEarned: firebase.firestore.FieldValue.increment(-amount)
+          });
+        });
+      }).then(() => {
+        window.demoCommissionId = null;
+        showToast('Demo commission removed.');
+        // The snapshot listener will refresh the list.
+      }).catch(err => {
+        console.error('Reset demo error:', err);
+        alert('Could not reset demo: ' + err.message);
+      });
+    }
+
+    // ----- Toast notification (simple) -----
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.textContent = message;
+      toast.style.cssText = `
+        position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+        background: #0A0A0A; border: 1px solid #8deb00;
+        color: #ffffff; padding: 12px 24px; border-radius: 10px;
+        font-family: 'Space Mono', monospace; font-size: 14px;
+        z-index: 10000; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        animation: fadeSlide 0.3s ease;
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.5s';
+        setTimeout(() => toast.remove(), 500);
+      }, 3000);
     }
 
     // ----- Copy referral link -----
@@ -932,6 +1033,21 @@
     // ----- Placeholder functions for agreements/resources -----
     function viewPDF(filename) { alert('Opening ' + filename); }
     function downloadResource(filename) { alert('Downloading ' + filename); }
+
+    // ============================================================
+    //  LOGOUT HANDLER (now present)
+    // ============================================================
+    function handleLogout() {
+      firebase.auth().signOut().then(() => {
+        localStorage.removeItem('cameras_decoded_uid');
+        localStorage.removeItem('cameras_decoded_user');
+        window.location.href = 'login.html';
+      }).catch(() => {
+        localStorage.clear();
+        window.location.href = 'login.html';
+      });
+    }
+    window.handleLogout = handleLogout;
 
     // ============================================================
     //  AUTH + FIRESTORE LISTENERS
@@ -972,15 +1088,14 @@
         renderCommissionHistory(commissions);
       }, (error) => console.error('Commission listener error:', error));
     });
-
-    // ----- Logout -----
-    window.handleLogout = function() {
-      firebase.auth().signOut().then(() => {
-        localStorage.removeItem('cameras_decoded_uid');
-        window.location.href = 'login.html';
-      }).catch(() => { localStorage.clear(); window.location.href = 'login.html'; });
-    };
   </script>
+
+  <!-- FIREBASE -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
 
 </body>
 </html>
