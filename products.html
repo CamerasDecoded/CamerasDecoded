@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <style>
+    /* ===== BASE (unchanged) ===== */
     :root {
       --space-sm: 12px;
       --space-md: 24px;
@@ -66,7 +67,7 @@
     .grey-text { color: #b4b4b4; }
     a { text-decoration: none; color: inherit; transition: 0.2s; }
 
-    /* --- DESKTOP SIDEBAR --- */
+    /* --- SIDEBAR (unchanged) --- */
     .sidebar {
       width: 240px;
       background: rgba(0,0,0,0.9);
@@ -431,6 +432,7 @@
     }
     .product-footer {
       display: flex;
+      flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
       margin-top: auto;
@@ -481,6 +483,14 @@
       background: rgba(255, 170, 0, 0.1);
       box-shadow: 0 0 12px rgba(255, 170, 0, 0.3);
     }
+    .btn-buy-now {
+      border-color: #e0b12d;
+      color: #e0b12d;
+    }
+    .btn-buy-now:hover {
+      background: rgba(224, 177, 45, 0.1);
+      box-shadow: 0 0 12px rgba(224, 177, 45, 0.3);
+    }
 
     .no-results {
       text-align: center;
@@ -499,6 +509,105 @@
       border-left: 2px solid #8deb00;
       padding-left: 15px;
       margin-bottom: 20px;
+    }
+
+    /* ----- CART POPUP ----- */
+    .cart-popup-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.7);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    .cart-popup-overlay.show {
+      display: flex;
+    }
+    .cart-popup {
+      background: #0A0A0A;
+      border: 1px solid #8deb00;
+      border-radius: 20px;
+      padding: 30px 35px;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 0 60px rgba(141,235,0,0.1);
+      animation: fadeSlide 0.3s ease;
+    }
+    @keyframes fadeSlide {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .cart-popup h3 {
+      font-family: 'Space Mono', monospace;
+      color: #8deb00;
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    .cart-popup p {
+      color: #b4b4b4;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    .cart-popup .item-list {
+      text-align: left;
+      margin: 12px 0;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .cart-popup .item-list .cart-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #0F0F0F;
+      color: #fff;
+      font-size: 14px;
+    }
+    .cart-popup .total {
+      font-family: 'Space Mono', monospace;
+      font-size: 18px;
+      color: #8deb00;
+      margin: 12px 0;
+    }
+    .cart-popup .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .cart-popup .actions .btn-primary {
+      padding: 12px 28px;
+      background: #8deb00;
+      border: none;
+      border-radius: 8px;
+      color: #000;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .cart-popup .actions .btn-primary:hover {
+      background: #a0f520;
+      transform: scale(1.02);
+    }
+    .cart-popup .actions .btn-secondary {
+      padding: 12px 28px;
+      background: transparent;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #b4b4b4;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .cart-popup .actions .btn-secondary:hover {
+      border-color: #8deb00;
+      color: #fff;
     }
 
     /* ---------- FOOTER ---------- */
@@ -568,6 +677,7 @@
       .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; border-radius: 25px; gap: 10px; }
       .floating-nav-links { gap: 12px; }
       #cartHeaderLabel { display: none; }
+      .cart-popup { padding: 20px; }
     }
 
     /* ---- MOBILE OVERLAY (with dynamic Dashboard above Home) ---- */
@@ -770,7 +880,7 @@
 
     <!-- Success Banner -->
     <div class="success-banner" id="successBanner">
-      ✅ Payment successful! Thank you for your order. Your items are being prepared.
+      ✅ Purchase simulated! Commission awarded to your referrer (if any).
     </div>
 
     <!-- Account prompt -->
@@ -783,6 +893,11 @@
     <div class="products-hero">
       <h1>Our Products</h1>
       <p>Guides, templates, presets, and more — everything you need to operate with confidence.</p>
+      <div style="margin-top:20px;">
+        <button class="btn-product" onclick="openCartPopup()" style="padding:10px 30px; border-color:#e0b12d; color:#e0b12d;">
+          <i class="fas fa-shopping-cart"></i> View Cart &amp; Checkout
+        </button>
+      </div>
     </div>
 
     <!-- FILTER BAR -->
@@ -838,6 +953,20 @@
 
   </main>
 
+  <!-- ===== CART POPUP ===== -->
+  <div class="cart-popup-overlay" id="cartPopup">
+    <div class="cart-popup">
+      <h3>🛒 Your Cart</h3>
+      <p>Review your items before simulating purchase.</p>
+      <div class="item-list" id="cartPopupItems"></div>
+      <div class="total" id="cartPopupTotal">Total: $0.00</div>
+      <div class="actions">
+        <button class="btn-secondary" onclick="closeCartPopup()">Close</button>
+        <button class="btn-primary" onclick="checkout()">Simulate Purchase</button>
+      </div>
+    </div>
+  </div>
+
   <!-- FIREBASE SCRIPTS (loaded first so auth/db are available) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -846,7 +975,9 @@
 
   <!-- SCRIPTS -->
   <script>
-    // Mobile menu toggle
+    // ============================================================
+    //  MOBILE MENU (unchanged)
+    // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
       const mobileToggle = document.getElementById('mobileToggle');
       const floatingToggle = document.getElementById('floatingToggle');
@@ -964,7 +1095,9 @@
       });
     })();
 
-    // --- PRODUCT DATA ---
+    // ============================================================
+    //  PRODUCT DATA (unchanged)
+    // ============================================================
     const products = [
       { 
         name: "Camera Confidence Guide", 
@@ -986,7 +1119,9 @@
       { name: "Decoded T‑Shirt", category: "merch", price: "$28", description: "Comfortable tee with Cynetis‑7 design.", image: "", badge: "", link: "#", paymentLink: "#" }
     ];
 
-    // --- CART ---
+    // ============================================================
+    //  CART FUNCTIONS (unchanged)
+    // ============================================================
     function getCart() {
       return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
     }
@@ -1027,7 +1162,166 @@
       setTimeout(() => toast.remove(), 2000);
     }
 
-    // --- RENDER PRODUCTS ---
+    // ============================================================
+    //  CART POPUP
+    // ============================================================
+    function openCartPopup() {
+      const overlay = document.getElementById('cartPopup');
+      const itemsContainer = document.getElementById('cartPopupItems');
+      const totalContainer = document.getElementById('cartPopupTotal');
+      const cart = getCart();
+      if (cart.length === 0) {
+        itemsContainer.innerHTML = '<p style="color:#666; text-align:center;">Your cart is empty.</p>';
+        totalContainer.textContent = 'Total: $0.00';
+        overlay.classList.add('show');
+        return;
+      }
+      let html = '';
+      let total = 0;
+      cart.forEach(item => {
+        const itemTotal = item.price * item.qty;
+        total += itemTotal;
+        html += `
+          <div class="cart-row">
+            <span>${item.name} × ${item.qty}</span>
+            <span>$${itemTotal.toFixed(2)}</span>
+          </div>
+        `;
+      });
+      itemsContainer.innerHTML = html;
+      totalContainer.textContent = `Total: $${total.toFixed(2)}`;
+      overlay.classList.add('show');
+    }
+
+    function closeCartPopup() {
+      document.getElementById('cartPopup').classList.remove('show');
+    }
+
+    // ============================================================
+    //  CHECKOUT / PURCHASE SIMULATION (with commission logic)
+    // ============================================================
+    function checkout() {
+      const cart = getCart();
+      if (cart.length === 0) {
+        alert('Your cart is empty.');
+        return;
+      }
+
+      // Check if user is logged in
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        alert('Please log in to complete your purchase.');
+        document.getElementById('accountPrompt').style.display = 'block';
+        return;
+      }
+
+      // Calculate total
+      const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+      // Simulate purchase: we'll create a purchase record and award commissions
+      const db = firebase.firestore();
+      const userId = user.uid;
+      const userRef = db.collection('users').doc(userId);
+
+      // First get user data to check referredBy
+      userRef.get().then(doc => {
+        if (!doc.exists) {
+          alert('User data not found.');
+          return;
+        }
+        const userData = doc.data();
+        const referredBy = userData.referredBy || null;
+
+        // Create a purchase document (optional, but useful for history)
+        const purchaseRef = db.collection('purchases').doc();
+        const purchaseData = {
+          userId: userId,
+          items: cart,
+          total: total,
+          status: 'completed',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          referredBy: referredBy
+        };
+        return purchaseRef.set(purchaseData).then(() => {
+          // If referredBy exists, award commission to referrer
+          if (referredBy) {
+            return awardCommission(referredBy, total, userId);
+          } else {
+            return Promise.resolve();
+          }
+        });
+      }).then(() => {
+        // Clear cart
+        localStorage.removeItem('cameras_decoded_cart');
+        updateCartUI();
+        closeCartPopup();
+        document.getElementById('successBanner').style.display = 'block';
+        setTimeout(() => {
+          document.getElementById('successBanner').style.display = 'none';
+        }, 5000);
+        // Optionally reload products or refresh
+        renderProducts(products);
+      }).catch(err => {
+        console.error('Checkout error:', err);
+        alert('Error processing purchase: ' + err.message);
+      });
+    }
+
+    // ----- Award commission to referrer -----
+    function awardCommission(referralCode, purchaseTotal, buyerUid) {
+      const db = firebase.firestore();
+      // Look up the referrer's UID from referralCodes collection
+      return db.collection('referralCodes').doc(referralCode).get().then(doc => {
+        if (!doc.exists) {
+          console.warn('Referral code not found:', referralCode);
+          return;
+        }
+        const referrerUid = doc.data().uid;
+        if (!referrerUid) return;
+
+        // Get referrer's role and tier to determine commission rate
+        return db.collection('users').doc(referrerUid).get().then(refDoc => {
+          if (!refDoc.exists) return;
+          const refData = refDoc.data();
+          const role = refData.role || 'Operator';
+          let rate = 0;
+          if (role === 'Operator') {
+            const tier = refData.ambassadorTier || 'signal';
+            if (tier === 'signal') rate = 0.30;
+            else if (tier === 'operator') rate = 0.40;
+            else if (tier === 'transmission_elite') rate = 0.50;
+          } else if (role === 'Partner' || role === 'Instructor') {
+            rate = 0.20;
+          }
+          if (rate === 0) return;
+
+          const commissionAmount = purchaseTotal * rate;
+          // Create commission document in referrer's subcollection
+          const commissionRef = db.collection('users').doc(referrerUid).collection('commissions').doc();
+          return commissionRef.set({
+            productName: 'Multiple items (purchase)',
+            amount: commissionAmount,
+            status: 'pending',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            purchaseId: 'purchase_' + Date.now(),
+            purchaseAmount: purchaseTotal,
+            rate: rate,
+            tier: refData.ambassadorTier || 'signal',
+            buyerUid: buyerUid
+          }).then(() => {
+            // Increment totalCommissionEarned on referrer
+            return db.collection('users').doc(referrerUid).update({
+              totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount)
+            });
+          });
+        });
+      }).catch(err => {
+        console.error('Commission award error:', err);
+      });
+    }
+
+    // ============================================================
+    //  RENDER PRODUCTS (unchanged, but added "Buy Now" button)
+    // ============================================================
     const container = document.getElementById('productsContainer');
     const noResults = document.getElementById('noResults');
     const searchInput = document.getElementById('searchInput');
@@ -1077,6 +1371,7 @@
                   ${priceHtml}
                   <a href="${item.link}" class="btn-product">View</a>
                   <button class="btn-product btn-add-cart add-to-cart" data-name="${item.name}" data-price="${item.price}" data-image="${item.image}" data-payment-link="${item.paymentLink || ''}">Add to Cart</button>
+                  <button class="btn-product btn-buy-now buy-now" data-name="${item.name}" data-price="${item.price}">Buy Now</button>
                 </div>
               </div>
             </div>`;
@@ -1109,13 +1404,32 @@
 
     renderProducts(products);
 
+    // ============================================================
+    //  EVENT DELEGATION FOR BUTTONS (including Buy Now)
+    // ============================================================
     container.addEventListener('click', (e) => {
       if (e.target.classList.contains('add-to-cart')) {
         const btn = e.target;
         addToCart(btn.dataset.name, btn.dataset.price, btn.dataset.image, btn.dataset.paymentLink);
+        return;
+      }
+      if (e.target.classList.contains('buy-now')) {
+        const btn = e.target;
+        const name = btn.dataset.name;
+        const price = parseFloat(btn.dataset.price.replace('$',''));
+        // Clear cart and add this single item
+        const cart = getCart();
+        // Remove any existing items
+        localStorage.removeItem('cameras_decoded_cart');
+        // Add this item
+        addToCart(name, '$' + price.toFixed(2), '', '#');
+        // Open cart popup
+        openCartPopup();
+        return;
       }
     });
 
+    // Handle payment success banner from URL
     if (window.location.search.includes('payment=success')) {
       document.getElementById('successBanner').style.display = 'block';
       const newUrl = window.location.pathname;
@@ -1128,7 +1442,9 @@
       });
     }
 
-    // --- FIREBASE + DYNAMIC DASHBOARD (insert above Home) ---
+    // ============================================================
+    //  FIREBASE + DYNAMIC DASHBOARD (insert above Home) – unchanged
+    // ============================================================
     const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
     const mobileContainer = document.getElementById('mobileDashboardContainer');
 
