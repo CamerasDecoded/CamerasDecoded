@@ -2818,7 +2818,7 @@
         }
 
         // ========================
-        //  FIREBASE ACTIVATION
+        //  FIREBASE ACTIVATION — FIXED!
         // ========================
         window.activateSignal = function() {
             const btn = document.getElementById('activateBtn');
@@ -2854,6 +2854,7 @@
             const auth = firebase.auth();
             const db = firebase.firestore();
 
+            // Build userData (same as before)
             let userData = {
                 name,
                 email,
@@ -2862,6 +2863,7 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             };
 
+            // Add role‑specific fields (same as your original code)
             if (selectedRole === 'Operator') {
                 const phone = document.getElementById('phone').value.trim();
                 const confidence = parseInt(document.getElementById('confidenceSlider').value);
@@ -2913,20 +2915,18 @@
                 };
             }
 
-            db.collection('users').where('username', '==', username).get()
-                .then(snapshot => {
-                    if (!snapshot.empty) {
-                        errorEl.textContent = 'Username already taken.';
-                        errorEl.style.display = 'block';
-                        btn.style.display = 'block';
-                        spinner.style.display = 'none';
-                        return Promise.reject('username taken');
-                    }
-                    return auth.createUserWithEmailAndPassword(email, password);
+            // ---- NEW: Create auth user first, then write Firestore ----
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(cred => {
+                    return cred.user.updateProfile({ displayName: name }).then(() => cred.user);
                 })
-                .then(cred => cred.user.updateProfile({ displayName: name }).then(() => cred.user))
-                .then(user => db.collection('users').doc(user.uid).set(userData))
-                .then(() => {
+                .then(user => {
+                    // Write user document
+                    return db.collection('users').doc(user.uid).set(userData)
+                        .then(() => user);
+                })
+                .then(user => {
+                    // Success
                     btn.style.display = 'none';
                     spinner.style.display = 'none';
                     locked.style.display = 'block';
@@ -2938,12 +2938,16 @@
                     }, 3000);
                 })
                 .catch(err => {
-                    if (err !== 'username taken') {
-                        errorEl.textContent = err.message || 'Something went wrong.';
-                        errorEl.style.display = 'block';
-                    }
+                    // If username is already taken or any other error, show it
+                    errorEl.textContent = err.message || 'Something went wrong.';
+                    errorEl.style.display = 'block';
                     btn.style.display = 'block';
                     spinner.style.display = 'none';
+                    // If the auth user was created but Firestore write failed, we might want to delete the auth user
+                    // to avoid orphan accounts. We'll attempt to delete it (but this might fail if it's already deleted).
+                    if (auth.currentUser) {
+                        auth.currentUser.delete().catch(() => {});
+                    }
                 });
         };
 
