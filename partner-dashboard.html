@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- ===== FIREBASE SDK (LOAD FIRST) ===== -->
+  <!-- ===== FIREBASE SDK (LOAD FIRST – CRITICAL) ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -591,12 +591,12 @@
       <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
       <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
     </a>
-    <!-- ===== LOGOUT BUTTON (fixed) ===== -->
+    <!-- ===== LOGOUT BUTTON (FIXED – uses globally defined function) ===== -->
     <button class="logout-btn" onclick="handleLogout()">Logout</button>
     <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
   </div>
 
-  <!-- MAIN CONTENT -->
+  <!-- MAIN CONTENT (same as before – unchanged) -->
   <main class="main-content">
 
     <div class="dash-header">
@@ -622,7 +622,7 @@
       <div class="profile-item"><span class="label">Billing</span><span class="value" id="profileBilling">—</span></div>
     </div>
 
-    <!-- ===== REFERRAL SECTION (flat 20%) ===== -->
+    <!-- REFERRAL SECTION (flat 20%) -->
     <div class="referral-section" id="referralSection">
       <div class="link-area">
         <div class="label">Your Referral Link</div>
@@ -646,7 +646,7 @@
       <div class="tier-badge">Flat 20% commission on every sale</div>
     </div>
 
-    <!-- ===== COMMISSION HISTORY (with improved simulation) ===== -->
+    <!-- COMMISSION HISTORY (with improved simulation) -->
     <div class="commission-section" id="commissionSection">
       <div class="header">
         <h3><i class="fas fa-coin" style="color:#8deb00; margin-right:8px;"></i>Commission History</h3>
@@ -751,6 +751,28 @@
   </main>
 
   <script>
+    // ============================================================
+    //  IMPORTANT: handleLogout is defined FIRST (global scope)
+    //  This ensures the logout button works.
+    // ============================================================
+    function handleLogout() {
+      if (typeof firebase !== 'undefined' && firebase.auth) {
+        firebase.auth().signOut().then(() => {
+          localStorage.removeItem('cameras_decoded_uid');
+          localStorage.removeItem('cameras_decoded_user');
+          window.location.href = 'login.html';
+        }).catch(() => {
+          localStorage.clear();
+          window.location.href = 'login.html';
+        });
+      } else {
+        localStorage.clear();
+        window.location.href = 'login.html';
+      }
+    }
+    // Make it globally accessible (defensive)
+    window.handleLogout = handleLogout;
+
     // ============================================================
     //  MOBILE MENU, SCROLL, BINARY RAIN, CART (unchanged)
     // ============================================================
@@ -903,7 +925,7 @@
       });
       list.innerHTML = html;
 
-      // Check if there's a demo commission (we'll store its ID in a global)
+      // Check if there's a demo commission
       const demo = commissions.find(c => c.isDemo === true);
       const resetBtn = document.getElementById('resetDemoBtn');
       const simBtn = document.getElementById('simulateBtn');
@@ -913,7 +935,6 @@
         simBtn.disabled = true;
         simBtn.style.opacity = '0.5';
         simBtn.style.cursor = 'default';
-        // Store the demo ID globally for reset
         window.demoCommissionId = demo.id;
       } else {
         resetBtn.style.display = 'none';
@@ -925,13 +946,12 @@
       }
     }
 
-    // ----- Simulate purchase (partner – flat 20%) with improved UX -----
+    // ----- Simulate purchase (partner – flat 20%) -----
     function simulatePurchase() {
       if (!userDocRef) {
         alert('Please log in first.');
         return;
       }
-      // Check if a demo already exists
       if (window.demoCommissionId) {
         alert('A demo commission already exists. You can reset it using the "Reset demo" button.');
         return;
@@ -950,16 +970,14 @@
         purchaseAmount: purchaseAmount,
         rate: rate,
         tier: 'partner',
-        isDemo: true  // mark so we can identify it
+        isDemo: true
       };
       commissionRef.set(commissionData).then(() => {
         return userDocRef.update({
           totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount)
         });
       }).then(() => {
-        // Show a friendly toast notification
         showToast(`✅ Demo commission: $${commissionAmount.toFixed(2)} earned (20% rate).`);
-        // The snapshot listener will update the UI automatically.
       }).catch(err => {
         console.error('Simulate error:', err);
         alert('Error creating test commission: ' + err.message);
@@ -973,14 +991,11 @@
         return;
       }
       if (!userDocRef) return;
-      // Remove the demo commission document and decrement totalCommissionEarned
       const commissionRef = userDocRef.collection('commissions').doc(window.demoCommissionId);
       commissionRef.get().then(doc => {
         if (!doc.exists) return;
         const amount = doc.data().amount || 0;
-        // Delete the document
         return commissionRef.delete().then(() => {
-          // Decrement totalCommissionEarned
           return userDocRef.update({
             totalCommissionEarned: firebase.firestore.FieldValue.increment(-amount)
           });
@@ -988,14 +1003,13 @@
       }).then(() => {
         window.demoCommissionId = null;
         showToast('Demo commission removed.');
-        // The snapshot listener will refresh the list.
       }).catch(err => {
         console.error('Reset demo error:', err);
         alert('Could not reset demo: ' + err.message);
       });
     }
 
-    // ----- Toast notification (simple) -----
+    // ----- Toast notification -----
     function showToast(message) {
       const toast = document.createElement('div');
       toast.textContent = message;
@@ -1030,24 +1044,9 @@
         });
     }
 
-    // ----- Placeholder functions for agreements/resources -----
+    // ----- Placeholder functions -----
     function viewPDF(filename) { alert('Opening ' + filename); }
     function downloadResource(filename) { alert('Downloading ' + filename); }
-
-    // ============================================================
-    //  LOGOUT HANDLER (now present)
-    // ============================================================
-    function handleLogout() {
-      firebase.auth().signOut().then(() => {
-        localStorage.removeItem('cameras_decoded_uid');
-        localStorage.removeItem('cameras_decoded_user');
-        window.location.href = 'login.html';
-      }).catch(() => {
-        localStorage.clear();
-        window.location.href = 'login.html';
-      });
-    }
-    window.handleLogout = handleLogout;
 
     // ============================================================
     //  AUTH + FIRESTORE LISTENERS
@@ -1057,7 +1056,6 @@
       currentUser = user;
       userDocRef = db.collection('users').doc(user.uid);
 
-      // Profile listener
       userDocRef.onSnapshot((doc) => {
         if (!doc.exists) {
           userDocRef.set({
@@ -1079,7 +1077,6 @@
         updatePartnerProfile(doc.data());
       }, (error) => console.error('Snapshot error:', error));
 
-      // Commission listener
       userDocRef.collection('commissions').onSnapshot((snapshot) => {
         const commissions = [];
         snapshot.forEach(doc => {
@@ -1090,11 +1087,7 @@
     });
   </script>
 
-  <!-- FIREBASE -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
+  <!-- FIREBASE (already loaded from head) -->
   <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
 
 </body>
