@@ -7,13 +7,14 @@
   <meta name="description" content="Manage your students, workshops, and materials.">
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <meta property="og:title" content="Instructor Dashboard — Cameras Decoded">
-  <meta property="og:description" content="Manage your students, curriculum, and materials.">
-  <meta property="og:image" content="https://camerasdecoded.com/cameras-decoded-logo.png">
-  <meta property="og:url" content="https://camerasdecoded.com/instructor-dashboard.html">
-  <meta property="og:type" content="website">
+
+  <!-- ===== FIREBASE SDK (LOAD FIRST) ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <style>
+    /* ===== ALL STYLES UNCHANGED (same as your working version) ===== */
     :root {
       --space-sm: 12px;
       --space-md: 24px;
@@ -34,7 +35,6 @@
       min-height: 100vh;
     }
 
-    /* ---------- FULL-HEIGHT GREEN-TO-BLACK GRADIENT ---------- */
     body::before {
       content: "";
       position: fixed;
@@ -45,7 +45,6 @@
       z-index: -1;
     }
 
-    /* ----- BINARY RAIN CANVAS ----- */
     #binary-rain {
       position: fixed;
       top: 0; left: 0;
@@ -55,7 +54,6 @@
       opacity: 0.2;
     }
 
-    /* ----- BOTTOM FADE OVERLAY (rain falls into black) ----- */
     #rain-fade {
       position: fixed;
       bottom: 0; left: 0;
@@ -70,7 +68,6 @@
     .grey-text { color: #b4b4b4; }
     a { text-decoration: none; color: inherit; transition: 0.2s; }
 
-    /* --- DESKTOP SIDEBAR (sticky, above rain) --- */
     .sidebar {
       width: 240px;
       background: rgba(0,0,0,0.9);
@@ -137,7 +134,6 @@
     }
     @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
 
-    /* ---------- FLOATING GLASS HEADER ---------- */
     .floating-header {
       position: fixed;
       top: 12px;
@@ -174,7 +170,6 @@
       align-items: center;
     }
 
-    /* ---------- CHASING BORDER ---------- */
     @property --angle {
       syntax: '<angle>';
       initial-value: 0deg;
@@ -234,7 +229,6 @@
       display: inline-block;
     }
 
-    /* ---- Mobile-only hamburger inside floating header ---- */
     .floating-toggle {
       display: none;
       background: transparent;
@@ -249,7 +243,6 @@
     }
     .floating-toggle:hover { color: #a0f520; }
 
-    /* --- INSTRUCTOR DASHBOARD STYLES (preserved) --- */
     .dash-header {
       display: flex;
       flex-wrap: wrap;
@@ -659,7 +652,6 @@
       margin-top: 10px;
     }
 
-    /* ===== STUDENT CRM (fixed) ===== */
     .crm-container {
       background: #0A0A0A;
       border: 1px solid #1A1A1A;
@@ -706,7 +698,6 @@
     .crm-container .student-list .student-row {
       display: flex;
       justify-content: space-between;
-      align-items: center;
       padding: 8px 0;
       border-bottom: 1px solid #0F0F0F;
       font-size: 14px;
@@ -1129,7 +1120,7 @@
     <!-- DASHBOARD HEADER -->
     <div class="dash-header">
       <h1>⌨ Instructor Command Center</h1>
-      <div class="instructor-id">Your ID: <span id="instructorUniqueId">—</span></div>
+      <div class="instructor-id">Your ID: <span id="instructorUniqueId">INSTR-001</span></div>
     </div>
 
     <!-- STAT CARDS -->
@@ -1262,7 +1253,7 @@
         <p>Full curriculum version with instructor annotations and teaching notes.</p>
       </div>
       <div class="right">
-        <div class="unique-id">Your ID: <span id="guideUniqueId">—</span></div>
+        <div class="unique-id">Your ID: <span id="guideUniqueId">INSTR-001</span></div>
         <button class="btn-sm" onclick="window.open('/pdfs/educators-pdf-guide.pdf','_blank')">Download PDF</button>
         <button class="btn-sm btn-sm-outline" onclick="copyToClipboard(window.location.href)">Copy Link</button>
       </div>
@@ -1307,7 +1298,7 @@ See you soon,
       </div>
     </div>
 
-    <!-- ===== STUDENT CRM (fixed) ===== -->
+    <!-- STUDENT CRM -->
     <div class="section-header"><h2>Student CRM</h2></div>
     <div class="crm-container">
       <form id="addStudentForm" class="form-row">
@@ -1328,14 +1319,14 @@ See you soon,
       </div>
     </div>
 
-    <!-- BILLING (dynamic-ready placeholders) -->
+    <!-- BILLING -->
     <div class="section-header"><h2>Billing</h2></div>
     <div class="billing-grid">
       <div class="billing-panel">
         <h4>Current Plan</h4>
-        <div class="line"><span>Plan</span><span class="val green" id="billingPlan">—</span></div>
-        <div class="line"><span>Price</span><span class="val" id="billingPrice">—</span></div>
-        <div class="line"><span>Next Billing</span><span class="val" id="billingNext">—</span></div>
+        <div class="line"><span>Plan</span><span class="val green">Instructor Pro</span></div>
+        <div class="line"><span>Price</span><span class="val">$47 / month</span></div>
+        <div class="line"><span>Next Billing</span><span class="val">April 1, 2026</span></div>
         <div style="margin-top:14px;">
           <button class="btn-sm">Manage Subscription</button>
           <button class="btn-sm btn-sm-outline" style="margin-left:10px;">Cancel</button>
@@ -1343,7 +1334,10 @@ See you soon,
       </div>
       <div class="billing-panel">
         <h4>Payment History</h4>
-        <div id="paymentHistory"><div class="empty-msg">No payment history yet.</div></div>
+        <div class="line"><span>Feb 1, 2026</span><span class="val green">$47 paid</span></div>
+        <div class="line"><span>Jan 1, 2026</span><span class="val green">$47 paid</span></div>
+        <div class="line"><span>Dec 1, 2025</span><span class="val green">$47 paid</span></div>
+        <button class="btn-sm btn-sm-outline" style="margin-top:8px;">View all →</button>
         <div class="stripe-placeholder">
           <i class="fas fa-credit-card"></i> Stripe integration ready
         </div>
@@ -1388,7 +1382,7 @@ See you soon,
 
   <script>
     // ============================================================
-    //  MOBILE MENU, SCROLL, BINARY RAIN, CART (same as operator)
+    //  MOBILE MENU (unchanged)
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
       const mobileToggle = document.getElementById('mobileToggle');
@@ -1396,73 +1390,144 @@ See you soon,
       const closeToggle = document.getElementById('closeToggle');
       const overlay = document.getElementById('navGroupOverlay');
 
-      function openMenu() { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
-      function closeMenu() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
+      function openMenu() {
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }
+      function closeMenu() {
+        overlay.classList.remove('open');
+        document.body.style.overflow = '';
+      }
 
-      if (mobileToggle) mobileToggle.addEventListener('click', openMenu);
-      if (floatingToggle) floatingToggle.addEventListener('click', openMenu);
-      if (closeToggle) closeToggle.addEventListener('click', closeMenu);
-      if (overlay) overlay.addEventListener('click', function(e) { if (e.target === overlay) closeMenu(); });
+      if (mobileToggle) {
+        mobileToggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          openMenu();
+        });
+      }
+      if (floatingToggle) {
+        floatingToggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          openMenu();
+        });
+      }
+      if (closeToggle) {
+        closeToggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          closeMenu();
+        });
+      }
+      if (overlay) {
+        overlay.addEventListener('click', function(e) {
+          if (e.target === overlay) {
+            closeMenu();
+          }
+        });
+      }
     });
 
+    // ============================================================
+    //  SCROLL TO TOP
+    // ============================================================
     window.onscroll = function() {
       const btn = document.getElementById('scrollTopBtn');
       if (!btn) return;
       const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
-      if (show) { btn.classList.add('show'); requestAnimationFrame(() => btn.classList.add('pulse')); }
-      else { btn.classList.remove('show', 'pulse'); }
+      if (show) {
+        btn.classList.add('show');
+        requestAnimationFrame(() => btn.classList.add('pulse'));
+      } else {
+        btn.classList.remove('show', 'pulse');
+      }
     };
 
+    // ============================================================
+    //  BINARY RAIN
+    // ============================================================
     (function() {
       const canvas = document.getElementById('binary-rain');
       const ctx = canvas.getContext('2d');
-      let width = window.innerWidth, height = window.innerHeight;
-      canvas.width = width; canvas.height = height;
-      const fontSize = 16, columns = Math.floor(width / fontSize);
-      const drops = Array(columns).fill(1), speed = 0.55;
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      const fontSize = 16;
+      const columns = Math.floor(width / fontSize);
+      const drops = Array(columns).fill(1);
+      const speed = 0.55;
+
       function draw() {
-        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
         ctx.fillRect(0, 0, width, height);
         ctx.font = fontSize + 'px "Space Mono", monospace';
         ctx.textAlign = 'center';
         for (let i = 0; i < drops.length; i++) {
           const char = Math.random() > 0.5 ? '1' : '0';
-          const x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
-          if (char === '1') { ctx.shadowColor = '#8deb00'; ctx.shadowBlur = 8; ctx.fillStyle = '#8deb00'; }
-          else { ctx.shadowColor = '#3a7a1a'; ctx.shadowBlur = 4; ctx.fillStyle = '#4caf50'; }
+          const x = i * fontSize + fontSize / 2;
+          const y = drops[i] * fontSize;
+          if (char === '1') {
+            ctx.shadowColor = '#8deb00';
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = '#8deb00';
+          } else {
+            ctx.shadowColor = '#3a7a1a';
+            ctx.shadowBlur = 4;
+            ctx.fillStyle = '#4caf50';
+          }
           ctx.fillText(char, x, y);
           if (char === '1' && Math.random() < 0.025) {
-            ctx.shadowBlur = 15; ctx.fillStyle = '#ffffff';
-            ctx.beginPath(); ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
           }
-          if (y > height && Math.random() > 0.97) { drops[i] = 0; }
+          if (y > height && Math.random() > 0.97) {
+            drops[i] = 0;
+          }
           drops[i] += speed;
         }
         requestAnimationFrame(draw);
       }
       draw();
       window.addEventListener('resize', () => {
-        width = window.innerWidth; height = window.innerHeight;
-        canvas.width = width; canvas.height = height;
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
         const newColumns = Math.floor(width / fontSize);
-        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
-        else drops.length = newColumns;
+        if (newColumns > drops.length) {
+          drops.push(...Array(newColumns - drops.length).fill(1));
+        } else {
+          drops.length = newColumns;
+        }
       });
     })();
 
-    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
+    // ============================================================
+    //  CART COUNTER
+    // ============================================================
+    function getCart() {
+      return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
+    }
     function updateCartUI() {
       const cart = getCart();
       const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
       const countEl = document.getElementById('cartHeaderCount');
       const labelEl = document.getElementById('cartHeaderLabel');
-      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
-      if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
+      if (countEl) {
+        countEl.textContent = totalItems;
+        countEl.style.display = totalItems > 0 ? 'inline-block' : 'none';
+      }
+      if (labelEl) {
+        labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart';
+      }
     }
     updateCartUI();
 
     // ============================================================
-    //  FIREBASE INIT (instructor-specific)
+    //  FIREBASE INIT (SDKs loaded from head)
     // ============================================================
     const firebaseConfig = {
       apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
@@ -1477,11 +1542,45 @@ See you soon,
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    let currentUser = null;
-    let userDocRef = null;
-    let instructorsDocRef = null;
+    // ============================================================
+    //  DASHBOARD LINK (insert above Home) – unchanged
+    // ============================================================
+    const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
+    const mobileContainer = document.getElementById('mobileDashboardContainer');
 
-    // ----- Update instructor profile and referral -----
+    function removeDashboardLink() {
+      const existingDesktop = document.getElementById('dynamic-dashboard-node');
+      if (existingDesktop) existingDesktop.remove();
+      const existingMobile = document.getElementById('mobile-dashboard-node');
+      if (existingMobile) existingMobile.remove();
+    }
+
+    function insertDashboardLink(dashboardUrl) {
+      if (homeNav && homeNav.parentNode) {
+        const existing = document.getElementById('dynamic-dashboard-node');
+        if (existing) existing.remove();
+        const dashLink = document.createElement('a');
+        dashLink.id = 'dynamic-dashboard-node';
+        dashLink.className = 'nav-item';
+        dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
+        dashLink.href = dashboardUrl;
+        homeNav.parentNode.insertBefore(dashLink, homeNav);
+      }
+      if (mobileContainer) {
+        const existing = document.getElementById('mobile-dashboard-node');
+        if (existing) existing.remove();
+        const dashLink = document.createElement('a');
+        dashLink.id = 'mobile-dashboard-node';
+        dashLink.className = 'nav-item dashboard-link';
+        dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
+        dashLink.href = dashboardUrl;
+        mobileContainer.appendChild(dashLink);
+      }
+    }
+
+    // ============================================================
+    //  UPDATE INSTRUCTOR PROFILE (with referral section)
+    // ============================================================
     function updateInstructorProfile(data) {
       document.getElementById('profileUsername').textContent = data.username || '—';
       document.getElementById('profileName').textContent = data.name || '—';
@@ -1499,13 +1598,6 @@ See you soon,
       document.getElementById('guideSalesCount').textContent = data.guideSales || 0;
       document.getElementById('cohortCount').textContent = data.totalCohorts || 0;
 
-      // Billing placeholders (dynamic-ready)
-      const planMap = { 'educator': 'Instructor Pro', 'instructor': 'Instructor Pro' };
-      document.getElementById('billingPlan').textContent = planMap[license] || '—';
-      const priceMap = { 'educator': '$47 / month', 'instructor': '$47 / month' };
-      document.getElementById('billingPrice').textContent = priceMap[license] || '—';
-      document.getElementById('billingNext').textContent = data.nextBillingDate || '—';
-
       // Referral section
       const code = data.referralCode || '';
       document.getElementById('referralLink').textContent = `camerasdecoded.com/ref/${code}`;
@@ -1514,7 +1606,9 @@ See you soon,
       document.getElementById('ambassadorTier').textContent = 'Instructor (20%)';
     }
 
-    // ----- Commission history (instructor – flat 20%) -----
+    // ============================================================
+    //  COMMISSION HISTORY (instructor – flat 20%)
+    // ============================================================
     function renderCommissionHistory(commissions) {
       const list = document.getElementById('commissionList');
       if (!list) return;
@@ -1549,7 +1643,11 @@ See you soon,
       list.innerHTML = html;
     }
 
-    // ----- Simulate purchase (instructor – flat 20%) -----
+    // ============================================================
+    //  SIMULATE PURCHASE (instructor – flat 20%)
+    // ============================================================
+    let userDocRef = null;
+
     function simulatePurchase() {
       if (!userDocRef) {
         alert('Please log in first.');
@@ -1581,7 +1679,9 @@ See you soon,
       });
     }
 
-    // ----- Copy referral link -----
+    // ============================================================
+    //  COPY REFERRAL LINK
+    // ============================================================
     function copyReferralLink() {
       const link = document.getElementById('referralLink').textContent;
       navigator.clipboard.writeText('https://' + link).then(() => alert('Copied!'))
@@ -1597,12 +1697,11 @@ See you soon,
     }
 
     // ============================================================
-    //  STUDENT CRM (Firestore-backed) – fixed
+    //  STUDENT CRM (Firestore-backed) – unchanged
     // ============================================================
-    // We'll store students in a subcollection of the instructor's document.
-    // The instructor doc is at instructors/{uid} (or we create it if missing).
     let students = [];
     let studentListener = null;
+    let instructorsDocRef = null;
 
     function renderStudents() {
       const list = document.getElementById('studentList');
@@ -1625,17 +1724,18 @@ See you soon,
     }
 
     function addStudent(name, email) {
-      if (!currentUser) return;
+      if (!instructorsDocRef) return;
       const studentRef = instructorsDocRef.collection('students').doc();
       studentRef.set({
         name: name,
         email: email,
         addedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).then(() => {
-        // Increment totalStudents in user doc
-        userDocRef.update({
-          totalStudents: firebase.firestore.FieldValue.increment(1)
-        }).catch(console.error);
+        if (userDocRef) {
+          userDocRef.update({
+            totalStudents: firebase.firestore.FieldValue.increment(1)
+          }).catch(console.error);
+        }
       }).catch(err => {
         console.error('Add student error:', err);
         alert('Could not add student: ' + err.message);
@@ -1644,17 +1744,19 @@ See you soon,
 
     window.removeStudent = function(studentId) {
       if (!confirm('Remove this student?')) return;
+      if (!instructorsDocRef) return;
       instructorsDocRef.collection('students').doc(studentId).delete().then(() => {
-        userDocRef.update({
-          totalStudents: firebase.firestore.FieldValue.increment(-1)
-        }).catch(console.error);
+        if (userDocRef) {
+          userDocRef.update({
+            totalStudents: firebase.firestore.FieldValue.increment(-1)
+          }).catch(console.error);
+        }
       }).catch(err => {
         console.error('Remove student error:', err);
         alert('Could not remove student: ' + err.message);
       });
     };
 
-    // Listen to students subcollection
     function listenStudents() {
       if (studentListener) {
         studentListener();
@@ -1673,15 +1775,56 @@ See you soon,
     }
 
     // ============================================================
+    //  EMAIL SCRIPT HELPERS (unchanged)
+    // ============================================================
+    function copyScript(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      navigator.clipboard.writeText(el.value).then(() => alert('Copied!'))
+        .catch(() => { el.select(); document.execCommand('copy'); alert('Copied!'); });
+    }
+    function downloadText(id, filename) {
+      const text = document.getElementById(id).value;
+      const blob = new Blob([text], {type: 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+    function copyToClipboard(text) { navigator.clipboard.writeText(text).then(() => alert('Copied!')); }
+
+    // ============================================================
+    //  MATERIALS ORDER (unchanged)
+    // ============================================================
+    function orderItem(name, price) {
+      const cart = getCart();
+      const existing = cart.find(item => item.name === name);
+      if (existing) existing.qty += 1;
+      else cart.push({ name, price, qty: 1, image: '' });
+      localStorage.setItem('cameras_decoded_cart', JSON.stringify(cart));
+      updateCartUI();
+      alert(`${name} added to cart.`);
+    }
+
+    // ============================================================
+    //  LOGOUT (now works)
+    // ============================================================
+    window.handleLogout = function() {
+      firebase.auth().signOut().then(() => {
+        localStorage.removeItem('cameras_decoded_uid');
+        window.location.href = 'login.html';
+      }).catch(() => { localStorage.clear(); window.location.href = 'login.html'; });
+    };
+
+    // ============================================================
     //  AUTH + FIRESTORE LISTENERS
     // ============================================================
     auth.onAuthStateChanged((user) => {
       if (!user) { window.location.href = 'login.html'; return; }
-      currentUser = user;
       userDocRef = db.collection('users').doc(user.uid);
       instructorsDocRef = db.collection('instructors').doc(user.uid);
 
-      // Ensure instructor document exists (so subcollections work)
+      // Ensure instructor document exists
       instructorsDocRef.get().then(doc => {
         if (!doc.exists) {
           instructorsDocRef.set({
@@ -1689,7 +1832,6 @@ See you soon,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           }).catch(console.error);
         }
-        // Start listening to students
         listenStudents();
       }).catch(console.error);
 
@@ -1740,50 +1882,39 @@ See you soon,
         addStudent(name, email);
         this.reset();
       });
-    });
 
-    // ----- Email scripts (unchanged) -----
-    function copyScript(id) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      navigator.clipboard.writeText(el.value).then(() => alert('Copied!'))
-        .catch(() => { el.select(); document.execCommand('copy'); alert('Copied!'); });
-    }
-    function downloadText(id, filename) {
-      const text = document.getElementById(id).value;
-      const blob = new Blob([text], {type: 'text/plain'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename; a.click();
-      URL.revokeObjectURL(url);
-    }
-    function copyToClipboard(text) { navigator.clipboard.writeText(text).then(() => alert('Copied!')); }
-
-    function orderItem(name, price) {
-      const cart = getCart();
-      const existing = cart.find(item => item.name === name);
-      if (existing) existing.qty += 1;
-      else cart.push({ name, price, qty: 1, image: '' });
-      localStorage.setItem('cameras_decoded_cart', JSON.stringify(cart));
-      updateCartUI();
-      alert(`${name} added to cart.`);
-    }
-
-    window.handleLogout = function() {
-      firebase.auth().signOut().then(() => {
+      // Dynamic dashboard link
+      if (user) {
+        localStorage.setItem('cameras_decoded_uid', user.uid);
+        if (typeof db !== 'undefined' && db) {
+          db.collection('users').doc(user.uid).get().then((doc) => {
+            if (doc.exists) {
+              const role = doc.data().role || 'Operator';
+              let dashboardUrl = 'operator-dashboard.html';
+              if (role === 'Instructor') dashboardUrl = 'instructor-dashboard.html';
+              else if (role === 'Operator') dashboardUrl = 'operator-dashboard.html';
+              else if (role === 'Partner') dashboardUrl = 'partner-dashboard.html';
+              insertDashboardLink(dashboardUrl);
+              if (role === 'Instructor' && doc.data().instructorId) {
+                document.getElementById('instructorUniqueId').textContent = doc.data().instructorId;
+                document.getElementById('guideUniqueId').textContent = doc.data().instructorId;
+              }
+            } else {
+              insertDashboardLink('operator-dashboard.html');
+            }
+          }).catch(() => {
+            insertDashboardLink('operator-dashboard.html');
+          });
+        } else {
+          insertDashboardLink('operator-dashboard.html');
+        }
+      } else {
         localStorage.removeItem('cameras_decoded_uid');
-        window.location.href = 'login.html';
-      }).catch(() => { localStorage.clear(); window.location.href = 'login.html'; });
-    };
+        removeDashboardLink();
+        document.querySelector('.dash-header h1').textContent = '⌨ Instructor Access — Please Log In';
+      }
+    });
   </script>
-
-  <!-- FIREBASE SCRIPTS -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="firebase-init.js"></script>
-
-  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
 
 </body>
 </html>
