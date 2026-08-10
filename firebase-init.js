@@ -17,5 +17,12 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
+
+// 🔥 Force Firestore to use HTTP long-polling instead of WebSockets
+// This fixes CORS errors on GitHub Pages and other static hosts
+firebase.firestore().settings({
+  experimentalForceLongPolling: true
+});
+
 const auth = firebase.auth();
 const db = firebase.firestore();
