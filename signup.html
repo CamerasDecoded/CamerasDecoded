@@ -1052,6 +1052,15 @@
             font-size: 14px;
             margin-top: 4px;
         }
+        /* New: referral link on success */
+        .signal-locked .referral-success-link {
+            color: var(--green);
+            font-family: 'Space Mono', monospace;
+            font-size: 16px;
+            word-break: break-all;
+            display: block;
+            margin: 8px auto;
+        }
 
         /* ---- Toast notifications ---- */
         #cd-toast-container {
@@ -1484,6 +1493,16 @@
             setTimeout(() => { toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300); }, 4000);
         }
+
+        // ===== REFERRAL SYSTEM: read ref param =====
+        function getReferralParam() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('ref') || null;
+        }
+        const referralParam = getReferralParam();
+        if (referralParam) {
+            localStorage.setItem('signup_referral', referralParam);
+        }
     </script>
 
     <script>
@@ -1811,6 +1830,9 @@
                       <div class="ring"><i class="fas fa-bolt"></i></div>
                       <h3>Signal Locked</h3>
                       <p>Welcome to the Operator Network. Check your email to confirm your account.</p>
+                      <p style="margin-top:12px;">Share your referral link:</p>
+                      <span class="referral-success-link" id="newReferralLink">—</span>
+                      <button class="btn-sm" onclick="copyNewReferralLink()" style="margin-top:8px;">Copy Link</button>
                     </div>
                   `,
                 buttonText: null,
@@ -1985,6 +2007,9 @@
                       <div class="ring"><i class="fas fa-bolt"></i></div>
                       <h3>Signal Locked</h3>
                       <p>Your partner account is active! You'll be redirected to your dashboard to manage your license and access your materials.</p>
+                      <p style="margin-top:12px;">Share your referral link:</p>
+                      <span class="referral-success-link" id="newReferralLink">—</span>
+                      <button class="btn-sm" onclick="copyNewReferralLink()" style="margin-top:8px;">Copy Link</button>
                     </div>
                   `,
                 buttonText: null,
@@ -2092,6 +2117,9 @@
                       <div class="ring"><i class="fas fa-bolt"></i></div>
                       <h3>Signal Locked</h3>
                       <p>Your instructor account is active! You'll be redirected to your dashboard to access your curriculum and teaching tools.</p>
+                      <p style="margin-top:12px;">Share your referral link:</p>
+                      <span class="referral-success-link" id="newReferralLink">—</span>
+                      <button class="btn-sm" onclick="copyNewReferralLink()" style="margin-top:8px;">Copy Link</button>
                     </div>
                   `,
                 buttonText: null,
@@ -2818,7 +2846,7 @@
         }
 
         // ========================
-        //  FIREBASE ACTIVATION — FIXED!
+        //  FIREBASE ACTIVATION — FIXED with referral system
         // ========================
         window.activateSignal = function() {
             const btn = document.getElementById('activateBtn');
@@ -2854,7 +2882,7 @@
             const auth = firebase.auth();
             const db = firebase.firestore();
 
-            // Build userData (same as before)
+            // ---- Build userData ----
             let userData = {
                 name,
                 email,
@@ -2863,14 +2891,31 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             };
 
-            // Add role‑specific fields (same as your original code)
+            // ---- REFERRAL: read from localStorage ----
+            const referredBy = localStorage.getItem('signup_referral') || null;
+            // Generate referral code: use username if possible, else random
+            let referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (!referralCode || referralCode.length < 3) {
+                referralCode = Math.random().toString(36).substring(2, 8);
+            }
+            // (Optional: we could check uniqueness later via Cloud Function)
+            userData.referralCode = referralCode;
+            if (referredBy) {
+                userData.referredBy = referredBy;
+            }
+            // Add default referral stats
+            userData.totalReferrals = 0;
+            userData.totalCommissionEarned = 0;
+            userData.ambassadorTier = 'signal'; // default for operators
+
+            // ---- Role-specific fields (same as before) ----
             if (selectedRole === 'Operator') {
                 const phone = document.getElementById('phone').value.trim();
                 const confidence = parseInt(document.getElementById('confidenceSlider').value);
                 const challenge = document.getElementById('challenge').value;
                 const shootFrequency = document.getElementById('shootFrequency').value;
                 const learningStyle = document.getElementById('learningStyle').value;
-                const referralCode = document.getElementById('referralCode').value.trim();
+                const referralCodeUser = document.getElementById('referralCode').value.trim();
                 const brands = Array.from(document.querySelectorAll('.gear-card.selected')).map(el => el.dataset.brand);
                 const lenses = Array.from(document.querySelectorAll('.lens-chip.selected')).map(el => el.dataset.lens);
                 const interests = Array.from(document.querySelectorAll('.interest-chip.selected')).map(el => el.dataset
@@ -2887,7 +2932,7 @@
                     challenge,
                     shootFrequency,
                     learningStyle,
-                    referralCode,
+                    referralCode: referralCodeUser || '',
                     preferences: { brands, lenses, interests },
                     savedCards: [],
                     savedBlogs: [],
@@ -2915,21 +2960,28 @@
                 };
             }
 
-            // ---- NEW: Create auth user first, then write Firestore ----
+            // ---- Create auth user and save Firestore ----
             auth.createUserWithEmailAndPassword(email, password)
                 .then(cred => {
                     return cred.user.updateProfile({ displayName: name }).then(() => cred.user);
                 })
                 .then(user => {
-                    // Write user document
                     return db.collection('users').doc(user.uid).set(userData)
                         .then(() => user);
                 })
                 .then(user => {
-                    // Success
+                    // Success - show referral link
                     btn.style.display = 'none';
                     spinner.style.display = 'none';
                     locked.style.display = 'block';
+                    // Display referral link
+                    const linkEl = document.getElementById('newReferralLink');
+                    if (linkEl) {
+                        linkEl.textContent = `camerasdecoded.com/ref/${userData.referralCode}`;
+                    }
+                    // Clear referral from localStorage
+                    localStorage.removeItem('signup_referral');
+                    // Redirect after 3s
                     let redirect = 'operator-dashboard.html';
                     if (selectedRole === 'Partner') redirect = 'partner-dashboard.html';
                     else if (selectedRole === 'Instructor') redirect = 'instructor-dashboard.html';
@@ -2938,17 +2990,33 @@
                     }, 3000);
                 })
                 .catch(err => {
-                    // If username is already taken or any other error, show it
                     errorEl.textContent = err.message || 'Something went wrong.';
                     errorEl.style.display = 'block';
                     btn.style.display = 'block';
                     spinner.style.display = 'none';
-                    // If the auth user was created but Firestore write failed, we might want to delete the auth user
-                    // to avoid orphan accounts. We'll attempt to delete it (but this might fail if it's already deleted).
                     if (auth.currentUser) {
                         auth.currentUser.delete().catch(() => {});
                     }
                 });
+        };
+
+        // ---- Copy referral link from success screen ----
+        window.copyNewReferralLink = function() {
+            const linkEl = document.getElementById('newReferralLink');
+            if (!linkEl) return;
+            const text = linkEl.textContent;
+            if (!text || text === '—') return;
+            navigator.clipboard.writeText('https://' + text).then(() => {
+                alert('Referral link copied!');
+            }).catch(() => {
+                const input = document.createElement('input');
+                input.value = 'https://' + text;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                alert('Copied!');
+            });
         };
 
         // ========================
@@ -3026,5 +3094,6 @@
         };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     </script>
+
 </body>
 </html>

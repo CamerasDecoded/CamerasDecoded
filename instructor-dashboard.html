@@ -324,6 +324,70 @@
       color: #666;
     }
 
+    /* ----- REFERRAL SECTION (flat 20%) ----- */
+    .referral-section {
+      background: #0A0A0A;
+      border: 1px solid #1A1A1A;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 30px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .referral-section .link-area {
+      flex: 1;
+      min-width: 200px;
+    }
+    .referral-section .link-area .label {
+      font-size: 12px;
+      color: #666;
+      font-family: 'Space Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .referral-section .link-area .link {
+      font-family: 'Space Mono', monospace;
+      color: #8deb00;
+      word-break: break-all;
+      margin-top: 4px;
+    }
+    .referral-section .stats {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    .referral-section .stats .stat {
+      text-align: center;
+    }
+    .referral-section .stats .stat .num {
+      font-size: 28px;
+      font-weight: 700;
+      color: #8deb00;
+    }
+    .referral-section .stats .stat .lbl {
+      font-size: 12px;
+      color: #666;
+      font-family: 'Space Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .referral-section .tier-badge {
+      font-family: 'Space Mono', monospace;
+      color: #8deb00;
+      font-size: 14px;
+      background: rgba(141,235,0,0.08);
+      padding: 4px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(141,235,0,0.2);
+      display: inline-block;
+      margin-top: 8px;
+      width: 100%;
+      text-align: center;
+    }
+
     .curriculum-list {
       display: flex;
       flex-direction: column;
@@ -739,6 +803,8 @@
       .store-grid { grid-template-columns: 1fr 1fr; }
       .curriculum-item { flex-direction: column; align-items: flex-start; gap: 10px; }
       .guide-box { flex-direction: column; align-items: flex-start; gap: 15px; }
+      .referral-section { flex-direction: column; align-items: stretch; }
+      .referral-section .stats { justify-content: space-around; }
       .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; border-radius: 25px; gap: 10px; }
       .floating-nav-links { gap: 12px; }
       #cartHeaderLabel { display: none; }
@@ -746,6 +812,7 @@
     @media (max-width: 600px) {
       .stat-grid { grid-template-columns: 1fr; }
       .store-grid { grid-template-columns: 1fr; }
+      .referral-section .stats { flex-direction: column; align-items: center; gap: 10px; }
     }
 
     /* ---- MOBILE OVERLAY (with dynamic Dashboard above Home) ---- */
@@ -960,6 +1027,30 @@
       <div class="stat-card"><div class="label">Cohorts</div><div class="value" id="cohortCount">0</div><div class="sub">active</div></div>
     </div>
 
+    <!-- ===== REFERRAL SECTION ===== -->
+    <div class="referral-section" id="referralSection">
+      <div class="link-area">
+        <div class="label">Your Referral Link</div>
+        <div class="link" id="referralLink">camerasdecoded.com/ref/—</div>
+        <button class="btn-sm" onclick="copyReferralLink()" style="margin-top:6px;"><i class="fas fa-copy"></i> Copy</button>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="num" id="totalReferrals">0</div>
+          <div class="lbl">Referrals</div>
+        </div>
+        <div class="stat">
+          <div class="num" id="totalCommission">$0</div>
+          <div class="lbl">Commission</div>
+        </div>
+        <div class="stat">
+          <div class="num" id="ambassadorTier">Instructor (20%)</div>
+          <div class="lbl">Tier</div>
+        </div>
+      </div>
+      <div class="tier-badge">Flat 20% commission on every sale</div>
+    </div>
+
     <!-- CURRICULUM ACCESS -->
     <div class="section-header"><h2>Curriculum Access</h2></div>
     <div class="curriculum-list">
@@ -1166,7 +1257,9 @@ See you soon,
 
   <!-- SCRIPTS -->
   <script>
-    // Mobile menu toggle
+    // ============================================================
+    //  MOBILE MENU (unchanged)
+    // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
       const mobileToggle = document.getElementById('mobileToggle');
       const floatingToggle = document.getElementById('floatingToggle');
@@ -1209,7 +1302,9 @@ See you soon,
       }
     });
 
-    // Scroll to top
+    // ============================================================
+    //  SCROLL TO TOP
+    // ============================================================
     window.onscroll = function() {
       const btn = document.getElementById('scrollTopBtn');
       if (!btn) return;
@@ -1222,7 +1317,9 @@ See you soon,
       }
     };
 
-    // --- BINARY RAIN ---
+    // ============================================================
+    //  BINARY RAIN
+    // ============================================================
     (function() {
       const canvas = document.getElementById('binary-rain');
       const ctx = canvas.getContext('2d');
@@ -1284,7 +1381,9 @@ See you soon,
       });
     })();
 
-    // --- CART COUNTER ---
+    // ============================================================
+    //  CART COUNTER
+    // ============================================================
     function getCart() {
       return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
     }
@@ -1303,7 +1402,24 @@ See you soon,
     }
     updateCartUI();
 
-    // --- FIREBASE + DASHBOARD LINK (insert above Home) ---
+    // ============================================================
+    //  FIREBASE + DASHBOARD LOGIC (with referral updates)
+    // ============================================================
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // --- Dashboard link insertion (above Home) ---
     const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
     const mobileContainer = document.getElementById('mobileDashboardContainer');
 
@@ -1315,7 +1431,6 @@ See you soon,
     }
 
     function insertDashboardLink(dashboardUrl) {
-      // Desktop: insert before Home (above)
       if (homeNav && homeNav.parentNode) {
         const existing = document.getElementById('dynamic-dashboard-node');
         if (existing) existing.remove();
@@ -1326,8 +1441,6 @@ See you soon,
         dashLink.href = dashboardUrl;
         homeNav.parentNode.insertBefore(dashLink, homeNav);
       }
-
-      // Mobile: insert into container (above Home)
       if (mobileContainer) {
         const existing = document.getElementById('mobile-dashboard-node');
         if (existing) existing.remove();
@@ -1340,43 +1453,18 @@ See you soon,
       }
     }
 
-    // Wait for Firebase
-    if (typeof auth !== 'undefined' && auth) {
-      auth.onAuthStateChanged((user) => {
-        if (user) {
-          localStorage.setItem('cameras_decoded_uid', user.uid);
-          if (typeof db !== 'undefined' && db) {
-            db.collection('users').doc(user.uid).get().then((doc) => {
-              if (doc.exists) {
-                const role = doc.data().role || 'Operator';
-                let dashboardUrl = 'operator-dashboard.html';
-                if (role === 'Instructor') dashboardUrl = 'instructor-dashboard.html';
-                else if (role === 'Operator') dashboardUrl = 'operator-dashboard.html';
-                else if (role === 'Partner') dashboardUrl = 'partner-dashboard.html';
-                insertDashboardLink(dashboardUrl);
-                // If instructor, update unique ID
-                if (role === 'Instructor' && doc.data().instructorId) {
-                  document.getElementById('instructorUniqueId').textContent = doc.data().instructorId;
-                  document.getElementById('guideUniqueId').textContent = doc.data().instructorId;
-                }
-              } else {
-                insertDashboardLink('operator-dashboard.html');
-              }
-            }).catch(() => {
-              insertDashboardLink('operator-dashboard.html');
-            });
-          } else {
-            insertDashboardLink('operator-dashboard.html');
-          }
-        } else {
-          localStorage.removeItem('cameras_decoded_uid');
-          removeDashboardLink();
-          document.querySelector('.dash-header h1').textContent = '⌨ Instructor Access — Please Log In';
-        }
-      });
+    // --- Update referral section ---
+    function updateReferralSection(data) {
+      const code = data.referralCode || '';
+      const link = `camerasdecoded.com/ref/${code}`;
+      document.getElementById('referralLink').textContent = link;
+      document.getElementById('totalReferrals').textContent = data.totalReferrals || 0;
+      document.getElementById('totalCommission').textContent = '$' + (data.totalCommissionEarned || 0);
+      // Instructor tier is fixed at 20%
+      document.getElementById('ambassadorTier').textContent = 'Instructor (20%)';
     }
 
-    // --- CRM FUNCTIONS ---
+    // --- CRM functions (unchanged) ---
     let students = JSON.parse(localStorage.getItem('instructor_students') || '[]');
 
     function renderStudents() {
@@ -1420,30 +1508,7 @@ See you soon,
       this.reset();
     });
 
-    // Load existing students from Firestore if logged in
-    const uid = localStorage.getItem('cameras_decoded_uid');
-    if (uid && typeof db !== 'undefined') {
-      db.collection('instructors').doc(uid).collection('students').get()
-        .then((snapshot) => {
-          if (!snapshot.empty) {
-            const firestoreStudents = [];
-            snapshot.forEach(doc => {
-              const data = doc.data();
-              firestoreStudents.push({ name: data.name, email: data.email });
-            });
-            if (firestoreStudents.length > students.length) {
-              students = firestoreStudents;
-              localStorage.setItem('instructor_students', JSON.stringify(students));
-              renderStudents();
-            }
-          }
-        })
-        .catch(() => {});
-    }
-
-    renderStudents();
-
-    // --- EMAIL SCRIPT COPY ---
+    // --- Email script helpers (unchanged) ---
     function copyScript(id) {
       const el = document.getElementById(id);
       if (!el) return;
@@ -1471,7 +1536,7 @@ See you soon,
       navigator.clipboard.writeText(text).then(() => alert('Link copied!'));
     }
 
-    // --- MATERIALS ORDER ---
+    // --- Materials order (unchanged) ---
     function orderItem(name, price) {
       const cart = getCart();
       const existing = cart.find(item => item.name === name);
@@ -1485,10 +1550,96 @@ See you soon,
       alert(`${name} added to cart.`);
     }
 
-    // --- STATS (mock data) ---
-    document.getElementById('guideSalesCount').textContent = '4';
-    document.getElementById('workshopCount').textContent = '2';
-    document.getElementById('cohortCount').textContent = '1';
+    // --- Copy referral link ---
+    function copyReferralLink() {
+      const link = document.getElementById('referralLink').textContent;
+      navigator.clipboard.writeText('https://' + link).then(() => {
+        alert('Referral link copied!');
+      }).catch(() => {
+        const input = document.createElement('input');
+        input.value = 'https://' + link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        alert('Copied!');
+      });
+    }
+
+    // --- Firebase auth listener ---
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        localStorage.setItem('cameras_decoded_uid', user.uid);
+        if (typeof db !== 'undefined' && db) {
+          db.collection('users').doc(user.uid).get().then((doc) => {
+            if (doc.exists) {
+              const data = doc.data();
+              const role = data.role || 'Operator';
+              let dashboardUrl = 'operator-dashboard.html';
+              if (role === 'Instructor') dashboardUrl = 'instructor-dashboard.html';
+              else if (role === 'Operator') dashboardUrl = 'operator-dashboard.html';
+              else if (role === 'Partner') dashboardUrl = 'partner-dashboard.html';
+              insertDashboardLink(dashboardUrl);
+              // Update instructor IDs
+              if (role === 'Instructor' && data.instructorId) {
+                document.getElementById('instructorUniqueId').textContent = data.instructorId;
+                document.getElementById('guideUniqueId').textContent = data.instructorId;
+              }
+              // Update referral section
+              updateReferralSection(data);
+              // Update stats (optional)
+              document.getElementById('studentCount').textContent = data.totalStudents || 0;
+              document.getElementById('guideSalesCount').textContent = data.guideSales || 0;
+              document.getElementById('workshopCount').textContent = data.totalWorkshops || 0;
+              document.getElementById('cohortCount').textContent = data.totalCohorts || 0;
+            } else {
+              insertDashboardLink('operator-dashboard.html');
+            }
+          }).catch(() => {
+            insertDashboardLink('operator-dashboard.html');
+          });
+        } else {
+          insertDashboardLink('operator-dashboard.html');
+        }
+        // Load existing students from Firestore if logged in
+        if (typeof db !== 'undefined') {
+          db.collection('instructors').doc(user.uid).collection('students').get()
+            .then((snapshot) => {
+              if (!snapshot.empty) {
+                const firestoreStudents = [];
+                snapshot.forEach(doc => {
+                  const data = doc.data();
+                  firestoreStudents.push({ name: data.name, email: data.email });
+                });
+                if (firestoreStudents.length > students.length) {
+                  students = firestoreStudents;
+                  localStorage.setItem('instructor_students', JSON.stringify(students));
+                  renderStudents();
+                }
+              }
+            })
+            .catch(() => {});
+        }
+      } else {
+        localStorage.removeItem('cameras_decoded_uid');
+        removeDashboardLink();
+        document.querySelector('.dash-header h1').textContent = '⌨ Instructor Access — Please Log In';
+      }
+    });
+
+    // Initial render of students
+    renderStudents();
+
+    // --- Logout handler (if not already defined) ---
+    window.handleLogout = function() {
+      firebase.auth().signOut().then(() => {
+        localStorage.removeItem('cameras_decoded_uid');
+        window.location.href = 'login.html';
+      }).catch(() => {
+        localStorage.clear();
+        window.location.href = 'login.html';
+      });
+    };
   </script>
 
   <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
