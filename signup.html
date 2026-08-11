@@ -1644,7 +1644,6 @@
                         return false;
                     }
                     emailError.style.display = 'none';
-                    // Save to formData immediately (already done in saveFormData on input change)
                     return true;
                 }
             }, {
@@ -2951,6 +2950,11 @@
                     companyName,
                     partnerTier: tier,
                     billingInterval: isAnnualPartner ? 'annual' : 'monthly',
+                    partnerId: 'PART-' + auth.currentUser?.uid?.slice(0, 6).toUpperCase() || 'P-' + Math.random().toString(36).substring(2, 8),
+                    clicks: 0,
+                    downloads: 0,
+                    agreements: 0,
+                    referredStudents: 0
                 };
             } else if (selectedRole === 'Instructor') {
                 const teachingExperience = formData['teachingExperience'] || '';
@@ -2960,12 +2964,24 @@
                     teachingExperience,
                     instructorLicense: 'educator',
                     billingInterval: isAnnualInst ? 'annual' : 'monthly',
+                    instructorId: 'INSTR-' + auth.currentUser?.uid?.slice(0, 6).toUpperCase() || 'I-' + Math.random().toString(36).substring(2, 8),
+                    totalStudents: 0,
+                    totalWorkshops: 0,
+                    guideSales: 0,
+                    totalCohorts: 0,
+                    nextBillingDate: new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
                 };
             }
 
             // ---- Create auth user and save Firestore ----
             auth.createUserWithEmailAndPassword(email, password)
                 .then(cred => {
+                    // Update the userData with the actual UID for IDs
+                    if (selectedRole === 'Partner') {
+                        userData.partnerId = 'PART-' + cred.user.uid.slice(0, 6).toUpperCase();
+                    } else if (selectedRole === 'Instructor') {
+                        userData.instructorId = 'INSTR-' + cred.user.uid.slice(0, 6).toUpperCase();
+                    }
                     return cred.user.updateProfile({ displayName: name }).then(() => cred.user);
                 })
                 .then(user => {
