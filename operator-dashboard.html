@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <!-- FIREBASE SDK -->
+  <!-- FIREBASE SDK (load first) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -157,7 +157,7 @@
     }
     .floating-toggle:hover { color: #a0f520; }
 
-    /* ===== DASHBOARD STYLES ===== */
+    /* ===== DASHBOARD STYLES (UNCHANGED) ===== */
     .dash-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-dim); padding-bottom: 16px; }
     .dash-title-img { max-height: 50px; width: auto; height: auto; display: block; }
     .dash-header .greeting { color: var(--text-muted); font-size: 14px; display: flex; align-items: center; gap: 12px; }
@@ -295,7 +295,7 @@
     .role-tier-badge .glow-role { font-weight: 700; text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00; }
     .role-tier-badge .tier-text { opacity: 0.8; }
 
-    #deleteAccountLink:hover { background: rgba(255,74,74,0.1); box-shadow: 0 0 12px rgba(255,74,74,0.2); }
+    #deleteAccountLink:hover { background: rgba(255,74,74,0.1); }
 
     @media (max-width: 1024px) {
       body { flex-direction: column; }
@@ -595,6 +595,14 @@
       <a href="https://camerasdecoded.com" class="btn-neon-outline"><i class="fas fa-home"></i> Main Site</a>
     </div>
 
+    <!-- Delete Account Link – subtle, left-aligned -->
+    <div style="text-align:left; margin-top:12px;">
+      <a href="#" id="deleteAccountLink" style="display:none; color:#ff4a4a; font-family:'Space Mono',monospace; font-size:11px; text-decoration:none; opacity:0.7; transition:0.2s;"
+         onclick="handleDeleteAccount(); return false;">
+        <i class="fas fa-trash-alt" style="font-size:10px;"></i> Delete account
+      </a>
+    </div>
+
     <footer class="footer">
       <div>© 2026 Cameras Decoded. All rights reserved.</div>
       <div class="socials">
@@ -619,13 +627,6 @@
       </div>
     </footer>
 
-    <!-- Delete Account Link at the bottom -->
-    <div style="text-align:center; margin-top:20px; padding-bottom:30px;">
-      <a href="#" id="deleteAccountLink" style="display:none; color:#ff4a4a; font-family:'Space Mono',monospace; font-size:12px; text-decoration:none; border:1px solid #ff4a4a; padding:4px 12px; border-radius:20px; transition:0.2s;"
-         onclick="handleDeleteAccount(); return false;">
-        <i class="fas fa-trash-alt"></i> Delete Account
-      </a>
-    </div>
   </main>
 
   <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
@@ -807,6 +808,7 @@
     };
     function getCommunityLink(slug) { return `https://camerasdecoded.com/community.html#${slug}`; }
 
+    // Render helpers
     function renderItemList(containerId, items, map, linkFn, emptyMsg) {
       const container = document.getElementById(containerId);
       if (!container) return;
@@ -868,6 +870,7 @@
       container.innerHTML = html;
     }
 
+    // Firestore save/unsave
     function saveProtocol(protocolId) {
       if (!userDocRef) return;
       userDocRef.update({ savedProtocols: firebase.firestore.FieldValue.arrayUnion(protocolId) }).catch(console.error);
@@ -884,6 +887,7 @@
       document.getElementById('statCommunity').textContent = scom.length;
     }
 
+    // Profile update
     function updateProfile(data) {
       document.getElementById('profileUsername').textContent = data.username || '—';
       document.getElementById('profileName').textContent = data.name || '—';
@@ -911,6 +915,7 @@
       if (plan) badge.textContent = plan + ' ● Active';
     }
 
+    // Referral update
     function updateReferralSection(data) {
       const code = data.referralCode || '';
       const link = `camerasdecoded.com/ref/${code}`;
@@ -966,28 +971,54 @@
         if (!doc.exists) return;
         const data = doc.data();
         const tier = data.ambassadorTier || 'signal';
+
+        // Determine commission rate based on tier
         let rate = 0.30;
         if (tier === 'operator') rate = 0.40;
         else if (tier === 'transmission_elite') rate = 0.50;
-        const purchaseAmount = 50;
+
+        // Random product from a list of plausible camera‑related items
+        const products = [
+          'Camera Confidence Guide',
+          'Decoder Atlas – Premium Access',
+          'Snapshot Card Pack',
+          'One‑on‑One Coaching Session',
+          'Event Photography Masterclass',
+          'Real Estate Photography Bundle',
+          'Portrait Lighting Workshop',
+          'Sports Photography Deep Dive',
+          'Influencer Content Kit',
+          'Cynetis‑7 Protocol Pack'
+        ];
+        const productName = products[Math.floor(Math.random() * products.length)];
+
+        // Random purchase amount between $20 and $120
+        const purchaseAmount = Math.floor(Math.random() * 101) + 20; // 20–120
         const commissionAmount = purchaseAmount * rate;
+
         const commissionRef = userDocRef.collection('commissions').doc();
         const commissionData = {
-          productName: 'Camera Confidence Guide (test)',
+          productName: productName + ' (simulated)',
           amount: commissionAmount,
           status: 'pending',
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          purchaseId: 'test-' + Date.now(),
+          purchaseId: 'sim-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
           purchaseAmount: purchaseAmount,
           rate: rate,
           tier: tier
         };
+
         return commissionRef.set(commissionData).then(() => {
-          return userDocRef.update({ totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount) });
+          return userDocRef.update({
+            totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount)
+          });
         }).then(() => {
-          alert(`✅ Test commission created! $${commissionAmount.toFixed(2)} (${Math.round(rate*100)}% rate).`);
+          alert(`✅ Simulated commission!\n\n${productName} — $${purchaseAmount} purchase\nYour cut (${Math.round(rate*100)}%): $${commissionAmount.toFixed(2)}`);
         });
-      }).catch(err => { console.error('Simulate error:', err); alert('Error: ' + err.message); });
+      }).catch(err => {
+        console.error('Simulate error:', err);
+        alert('Error: ' + err.message);
+      });
     }
 
     function copyReferralLink() {
