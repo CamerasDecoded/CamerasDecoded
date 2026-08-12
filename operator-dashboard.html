@@ -754,14 +754,26 @@ script>
     return;
   }
 
-  // 1. Delete the Firestore document (resets all data)
-  db.collection('users').doc(user.uid).delete()
+  const uid = user.uid;
+
+  // 1. Delete Firestore user document
+  db.collection('users').doc(uid).delete()
     .then(() => {
-      // 2. Delete the Auth user (removes the login account entirely)
+      // 2. Try to delete their referral code document (if it exists)
+      return db.collection('referralCodes')
+        .where('uid', '==', uid)
+        .get()
+        .then(snapshot => {
+          const batch = db.batch();
+          snapshot.forEach(doc => batch.delete(doc.ref));
+          return batch.commit().catch(() => {}); // silently fail if nothing to delete
+        });
+    })
+    .then(() => {
+      // 3. Delete the Auth user
       return user.delete();
     })
     .then(() => {
-      // 3. Clear local storage and go to home
       localStorage.removeItem('cameras_decoded_uid');
       localStorage.removeItem('cameras_decoded_user');
       window.location.href = 'index.html';
@@ -769,7 +781,7 @@ script>
     .catch((error) => {
       console.error("Delete error:", error);
       if (error.code === 'auth/requires-recent-login') {
-        alert("For security, you must sign out and log in again before deleting your account. We'll sign you out now.");
+        alert("For security, please sign out and log in again before deleting.");
         auth.signOut();
         window.location.href = 'login.html';
       } else {
