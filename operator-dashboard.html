@@ -1,2851 +1,1084 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Operator Dashboard — Cameras Decoded</title>
-    <meta name="description" content="Your personal command center. Saved items appear here automatically." />
-
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js">
-    </script>
-
-    <style>
-        /* ===== ROOT VARIABLES ===== */
-        :root {
-            --space-sm: 16px;
-            --space-md: 32px;
-            --space-lg: 64px;
-            --space-xl: 96px;
-            --space-xxl: 140px;
-            --green: #8deb00;
-            --green-dim: rgba(141, 235, 0, 0.12);
-            --green-glow: rgba(141, 235, 0, 0.15);
-            --text-muted: #b4b4b4;
-            --bg-panel: #0A0A0A;
-            --border-dim: #1A1A1A;
-            --gold: #e0b12d;
-        }
-
-        /* ===== RESET & BASE ===== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            background: #000;
-            background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 24px 24px;
-            color: #fff;
-            font-family: 'Montserrat', sans-serif;
-            display: flex;
-            min-height: 100vh;
-            position: relative;
-            overflow-x: hidden;
-        }
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: linear-gradient(180deg, rgba(29, 179, 27, 0.30) 0%, rgba(0, 0, 0, 0.95) 70%, #000000 100%);
-            pointer-events: none;
-            z-index: -1;
-        }
-
-        #binary-rain {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 0;
-            pointer-events: none;
-            opacity: 0.2;
-        }
-        #rain-fade {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100vw;
-            height: 45vh;
-            background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.85) 60%, #000 100%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        h1,
-        h2,
-        h3,
-        .mono {
-            font-family: 'Space Mono', monospace;
-        }
-        a {
-            text-decoration: none;
-            color: inherit;
-            transition: 0.2s;
-        }
-
-        /* ===== SIDEBAR ===== */
-        .sidebar {
-            width: 240px;
-            background: rgba(0, 0, 0, 0.95);
-            padding: 24px;
-            border-right: 1px solid var(--border-dim);
-            height: 100vh;
-            position: sticky;
-            top: 0;
-            flex-shrink: 0;
-            z-index: 2;
-            overflow-y: auto;
-        }
-        .sidebar .logo img {
-            height: 120px;
-            width: auto;
-        }
-        .sidebar .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 0;
-            color: var(--text-muted);
-            font-family: 'Space Mono', monospace;
-            font-size: 13px;
-            border-bottom: 1px solid transparent;
-            transition: all 0.2s;
-            letter-spacing: 0.5px;
-        }
-        .sidebar .nav-item i {
-            width: 20px;
-            text-align: center;
-            font-size: 15px;
-            transition: color 0.2s;
-        }
-        .sidebar .nav-item:hover,
-        .sidebar .nav-item:hover i {
-            color: var(--green);
-            transform: translateX(6px) scale(1.05);
-            text-shadow: 0 0 12px var(--green-glow);
-            border-bottom: 1px solid var(--green);
-        }
-        .sidebar .nav-item.active,
-        .sidebar .nav-item.active i {
-            color: var(--green);
-            border-left: 2px solid var(--green);
-            padding-left: 10px;
-            text-shadow: 0 0 12px var(--green-glow);
-        }
-        .sidebar-divider {
-            border: none;
-            border-top: 1px solid var(--border-dim);
-            margin: 8px 0;
-        }
-
-        .header-login-btn {
-            display: block;
-            color: var(--green);
-            font-family: 'Space Mono', monospace;
-            font-size: 12px;
-            border: 1px solid var(--green);
-            padding: 0 10px 0 14px;
-            border-radius: 20px;
-            background: transparent;
-            text-align: center;
-            width: fit-content;
-            text-decoration: none;
-            transition: 0.2s;
-        }
-        .header-login-btn:hover {
-            background: rgba(141, 235, 0, 0.1);
-            box-shadow: 0 0 15px rgba(141, 235, 0, 0.3);
-        }
-
-        /* ===== MAIN CONTENT ===== */
-        .main-content {
-            flex: 1;
-            padding: 80px 40px 40px;
-            max-width: 1200px;
-            position: relative;
-            z-index: 2;
-            animation: fadeIn 0.5s ease-in-out forwards;
-        }
-        @keyframes fadeIn {
-            0% {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* ===== FLOATING HEADER ===== */
-        .floating-header {
-            position: fixed;
-            top: 12px;
-            left: 240px;
-            right: 0;
-            z-index: 99;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            padding: 10px 24px;
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(141, 235, 0, 0.2);
-            border-radius: 30px;
-            margin: 0 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            font-family: 'Space Mono', monospace;
-            font-size: 13px;
-            color: var(--text-muted);
-        }
-        .floating-header a {
-            color: var(--green);
-            transition: color 0.2s;
-        }
-        .floating-header a:hover {
-            color: #a0f520;
-        }
-        .floating-home-icon {
-            font-size: 17px;
-            flex-shrink: 0;
-        }
-        .floating-nav-links {
-            display: flex;
-            flex: 1;
-            justify-content: center;
-            gap: 25px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        .floating-header .logout-btn {
-            background: transparent;
-            border: 1px solid var(--green);
-            color: var(--green);
-            padding: 4px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-family: 'Space Mono', monospace;
-            font-size: 12px;
-            margin-left: 12px;
-            transition: 0.2s;
-        }
-        .floating-header .logout-btn:hover {
-            background: rgba(141, 235, 0, 0.1);
-            box-shadow: 0 0 12px rgba(141, 235, 0, 0.2);
-        }
-
-        .floating-toggle {
-            display: none;
-            background: none;
-            border: none;
-            color: var(--green);
-            font-size: 24px;
-            cursor: pointer;
-            padding: 0 6px;
-            flex-shrink: 0;
-            margin-left: 8px;
-            transition: color 0.2s;
-        }
-        .floating-toggle:hover {
-            color: #a0f520;
-        }
-
-        /* ===== ROLE + TIER BADGE ===== */
-        .role-tier-badge {
-            position: absolute;
-            bottom: -24px;
-            left: 16px;
-            background: rgba(10, 10, 10, 0.9);
-            border: 1px solid rgba(141, 235, 0, 0.3);
-            border-radius: 14px;
-            padding: 2px 10px;
-            font-size: 10px;
-            color: var(--green);
-            display: none;
-            white-space: nowrap;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-            pointer-events: none;
-            z-index: 101;
-        }
-        .glow-role {
-            font-weight: 700;
-            text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00;
-        }
-        .tier-text {
-            opacity: 0.8;
-        }
-
-        /* ===== DASHBOARD HEADER ===== */
-        .dash-header {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-            border-bottom: 1px solid var(--border-dim);
-            padding-bottom: 16px;
-        }
-        .dash-title-img {
-            max-height: 50px;
-            width: auto;
-            height: auto;
-            display: block;
-        }
-        .greeting {
-            color: var(--text-muted);
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .subscription-badge {
-            background: var(--green-dim);
-            border: 1px solid rgba(141, 235, 0, 0.2);
-            border-radius: 20px;
-            padding: 2px 14px;
-            font-size: 11px;
-            color: var(--green);
-            font-family: 'Space Mono', monospace;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* ===== STATS ===== */
-        .dash-stats {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        .stat-card {
-            background: var(--bg-panel);
-            border: 1px solid var(--border-dim);
-            border-radius: 8px;
-            padding: 16px 18px;
-            text-align: center;
-            text-decoration: none;
-            color: inherit;
-            transition: border-color 0.2s;
-            display: block;
-        }
-        .stat-card:hover {
-            border-color: var(--green);
-        }
-        .stat-card .number {
-            font-size: 30px;
-            font-weight: 700;
-            color: var(--green);
-            text-shadow: 0 0 20px rgba(141, 235, 0, 0.15);
-        }
-        .stat-card .label {
-            font-size: 12px;
-            color: var(--text-muted);
-            font-family: 'Space Mono', monospace;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 2px;
-        }
-
-        /* ===== SUBSTACK TEASER ===== */
-        .substack-teaser {
-            background: var(--bg-panel);
-            border: 1px solid var(--border-dim);
-            border-radius: 10px;
-            padding: 18px 22px;
-            margin-bottom: 24px;
-            transition: border-color 0.2s;
-        }
-        .substack-teaser:hover {
-            border-color: var(--green);
-        }
-        .teaser-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
-        }
-
-        /* ===== PROFILE SECTION ===== */
-        .profile-section {
-            background: var(--bg-panel);
-            border: 1px solid var(--border-dim);
-            border-radius: 10px;
-            padding: 18px 24px;
-            margin-bottom: 30px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px 24px;
-        }
-        .profile-item {
-            display: flex;
-            flex-direction: column;
-        }
-        .profile-item .label {
-            font-size: 10px;
-            color: #666;
-            font-family: 'Space Mono', monospace;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .profile-item .value {
-            font-size: 14px;
-            color: #fff;
-            font-weight: 500;
-            word-break: break-word;
-        }
-        .profile-item .value.green {
-            color: var(--green);
-        }
-
-        /* ===== REFERRAL SECTION ===== */
-        .referral-section {
-            background: var(--bg-panel);
-            border: 1px solid var(--border-dim);
-            border-radius: 10px;
-            padding: 20px 24px;
-            margin-bottom: 30px;
-        }
-        .referral-section .row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .referral-section .link-area {
-            flex: 1;
-            min-width: 200px;
-        }
-        .referral-section .link-area .label {
-            font-size: 12px;
-            color: #666;
-            font-family: 'Space Mono', monospace;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .referral-section .link-area .link {
-            font-family: 'Space Mono', monospace;
-            color: var(--green);
-            word-break: break-all;
-            margin-top: 4px;
-        }
-        .referral-section .stats {
-            display: flex;
-            gap: 30px;
-            flex-wrap: wrap;
-        }
-        .referral-section .stats .stat {
-            text-align: center;
-        }
-        .referral-section .stats .stat .num {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--green);
-        }
-        .referral-section .stats .stat .lbl {
-            font-size: 12px;
-            color: #666;
-            font-family: 'Space Mono', monospace;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .tier-info {
-            margin-top: 12px;
-            border-top: 1px solid var(--border-dim);
-            padding-top: 12px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .tier-badge {
-            font-family: 'Space Mono', monospace;
-            font-size: 14px;
-            color: var(--green);
-            background: var(--green-dim);
-            padding: 4px 14px;
-            border-radius: 20px;
-            border: 1px solid rgba(141, 235, 0, 0.2);
-        }
-        .progress-wrap {
-            flex: 1;
-            margin-left: 20px;
-            min-width: 150px;
-        }
-        .progress-wrap .progress-label {
-            font-size: 11px;
-            color: #666;
-            font-family: 'Space Mono', monospace;
-        }
-        .bar {
-            height: 4px;
-            background: var(--border-dim);
-            border-radius: 2px;
-            margin-top: 4px;
-            overflow: hidden;
-        }
-        .bar .fill {
-            height: 100%;
-            background: var(--green);
-            border-radius: 2px;
-            transition: width 0.6s ease;
-        }
-
-        /* ===== COMMISSION SECTION ===== */
-        .commission-section {
-            background: var(--bg-panel);
-            border: 1px solid var(--border-dim);
-            border-radius: 10px;
-            padding: 20px 24px;
-            margin-bottom: 30px;
-        }
-        .commission-section .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        .commission-section .header h3 {
-            font-family: 'Space Mono', monospace;
-            color: var(--green);
-            font-size: 18px;
-        }
-        .test-btn {
-            padding: 6px 16px;
-            background: transparent;
-            border: 1px solid var(--gold);
-            border-radius: 20px;
-            color: var(--gold);
-            cursor: pointer;
-            font-family: 'Space Mono', monospace;
-            font-size: 12px;
-            transition: 0.2s;
-        }
-        .test-btn:hover {
-            background: rgba(224, 177, 45, 0.1);
-            box-shadow: 0 0 20px rgba(224, 177, 45, 0.2);
-        }
-        .commission-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .commission-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 14px;
-            background: #0F0F0F;
-            border-radius: 6px;
-            border-left: 3px solid var(--green);
-            font-size: 14px;
-        }
-        .commission-item .left .name {
-            color: #fff;
-            font-weight: 500;
-        }
-        .commission-item .left .date {
-            color: #666;
-            font-size: 12px;
-            font-family: 'Space Mono', monospace;
-        }
-        .commission-item .right .amount {
-            color: var(--green);
-            font-weight: 700;
-        }
-        .commission-item .right .status {
-            font-size: 11px;
-            font-family: 'Space Mono', monospace;
-            padding: 2px 10px;
-            border-radius: 12px;
-            margin-left: 10px;
-        }
-        .commission-item .right .status.pending {
-            background: rgba(255, 170, 0, 0.12);
-            color: #ffaa00;
-            border: 1px solid rgba(255, 170, 0, 0.2);
-        }
-        .commission-item .right .status.paid {
-            background: rgba(141, 235, 0, 0.12);
-            color: var(--green);
-            border: 1px solid rgba(141, 235, 0, 0.2);
-        }
-        .commission-item .right .status.failed {
-            background: rgba(255, 68, 68, 0.12);
-            color: #ff4444;
-            border: 1px solid rgba(255, 68, 68, 0.2);
-        }
-        .commission-empty {
-            color: #666;
-            font-size: 13px;
-            font-style: italic;
-            padding: 10px 0;
-            text-align: center;
-        }
-
-        /* ===== SECTION HEADERS ===== */
-        .section-header {
-            margin: 30px 0 16px 0;
-            border-bottom: 1px solid var(--border-dim);
-            padding-bottom: 12px;
-        }
-        .section-header h2 {
-            font-family: 'Space Mono', monospace;
-            font-size: 18px;
-            color: var(--green);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        /* ===== FILTER TABS ===== */
-        .filter-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-        .filter-tab {
-            background: transparent;
-            border: 1px solid var(--border-dim);
-            border-radius: 20px;
-            padding: 6px 18px;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-family: 'Space Mono', monospace;
-            font-size: 12px;
-            transition: all 0.2s;
-        }
-        .filter-tab:hover {
-            border-color: var(--green);
-            color: var(--green);
-        }
-        .filter-tab.active {
-            background: rgba(141, 235, 0, 0.06);
-            border-color: var(--green);
-            color: var(--green);
-        }
-
-        /* ===== PROTOCOL GRID ===== */
-        .protocol-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 16px;
-            margin-bottom: 10px;
-        }
-        .protocol-card {
-            background: var(--bg-panel);
-            border: 1px solid var(--border-dim);
-            border-radius: 10px;
-            padding: 18px 18px 16px;
-            transition: all 0.25s;
-            display: flex;
-            flex-direction: column;
-        }
-        .protocol-card:hover {
-            border-color: var(--green);
-            transform: translateY(-3px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-        }
-        .protocol-card .top {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
-        }
-        .protocol-card .type-icon {
-            font-size: 18px;
-            color: var(--green);
-            background: rgba(141, 235, 0, 0.06);
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid rgba(141, 235, 0, 0.08);
-        }
-        .protocol-card .remove-btn {
-            background: transparent;
-            border: none;
-            color: #555;
-            cursor: pointer;
-            font-size: 14px;
-            transition: color 0.2s;
-            padding: 4px;
-        }
-        .protocol-card .remove-btn:hover {
-            color: #ff4444;
-        }
-        .protocol-card h4 {
-            font-size: 15px;
-            font-weight: 600;
-            margin-bottom: 4px;
-            color: #ffffff;
-        }
-        .protocol-card .genre-tag {
-            font-size: 11px;
-            font-family: 'Space Mono', monospace;
-            color: var(--green);
-            background: rgba(141, 235, 0, 0.06);
-            padding: 0 10px;
-            border-radius: 12px;
-            border: 1px solid rgba(141, 235, 0, 0.08);
-            display: inline-block;
-            margin-bottom: 6px;
-            width: fit-content;
-        }
-        .protocol-card .description {
-            font-size: 13px;
-            color: var(--text-muted);
-            line-height: 1.5;
-            flex: 1;
-            margin-bottom: 10px;
-        }
-        .protocol-card .brand {
-            font-size: 11px;
-            color: #888;
-            font-family: 'Space Mono', monospace;
-            letter-spacing: 0.5px;
-        }
-
-        /* ===== ITEM GRID ===== */
-        .item-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-        .item-card {
-            background: var(--bg-panel);
-            border: 1px solid var(--border-dim);
-            border-radius: 8px;
-            padding: 14px 18px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: all 0.2s;
-            color: #ffffff;
-            text-decoration: none;
-        }
-        .item-card:hover {
-            border-color: var(--green);
-            background: rgba(141, 235, 0, 0.04);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        .item-card .icon {
-            font-size: 18px;
-            color: var(--green);
-            width: 30px;
-            text-align: center;
-        }
-        .item-card .info {
-            flex: 1;
-        }
-        .item-card .info .title {
-            font-size: 14px;
-            font-weight: 500;
-        }
-        .item-card .info .sub {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        /* ===== OTHER SAVED (DETAILS) ===== */
-        details.other-content {
-            margin-top: 30px;
-            border-top: 1px solid var(--border-dim);
-            padding-top: 16px;
-        }
-        details.other-content summary {
-            cursor: pointer;
-            font-family: 'Space Mono', monospace;
-            font-size: 14px;
-            color: var(--green);
-            letter-spacing: 0.5px;
-            list-style: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        details.other-content summary::-webkit-details-marker {
-            display: none;
-        }
-        details.other-content summary::before {
-            content: '▶';
-            font-size: 12px;
-            transition: transform 0.3s;
-            color: var(--green);
-        }
-        details.other-content[open] summary::before {
-            transform: rotate(90deg);
-        }
-        details.other-content .inner {
-            margin-top: 16px;
-        }
-
-        /* ===== RECOMMENDED ===== */
-        .recommended-row {
-            margin: 40px 0 20px;
-        }
-        .recommended-row .row-title {
-            font-family: 'Space Mono', monospace;
-            font-size: 15px;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-        }
-        .recommended-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 14px;
-        }
-        .recommended-card {
-            background: var(--bg-panel);
-            border: 1px solid var(--border-dim);
-            border-radius: 8px;
-            padding: 14px 16px;
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-        .recommended-card:hover {
-            border-color: var(--green);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-        }
-        .recommended-card .title {
-            font-size: 13px;
-            font-weight: 500;
-            color: #ffffff;
-            margin-bottom: 4px;
-        }
-        .recommended-card .genre {
-            font-size: 10px;
-            font-family: 'Space Mono', monospace;
-            color: var(--green);
-            background: rgba(141, 235, 0, 0.06);
-            padding: 0 10px;
-            border-radius: 12px;
-            border: 1px solid rgba(141, 235, 0, 0.08);
-            display: inline-block;
-            margin-bottom: 6px;
-        }
-        .recommended-card .desc {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-        .recommended-card .save-hint {
-            margin-top: 8px;
-            font-size: 11px;
-            color: var(--green);
-            font-family: 'Space Mono', monospace;
-            opacity: 0.6;
-        }
-        .empty-state {
-            grid-column: 1 / -1;
-            text-align: center;
-            color: var(--text-muted);
-            padding: 40px 0;
-            font-family: 'Space Mono', monospace;
-            font-size: 14px;
-            font-style: italic;
-        }
-
-        /* ===== AMBASSADOR CTA ===== */
-        .ambassador-cta {
-            border: 1px solid var(--border-dim);
-            border-radius: 12px;
-            padding: 28px 30px;
-            margin-top: 40px;
-            text-align: center;
-            background: rgba(141, 235, 0, 0.02);
-            transition: border-color 0.3s;
-        }
-        .ambassador-cta:hover {
-            border-color: var(--green);
-        }
-        .ambassador-cta h3 {
-            font-family: 'Space Mono', monospace;
-            color: var(--green);
-            font-size: 18px;
-            margin-bottom: 6px;
-        }
-        .ambassador-cta p {
-            color: var(--text-muted);
-            font-size: 14px;
-            margin-bottom: 16px;
-        }
-
-        /* ===== BUTTONS ===== */
-        .btn-neon-outline {
-            display: inline-block;
-            padding: 10px 30px;
-            background: transparent;
-            border: 1px solid var(--green);
-            border-radius: 8px;
-            color: var(--green);
-            font-family: 'Space Mono', monospace;
-            font-size: 14px;
-            transition: 0.2s;
-            text-decoration: none;
-        }
-        .btn-neon-outline:hover {
-            background: rgba(141, 235, 0, 0.1);
-            box-shadow: 0 0 15px rgba(141, 235, 0, 0.3);
-        }
-        .btn-sm {
-            padding: 6px 16px;
-            background: transparent;
-            border: 1px solid var(--green);
-            border-radius: 6px;
-            color: var(--green);
-            font-family: 'Space Mono', monospace;
-            font-size: 12px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .btn-sm:hover {
-            background: rgba(141, 235, 0, 0.1);
-            box-shadow: 0 0 12px rgba(141, 235, 0, 0.2);
-        }
-
-        /* ===== CART HEADER LINK ===== */
-        @property --angle {
-            syntax: '<angle>';
-            initial-value: 0deg;
-            inherits: false;
-        }
-        @keyframes spinBorder {
-            to {
-                --angle: 360deg;
-            }
-        }
-        .chasing-border {
-            position: relative;
-            z-index: 0;
-        }
-        .chasing-border::before {
-            content: '';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            border-radius: inherit;
-            background: conic-gradient(from var(--angle, 0deg), #8deb00, #00e5ff, #a0f520, #8deb00);
-            animation: spinBorder 4s linear infinite;
-            z-index: -1;
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask-composite: exclude;
-            padding: 2px;
-        }
-        .cart-header-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: transparent;
-            border: 1px solid var(--green);
-            border-radius: 20px;
-            padding: 6px 14px;
-            color: var(--green);
-            font-family: 'Space Mono', monospace;
-            font-size: 13px;
-            text-decoration: none;
-            flex-shrink: 0;
-            transition: 0.2s;
-        }
-        .cart-header-link:hover {
-            background: rgba(141, 235, 0, 0.1);
-            box-shadow: 0 0 12px rgba(141, 235, 0, 0.3);
-        }
-        .cart-count-badge {
-            background: var(--green);
-            color: #000;
-            border-radius: 50%;
-            padding: 1px 7px;
-            font-size: 11px;
-            font-weight: 700;
-            display: inline-block;
-        }
-
-        /* ===== FOOTER ===== */
-        .footer {
-            border-top: 1px solid var(--border-dim);
-            padding-top: 20px;
-            margin-top: 40px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            font-size: 12px;
-            color: var(--text-muted);
-            text-align: center;
-        }
-        .footer .socials {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-        }
-        .footer .socials a {
-            color: #ffffff !important;
-            font-size: 18px;
-            transition: 0.2s;
-        }
-        .footer .socials a:hover {
-            color: var(--green) !important;
-        }
-        .footer .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-        .footer .footer-links a {
-            color: var(--green) !important;
-        }
-        .footer .footer-links a:hover {
-            color: #a0f520 !important;
-        }
-
-        /* ===== DELETE LINK ===== */
-        .delete-link {
-            text-align: left;
-            margin-top: 20px;
-        }
-        .delete-link a {
-            color: #ff4a4a;
-            font-size: 11px;
-            text-decoration: none;
-            opacity: 0.7;
-            transition: 0.2s;
-            font-family: 'Space Mono', monospace;
-        }
-        .delete-link a:hover {
-            opacity: 1;
-            background: rgba(255, 74, 74, 0.1);
-        }
-
-        /* ===== SCROLL TO TOP ===== */
-        #scrollTopBtn {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            visibility: hidden;
-            opacity: 0;
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            border: 1px solid var(--green);
-            background: rgba(0, 0, 0, 0.85);
-            color: var(--green);
-            cursor: pointer;
-            font-size: 18px;
-            z-index: 999;
-            font-family: 'Space Mono', monospace;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-            box-shadow: 0 0 10px rgba(141, 235, 0, 0.2);
-        }
-        #scrollTopBtn.show {
-            visibility: visible;
-            opacity: 1;
-        }
-        #scrollTopBtn:hover {
-            background: var(--green);
-            color: #000000;
-            box-shadow: 0 0 20px rgba(141, 235, 0, 0.6);
-            transform: translateY(-2px);
-        }
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-                box-shadow: 0 0 10px rgba(141, 235, 0, 0.2);
-            }
-            50% {
-                transform: scale(1.15);
-                box-shadow: 0 0 25px rgba(141, 235, 0, 0.5);
-            }
-            100% {
-                transform: scale(1);
-                box-shadow: 0 0 10px rgba(141, 235, 0, 0.2);
-            }
-        }
-        #scrollTopBtn.pulse {
-            animation: pulse 1.2s ease-in-out infinite;
-        }
-
-        /* ===== MOBILE OVERLAY ===== */
-        .nav-group-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 10000;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 12px;
-            padding: 40px 20px;
-            overflow-y: auto;
-        }
-        .nav-group-overlay.open {
-            display: flex !important;
-        }
-        .nav-group-overlay .nav-item {
-            font-size: 22px;
-            padding: 12px 0;
-            color: #ffffff;
-            font-family: 'Space Mono', monospace;
-            letter-spacing: 0.5px;
-            width: 100%;
-            max-width: 360px;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-        .nav-group-overlay .nav-item i {
-            color: var(--green);
-            font-size: 18px;
-            width: 28px;
-        }
-        .nav-group-overlay .nav-item:hover {
-            color: var(--green);
-        }
-        .nav-group-overlay .close-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            color: var(--green);
-            font-size: 32px;
-            cursor: pointer;
-            background: transparent;
-            border: none;
-            padding: 8px;
-            z-index: 10001;
-            font-family: 'Space Mono', monospace;
-        }
-        .nav-group-overlay .sidebar-divider {
-            display: none;
-        }
-
-        .sidebar .mobile-toggle {
-            display: none;
-            background: transparent;
-            border: none;
-            color: var(--green);
-            font-size: 28px;
-            cursor: pointer;
-            padding: 4px 8px;
-            z-index: 101;
-        }
-
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 1024px) {
-            body {
-                flex-direction: column;
-            }
-            .sidebar {
-                width: 100%;
-                height: auto;
-                position: static;
-                border-right: none;
-                border-bottom: 1px solid var(--border-dim);
-                padding: 15px 20px;
-                display: flex;
-                flex-wrap: wrap;
-                align-items: center;
-                justify-content: space-between;
-                flex-direction: row;
-            }
-            .sidebar .logo {
-                margin: 0;
-            }
-            .sidebar .logo img {
-                height: 50px;
-                width: auto;
-                margin: 0;
-            }
-            .sidebar .nav-group {
-                display: none !important;
-            }
-            .sidebar .mobile-toggle {
-                display: block !important;
-            }
-            .floating-toggle {
-                display: block !important;
-            }
-            .main-content {
-                padding: 20px;
-                padding-top: 100px;
-            }
-            .floating-header {
-                left: 10px;
-                right: 10px;
-                top: 70px;
-                padding: 8px 18px;
-                border-radius: 25px;
-                gap: 10px;
-            }
-            .floating-nav-links {
-                gap: 12px;
-            }
-            .dash-stats {
-                grid-template-columns: 1fr 1fr;
-            }
-            .item-grid {
-                grid-template-columns: 1fr;
-            }
-            .protocol-grid {
-                grid-template-columns: 1fr;
-            }
-            .profile-section {
-                grid-template-columns: 1fr 1fr;
-            }
-            .referral-section .row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .referral-section .stats {
-                justify-content: space-around;
-            }
-            .commission-section .header {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .commission-item {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 6px;
-            }
-            #cartHeaderLabel {
-                display: none;
-            }
-            .role-tier-badge {
-                bottom: -20px;
-                left: 10px;
-                font-size: 8px;
-                padding: 1px 8px;
-            }
-        }
-
-        @media (max-width: 600px) {
-            .profile-section {
-                grid-template-columns: 1fr;
-            }
-            .referral-section .stats {
-                flex-direction: column;
-                align-items: center;
-                gap: 10px;
-            }
-            .recommended-grid {
-                grid-template-columns: 1fr;
-            }
-            .dash-stats {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-    </style>
-</head>
-<body>
-    <canvas id="binary-rain"></canvas>
-    <div id="rain-fade"></div>
-
-    <!-- ===== SIDEBAR ===== -->
-    <aside class="sidebar">
-        <div class="logo">
-            <a href="https://camerasdecoded.com"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a>
-        </div>
-        <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
-            <a href="login.html" class="header-login-btn">Log in</a>
-            <a href="signup.html" class="header-login-btn">Sign Up</a>
-        </div>
-        <div class="nav-group" id="navGroupDesktop">
-            <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-            <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-            <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-            <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-            <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-            <hr class="sidebar-divider">
-            <a href="operator-dashboard.html" class="nav-item active"><i class="fas fa-chart-simple"></i> Dashboard</a>
-            <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-            <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-            <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-            <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-            <hr class="sidebar-divider">
-            <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-            <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-            <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-            <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
-        </div>
-        <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
-    </aside>
-
-    <!-- ===== MOBILE OVERLAY ===== -->
-    <div class="nav-group-overlay" id="navGroupOverlay">
-        <button class="close-btn" id="closeToggle">✕</button>
-        <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-        <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-        <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-        <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-        <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-        <hr class="sidebar-divider">
-        <a href="operator-dashboard.html" class="nav-item active"><i class="fas fa-chart-simple"></i> Dashboard</a>
-        <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-        <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-        <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-        <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-        <hr class="sidebar-divider">
-        <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-        <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-        <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-        <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
-        <div id="mobileDashboardContainer"></div>
-    </div>
-
-    <!-- ===== FLOATING HEADER ===== -->
-    <div class="floating-header" id="floatingHeader">
-        <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
-        <div id="roleTierBadge" class="role-tier-badge">
-            <span class="glow-role">Operator</span> · <span class="tier-text">Free</span>
-        </div>
-        <div class="floating-nav-links">
-            <a href="operators.html">Operators</a>
-            <a href="partners.html">Partners</a>
-            <a href="educators-pdf-viewer.html">Instructors</a>
-        </div>
-        <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
-            <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
-            <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
-        </a>
-        <button class="logout-btn" id="floatingLogoutBtn" style="display:none;" onclick="handleLogout()">Logout</button>
-        <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
-    </div>
-
-    <!-- ===== MAIN CONTENT ===== -->
-    <main class="main-content">
-
-        <div class="dash-header">
-            <img src="custom-site-titles/operator-dashboard.png" alt="Operator Dashboard" class="dash-title-img">
-            <div class="greeting" id="greeting">
-                <span>Welcome back, Operator.</span>
-                <span class="subscription-badge" id="subscriptionBadge">● Active</span>
-            </div>
-        </div>
-
-        <!-- Stats -->
-        <div class="dash-stats" id="statsContainer">
-            <div class="stat-card"><div class="number" id="statProtocols">0</div><div class="label">Saved Protocols</div></div>
-            <a href="#" id="statCardsLink" class="stat-card">
-                <div class="number" id="statCards">0</div>
-                <div class="label">Snapshot Cards</div>
-            </a>
-            <div class="stat-card"><div class="number" id="statOther">0</div><div class="label">Other Saved</div></div>
-            <div class="stat-card"><div class="number" id="statCommunity">0</div><div class="label">Community Posts</div></div>
-        </div>
-
-        <!-- Substack RSS Teaser -->
-        <div id="substackTeaser" class="substack-teaser" style="display:none;">
-            <div class="teaser-header">
-                <i class="fas fa-satellite-dish" style="color:var(--green); margin-right:8px;"></i>
-                <span style="font-family:'Space Mono',monospace; font-size:13px; color:var(--green); letter-spacing:0.5px;">Latest Transmission</span>
-                <span style="font-size:11px; color:#666; margin-left:auto;">via Substack</span>
-            </div>
-            <a id="substackLink" href="https://camerasdecoded.substack.com" target="_blank" style="text-decoration:none; color:inherit;">
-                <h4 id="substackTitle" style="font-size:15px; color:#fff; margin:8px 0 4px;">Loading…</h4>
-                <p id="substackSnippet" style="font-size:13px; color:var(--text-muted); line-height:1.5; margin:0;"></p>
-            </a>
-            <div style="margin-top:10px; display:flex; gap:12px; align-items:center;">
-                <a href="dailyprotocols-op-dashboard.html" class="btn-sm" style="display:inline-flex; align-items:center; gap:4px;">
-                    <i class="fas fa-bolt"></i> Get Daily Protocols
-                </a>
-                <span style="font-size:11px; color:#666;">$5/mo · premium</span>
-            </div>
-        </div>
-
-        <!-- Profile Section -->
-        <div class="profile-section" id="profileSection">
-            <div class="profile-item"><span class="label">Username</span><span class="value" id="profileUsername">—</span></div>
-            <div class="profile-item"><span class="label">Full Name</span><span class="value" id="profileName">—</span></div>
-            <div class="profile-item"><span class="label">Email</span><span class="value" id="profileEmail">—</span></div>
-            <div class="profile-item"><span class="label">Plan</span><span class="value green" id="profilePlan">—</span></div>
-            <div class="profile-item"><span class="label">Camera</span><span class="value" id="profileCamera">—</span></div>
-            <div class="profile-item"><span class="label">Lenses</span><span class="value" id="profileLenses">—</span></div>
-            <div class="profile-item"><span class="label">Interests</span><span class="value" id="profileInterests">—</span></div>
-            <div class="profile-item"><span class="label">Confidence</span><span class="value" id="profileConfidence">—</span></div>
-            <div class="profile-item"><span class="label">Referral</span><span class="value" id="profileReferral">—</span></div>
-        </div>
-
-        <!-- Referral & Commissions -->
-        <div class="referral-section" id="referralSection">
-            <div class="row">
-                <div class="link-area">
-                    <div class="label">Your Referral Link</div>
-                    <div class="link" id="referralLink">camerasdecoded.com/ref/—</div>
-                    <button class="btn-sm" onclick="copyReferralLink()" style="margin-top:6px;"><i class="fas fa-copy"></i> Copy</button>
-                </div>
-                <div class="stats">
-                    <div class="stat">
-                        <div class="num" id="totalReferrals">0</div>
-                        <div class="lbl">Referrals</div>
-                    </div>
-                    <div class="stat">
-                        <div class="num" id="totalCommission">$0</div>
-                        <div class="lbl">Commission</div>
-                    </div>
-                    <div class="stat">
-                        <div class="num" id="ambassadorTier">—</div>
-                        <div class="lbl">Tier</div>
-                    </div>
-                </div>
-            </div>
-            <div class="tier-info" id="tierProgress" style="display:none;">
-                <span class="tier-badge" id="nextTierBadge">Next: Operator Creator</span>
-                <div class="progress-wrap">
-                    <div class="progress-label" id="progressLabel">0 / 10 referrals</div>
-                    <div class="bar"><div class="fill" id="progressFill" style="width:0%;"></div></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Commission History -->
-        <div class="commission-section" id="commissionSection">
-            <div class="header">
-                <h3><i class="fas fa-coin" style="color:var(--green); margin-right:8px;"></i>Commission History</h3>
-                <button class="test-btn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
-            </div>
-            <div class="commission-list" id="commissionList">
-                <div class="commission-empty">No commissions yet.</div>
-            </div>
-        </div>
-
-        <!-- Protocol Library -->
-        <div class="section-header"><h2><i class="fas fa-book-open" style="color:var(--green); margin-right:8px;"></i>My Protocol Library</h2></div>
-        <div class="filter-tabs" id="filterTabs">
-            <button class="filter-tab active" data-genre="all">All</button>
-            <button class="filter-tab" data-genre="real-estate">Real Estate</button>
-            <button class="filter-tab" data-genre="street">Street</button>
-            <button class="filter-tab" data-genre="portrait">Portrait</button>
-            <button class="filter-tab" data-genre="sports">Sports</button>
-            <button class="filter-tab" data-genre="influencer">Influencer</button>
-        </div>
-        <div id="protocolGrid" class="protocol-grid"><div class="empty-state">No saved protocols yet.</div></div>
-
-        <!-- Recommended -->
-        <div class="recommended-row" id="recommendedRow">
-            <div class="row-title"><i class="fas fa-lightbulb" style="color:var(--green); margin-right:6px;"></i>Recommended for you</div>
-            <div id="recommendedGrid" class="recommended-grid"></div>
-        </div>
-
-        <!-- Snapshot Cards -->
-        <div class="section-header"><h2><i class="fas fa-id-card" style="color:var(--green); margin-right:8px;"></i>Snapshot Cards</h2></div>
-        <div id="cardsList" class="item-grid"><div class="empty-state">No snapshot cards saved yet.</div></div>
-
-        <!-- Other Saved -->
-        <details class="other-content" id="otherSaved" style="margin-top:30px;">
-            <summary style="cursor:pointer; color:var(--green); font-family:'Space Mono',monospace;">Other saved content <span style="color:var(--text-muted); font-size:12px;">(blogs, podcasts, community)</span></summary>
-            <div class="inner">
-                <div class="section-header" style="margin-top:0;"><h2><i class="fas fa-newspaper" style="color:var(--green); margin-right:8px;"></i>Blog Posts</h2></div>
-                <div id="blogsList" class="item-grid"></div>
-                <div class="section-header"><h2><i class="fas fa-podcast" style="color:var(--green); margin-right:8px;"></i>Podcast Episodes</h2></div>
-                <div id="podcastsList" class="item-grid"></div>
-                <div class="section-header"><h2><i class="fas fa-comments" style="color:var(--green); margin-right:8px;"></i>Community Posts</h2></div>
-                <div id="communityList" class="item-grid"></div>
-            </div>
-        </details>
-
-        <!-- Ambassador CTA -->
-        <div class="ambassador-cta">
-            <h3>📡 Become a Decoder Ambassador</h3>
-            <p>Earn by sharing the signal. Create content. Share your link. Earn 30–50% commission on every guide sale.</p>
-            <a href="https://tally.so/r/ODk9YY" target="_blank" class="btn-neon-outline">Apply to the program →</a>
-        </div>
-
-    <!DOCTYPE html>
-<html lang="en">
-<head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quiz Arena — Cameras Decoded</title>
+  <title>Operator Dashboard — Cameras Decoded</title>
+  <meta name="description" content="Your personal command center. Saved items appear here automatically." />
+
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <style>
     :root {
-      --green: #8deb00;
-      --green-dim: rgba(141,235,0,0.12);
-      --text-muted: #b4b4b4;
-      --bg-panel: #0A0A0A;
-      --border-dim: #1A1A1A;
+      --space-sm: 16px; --space-md: 32px; --space-lg: 64px; --space-xl: 96px; --space-xxl: 140px;
+      --green: #8deb00; --green-dim: rgba(141,235,0,0.12); --green-glow: rgba(141,235,0,0.15);
+      --text-muted: #b4b4b4; --bg-panel: #0A0A0A; --border-dim: #1A1A1A; --gold: #e0b12d;
     }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: #000;
-      font-family: 'Montserrat', sans-serif;
+      background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 24px 24px;
       color: #fff;
+      font-family: 'Montserrat', sans-serif;
       min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
       position: relative;
       overflow-x: hidden;
+      /* No flex on body because sidebar is fixed */
     }
-    /* Particle canvas */
-    #particles {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      z-index: 0;
-      pointer-events: none;
-      opacity: 0.5;
-    }
-    /* Subtle radial gradient overlay */
-    body::after {
+    body::before {
       content: "";
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: linear-gradient(180deg, rgba(29,179,27,0.30) 0%, rgba(0,0,0,0.95) 70%, #000000 100%);
+      pointer-events: none; z-index: -1;
+    }
+
+    #binary-rain { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; opacity: 0.2; }
+    #rain-fade { position: fixed; bottom: 0; left: 0; width: 100vw; height: 45vh; background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.85) 60%, #000 100%); pointer-events: none; z-index: 0; }
+
+    h1,h2,h3,.mono { font-family: 'Space Mono', monospace; }
+    a { text-decoration: none; color: inherit; transition: 0.2s; }
+
+    /* ===== SIDEBAR — STRICTLY FIXED TO FAR LEFT ===== */
+    .sidebar {
+      width: 240px;
+      background: rgba(0,0,0,0.95);
+      padding: 24px;
+      border-right: 1px solid var(--border-dim);
       position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      background: radial-gradient(circle at 20% 30%, rgba(141,235,0,0.05) 0%, transparent 70%);
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .quiz-container {
-      max-width: 820px;
-      width: 100%;
-      background: rgba(10,10,10,0.85);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-dim);
-      border-radius: 20px;
-      padding: 30px 32px 40px;
-      box-shadow: 0 30px 80px rgba(0,0,0,0.9);
-      position: relative;
-      z-index: 2;
-      transition: border-color 0.3s;
-    }
-    .quiz-container:hover { border-color: rgba(141,235,0,0.2); }
-
-    /* ----- HEADER ----- */
-    .quiz-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .quiz-header h1 {
-      font-family: 'Space Mono', monospace;
-      font-size: 20px;
-      color: var(--green);
-      letter-spacing: 1px;
-    }
-    .quiz-header .back-link {
-      color: var(--text-muted);
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      text-decoration: none;
-      transition: 0.2s;
-    }
-    .quiz-header .back-link:hover { color: var(--green); }
-    .quiz-header .back-link i { margin-right: 6px; }
-
-    /* ----- SIGNAL METER (from your snippet) ----- */
-    .signal-meter {
-      background: rgba(255,255,255,0.02);
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-bottom: 18px;
-      border: 1px solid var(--border-dim);
-    }
-    .signal-meter .top-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .signal-meter .label {
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      color: var(--green);
-      letter-spacing: 1px;
-      min-width: 60px;
-    }
-    .signal-meter .bar {
-      flex: 1;
-      height: 4px;
-      background: var(--border-dim);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .signal-meter .bar .fill {
-      height: 100%;
-      width: 0%;
-      background: var(--green);
-      transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .signal-meter .percentage {
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: var(--green);
-      min-width: 40px;
-      text-align: right;
-    }
-    .signal-meter .step-label {
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 4px;
-      display: block;
-    }
-
-    /* ----- STEP WAVE (progress dots) ----- */
-    .step-wave {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin: 16px 0 20px;
-    }
-    .wave-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--border-dim);
-      transition: 0.3s;
-      cursor: default;
-    }
-    .wave-dot.active { background: var(--green); box-shadow: 0 0 12px var(--green); }
-    .wave-dot.completed { background: var(--green); opacity: 0.4; }
-
-    /* ----- DIFFICULTY SELECTOR ----- */
-    .difficulty-selector {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
-    .diff-btn {
-      padding: 6px 18px;
-      border: 1px solid var(--border-dim);
-      border-radius: 20px;
-      background: transparent;
-      color: var(--text-muted);
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    .diff-btn:hover { border-color: var(--green); color: var(--green); }
-    .diff-btn.active { background: var(--green-dim); border-color: var(--green); color: var(--green); }
-
-    /* ----- QUESTION AREA ----- */
-    .question-text {
-      font-family: 'Space Mono', monospace;
-      font-size: 20px;
-      font-weight: 400;
-      margin: 16px 0 24px;
-      line-height: 1.5;
-      min-height: 60px;
-      animation: slideUp 0.4s ease;
-    }
-    @keyframes slideUp {
-      0% { opacity: 0; transform: translateY(20px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-
-    .answers-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .answer-btn {
-      background: rgba(255,255,255,0.02);
-      border: 1px solid var(--border-dim);
-      border-radius: 10px;
-      padding: 14px 20px;
-      color: #fff;
-      font-size: 15px;
-      font-family: 'Montserrat', sans-serif;
-      text-align: left;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-    .answer-btn:hover:not(:disabled) {
-      border-color: var(--green);
-      background: rgba(141,235,0,0.05);
-      transform: translateX(4px);
-    }
-    .answer-btn .letter {
-      display: inline-block;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.05);
-      text-align: center;
-      line-height: 30px;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: var(--text-muted);
+      top: 0;
+      left: 0;
+      bottom: 0;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 100;
       flex-shrink: 0;
     }
-    .answer-btn.correct { border-color: var(--green) !important; background: rgba(141,235,0,0.12) !important; }
-    .answer-btn.correct .letter { background: var(--green); color: #000; }
-    .answer-btn.wrong { border-color: #ff4a4a !important; background: rgba(255,74,74,0.12) !important; }
-    .answer-btn.wrong .letter { background: #ff4a4a; color: #000; }
-    .answer-btn:disabled { opacity: 0.6; cursor: default; transform: none !important; }
-
-    /* ----- FEEDBACK BOX ----- */
-    .feedback-box {
-      margin-top: 20px;
-      padding: 16px 20px;
-      border-radius: 8px;
-      background: rgba(255,255,255,0.02);
-      border-left: 4px solid var(--green);
-      display: none;
-      animation: fadeIn 0.3s ease;
+    .sidebar .logo img { height: 120px; width: auto; }
+    .sidebar .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 12px 0;
+      color: var(--text-muted); font-family: 'Space Mono', monospace; font-size: 13px;
+      border-bottom: 1px solid transparent; transition: all 0.2s;
     }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .feedback-box .fb-title { font-weight: 700; font-size: 15px; }
-    .feedback-box .fb-explain { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
+    .sidebar .nav-item i { width: 20px; text-align: center; }
+    .sidebar .nav-item:hover { color: var(--green); border-bottom: 1px solid var(--green); }
+    .sidebar .nav-item.active { color: var(--green); }
+    .sidebar-divider { border-top: 1px solid var(--border-dim); margin: 8px 0; }
+    .header-login-btn {
+      display: block; color: var(--green); font-family: 'Space Mono', monospace; font-size: 12px;
+      border: 1px solid var(--green); padding: 0 10px; border-radius: 20px; background: transparent;
+      text-align: center; width: fit-content; margin: 5px 0; text-decoration: none;
+    }
 
-    .next-btn {
-      margin-top: 24px;
-      padding: 12px 0;
-      width: 100%;
-      background: transparent;
-      border: 1px solid var(--green);
-      border-radius: 8px;
-      color: var(--green);
+    /* ===== MAIN CONTENT — PUSHED RIGHT ===== */
+    .main-content {
+      margin-left: 240px; /* sidebar width */
+      padding: 80px 40px 40px;
+      max-width: calc(1200px + 240px);
+      position: relative;
+      z-index: 2;
+      animation: fadeIn 0.5s ease-in-out forwards;
+    }
+    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+
+    /* ===== FLOATING HEADER — ALIGNED WITH SIDEBAR ===== */
+    .floating-header {
+      position: fixed;
+      top: 12px;
+      left: 252px; /* sidebar width (240) + 12px gap */
+      right: 12px;
+      z-index: 99;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 10px 24px;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(141,235,0,0.2);
+      border-radius: 30px;
+      margin: 0;
+    }
+    .floating-header a { color: var(--green); }
+    .floating-header .logout-btn {
+      background: transparent; border: 1px solid var(--green); color: var(--green);
+      padding: 4px 12px; border-radius: 20px; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; margin-left: 12px;
+    }
+    .floating-toggle { display: none; background: none; border: none; color: var(--green); font-size: 24px; cursor: pointer; }
+
+    .role-tier-badge {
+      position: absolute; bottom: -24px; left: 16px; background: rgba(10,10,10,0.9);
+      border: 1px solid rgba(141,235,0,0.3); border-radius: 14px; padding: 2px 10px;
+      font-size: 10px; color: var(--green); display: none;
+    }
+    .glow-role { font-weight: 700; text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00; }
+    .tier-text { opacity: 0.8; }
+
+    .dash-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-dim); padding-bottom: 16px; }
+    .dash-title-img { max-height: 50px; }
+    .greeting { color: var(--text-muted); font-size: 14px; }
+    .subscription-badge { background: var(--green-dim); border: 1px solid rgba(141,235,0,0.2); border-radius: 20px; padding: 2px 14px; font-size: 11px; color: var(--green); }
+
+    .dash-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 15px; margin-bottom: 30px; }
+    .stat-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 16px; text-align: center; text-decoration: none; color: inherit; transition: border-color 0.2s; }
+    .stat-card:hover { border-color: var(--green); }
+    .stat-card .number { font-size: 30px; font-weight: 700; color: var(--green); text-shadow: 0 0 20px rgba(141,235,0,0.15); }
+    .stat-card .label { font-size: 12px; color: var(--text-muted); font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .substack-teaser { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px 22px; margin-bottom: 24px; transition: border-color 0.2s; }
+    .substack-teaser:hover { border-color: var(--green); }
+    .teaser-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+
+    .profile-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px 24px; margin-bottom: 30px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px; }
+    .profile-item .label { font-size: 10px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+    .profile-item .value { font-size: 14px; color: #fff; }
+    .profile-item .value.green { color: var(--green); }
+
+    .referral-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 20px 24px; margin-bottom: 30px; }
+    .referral-section .row { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; }
+    .referral-section .link-area { flex: 1; min-width: 200px; }
+    .referral-section .link-area .label { font-size: 12px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; }
+    .referral-section .link-area .link { font-family: 'Space Mono', monospace; color: var(--green); word-break: break-all; }
+    .referral-section .stats { display: flex; gap: 30px; flex-wrap: wrap; }
+    .referral-section .stat .num { font-size: 28px; font-weight: 700; color: var(--green); }
+    .referral-section .stat .lbl { font-size: 12px; color: #666; }
+    .tier-info { margin-top: 12px; border-top: 1px solid var(--border-dim); padding-top: 12px; display: flex; align-items: center; justify-content: space-between; }
+    .tier-badge { font-family: 'Space Mono', monospace; font-size: 14px; color: var(--green); background: var(--green-dim); padding: 4px 14px; border-radius: 20px; border: 1px solid rgba(141,235,0,0.2); }
+    .progress-wrap { flex: 1; margin-left: 20px; }
+    .bar { height: 4px; background: var(--border-dim); border-radius: 2px; overflow: hidden; }
+    .bar .fill { height: 100%; background: var(--green); transition: width 0.6s ease; }
+
+    .commission-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 20px 24px; margin-bottom: 30px; }
+    .commission-section .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+    .commission-section .header h3 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 18px; }
+    .test-btn { padding: 6px 16px; background: transparent; border: 1px solid var(--gold); border-radius: 20px; color: var(--gold); cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; }
+    .commission-list { display: flex; flex-direction: column; gap: 8px; }
+    .commission-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0F0F0F; border-radius: 6px; border-left: 3px solid var(--green); font-size: 14px; }
+    .commission-item .left .name { color: #fff; }
+    .commission-item .left .date { color: #666; font-size: 12px; }
+    .commission-item .right .amount { color: var(--green); font-weight: 700; }
+    .commission-item .right .status { font-size: 11px; font-family: 'Space Mono', monospace; padding: 2px 10px; border-radius: 12px; margin-left: 10px; }
+    .commission-item .right .status.pending { background: rgba(255,170,0,0.12); color: #ffaa00; border: 1px solid rgba(255,170,0,0.2); }
+    .commission-empty { color: #666; font-style: italic; text-align: center; padding: 10px 0; }
+
+    .section-header { margin: 30px 0 16px 0; border-bottom: 1px solid var(--border-dim); padding-bottom: 12px; }
+    .section-header h2 { font-family: 'Space Mono', monospace; font-size: 18px; color: var(--green); text-transform: uppercase; letter-spacing: 1px; }
+
+    .filter-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .filter-tab { background: transparent; border: 1px solid var(--border-dim); border-radius: 20px; padding: 6px 18px; color: var(--text-muted); cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; transition: all 0.2s; }
+    .filter-tab:hover, .filter-tab.active { border-color: var(--green); color: var(--green); }
+    .filter-tab.active { background: rgba(141,235,0,0.06); }
+
+    .protocol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 10px; }
+    .protocol-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px; transition: all 0.25s; display: flex; flex-direction: column; }
+    .protocol-card:hover { border-color: var(--green); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .protocol-card .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .protocol-card .type-icon { font-size: 18px; color: var(--green); background: rgba(141,235,0,0.06); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(141,235,0,0.08); }
+    .protocol-card .remove-btn { background: transparent; border: none; color: #555; cursor: pointer; font-size: 14px; transition: color 0.2s; padding: 4px; }
+    .protocol-card .remove-btn:hover { color: #ff4444; }
+    .protocol-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .protocol-card .genre-tag { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--green); background: rgba(141,235,0,0.06); padding: 0 10px; border-radius: 12px; border: 1px solid rgba(141,235,0,0.08); display: inline-block; margin-bottom: 6px; width: fit-content; }
+    .protocol-card .description { font-size: 13px; color: var(--text-muted); line-height: 1.5; flex: 1; margin-bottom: 10px; }
+    .protocol-card .brand { font-size: 11px; color: #888; font-family: 'Space Mono', monospace; letter-spacing: 0.5px; }
+
+    .empty-state { grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px 0; font-family: 'Space Mono', monospace; font-size: 14px; font-style: italic; }
+
+    .item-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .item-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; transition: all 0.2s; color: #ffffff; text-decoration: none; }
+    .item-card:hover { border-color: var(--green); background: rgba(141,235,0,0.04); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .item-card .icon { font-size: 18px; color: var(--green); width: 30px; text-align: center; }
+    .item-card .info { flex: 1; }
+    .item-card .info .title { font-size: 14px; font-weight: 500; }
+    .item-card .info .sub { font-size: 12px; color: var(--text-muted); }
+
+    .recommended-row { margin: 40px 0 20px; }
+    .recommended-row .row-title { font-family: 'Space Mono', monospace; font-size: 15px; color: var(--text-muted); margin-bottom: 12px; }
+    .recommended-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+    .recommended-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 14px 16px; transition: all 0.2s; cursor: pointer; }
+    .recommended-card:hover { border-color: var(--green); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+    .recommended-card .title { font-size: 13px; font-weight: 500; color: #ffffff; margin-bottom: 4px; }
+    .recommended-card .genre { font-size: 10px; font-family: 'Space Mono', monospace; color: var(--green); background: rgba(141,235,0,0.06); padding: 0 10px; border-radius: 12px; border: 1px solid rgba(141,235,0,0.08); display: inline-block; margin-bottom: 6px; }
+    .recommended-card .desc { font-size: 12px; color: var(--text-muted); }
+    .recommended-card .save-hint { margin-top: 8px; font-size: 11px; color: var(--green); font-family: 'Space Mono', monospace; opacity: 0.6; }
+
+    .ambassador-cta { border: 1px solid var(--border-dim); border-radius: 12px; padding: 28px 30px; margin-top: 40px; text-align: center; background: rgba(141,235,0,0.02); transition: border-color 0.3s; }
+    .ambassador-cta:hover { border-color: var(--green); }
+    .ambassador-cta h3 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 18px; margin-bottom: 6px; }
+    .ambassador-cta p { color: var(--text-muted); font-size: 14px; margin-bottom: 16px; }
+    .btn-neon-outline { display: inline-block; padding: 10px 30px; background: transparent; border: 1px solid var(--green); border-radius: 8px; color: var(--green); font-family: 'Space Mono', monospace; font-size: 14px; transition: 0.2s; text-decoration: none; }
+    .btn-neon-outline:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 15px rgba(141,235,0,0.3); }
+    .btn-sm { padding: 6px 16px; background: transparent; border: 1px solid var(--green); border-radius: 6px; color: var(--green); font-family: 'Space Mono', monospace; font-size: 12px; cursor: pointer; transition: 0.2s; }
+    .btn-sm:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 12px rgba(141,235,0,0.2); }
+
+    .footer { border-top: 1px solid var(--border-dim); padding-top: 20px; margin-top: 40px; display: flex; flex-direction: column; gap: 15px; font-size: 12px; color: var(--text-muted); text-align: center; }
+    .footer .socials { display: flex; justify-content: center; gap: 20px; }
+    .footer .socials a { color: #ffffff; font-size: 18px; transition: 0.2s; }
+    .footer .socials a:hover { color: var(--green); }
+    .footer .footer-links { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+    .footer .footer-links a { color: var(--green); }
+    .footer .footer-links a:hover { color: #a0f520; }
+
+    .delete-link { text-align: left; margin-top: 20px; }
+    .delete-link a { color: #ff4a4a; font-size: 11px; }
+
+    .cart-header-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: transparent; border: 1px solid var(--green); border-radius: 20px;
+      padding: 6px 14px; color: var(--green); font-family: 'Space Mono', monospace;
+      font-size: 13px; text-decoration: none; flex-shrink: 0;
+    }
+    .cart-header-link:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 12px rgba(141,235,0,0.3); }
+    .cart-count-badge { background: var(--green); color: #000; border-radius: 50%; padding: 1px 7px; font-size: 11px; font-weight: 700; display: inline-block; }
+
+    @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+    @keyframes spinBorder { to { --angle: 360deg; } }
+    .chasing-border { position: relative; border-color: transparent !important; background-clip: padding-box; }
+    .chasing-border::before {
+      content: ''; position: absolute; inset: -1px; border-radius: inherit; padding: 1px;
+      background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
+      -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      mask-composite: exclude;
+      animation: spinBorder 4s linear infinite;
+      pointer-events: none; z-index: 0; will-change: transform;
+    }
+
+    /* ===== MOBILE OVERLAY ===== */
+    .nav-group-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.85); z-index: 10000; flex-direction: column;
+      justify-content: center; align-items: center; gap: 12px; padding: 40px 20px; overflow-y: auto;
+    }
+    .nav-group-overlay.open { display: flex !important; }
+    .nav-group-overlay .nav-item {
+      font-size: 22px; padding: 12px 0; color: #ffffff; font-family: 'Space Mono', monospace;
+      letter-spacing: 0.5px; width: 100%; max-width: 360px; text-align: center;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06); text-decoration: none; transition: color 0.2s;
+    }
+    .nav-group-overlay .nav-item i { color: var(--green); font-size: 18px; width: 28px; }
+    .nav-group-overlay .nav-item:hover { color: var(--green); }
+    .nav-group-overlay .close-btn {
+      position: fixed; top: 20px; right: 20px; color: var(--green); font-size: 32px;
+      cursor: pointer; background: transparent; border: none; padding: 8px; z-index: 10001;
       font-family: 'Space Mono', monospace;
-      font-size: 14px;
-      cursor: pointer;
-      transition: 0.2s;
-      display: none;
-      text-align: center;
     }
-    .next-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 20px rgba(141,235,0,0.15); }
+    .nav-group-overlay .sidebar-divider { display: none; }
+    .floating-nav-links {
+      display: flex; flex: 1; justify-content: center; gap: 25px; flex-wrap: wrap; align-items: center;
+      font-size: 13px;
+    }
 
-    /* ----- RESULTS ----- */
-    .results-box {
-      text-align: center;
-      padding: 20px 0;
-      display: none;
-      animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    #scrollTopBtn {
+      position: fixed; bottom: 30px; right: 30px; visibility: hidden; opacity: 0;
+      width: 45px; height: 45px; border-radius: 50%; border: 1px solid var(--green);
+      background: rgba(0,0,0,0.85); color: var(--green); cursor: pointer; font-size: 18px;
+      z-index: 999; font-family: 'Space Mono', monospace; transition: opacity 0.3s ease, visibility 0.3s ease;
+      box-shadow: 0 0 10px rgba(141,235,0,0.2);
     }
-    @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-    .results-box .emoji { font-size: 56px; margin-bottom: 10px; display: block; }
-    .results-box h2 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 24px; }
-    .results-box .sub { color: var(--text-muted); font-size: 16px; margin: 8px 0; }
-    .results-box .score-highlight { font-size: 32px; font-weight: 700; color: #fff; }
-    .retake-btn, .reset-diff-btn {
-      margin-top: 16px;
-      padding: 10px 30px;
-      background: transparent;
-      border: 1px solid var(--green);
-      border-radius: 8px;
-      color: var(--green);
-      font-family: 'Space Mono', monospace;
-      cursor: pointer;
-      transition: 0.2s;
+    #scrollTopBtn.show { visibility: visible; opacity: 1; }
+    #scrollTopBtn:hover { background: var(--green); color: #000000; box-shadow: 0 0 20px rgba(141,235,0,0.6); transform: translateY(-2px); }
+    @keyframes pulse {
+      0%   { transform: scale(1);   box-shadow: 0 0 10px rgba(141,235,0,0.2); }
+      50%  { transform: scale(1.15); box-shadow: 0 0 25px rgba(141,235,0,0.5); }
+      100% { transform: scale(1);   box-shadow: 0 0 10px rgba(141,235,0,0.2); }
     }
-    .retake-btn:hover, .reset-diff-btn:hover { background: rgba(141,235,0,0.1); }
+    #scrollTopBtn.pulse { animation: pulse 1.2s ease-in-out infinite; }
 
-    /* ----- RESPONSIVE ----- */
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1024px) {
+      .sidebar {
+        position: static;
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-dim);
+        padding: 15px 20px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        flex-direction: row;
+      }
+      .sidebar .logo img { height: 50px; }
+      .sidebar .nav-group { display: none; }
+      .sidebar .mobile-toggle { display: block !important; background: none; border: none; color: var(--green); font-size: 28px; }
+      .floating-toggle { display: block !important; }
+      .main-content {
+        margin-left: 0;
+        padding: 100px 20px 20px;
+      }
+      .floating-header {
+        left: 10px;
+        right: 10px;
+        top: 70px;
+        padding: 8px 18px;
+      }
+      .dash-stats { grid-template-columns: 1fr 1fr; }
+      .item-grid { grid-template-columns: 1fr; }
+      .protocol-grid { grid-template-columns: 1fr; }
+      .profile-section { grid-template-columns: 1fr 1fr; }
+      .sidebar .mobile-toggle { display: block !important; }
+    }
     @media (max-width: 600px) {
-      .quiz-container { padding: 20px 16px; }
-      .question-text { font-size: 17px; }
-      .answer-btn { font-size: 14px; padding: 12px 14px; }
-      .quiz-header h1 { font-size: 16px; }
+      .profile-section { grid-template-columns: 1fr; }
+      .referral-section .stats { flex-direction: column; }
+      .dash-stats { grid-template-columns: 1fr 1fr; }
+    }
+    @media (min-width: 1025px) {
+      .sidebar .nav-group { display: flex !important; flex-direction: column !important; }
+      .sidebar .mobile-toggle { display: none !important; }
     }
   </style>
 </head>
 <body>
+  <canvas id="binary-rain"></canvas>
+  <div id="rain-fade"></div>
 
-  <!-- PARTICLE CANVAS -->
-  <canvas id="particles"></canvas>
-
-  <div class="quiz-container">
-    <!-- HEADER -->
-    <div class="quiz-header">
-      <h1><i class="fas fa-brain" style="margin-right:8px;"></i> Quiz Arena</h1>
-      <a href="operator-dashboard.html" class="back-link"><i class="fas fa-arrow-left"></i> Dashboard</a>
+  <!-- SIDEBAR (FIXED LEFT) -->
+  <aside class="sidebar">
+    <div class="logo">
+      <a href="https://camerasdecoded.com"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a>
     </div>
-
-    <!-- SIGNAL METER -->
-    <div class="signal-meter">
-      <div class="top-row">
-        <span class="label" id="signalLabel">SIGNAL</span>
-        <div class="bar"><div class="fill" id="signalFill"></div></div>
-        <span class="percentage" id="signalPercent">0%</span>
-      </div>
-      <div class="step-label" id="stepLabel">⚡ Step 1: Choose difficulty</div>
+    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
+      <a href="login.html" class="header-login-btn">Log in</a>
+      <a href="signup.html" class="header-login-btn">Sign Up</a>
     </div>
-
-    <!-- STEP WAVE -->
-    <div class="step-wave" id="stepWave">
-      <span class="wave-dot active" data-step="0"></span>
-      <span class="wave-dot" data-step="1"></span>
-      <span class="wave-dot" data-step="2"></span>
-      <span class="wave-dot" data-step="3"></span>
-      <span class="wave-dot" data-step="4"></span>
-      <span class="wave-dot" data-step="5"></span>
+    <div class="nav-group" id="navGroupDesktop">
+      <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
+      <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
+      <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
+      <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+      <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
+      <hr class="sidebar-divider">
+      <a href="operator-dashboard.html" class="nav-item active"><i class="fas fa-chart-simple"></i> Dashboard</a>
+      <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
+      <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
+      <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
+      <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
+      <hr class="sidebar-divider">
+      <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
+      <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
+      <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
+      <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
     </div>
+    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
+  </aside>
 
-    <!-- DIFFICULTY SELECTOR -->
-    <div class="difficulty-selector" id="diffSelector">
-      <button class="diff-btn active" data-level="beginner">🌱 Beginner</button>
-      <button class="diff-btn" data-level="intermediate">⚡ Intermediate</button>
-      <button class="diff-btn" data-level="advanced">🚀 Advanced</button>
-    </div>
-
-    <!-- QUIZ UI -->
-    <div id="quizUI">
-      <div id="questionArea">
-        <div class="question-text" id="qText">Select a difficulty to begin.</div>
-        <div class="answers-grid" id="answersContainer"></div>
-      </div>
-
-      <div class="feedback-box" id="feedbackBox">
-        <div class="fb-title" id="fbTitle">✅ Correct!</div>
-        <div class="fb-explain" id="fbExplain">Explanation goes here.</div>
-      </div>
-
-      <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
-
-      <div class="results-box" id="resultsBox">
-        <span class="emoji" id="resultEmoji">🎉</span>
-        <h2>Quiz Complete!</h2>
-        <div class="sub">You scored</div>
-        <div class="score-highlight"><span id="finalScore">0</span> / <span id="totalQ">0</span></div>
-        <div class="sub" id="resultMsg" style="color:var(--green); font-family:'Space Mono',monospace; margin-top:10px;">Keep decoding!</div>
-        <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-          <button class="retake-btn" onclick="resetQuiz()"><i class="fas fa-redo"></i> Retake</button>
-          <button class="reset-diff-btn" onclick="resetDifficulty()"><i class="fas fa-arrow-left"></i> Change Difficulty</button>
-        </div>
-      </div>
-    </div>
+  <!-- MOBILE OVERLAY -->
+  <div class="nav-group-overlay" id="navGroupOverlay">
+    <button class="close-btn" id="closeToggle">✕</button>
+    <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
+    <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
+    <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
+    <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+    <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
+    <hr class="sidebar-divider">
+    <a href="operator-dashboard.html" class="nav-item active"><i class="fas fa-chart-simple"></i> Dashboard</a>
+    <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
+    <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
+    <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
+    <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
+    <hr class="sidebar-divider">
+    <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
+    <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
+    <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
+    <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
+    <div id="mobileDashboardContainer"></div>
   </div>
 
+  <!-- FLOATING HEADER -->
+  <div class="floating-header" id="floatingHeader">
+    <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
+    <div id="roleTierBadge" class="role-tier-badge"><span class="glow-role">Operator</span> · <span class="tier-text">Free</span></div>
+    <div class="floating-nav-links">
+      <a href="operators.html">Operators</a>
+      <a href="partners.html">Partners</a>
+      <a href="educators-pdf-viewer.html">Instructors</a>
+    </div>
+    <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
+      <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
+      <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
+    </a>
+    <button class="logout-btn" id="floatingLogoutBtn" style="display:none;" onclick="handleLogout()">Logout</button>
+    <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <div class="dash-header">
+      <img src="custom-site-titles/operator-dashboard.png" alt="Operator Dashboard" class="dash-title-img">
+      <div class="greeting" id="greeting">
+        <span>Welcome back, Operator.</span>
+        <span class="subscription-badge" id="subscriptionBadge">● Active</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="dash-stats" id="statsContainer">
+      <div class="stat-card"><div class="number" id="statProtocols">0</div><div class="label">Saved Protocols</div></div>
+      <a href="#" id="statCardsLink" class="stat-card">
+        <div class="number" id="statCards">0</div>
+        <div class="label">Snapshot Cards</div>
+      </a>
+      <div class="stat-card"><div class="number" id="statOther">0</div><div class="label">Other Saved</div></div>
+      <div class="stat-card"><div class="number" id="statCommunity">0</div><div class="label">Community Posts</div></div>
+    </div>
+
+    <!-- Substack RSS Teaser -->
+    <div id="substackTeaser" class="substack-teaser" style="display:none;">
+      <div class="teaser-header">
+        <i class="fas fa-satellite-dish" style="color:var(--green); margin-right:8px;"></i>
+        <span style="font-family:'Space Mono',monospace; font-size:13px; color:var(--green); letter-spacing:0.5px;">Latest Transmission</span>
+        <span style="font-size:11px; color:#666; margin-left:auto;">via Substack</span>
+      </div>
+      <a id="substackLink" href="https://camerasdecoded.substack.com" target="_blank" style="text-decoration:none; color:inherit;">
+        <h4 id="substackTitle" style="font-size:15px; color:#fff; margin:8px 0 4px;">Loading…</h4>
+        <p id="substackSnippet" style="font-size:13px; color:var(--text-muted); line-height:1.5; margin:0;"></p>
+      </a>
+      <div style="margin-top:10px; display:flex; gap:12px; align-items:center;">
+        <a href="dailyprotocols-op-dashboard.html" class="btn-sm" style="display:inline-flex; align-items:center; gap:4px;">
+          <i class="fas fa-bolt"></i> Get Daily Protocols
+        </a>
+        <span style="font-size:11px; color:#666;">$5/mo · premium</span>
+      </div>
+    </div>
+
+    <!-- Profile Section -->
+    <div class="profile-section" id="profileSection">
+      <div class="profile-item"><span class="label">Username</span><span class="value" id="profileUsername">—</span></div>
+      <div class="profile-item"><span class="label">Full Name</span><span class="value" id="profileName">—</span></div>
+      <div class="profile-item"><span class="label">Email</span><span class="value" id="profileEmail">—</span></div>
+      <div class="profile-item"><span class="label">Plan</span><span class="value green" id="profilePlan">—</span></div>
+      <div class="profile-item"><span class="label">Camera</span><span class="value" id="profileCamera">—</span></div>
+      <div class="profile-item"><span class="label">Lenses</span><span class="value" id="profileLenses">—</span></div>
+      <div class="profile-item"><span class="label">Interests</span><span class="value" id="profileInterests">—</span></div>
+      <div class="profile-item"><span class="label">Confidence</span><span class="value" id="profileConfidence">—</span></div>
+      <div class="profile-item"><span class="label">Referral</span><span class="value" id="profileReferral">—</span></div>
+    </div>
+
+    <!-- Referral & Commissions -->
+    <div class="referral-section" id="referralSection">
+      <div class="row">
+        <div class="link-area">
+          <div class="label">Your Referral Link</div>
+          <div class="link" id="referralLink">camerasdecoded.com/ref/—</div>
+          <button class="btn-sm" onclick="copyReferralLink()" style="margin-top:6px;"><i class="fas fa-copy"></i> Copy</button>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <div class="num" id="totalReferrals">0</div>
+            <div class="lbl">Referrals</div>
+          </div>
+          <div class="stat">
+            <div class="num" id="totalCommission">$0</div>
+            <div class="lbl">Commission</div>
+          </div>
+          <div class="stat">
+            <div class="num" id="ambassadorTier">—</div>
+            <div class="lbl">Tier</div>
+          </div>
+        </div>
+      </div>
+      <div class="tier-info" id="tierProgress" style="display:none;">
+        <span class="tier-badge" id="nextTierBadge">Next: Operator Creator</span>
+        <div class="progress-wrap">
+          <div class="progress-label" id="progressLabel">0 / 10 referrals</div>
+          <div class="bar"><div class="fill" id="progressFill" style="width:0%;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Commission History -->
+    <div class="commission-section" id="commissionSection">
+      <div class="header">
+        <h3><i class="fas fa-coin" style="color:var(--green); margin-right:8px;"></i>Commission History</h3>
+        <button class="test-btn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
+      </div>
+      <div class="commission-list" id="commissionList">
+        <div class="commission-empty">No commissions yet.</div>
+      </div>
+    </div>
+
+    <!-- Protocol Library -->
+    <div class="section-header"><h2><i class="fas fa-book-open" style="color:var(--green); margin-right:8px;"></i>My Protocol Library</h2></div>
+    <div class="filter-tabs" id="filterTabs">
+      <button class="filter-tab active" data-genre="all">All</button>
+      <button class="filter-tab" data-genre="real-estate">Real Estate</button>
+      <button class="filter-tab" data-genre="street">Street</button>
+      <button class="filter-tab" data-genre="portrait">Portrait</button>
+      <button class="filter-tab" data-genre="sports">Sports</button>
+      <button class="filter-tab" data-genre="influencer">Influencer</button>
+    </div>
+    <div id="protocolGrid" class="protocol-grid"><div class="empty-state">No saved protocols yet.</div></div>
+
+    <!-- Recommended -->
+    <div class="recommended-row" id="recommendedRow">
+      <div class="row-title"><i class="fas fa-lightbulb" style="color:var(--green); margin-right:6px;"></i>Recommended for you</div>
+      <div id="recommendedGrid" class="recommended-grid"></div>
+    </div>
+
+    <!-- Snapshot Cards -->
+    <div class="section-header"><h2><i class="fas fa-id-card" style="color:var(--green); margin-right:8px;"></i>Snapshot Cards</h2></div>
+    <div id="cardsList" class="item-grid"><div class="empty-state">No snapshot cards saved yet.</div></div>
+
+    <!-- Other Saved -->
+    <details class="other-content" id="otherSaved" style="margin-top:30px;">
+      <summary style="cursor:pointer; color:var(--green); font-family:'Space Mono',monospace;">Other saved content <span style="color:var(--text-muted); font-size:12px;">(blogs, podcasts, community)</span></summary>
+      <div class="inner">
+        <div class="section-header" style="margin-top:0;"><h2><i class="fas fa-newspaper"></i> Blog Posts</h2></div>
+        <div id="blogsList" class="item-grid"></div>
+        <div class="section-header"><h2><i class="fas fa-podcast"></i> Podcast Episodes</h2></div>
+        <div id="podcastsList" class="item-grid"></div>
+        <div class="section-header"><h2><i class="fas fa-comments"></i> Community Posts</h2></div>
+        <div id="communityList" class="item-grid"></div>
+      </div>
+    </details>
+
+    <!-- ===== COMPACT QUIZ WIDGET ===== -->
+    <div style="display:flex; align-items:center; gap:16px; background:var(--bg-panel); border:1px solid var(--border-dim); border-radius:10px; padding:12px 20px; margin-top:30px; transition:border-color 0.2s; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:32px; height:32px; border-radius:8px; background:rgba(141,235,0,0.08); border:1px solid rgba(141,235,0,0.12); display:flex; align-items:center; justify-content:center;">
+          <i class="fas fa-brain" style="color:var(--green); font-size:15px;"></i>
+        </div>
+        <div>
+          <div style="font-size:12px; color:var(--text-muted); font-family:'Space Mono',monospace;">Quiz Arena</div>
+          <div style="font-size:11px; color:#666;"><i class="fas fa-fire" style="color:#ffaa00; font-size:11px;"></i> Streak: <span id="streakNum">0</span></div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; margin-left:auto;">
+        <select id="diffSelect" style="background:transparent; border:1px solid var(--border-dim); border-radius:4px; color:#fff; padding:4px 10px; font-family:'Space Mono',monospace; font-size:11px; height:30px;">
+          <option value="beginner">🌱 Beginner</option>
+          <option value="intermediate">⚡ Intermediate</option>
+          <option value="advanced">🚀 Advanced</option>
+        </select>
+        <a href="#" id="quizLaunchBtn" style="padding:6px 18px; background:transparent; border:1px solid var(--green); border-radius:6px; color:var(--green); font-family:'Space Mono',monospace; font-size:12px; text-decoration:none; transition:0.2s; white-space:nowrap;" onmouseover="this.style.background='rgba(141,235,0,0.1)'" onmouseout="this.style.background='transparent'">
+          Launch <i class="fas fa-arrow-right" style="margin-left:4px; font-size:11px;"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- Ambassador CTA -->
+    <div class="ambassador-cta">
+      <h3>📡 Become a Decoder Ambassador</h3>
+      <p>Earn by sharing the signal. Create content. Share your link. Earn 30–50% commission on every guide sale.</p>
+      <a href="https://tally.so/r/ODk9YY" target="_blank" class="btn-neon-outline">Apply to the program →</a>
+    </div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:15px; margin-top:30px; justify-content:center;">
+      <a href="#" id="goToAtlasBtn" class="btn-neon-outline"><i class="fas fa-globe"></i> Open Decoder Atlas</a>
+      <a href="#" id="goToCollectionBtn" class="btn-neon-outline"><i class="fas fa-folder-open"></i> My Collection</a>
+      <a href="https://camerasdecoded.com" class="btn-neon-outline"><i class="fas fa-home"></i> Main Site</a>
+    </div>
+
+    <footer class="footer">
+      <div>© 2026 Cameras Decoded. All rights reserved.</div>
+      <div class="socials">
+        <a href="https://www.youtube.com/@CamerasDecoded"><i class="fab fa-youtube"></i></a>
+        <a href="https://www.tiktok.com/@cameras.decoded"><i class="fab fa-tiktok"></i></a>
+        <a href="https://www.instagram.com/camerasdecoded/reels/"><i class="fab fa-instagram"></i></a>
+        <a href="https://www.facebook.com/profile.php?id=61553594660326"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://camerasdecoded.substack.com"><i class="fas fa-bookmark"></i></a>
+        <a href="https://podcasts.apple.com/us/podcast/cameras-decoded/idYOURID" target="_blank"><i class="fas fa-podcast"></i></a>
+      </div>
+      <div>© Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
+      <div class="footer-links" style="margin-bottom:10px;">
+        <a href="roadmap.html">Roadmap</a> · 
+        <a href="blog-updates.html">Blog/Updates</a> · 
+        <a href="faq.html">FAQ</a> · 
+        <a href="contact.html">Contact</a>
+        <a href="podcast.html">Podcast</a>
+      </div>
+      <div class="footer-links">
+        <a href="terms.html">Privacy/Terms</a>
+        <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
+      </div>
+    </footer>
+
+    <!-- Delete Account Link at the bottom -->
+    <div class="delete-link">
+      <a href="#" id="deleteAccountLink" style="display:none;" onclick="handleDeleteAccount(); return false;">
+        <i class="fas fa-trash-alt" style="font-size:10px;"></i> Delete account
+      </a>
+    </div>
+  </main>
+
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+
   <script>
-    // ============================================================
-    // 1.  PARTICLES BACKGROUND (optimised)
-    // ============================================================
-    (function() {
-      const canvas = document.getElementById('particles');
-      const ctx = canvas.getContext('2d');
-      let w, h;
-      function resize() {
-        w = canvas.width = window.innerWidth;
-        h = canvas.height = window.innerHeight;
-      }
-      window.addEventListener('resize', resize);
-      resize();
+    // ===== MOBILE MENU =====
+    const mobileToggle = document.getElementById('mobileToggle');
+    const floatingToggle = document.getElementById('floatingToggle');
+    const closeToggle = document.getElementById('closeToggle');
+    const overlay = document.getElementById('navGroupOverlay');
+    function openMenu() { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
+    function closeMenu() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
+    mobileToggle.addEventListener('click', openMenu);
+    floatingToggle.addEventListener('click', openMenu);
+    closeToggle.addEventListener('click', closeMenu);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMenu(); });
 
-      const particles = [];
-      const count = 80;
-      for (let i = 0; i < count; i++) {
-        particles.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          vx: (Math.random() - 0.5) * 0.6,
-          vy: (Math.random() - 0.5) * 0.6,
-          r: Math.random() * 2 + 1,
-          alpha: Math.random() * 0.5 + 0.2
-        });
-      }
-
-      function drawParticles() {
-        ctx.clearRect(0, 0, w, h);
-        particles.forEach(p => {
-          p.x += p.vx;
-          p.y += p.vy;
-          if (p.x < 0 || p.x > w) p.vx *= -1;
-          if (p.y < 0 || p.y > h) p.vy *= -1;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(141, 235, 0, ${p.alpha})`;
-          ctx.fill();
-        });
-        // Draw lines between nearby particles
-        for (let i = 0; i < particles.length; i++) {
-          for (let j = i + 1; j < particles.length; j++) {
-            const dx = particles[i].x - particles[j].x;
-            const dy = particles[i].y - particles[j].y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < 120) {
-              ctx.beginPath();
-              ctx.moveTo(particles[i].x, particles[i].y);
-              ctx.lineTo(particles[j].x, particles[j].y);
-              ctx.strokeStyle = `rgba(141, 235, 0, ${0.08 * (1 - dist/120)})`;
-              ctx.lineWidth = 0.6;
-              ctx.stroke();
-            }
-          }
-        }
-        requestAnimationFrame(drawParticles);
-      }
-      drawParticles();
-    })();
-
-    // ============================================================
-    // 2.  QUIZ DATA (Beginner / Intermediate / Advanced)
-    // ============================================================
-    const questionBank = {
-      beginner: [
-        { q: "What does ISO primarily control in a camera?", a: ["Aperture", "Shutter speed", "Light sensitivity", "White balance"], c: 2, e: "ISO adjusts the sensor's sensitivity to light. Higher ISO = brighter in low light, but more noise." },
-        { q: "Which shutter speed freezes fast motion best?", a: ["1/15s", "1/60s", "1/500s", "1/2s"], c: 2, e: "1/500s is fast enough to freeze most sports and moving subjects." },
-        { q: "What does 'f/2.8' refer to?", a: ["Shutter speed", "ISO", "Aperture (focal ratio)", "White balance"], c: 2, e: "f/2.8 is a wide aperture that lets in lots of light and creates shallow depth of field." },
-        { q: "Which file format gives the most editing flexibility?", a: ["JPEG", "PNG", "RAW", "TIFF"], c: 2, e: "RAW files contain unprocessed sensor data, offering maximum latitude for exposure and colour adjustments." },
-        { q: "What is the 'rule of thirds'?", a: ["Exposure rule", "Composition guideline", "Focus technique", "Lighting setup"], c: 1, e: "It divides the frame into 9 equal parts, placing key elements along the lines or intersections for balance." },
-        { q: "Which lens is best for portraits?", a: ["50mm f/1.8", "18-55mm kit lens", "70-200mm f/4", "24mm f/2.8"], c: 0, e: "A 50mm or 85mm prime with wide aperture gives pleasing bokeh and natural perspective for portraits." },
-        { q: "What does 'white balance' correct?", a: ["Exposure", "Colour temperature", "Focus", "Depth of field"], c: 1, e: "White balance adjusts the colour cast so that white objects appear white under different lighting conditions." },
-        { q: "When should you use a tripod?", a: ["Always", "Only for video", "In low light and long exposures", "Never"], c: 2, e: "Tripods eliminate camera shake, essential for long exposures, low light, and macro work." },
-        { q: "Which mode gives you full creative control?", a: ["Auto", "Aperture Priority", "Shutter Priority", "Manual"], c: 3, e: "Manual mode lets you set both aperture and shutter speed independently, offering complete creative freedom." },
-        { q: "What is 'bokeh'?", a: ["A type of lens", "Background blur quality", "A colour profile", "A light meter"], c: 1, e: "Bokeh describes the aesthetic quality of the out‑of‑focus areas, often soft and creamy with fast lenses." },
-      ],
-      intermediate: [
-        { q: "What is the 'exposure triangle' composed of?", a: ["ISO, Shutter Speed, Aperture", "ISO, Focal Length, Shutter Speed", "Aperture, White Balance, ISO", "Shutter Speed, Flash, Aperture"], c: 0, e: "The triangle consists of ISO, shutter speed, and aperture – balancing them determines exposure." },
-        { q: "How does aperture affect depth of field?", a: ["Wider aperture = deeper DOF", "Wider aperture = shallower DOF", "No effect", "It affects colour"], c: 1, e: "A wide aperture (small f‑number) reduces depth of field, blurring backgrounds." },
-        { q: "What is the benefit of shooting in RAW over JPEG?", a: ["Smaller size", "More dynamic range", "Sharper images", "Better out‑of‑camera colours"], c: 1, e: "RAW preserves much more highlight and shadow detail, giving you room to recover data in post‑processing." },
-        { q: "Which lighting pattern creates a triangle of light on the shadow side of the face?", a: ["Rembrandt", "Split", "Butterfly", "Loop"], c: 0, e: "Rembrandt lighting is defined by that signature triangular highlight under the eye on the shadow side." },
-        { q: "What does 'hyperfocal distance' mean?", a: ["Focus point that maximises depth of field", "The closest focus distance", "The focus distance for infinity", "A lens calibration method"], c: 0, e: "Hyperfocal distance is the focus point that keeps everything from half that distance to infinity acceptably sharp – ideal for landscapes." },
-        { q: "Which metering mode evaluates the entire scene for average exposure?", a: ["Spot", "Center‑weighted", "Evaluative (Matrix)", "Partial"], c: 2, e: "Evaluative metering analyses the whole frame, using algorithms to balance exposure across highlights and shadows." },
-        { q: "What is 'reciprocity failure' in film photography?", a: ["Light reciprocity in digital", "Film's non‑linear response at long exposures", "Colour shifts", "Shutter delay"], c: 1, e: "At exposures longer than ~1 second, film requires more light than the meter suggests due to reciprocity failure." },
-        { q: "Which flash sync speed is typically the maximum for most DSLRs?", a: ["1/60s", "1/125s", "1/250s", "1/1000s"], c: 2, e: "Most cameras sync up to 1/200s or 1/250s; beyond that, you need high‑speed sync if your flash supports it." },
-        { q: "What is 'focus stacking'?", a: ["Combining multiple exposures", "Combining different focus points to increase DOF", "Stacking filters", "A lens adjustment"], c: 1, e: "Focus stacking merges several images taken at different focus distances to achieve extreme depth of field, common in macro." },
-        { q: "How do you achieve a 'high‑key' portrait?", a: ["Low contrast and bright tones", "High contrast and dark shadows", "Natural light only", "Black and white"], c: 0, e: "High‑key lighting uses bright, even light with minimal shadows, resulting in a light, airy look." },
-      ],
-      advanced: [
-        { q: "What is the 'inverse square law' in relation to light?", a: ["Light intensity doubles with distance", "Light intensity falls off as the square of distance", "Light spreads linearly", "Light is constant"], c: 1, e: "It states intensity = 1/d². Move a light twice as far and you get 1/4 the power." },
-        { q: "What is 'T‑stop' compared to f‑stop?", a: ["Same as f‑stop", "Measures actual light transmission", "A measure of sharpness", "Aperture in video"], c: 1, e: "T‑stops account for light loss within the lens; they are more accurate for exposure, especially in cinema." },
-        { q: "What causes 'lens flare' and how can it be used creatively?", a: ["Internal reflections", "Chromatic aberration", "Vignetting", "Diffraction"], c: 0, e: "Flare occurs when light scatters inside the lens. It can add a dramatic, moody look if controlled." },
-        { q: "What is 'ETTR' (Expose To The Right) and why use it?", a: ["Overexpose to capture shadows", "Push histogram to the right", "Always underexpose", "Use flash"], c: 1, e: "ETTR means slightly overexposing (without clipping highlights) to maximise signal‑to‑noise ratio in the shadows." },
-        { q: "What is 'focus breathing'?", a: ["Lens changes focal length as it focuses", "Lens vibrates during AF", "Image stabilisation issues", "Depth of field shifts"], c: 0, e: "Focus breathing is a change in angle of view as focus is adjusted, common in many zoom lenses." },
-        { q: "How does 'diffraction' affect image sharpness?", a: ["It increases sharpness", "It reduces sharpness at small apertures", "It causes colour shifts", "It doesn't affect sharpness"], c: 1, e: "At very small apertures (like f/16+), light bends around the aperture blades, reducing overall sharpness due to diffraction." },
-        { q: "What is a 'colour checker' used for?", a: ["Colour calibration", "White balance only", "Checking RGB values", "Printer calibration"], c: 0, e: "A colour checker provides known colour patches to create a custom profile, ensuring accurate colour reproduction." },
-        { q: "What is 'HDR' photography and when is it best used?", a: ["High Dynamic Range – merging exposures", "High Definition Resolution", "A type of filter", "A shooting mode"], c: 0, e: "HDR combines multiple exposures to capture a wider dynamic range, ideal for high‑contrast scenes like landscapes." },
-        { q: "What is 'perspective distortion' and how can it be minimised?", a: ["Wide‑angle close‑up distortion", "Use a longer focal length", "Use a tilt‑shift lens", "All of the above"], c: 3, e: "All three methods reduce perspective distortion: longer lenses compress space, tilt‑shift corrects perspective, and backing up helps." },
-        { q: "What is the purpose of a 'neutral density' (ND) filter?", a: ["Reduce light without affecting colour", "Add colour cast", "Increase contrast", "Sharpen image"], c: 0, e: "ND filters cut light evenly, allowing wider apertures or slower shutter speeds in bright conditions for creative effects." },
-      ]
+    // ===== SCROLL TOP =====
+    window.onscroll = function() {
+      const btn = document.getElementById('scrollTopBtn');
+      if (!btn) return;
+      const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
+      if (show) { btn.classList.add('show'); requestAnimationFrame(() => btn.classList.add('pulse')); }
+      else { btn.classList.remove('show', 'pulse'); }
     };
 
-    // ============================================================
-    // 3.  QUIZ ENGINE
-    // ============================================================
-    let currentLevel = 'beginner';
-    let questions = [];
-    let currentQ = 0;
-    let score = 0;
-    let answered = false;
-    let streak = parseInt(localStorage.getItem('quizStreak') || '0');
-
-    const letters = ['A', 'B', 'C', 'D'];
-    const totalQuestionsPerLevel = 10; // we use 10 per level, but can be dynamic
-
-    // DOM refs
-    const qText = document.getElementById('qText');
-    const answersContainer = document.getElementById('answersContainer');
-    const feedbackBox = document.getElementById('feedbackBox');
-    const fbTitle = document.getElementById('fbTitle');
-    const fbExplain = document.getElementById('fbExplain');
-    const nextBtn = document.getElementById('nextBtn');
-    const resultsBox = document.getElementById('resultsBox');
-    const finalScore = document.getElementById('finalScore');
-    const totalQSpan = document.getElementById('totalQ');
-    const resultMsg = document.getElementById('resultMsg');
-    const resultEmoji = document.getElementById('resultEmoji');
-    const signalFill = document.getElementById('signalFill');
-    const signalPercent = document.getElementById('signalPercent');
-    const stepLabel = document.getElementById('stepLabel');
-    const waveDots = document.querySelectorAll('.wave-dot');
-
-    // Difficulty buttons
-    document.querySelectorAll('.diff-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        currentLevel = this.dataset.level;
-        resetQuiz();
+    // ===== BINARY RAIN =====
+    (function() {
+      const canvas = document.getElementById('binary-rain');
+      const ctx = canvas.getContext('2d');
+      let width = window.innerWidth, height = window.innerHeight;
+      canvas.width = width; canvas.height = height;
+      const fontSize = 16, columns = Math.floor(width / fontSize);
+      const drops = Array(columns).fill(1), speed = 0.55;
+      function draw() {
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = fontSize + 'px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < drops.length; i++) {
+          const char = Math.random() > 0.5 ? '1' : '0';
+          const x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
+          if (char === '1') { ctx.shadowColor = '#8deb00'; ctx.shadowBlur = 8; ctx.fillStyle = '#8deb00'; }
+          else { ctx.shadowColor = '#3a7a1a'; ctx.shadowBlur = 4; ctx.fillStyle = '#4caf50'; }
+          ctx.fillText(char, x, y);
+          if (char === '1' && Math.random() < 0.025) {
+            ctx.shadowBlur = 15; ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+          }
+          if (y > height && Math.random() > 0.97) drops[i] = 0;
+          drops[i] += speed;
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+      window.addEventListener('resize', () => {
+        width = window.innerWidth; height = window.innerHeight;
+        canvas.width = width; canvas.height = height;
+        const newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
+        else drops.length = newColumns;
       });
-    });
+    })();
 
-    function loadQuestions(level) {
-      questions = questionBank[level] || questionBank.beginner;
-      // Shuffle for variety (optional) – we'll keep order fixed for consistency
-      // but you could shuffle: questions = questions.sort(() => Math.random() - 0.5);
-      return questions;
+    // ===== CART COUNTER =====
+    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
+    function updateCartUI() {
+      const cart = getCart();
+      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+      const countEl = document.getElementById('cartHeaderCount');
+      const labelEl = document.getElementById('cartHeaderLabel');
+      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
+      if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
+    }
+    updateCartUI();
+
+    // ===== FIREBASE =====
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    let userDocRef = null;
+
+    window.handleLogout = function() {
+      auth.signOut().then(() => {
+        localStorage.removeItem('cameras_decoded_uid');
+        localStorage.removeItem('cameras_decoded_user');
+        window.location.href = 'login.html';
+      }).catch(() => {
+        localStorage.clear();
+        window.location.href = 'login.html';
+      });
+    };
+
+    window.handleDeleteAccount = async function() {
+      if (!confirm('Delete your account and all saved data? This cannot be undone.')) return;
+      const user = auth.currentUser;
+      if (!user) return;
+      try {
+        await db.collection('users').doc(user.uid).delete();
+        await user.delete();
+        localStorage.clear();
+        window.location.href = 'index.html';
+      } catch (err) {
+        alert('Delete error: ' + err.message);
+      }
+    };
+
+    // ===== PROTOCOL LIBRARY =====
+    const PROTOCOL_LIBRARY = [
+      { id: 'proto_001', title: 'Mastering Real Estate HDR', genre: 'real-estate', type: 'video', description: 'Learn to shoot interior HDR with confidence.', brand: 'Sony' },
+      { id: 'proto_002', title: 'Street Photography: Zone Focus', genre: 'street', type: 'guide', description: 'Pre‑focus and capture decisive moments.', brand: 'Canon' },
+      { id: 'proto_003', title: 'Portrait Natural Light Setup', genre: 'portrait', type: 'tutorial', description: 'Use window light and a simple reflector.', brand: 'Nikon' },
+      { id: 'proto_004', title: 'Sports: Tracking AF Techniques', genre: 'sports', type: 'video', description: 'Keep fast‑moving subjects sharp.', brand: 'Sony' },
+      { id: 'proto_005', title: 'Influencer Flat Lay Photography', genre: 'influencer', type: 'article', description: 'Master styled flat lays for social media.', brand: 'All' }
+    ];
+
+    const cardsMap = {
+      'sony-a7iv-portrait-bright-natural': 'Sony A7IV Portrait Bright Natural',
+      'sony-a7iv-event-golden-hour': 'Sony A7IV Event Golden Hour',
+      'canon-r6ii-portrait-low-light': 'Canon R6 II Portrait Low Light',
+    };
+
+    function getCardLink(slug) {
+      const uid = (auth.currentUser && auth.currentUser.uid) || localStorage.getItem('cameras_decoded_uid') || '';
+      return `https://settings.camerasdecoded.com/collection.html?opToken=${uid}`;
     }
 
-    function startQuiz() {
-      const level = currentLevel;
-      questions = loadQuestions(level);
-      currentQ = 0;
-      score = 0;
-      answered = false;
-      resultsBox.style.display = 'none';
-      document.getElementById('questionArea').style.display = 'block';
-      feedbackBox.style.display = 'none';
-      nextBtn.style.display = 'none';
-      // Update step wave and meter
-      updateWaveAndMeter(0);
-      stepLabel.textContent = `⚡ ${level.charAt(0).toUpperCase()+level.slice(1)} · Question 1 of ${questions.length}`;
-      renderQuestion();
-    }
-
-    function renderQuestion() {
-      if (currentQ >= questions.length) {
-        showResults();
+    function renderItemList(containerId, items, map, linkFn, emptyMsg) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      if (!items || items.length === 0) {
+        container.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
         return;
       }
-      const q = questions[currentQ];
-      qText.textContent = q.q;
-      answersContainer.innerHTML = '';
-      q.a.forEach((ans, idx) => {
-        const btn = document.createElement('button');
-        btn.className = 'answer-btn';
-        btn.innerHTML = `<span class="letter">${letters[idx]}</span> ${ans}`;
-        btn.dataset.idx = idx;
-        btn.addEventListener('click', () => handleAnswer(idx));
-        answersContainer.appendChild(btn);
-      });
-      feedbackBox.style.display = 'none';
-      nextBtn.style.display = 'none';
-      answered = false;
-      // Update step label
-      stepLabel.textContent = `⚡ ${currentLevel.charAt(0).toUpperCase()+currentLevel.slice(1)} · Question ${currentQ+1} of ${questions.length}`;
-      updateWaveAndMeter(currentQ);
+      container.innerHTML = items.map(slug => {
+        const title = map[slug] || slug;
+        const link = linkFn(slug);
+        return `<a href="${link}" class="item-card"><span class="icon">→</span><div class="info"><div class="title">${title}</div><div class="sub">${slug}</div></div></a>`;
+      }).join('');
     }
 
-    function handleAnswer(selected) {
-      if (answered) return;
-      answered = true;
-      const q = questions[currentQ];
-      const isCorrect = selected === q.c;
-      if (isCorrect) { score++; streak++; } else { streak = 0; }
-      localStorage.setItem('quizStreak', streak.toString());
-
-      const btns = document.querySelectorAll('.answer-btn');
-      btns.forEach((btn, idx) => {
-        btn.disabled = true;
-        if (idx === q.c) btn.classList.add('correct');
-        if (idx === selected && !isCorrect) btn.classList.add('wrong');
-      });
-
-      // Update signal meter based on score so far
-      const progress = (score / questions.length) * 100;
-      signalFill.style.width = progress + '%';
-      signalPercent.textContent = Math.round(progress) + '%';
-
-      // Show feedback
-      feedbackBox.style.display = 'block';
-      feedbackBox.style.borderLeftColor = isCorrect ? 'var(--green)' : '#ff4a4a';
-      fbTitle.innerHTML = isCorrect ? '✅ Correct!' : '❌ Not quite.';
-      fbTitle.style.color = isCorrect ? 'var(--green)' : '#ff4a4a';
-      fbExplain.textContent = q.e;
-
-      nextBtn.style.display = 'block';
-      nextBtn.textContent = (currentQ === questions.length - 1) ? 'See Results 🏆' : 'Next Question →';
-      // Update wave dot to completed
-      waveDots.forEach((dot, i) => {
-        if (i <= currentQ) dot.classList.add('completed');
-        else dot.classList.remove('completed');
-      });
-      // Highlight current dot as active
-      waveDots.forEach((dot, i) => {
-        dot.classList.toggle('active', i === currentQ + 1);
-      });
-    }
-
-    function nextQuestion() {
-      currentQ++;
-      renderQuestion();
-    }
-
-    function showResults() {
-      document.getElementById('questionArea').style.display = 'none';
-      feedbackBox.style.display = 'none';
-      nextBtn.style.display = 'none';
-      resultsBox.style.display = 'block';
-      finalScore.textContent = score;
-      totalQSpan.textContent = questions.length;
-      // Emoji and message
-      let emoji, msg;
-      if (score === questions.length) { emoji = '🌟'; msg = 'Perfect! You are a true Decoder Master!'; }
-      else if (score >= questions.length - 1) { emoji = '🔥'; msg = 'Almost perfect! You\'re on fire!'; }
-      else if (score >= Math.floor(questions.length * 0.6)) { emoji = '📡'; msg = 'Good job! Review the missed concepts to level up.'; }
-      else { emoji = '📚'; msg = 'Keep studying the signal! Try again.'; }
-      resultEmoji.textContent = emoji;
-      resultMsg.textContent = msg;
-      // Set signal to final score
-      const finalPct = (score / questions.length) * 100;
-      signalFill.style.width = finalPct + '%';
-      signalPercent.textContent = Math.round(finalPct) + '%';
-      stepLabel.textContent = '🎯 Quiz Complete!';
-      // Update wave dots all completed
-      waveDots.forEach(d => d.classList.add('completed'));
-      // Confetti if perfect
-      if (score === questions.length) launchConfetti();
-    }
-
-    function resetQuiz() {
-      startQuiz();
-    }
-
-    function resetDifficulty() {
-      // Show difficulty selector again, hide results, reset UI
-      resultsBox.style.display = 'none';
-      document.getElementById('questionArea').style.display = 'block';
-      qText.textContent = 'Select a difficulty to begin.';
-      answersContainer.innerHTML = '';
-      feedbackBox.style.display = 'none';
-      nextBtn.style.display = 'none';
-      signalFill.style.width = '0%';
-      signalPercent.textContent = '0%';
-      stepLabel.textContent = '⚡ Step 1: Choose difficulty';
-      waveDots.forEach(d => { d.classList.remove('active', 'completed'); });
-      waveDots[0].classList.add('active');
-      // Reset score display
-      finalScore.textContent = '0';
-      totalQSpan.textContent = '0';
-    }
-
-    function updateWaveAndMeter(qIndex) {
-      // Update wave dots: active at current, completed before
-      waveDots.forEach((dot, i) => {
-        if (i < qIndex) dot.classList.add('completed');
-        else dot.classList.remove('completed');
-        dot.classList.toggle('active', i === qIndex);
-      });
-      // Signal meter based on progress (questions answered)
-      const progress = qIndex / (questions.length || 1) * 100;
-      signalFill.style.width = progress + '%';
-      signalPercent.textContent = Math.round(progress) + '%';
-    }
-
-    // ============================================================
-    // 4.  CONFETTI (simple canvas burst)
-    // ============================================================
-    function launchConfetti() {
-      const colors = ['#8deb00', '#00e5ff', '#ffdd00', '#ff4a4a', '#a0f520'];
-      const container = document.querySelector('.quiz-container');
-      for (let i = 0; i < 60; i++) {
-        const el = document.createElement('div');
-        el.style.cssText = `
-          position: fixed; 
-          width: ${Math.random()*8+4}px; 
-          height: ${Math.random()*8+4}px; 
-          background: ${colors[Math.floor(Math.random()*colors.length)]};
-          left: ${Math.random()*100}vw; 
-          top: -10px;
-          border-radius: ${Math.random()>0.5 ? '50%' : '2px'};
-          pointer-events: none;
-          z-index: 9999;
-          transform: rotate(${Math.random()*360}deg);
-          animation: confettiFall ${Math.random()*2+2}s linear forwards;
-          animation-delay: ${Math.random()*0.5}s;
-        `;
-        document.body.appendChild(el);
-        setTimeout(() => el.remove(), 4000);
+    function renderProtocols(savedIds, genreFilter = 'all') {
+      const grid = document.getElementById('protocolGrid');
+      let filtered = PROTOCOL_LIBRARY.filter(p => savedIds.includes(p.id));
+      if (genreFilter !== 'all') filtered = filtered.filter(p => p.genre === genreFilter);
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="empty-state">${savedIds.length === 0 ? 'No saved protocols yet.' : 'No protocols saved in this genre.'}</div>`;
+        return;
       }
-      // Inject keyframes if not present
-      if (!document.getElementById('confettiStyle')) {
-        const style = document.createElement('style');
-        style.id = 'confettiStyle';
-        style.textContent = `
-          @keyframes confettiFall {
-            0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
-            100% { transform: translateY(100vh) rotate(720deg) scale(0.2); opacity: 0; }
-          }
-        `;
-        document.head.appendChild(style);
-      }
-    }
-
-    // ============================================================
-    // 5.  INIT – read URL param ?level=... and auto‑start
-    // ============================================================
-    document.addEventListener('DOMContentLoaded', function() {
-      const params = new URLSearchParams(window.location.search);
-      const levelParam = params.get('level');
-      if (levelParam && ['beginner','intermediate','advanced'].includes(levelParam)) {
-        currentLevel = levelParam;
-        document.querySelectorAll('.diff-btn').forEach(btn => {
-          btn.classList.toggle('active', btn.dataset.level === levelParam);
-        });
-        startQuiz();
-      } else {
-        // Show default state: difficulty selected, but not started
-        resetDifficulty();
-      }
-    });
-  </script>
-</body>
-</html>
-
-        <div style="display:flex; flex-wrap:wrap; gap:15px; margin-top:30px; justify-content:center;">
-            <a href="#" id="goToAtlasBtn" class="btn-neon-outline"><i class="fas fa-globe"></i> Open Decoder Atlas</a>
-            <a href="#" id="goToCollectionBtn" class="btn-neon-outline"><i class="fas fa-folder-open"></i> My Collection</a>
-            <a href="https://camerasdecoded.com" class="btn-neon-outline"><i class="fas fa-home"></i> Main Site</a>
+      grid.innerHTML = filtered.map(p => `
+        <div class="protocol-card">
+          <div class="top">
+            <span class="type-icon"><i class="fas fa-play-circle"></i></span>
+            <button class="remove-btn" onclick="unsaveProtocol('${p.id}')"><i class="fas fa-times"></i></button>
+          </div>
+          <h4>${p.title}</h4>
+          <span class="genre-tag">${p.genre.replace('-',' ')}</span>
+          <div class="description">${p.description}</div>
+          <div class="brand">${p.brand}</div>
         </div>
+      `).join('');
+    }
 
-        <footer class="footer">
-            <div>© 2026 Cameras Decoded. All rights reserved.</div>
-            <div class="socials">
-                <a href="https://www.youtube.com/@CamerasDecoded"><i class="fab fa-youtube"></i></a>
-                <a href="https://www.tiktok.com/@cameras.decoded"><i class="fab fa-tiktok"></i></a>
-                <a href="https://www.instagram.com/camerasdecoded/reels/"><i class="fab fa-instagram"></i></a>
-                <a href="https://www.facebook.com/profile.php?id=61553594660326"><i class="fab fa-facebook-f"></i></a>
-                <a href="https://camerasdecoded.substack.com"><i class="fas fa-bookmark"></i></a>
-                <a href="https://podcasts.apple.com/us/podcast/cameras-decoded/idYOURID" target="_blank"><i class="fas fa-podcast"></i></a>
-            </div>
-            <div>© Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
-            <div class="footer-links" style="margin-bottom:10px;">
-                <a href="roadmap.html">Roadmap</a> ·
-                <a href="blog-updates.html">Blog/Updates</a> ·
-                <a href="faq.html">FAQ</a> ·
-                <a href="contact.html">Contact</a>
-                <a href="podcast.html">Podcast</a>
-            </div>
-            <div class="footer-links">
-                <a href="terms.html">Privacy/Terms</a>
-                <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
-            </div>
-        </footer>
+    function renderRecommended(savedIds) {
+      const container = document.getElementById('recommendedGrid');
+      const unsaved = PROTOCOL_LIBRARY.filter(p => !savedIds.includes(p.id));
+      const recommend = unsaved.slice(0, 4);
+      container.innerHTML = recommend.length === 0
+        ? `<div class="empty-state">You've saved everything! 🎉</div>`
+        : recommend.map(p => `
+          <div class="recommended-card" onclick="saveProtocol('${p.id}')">
+            <div class="genre">${p.genre.replace('-',' ')}</div>
+            <div class="title">${p.title}</div>
+            <div class="desc">${p.description.substring(0,50)}…</div>
+            <div class="save-hint"><i class="fas fa-plus-circle"></i> Save to library</div>
+          </div>
+        `).join('');
+    }
 
-        <!-- Delete Account Link -->
-        <div class="delete-link">
-            <a href="#" id="deleteAccountLink" style="display:none;" onclick="handleDeleteAccount(); return false;">
-                <i class="fas fa-trash-alt" style="font-size:10px;"></i> Delete account
-            </a>
-        </div>
-    </main>
+    window.saveProtocol = function(protocolId) {
+      if (!userDocRef) return;
+      userDocRef.update({ savedProtocols: firebase.firestore.FieldValue.arrayUnion(protocolId) }).catch(console.error);
+    };
+    window.unsaveProtocol = function(protocolId) {
+      if (!userDocRef) return;
+      userDocRef.update({ savedProtocols: firebase.firestore.FieldValue.arrayRemove(protocolId) }).catch(console.error);
+    };
 
-    <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+    function updateStats(sp, sc, sb, spc, scom) {
+      document.getElementById('statProtocols').textContent = sp.length;
+      document.getElementById('statCards').textContent = sc.length;
+      document.getElementById('statOther').textContent = sb.length + spc.length;
+      document.getElementById('statCommunity').textContent = scom.length;
+    }
 
-    <!-- ===== JAVASCRIPT ===== -->
-    <script>
-        // ===== MOBILE MENU =====
-        const mobileToggle = document.getElementById('mobileToggle');
-        const floatingToggle = document.getElementById('floatingToggle');
-        const closeToggle = document.getElementById('closeToggle');
-        const overlay = document.getElementById('navGroupOverlay');
+    function updateProfile(data) {
+      document.getElementById('profileUsername').textContent = data.username || '—';
+      document.getElementById('profileName').textContent = data.name || '—';
+      document.getElementById('profileEmail').textContent = data.email || '—';
+      let plan = data.tier || 'free';
+      if (plan === 'free') plan = 'Free';
+      else if (plan === 'pro') plan = 'Pro';
+      document.getElementById('profilePlan').textContent = plan;
+      const prefs = data.preferences || {};
+      document.getElementById('profileCamera').textContent = prefs.camera || (prefs.brands && prefs.brands.join(', ')) || '—';
+      document.getElementById('profileLenses').textContent = (prefs.lenses && prefs.lenses.join(', ')) || '—';
+      document.getElementById('profileInterests').textContent = (prefs.interests && prefs.interests.join(', ')) || '—';
+      document.getElementById('profileConfidence').textContent = data.confidence ? data.confidence + '/10' : '—';
+      document.getElementById('profileReferral').textContent = data.referralCode || '—';
+    }
 
-        function openMenu() { overlay.classList.add('open');
-            document.body.style.overflow = 'hidden'; }
+    function updateReferralSection(data) {
+      document.getElementById('referralLink').textContent = `camerasdecoded.com/ref/${data.referralCode || ''}`;
+      document.getElementById('totalReferrals').textContent = data.totalReferrals || 0;
+      document.getElementById('totalCommission').textContent = '$' + (data.totalCommissionEarned || 0);
+      const referrals = data.totalReferrals || 0;
+      const commission = data.totalCommissionEarned || 0;
+      let tier = 'signal';
+      if (referrals >= 50 || commission >= 5000) tier = 'transmission_elite';
+      else if (referrals >= 10 || commission >= 500) tier = 'operator';
+      document.getElementById('ambassadorTier').textContent = tier === 'signal' ? 'Signal Creator' : tier === 'operator' ? 'Operator Creator' : 'Transmission Elite';
+      const progressEl = document.getElementById('tierProgress');
+      if (tier === 'transmission_elite') { progressEl.style.display = 'none'; return; }
+      progressEl.style.display = 'flex';
+      let needRefs = tier === 'operator' ? 50 : 10;
+      document.getElementById('nextTierBadge').textContent = tier === 'operator' ? 'Next: Transmission Elite' : 'Next: Operator Creator';
+      document.getElementById('progressLabel').textContent = `${referrals} / ${needRefs} referrals`;
+      document.getElementById('progressFill').style.width = Math.min(100, (referrals / needRefs) * 100) + '%';
+    }
 
-        function closeMenu() { overlay.classList.remove('open');
-            document.body.style.overflow = ''; }
-        if (mobileToggle) mobileToggle.addEventListener('click', openMenu);
-        if (floatingToggle) floatingToggle.addEventListener('click', openMenu);
-        if (closeToggle) closeToggle.addEventListener('click', closeMenu);
-        if (overlay) overlay.addEventListener('click', function(e) { if (e.target === overlay) closeMenu(); });
+    function simulatePurchase() {
+      if (!userDocRef) return;
+      userDocRef.get().then(doc => {
+        if (!doc.exists) return;
+        const data = doc.data();
+        const tier = data.ambassadorTier || 'signal';
+        let rate = 0.30;
+        if (tier === 'operator') rate = 0.40;
+        else if (tier === 'transmission_elite') rate = 0.50;
 
-        // ===== SCROLL TOP =====
-        window.onscroll = function() {
-            const btn = document.getElementById('scrollTopBtn');
-            if (!btn) return;
-            const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
-            if (show) { btn.classList.add('show');
-                requestAnimationFrame(() => btn.classList.add('pulse')); } else { btn.classList.remove('show', 'pulse'); }
-        };
-
-        // ===== BINARY RAIN =====
-        (function() {
-            const canvas = document.getElementById('binary-rain');
-            const ctx = canvas.getContext('2d');
-            let width = window.innerWidth,
-                height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
-            const fontSize = 16,
-                columns = Math.floor(width / fontSize);
-            const drops = Array(columns).fill(1),
-                speed = 0.55;
-
-            function draw() {
-                ctx.fillStyle = 'rgba(0,0,0,0.05)';
-                ctx.fillRect(0, 0, width, height);
-                ctx.font = fontSize + 'px "Space Mono", monospace';
-                ctx.textAlign = 'center';
-                for (let i = 0; i < drops.length; i++) {
-                    const char = Math.random() > 0.5 ? '1' : '0';
-                    const x = i * fontSize + fontSize / 2,
-                        y = drops[i] * fontSize;
-                    if (char === '1') { ctx.shadowColor = '#8deb00';
-                        ctx.shadowBlur = 8;
-                        ctx.fillStyle = '#8deb00'; } else { ctx.shadowColor = '#3a7a1a';
-                        ctx.shadowBlur = 4;
-                        ctx.fillStyle = '#4caf50'; }
-                    ctx.fillText(char, x, y);
-                    if (char === '1' && Math.random() < 0.025) {
-                        ctx.shadowBlur = 15;
-                        ctx.fillStyle = '#ffffff';
-                        ctx.beginPath();
-                        ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.shadowBlur = 0;
-                    }
-                    if (y > height && Math.random() > 0.97) drops[i] = 0;
-                    drops[i] += speed;
-                }
-                requestAnimationFrame(draw);
-            }
-            draw();
-            window.addEventListener('resize', () => {
-                width = window.innerWidth;
-                height = window.innerHeight;
-                canvas.width = width;
-                canvas.height = height;
-                const newColumns = Math.floor(width / fontSize);
-                if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
-                else drops.length = newColumns;
-            });
-        })();
-
-        // ===== CART COUNTER =====
-        function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
-
-        function updateCartUI() {
-            const cart = getCart();
-            const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-            const countEl = document.getElementById('cartHeaderCount');
-            const labelEl = document.getElementById('cartHeaderLabel');
-            if (countEl) { countEl.textContent = totalItems;
-                countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
-            if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
-        }
-        updateCartUI();
-
-        // ===== FIREBASE =====
-        const firebaseConfig = {
-            apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-            authDomain: "cameras-decoded.firebaseapp.com",
-            projectId: "cameras-decoded",
-            storageBucket: "cameras-decoded.firebasestorage.app",
-            messagingSenderId: "1088920052790",
-            appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-            measurementId: "G-YN3M01WW0B"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        let userDocRef = null;
-
-        window.handleLogout = function() {
-            auth.signOut().then(() => {
-                localStorage.removeItem('cameras_decoded_uid');
-                localStorage.removeItem('cameras_decoded_user');
-                window.location.href = 'login.html';
-            }).catch(() => {
-                localStorage.clear();
-                window.location.href = 'login.html';
-            });
-        };
-
-        window.handleDeleteAccount = async function() {
-            if (!confirm('Delete your account and all saved data? This cannot be undone.')) return;
-            const user = auth.currentUser;
-            if (!user) return;
-            try {
-                await db.collection('users').doc(user.uid).delete();
-                await user.delete();
-                localStorage.clear();
-                window.location.href = 'index.html';
-            } catch (err) {
-                alert('Delete error: ' + err.message);
-            }
-        };
-
-        // ===== PROTOCOL LIBRARY =====
-        const PROTOCOL_LIBRARY = [
-            { id: 'proto_001', title: 'Mastering Real Estate HDR', genre: 'real-estate', type: 'video',
-                description: 'Learn to shoot interior HDR with confidence.', brand: 'Sony' },
-            { id: 'proto_002', title: 'Street Photography: Zone Focus', genre: 'street', type: 'guide',
-                description: 'Pre‑focus and capture decisive moments.', brand: 'Canon' },
-            { id: 'proto_003', title: 'Portrait Natural Light Setup', genre: 'portrait', type: 'tutorial',
-                description: 'Use window light and a simple reflector.', brand: 'Nikon' },
-            { id: 'proto_004', title: 'Sports: Tracking AF Techniques', genre: 'sports', type: 'video',
-                description: 'Keep fast‑moving subjects sharp.', brand: 'Sony' },
-            { id: 'proto_005', title: 'Influencer Flat Lay Photography', genre: 'influencer', type: 'article',
-                description: 'Master styled flat lays for social media.', brand: 'All' },
-            { id: 'proto_006', title: 'Real Estate Twilight Exteriors', genre: 'real-estate', type: 'tutorial',
-                description: 'Capture stunning twilight shots.', brand: 'Canon' },
-            { id: 'proto_007', title: 'Street: High‑Contrast B&W', genre: 'street', type: 'guide',
-                description: 'Develop your eye for black & white.', brand: 'All' },
-            { id: 'proto_008', title: 'Portrait Off‑Camera Flash', genre: 'portrait', type: 'video',
-                description: 'One‑light setup for dramatic portraits.', brand: 'Nikon' },
-            { id: 'proto_009', title: 'Sports: Panning Technique', genre: 'sports', type: 'tutorial',
-                description: 'Create dynamic motion blur.', brand: 'Sony' },
-            { id: 'proto_010', title: 'Influencer Product Photography', genre: 'influencer', type: 'article',
-                description: 'Tips for shooting products that sell.', brand: 'All' },
-            { id: 'proto_011', title: 'Real Estate 360° Virtual Tours', genre: 'real-estate', type: 'guide',
-                description: 'Create immersive walkthroughs.', brand: 'All' },
-            { id: 'proto_012', title: 'Street: Night Photography', genre: 'street', type: 'video',
-                description: 'Master low‑light street scenes.', brand: 'Sony' }
+        const products = [
+          'Camera Confidence Guide',
+          'Decoder Atlas – Premium Access',
+          'Snapshot Card Pack',
+          'One‑on‑One Coaching Session',
+          'Event Photography Masterclass',
+          'Real Estate Photography Bundle',
+          'Portrait Lighting Workshop',
+          'Sports Photography Deep Dive',
+          'Influencer Content Kit',
+          'Cynetis‑7 Protocol Pack'
         ];
+        const productName = products[Math.floor(Math.random() * products.length)];
+        const purchaseAmount = Math.floor(Math.random() * 101) + 20;
+        const commissionAmount = purchaseAmount * rate;
 
-        const cardsMap = {
-            'sony-a7iv-portrait-bright-natural': 'Sony A7IV Portrait Bright Natural',
-            'sony-a7iv-event-golden-hour': 'Sony A7IV Event Golden Hour',
-            'canon-r6ii-portrait-low-light': 'Canon R6 II Portrait Low Light',
-        };
-
-        function getCardLink(slug) {
-            const uid = (auth.currentUser && auth.currentUser.uid) || localStorage.getItem('cameras_decoded_uid') || '';
-            const tokenParam = uid ? `?opToken=${uid}` : '';
-            return `https://settings.camerasdecoded.com/collection.html${tokenParam}`;
-        }
-
-        const blogsMap = {
-            'white-balance-lie': 'Why Your Indoor Photos Look Yellow',
-            'metering-mistake': 'The Metering Mistake',
-            'autofocus-trap': 'The Autofocus Trap',
-        };
-
-        function getBlogLink(slug) { return `https://camerasdecoded.com/blog-updates.html#${slug}`; }
-
-        const podcastsMap = {
-            'ep001': 'Episode 001 – The Signal Begins',
-            'ep002': 'Episode 002 – Operator Confidence',
-        };
-
-        function getPodcastLink(slug) { return `https://camerasdecoded.com/podcast.html?episode=${slug}`; }
-
-        const communityMap = {
-            'welcome-post': 'Welcome to the Community',
-            'first-shoot': 'My First Paid Shoot – Advice?',
-        };
-
-        function getCommunityLink(slug) { return `https://camerasdecoded.com/community.html#${slug}`; }
-
-        function renderItemList(containerId, items, map, linkFn, emptyMsg) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            if (!items || items.length === 0) {
-                container.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
-                return;
-            }
-            let html = '';
-            items.forEach(slug => {
-                const title = map[slug] || slug;
-                const link = linkFn(slug);
-                html += `<a href="${link}" class="item-card">
-              <span class="icon">→</span>
-              <div class="info"><div class="title">${title}</div><div class="sub">${slug}</div></div>
-            </a>`;
-            });
-            container.innerHTML = html;
-        }
-
-        function renderProtocols(savedIds, genreFilter = 'all') {
-            const grid = document.getElementById('protocolGrid');
-            if (!grid) return;
-            let filtered = PROTOCOL_LIBRARY.filter(p => savedIds.includes(p.id));
-            if (genreFilter !== 'all') filtered = filtered.filter(p => p.genre === genreFilter);
-            if (filtered.length === 0) {
-                grid.innerHTML =
-                    `<div class="empty-state">${savedIds.length === 0 ? 'No saved protocols yet.' : 'No protocols saved in this genre.'}</div>`;
-                return;
-            }
-            let html = '';
-            filtered.forEach(p => {
-                const typeIcon = { 'video': 'fa-play-circle', 'article': 'fa-file-alt', 'guide': 'fa-book',
-                    'tutorial': 'fa-chalkboard-teacher', 'template': 'fa-paste' } [p.type] || 'fa-file';
-                html += `<div class="protocol-card" data-id="${p.id}">
-              <div class="top"><span class="type-icon"><i class="fas ${typeIcon}"></i></span><button class="remove-btn" onclick="unsaveProtocol('${p.id}')" title="Remove"><i class="fas fa-times"></i></button></div>
-              <h4>${p.title}</h4><span class="genre-tag">${p.genre.replace('-',' ')}</span>
-              <div class="description">${p.description}</div><div class="brand">${p.brand}</div>
-            </div>`;
-            });
-            grid.innerHTML = html;
-        }
-
-        function renderRecommended(savedIds) {
-            const container = document.getElementById('recommendedGrid');
-            if (!container) return;
-            const unsaved = PROTOCOL_LIBRARY.filter(p => !savedIds.includes(p.id));
-            const recommend = unsaved.slice(0, 4);
-            if (recommend.length === 0) {
-                container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">You've saved everything! 🎉</div>`;
-                return;
-            }
-            let html = '';
-            recommend.forEach(p => {
-                html += `<div class="recommended-card" onclick="saveProtocol('${p.id}')">
-              <div class="genre">${p.genre.replace('-',' ')}</div>
-              <div class="title">${p.title}</div>
-              <div class="desc">${p.description.substring(0, 50)}…</div>
-              <div class="save-hint"><i class="fas fa-plus-circle"></i> Save to library</div>
-            </div>`;
-            });
-            container.innerHTML = html;
-        }
-
-        window.saveProtocol = function(protocolId) {
-            if (!userDocRef) return;
-            userDocRef.update({ savedProtocols: firebase.firestore.FieldValue.arrayUnion(protocolId) }).catch(console
-            .error);
-        };
-        window.unsaveProtocol = function(protocolId) {
-            if (!userDocRef) return;
-            userDocRef.update({ savedProtocols: firebase.firestore.FieldValue.arrayRemove(protocolId) }).catch(console
-                .error);
-        };
-
-        function updateStats(sp, sc, sb, spc, scom) {
-            document.getElementById('statProtocols').textContent = sp.length;
-            document.getElementById('statCards').textContent = sc.length;
-            document.getElementById('statOther').textContent = sb.length + spc.length;
-            document.getElementById('statCommunity').textContent = scom.length;
-        }
-
-        function updateProfile(data) {
-            document.getElementById('profileUsername').textContent = data.username || '—';
-            document.getElementById('profileName').textContent = data.name || '—';
-            document.getElementById('profileEmail').textContent = data.email || '—';
-            let plan = data.tier || 'free';
-            if (plan === 'free') plan = 'Free';
-            else if (plan === 'pro') {
-                let interval = data.billingInterval || 'monthly';
-                if (interval === 'weekly') plan = 'Pro (Weekly)';
-                else if (interval === 'annual') plan = 'Pro (Annual)';
-                else plan = 'Pro (Monthly)';
-            }
-            document.getElementById('profilePlan').textContent = plan;
-            const prefs = data.preferences || {};
-            const camera = prefs.camera || (prefs.brands && prefs.brands.length > 0 ? prefs.brands.join(', ') : null);
-            document.getElementById('profileCamera').textContent = camera || '—';
-            document.getElementById('profileLenses').textContent = (prefs.lenses && prefs.lenses.length > 0) ? prefs.lenses
-                .join(', ') : '—';
-            document.getElementById('profileInterests').textContent = (prefs.interests && prefs.interests.length > 0) ?
-                prefs.interests.join(', ') : '—';
-            document.getElementById('profileConfidence').textContent = data.confidence ? data.confidence + '/10' : '—';
-            document.getElementById('profileReferral').textContent = data.referralCode || '—';
-            const greeting = document.getElementById('greeting');
-            const badge = document.getElementById('subscriptionBadge');
-            if (data.username) greeting.innerHTML =
-                `Welcome back, ${data.username}. <span class="subscription-badge" id="subscriptionBadge">● Active</span>`;
-            else if (data.name) greeting.innerHTML =
-                `Welcome back, ${data.name}. <span class="subscription-badge" id="subscriptionBadge">● Active</span>`;
-            if (plan) badge.textContent = plan + ' ● Active';
-        }
-
-        function updateReferralSection(data) {
-            const code = data.referralCode || '';
-            const link = `camerasdecoded.com/ref/${code}`;
-            document.getElementById('referralLink').textContent = link;
-            document.getElementById('totalReferrals').textContent = data.totalReferrals || 0;
-            document.getElementById('totalCommission').textContent = '$' + (data.totalCommissionEarned || 0);
-            const referrals = data.totalReferrals || 0;
-            const commission = data.totalCommissionEarned || 0;
-            let tier = 'signal',
-                tierName = 'Signal Creator';
-            if (referrals >= 50 || commission >= 5000) { tier = 'transmission_elite';
-                tierName = 'Transmission Elite'; } else if (referrals >= 10 || commission >= 500) { tier = 'operator';
-                tierName = 'Operator Creator'; }
-            document.getElementById('ambassadorTier').textContent = tierName;
-            const progressEl = document.getElementById('tierProgress');
-            if (tier === 'transmission_elite') { progressEl.style.display = 'none'; return; }
-            progressEl.style.display = 'flex';
-            let nextTierName = 'Operator Creator',
-                needRefs = 10;
-            if (tier === 'operator') { nextTierName = 'Transmission Elite';
-                needRefs = 50; }
-            document.getElementById('nextTierBadge').textContent = 'Next: ' + nextTierName;
-            const progress = Math.min(100, (referrals / needRefs) * 100);
-            document.getElementById('progressLabel').textContent = `${referrals} / ${needRefs} referrals`;
-            document.getElementById('progressFill').style.width = progress + '%';
-        }
-
-        function renderCommissionHistory(commissions) {
-            const list = document.getElementById('commissionList');
-            if (!list) return;
-            if (!commissions || commissions.length === 0) {
-                list.innerHTML = `<div class="commission-empty">No commissions yet.</div>`;
-                return;
-            }
-            const sorted = commissions.slice().sort((a, b) => {
-                const dateA = a.createdAt?.toDate?.() || new Date(0);
-                const dateB = b.createdAt?.toDate?.() || new Date(0);
-                return dateB - dateA;
-            });
-            let html = '';
-            sorted.forEach(c => {
-                const date = c.createdAt?.toDate?.() || new Date();
-                const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric',
-                    year: 'numeric' });
-                const statusClass = c.status || 'pending';
-                const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
-                html += `<div class="commission-item">
-              <div class="left"><div class="name">${c.productName || 'Purchase'}</div><div class="date">${dateStr}</div></div>
-              <div class="right"><span class="amount">$${c.amount.toFixed(2)}</span><span class="status ${statusClass}">${statusLabel}</span></div>
-            </div>`;
-            });
-            list.innerHTML = html;
-        }
-
-        function simulatePurchase() {
-            if (!userDocRef) { alert('Please log in first.'); return; }
-            userDocRef.get().then(doc => {
-                if (!doc.exists) return;
-                const data = doc.data();
-                const tier = data.ambassadorTier || 'signal';
-                let rate = 0.30;
-                if (tier === 'operator') rate = 0.40;
-                else if (tier === 'transmission_elite') rate = 0.50;
-
-                const products = [
-                    'Camera Confidence Guide',
-                    'Decoder Atlas – Premium Access',
-                    'Snapshot Card Pack',
-                    'One‑on‑One Coaching Session',
-                    'Event Photography Masterclass',
-                    'Real Estate Photography Bundle',
-                    'Portrait Lighting Workshop',
-                    'Sports Photography Deep Dive',
-                    'Influencer Content Kit',
-                    'Cynetis‑7 Protocol Pack'
-                ];
-                const productName = products[Math.floor(Math.random() * products.length)];
-                const purchaseAmount = Math.floor(Math.random() * 101) + 20;
-                const commissionAmount = purchaseAmount * rate;
-
-                const commissionRef = userDocRef.collection('commissions').doc();
-                const commissionData = {
-                    productName: productName + ' (simulated)',
-                    amount: commissionAmount,
-                    status: 'pending',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    purchaseId: 'sim-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-                    purchaseAmount: purchaseAmount,
-                    rate: rate,
-                    tier: tier
-                };
-                return commissionRef.set(commissionData).then(() => {
-                    return userDocRef.update({
-                        totalCommissionEarned: firebase.firestore.FieldValue.increment(
-                        commissionAmount)
-                    });
-                }).then(() => {
-                    alert(
-                        `✅ Simulated commission!\n\n${productName} — $${purchaseAmount} purchase\nYour cut (${Math.round(rate*100)}%): $${commissionAmount.toFixed(2)}`
-                        );
-                });
-            }).catch(err => {
-                console.error('Simulate error:', err);
-                alert('Error: ' + err.message);
-            });
-        }
-
-        function copyReferralLink() {
-            const link = document.getElementById('referralLink').textContent;
-            navigator.clipboard.writeText('https://' + link).then(() => alert('Referral link copied!')).catch(() => {
-                const input = document.createElement('input');
-                input.value = 'https://' + link;
-                document.body.appendChild(input);
-                input.select();
-                document.execCommand('copy');
-                document.body.removeChild(input);
-                alert('Copied!');
-            });
-        }
-
-        // ===== AUTH =====
-        const sidebarAuthContainer = document.querySelector('.sidebar div[style*="flex; gap:10px"]');
-        const roleTierBadge = document.getElementById('roleTierBadge');
-        const floatingLogout = document.getElementById('floatingLogoutBtn');
-        const deleteLink = document.getElementById('deleteAccountLink');
-
-        function updateAuthUI(isLoggedIn, roleText = 'Operator', tierText = 'Free') {
-            if (sidebarAuthContainer) {
-                sidebarAuthContainer.innerHTML = isLoggedIn ?
-                    '<a href="#" class="header-login-btn" onclick="handleLogout()">Logout</a>' :
-                    '<a href="login.html" class="header-login-btn">Log in</a><a href="signup.html" class="header-login-btn">Sign Up</a>';
-            }
-            if (floatingLogout) floatingLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
-            if (roleTierBadge) {
-                if (isLoggedIn) {
-                    roleTierBadge.innerHTML =
-                        `<span class="glow-role">${roleText}</span> · <span class="tier-text">${tierText}</span>`;
-                    roleTierBadge.style.display = 'block';
-                } else {
-                    roleTierBadge.style.display = 'none';
-                }
-            }
-            if (deleteLink) deleteLink.style.display = isLoggedIn ? 'inline-block' : 'none';
-        }
-
-        auth.onAuthStateChanged(user => {
-            if (!user) {
-                window.location.href = 'login.html';
-                return;
-            }
-            userDocRef = db.collection('users').doc(user.uid);
-            localStorage.setItem('cameras_decoded_uid', user.uid);
-
-            document.querySelectorAll('a[href*="settings.camerasdecoded.com"]').forEach(link => {
-                if (!link.href.includes('opToken=') && !link.href.includes('?uid=') && !link.href.includes(
-                    '&uid=')) {
-                    const sep = link.href.includes('?') ? '&' : '?';
-                    link.href = link.href + sep + 'opToken=' + user.uid;
-                }
-            });
-            document.getElementById('goToAtlasBtn').href =
-            `https://settings.camerasdecoded.com/?opToken=${user.uid}`;
-            document.getElementById('statCardsLink').href =
-                `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
-            document.getElementById('goToCollectionBtn').href =
-                `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
-
-            userDocRef.onSnapshot(doc => {
-                if (!doc.exists) {
-                    userDocRef.set({
-                        savedProtocols: [],
-                        savedCards: [],
-                        savedBlogs: [],
-                        savedPodcasts: [],
-                        savedCommunityPosts: [],
-                        subscription: { tier: 'monthly', status: 'active' },
-                        name: '',
-                        username: '',
-                        email: user.email || '',
-                        tier: 'free',
-                        billingInterval: 'monthly',
-                        preferences: { brands: [], lenses: [], interests: [] },
-                        confidence: 0,
-                        referralCode: '',
-                        totalReferrals: 0,
-                        totalCommissionEarned: 0,
-                        ambassadorTier: 'signal'
-                    }).catch(console.error);
-                    return;
-                }
-                const data = doc.data();
-                updateProfile(data);
-                updateReferralSection(data);
-                const savedProtocols = data.savedProtocols || [];
-                const savedCards = data.savedCards || [];
-                const savedBlogs = data.savedBlogs || [];
-                const savedPodcasts = data.savedPodcasts || [];
-                const savedCommunity = data.savedCommunityPosts || [];
-                updateStats(savedProtocols, savedCards, savedBlogs, savedPodcasts, savedCommunity);
-                const currentFilter = document.querySelector('.filter-tab.active')?.dataset.genre || 'all';
-                renderProtocols(savedProtocols, currentFilter);
-                renderRecommended(savedProtocols);
-                renderItemList('cardsList', savedCards, cardsMap, getCardLink, 'No snapshot cards saved yet.');
-                renderItemList('blogsList', savedBlogs, blogsMap, getBlogLink, 'No blog posts saved yet.');
-                renderItemList('podcastsList', savedPodcasts, podcastsMap, getPodcastLink,
-                    'No podcast episodes saved yet.');
-                renderItemList('communityList', savedCommunity, communityMap, getCommunityLink,
-                    'No community posts saved yet.');
-
-                let role = data.role || 'Operator';
-                let tierLabel = 'Free';
-                const tier = data.tier || 'free';
-                if (tier === 'free') tierLabel = 'Free';
-                else if (tier === 'pro') {
-                    const interval = data.billingInterval || 'monthly';
-                    if (interval === 'weekly') tierLabel = 'Pro Weekly';
-                    else if (interval === 'annual') tierLabel = 'Pro Annual';
-                    else tierLabel = 'Pro Monthly';
-                }
-                updateAuthUI(true, role, tierLabel);
-            });
-
-            userDocRef.collection('commissions').onSnapshot(snapshot => {
-                const commissions = [];
-                snapshot.forEach(doc => { commissions.push({ id: doc.id, ...doc.data() }); });
-                renderCommissionHistory(commissions);
-            });
-
-            document.querySelectorAll('.filter-tab').forEach(tab => {
-                tab.addEventListener('click', function() {
-                    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
-                    const genre = this.dataset.genre;
-                    if (userDocRef) {
-                        userDocRef.get().then(doc => {
-                            if (doc.exists) {
-                                const saved = doc.data().savedProtocols || [];
-                                renderProtocols(saved, genre);
-                            }
-                        }).catch(console.error);
-                    }
-                });
-            });
+        const commissionRef = userDocRef.collection('commissions').doc();
+        commissionRef.set({
+          productName: productName + ' (simulated)',
+          amount: commissionAmount,
+          status: 'pending',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          purchaseId: 'sim-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          purchaseAmount: purchaseAmount,
+          rate: rate,
+          tier: tier
+        }).then(() => {
+          return userDocRef.update({
+            totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount)
+          });
+        }).then(() => {
+          alert(`✅ Simulated commission!\n\n${productName} — $${purchaseAmount} purchase\nYour cut (${Math.round(rate*100)}%): $${commissionAmount.toFixed(2)}`);
         });
+      });
+    }
 
-        // ===== SUBSTACK TEASER =====
-        (function() {
-            const CACHE_KEY = 'substack_teaser_cache';
-            const CACHE_DURATION = 3 * 60 * 60 * 1000;
+    function renderCommissionHistory(commissions) {
+      const list = document.getElementById('commissionList');
+      if (!list) return;
+      if (!commissions || commissions.length === 0) {
+        list.innerHTML = `<div class="commission-empty">No commissions yet.</div>`;
+        return;
+      }
+      const sorted = commissions.slice().sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || new Date(0);
+        return dateB - dateA;
+      });
+      list.innerHTML = sorted.map(c => {
+        const date = c.createdAt?.toDate?.() || new Date();
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const statusClass = c.status || 'pending';
+        const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+        return `<div class="commission-item">
+          <div class="left"><div class="name">${c.productName || 'Purchase'}</div><div class="date">${dateStr}</div></div>
+          <div class="right"><span class="amount">$${c.amount.toFixed(2)}</span><span class="status ${statusClass}">${statusLabel}</span></div>
+        </div>`;
+      }).join('');
+    }
 
-            function showTeaser(title, snippet, link) {
-                document.getElementById('substackTitle').textContent = title;
-                document.getElementById('substackSnippet').textContent = snippet;
-                document.getElementById('substackLink').href = link;
-                document.getElementById('substackTeaser').style.display = 'block';
+    function copyReferralLink() {
+      const link = document.getElementById('referralLink').textContent;
+      navigator.clipboard.writeText('https://' + link).then(() => alert('Referral link copied!')).catch(() => {
+        const input = document.createElement('input');
+        input.value = 'https://' + link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        alert('Copied!');
+      });
+    }
+
+    // ===== AUTH =====
+    const sidebarAuthContainer = document.querySelector('.sidebar div[style*="flex; gap:10px"]');
+    const roleTierBadge = document.getElementById('roleTierBadge');
+    const floatingLogout = document.getElementById('floatingLogoutBtn');
+    const deleteLink = document.getElementById('deleteAccountLink');
+
+    function updateAuthUI(isLoggedIn, roleText = 'Operator', tierText = 'Free') {
+      if (sidebarAuthContainer) {
+        sidebarAuthContainer.innerHTML = isLoggedIn
+          ? '<a href="#" class="header-login-btn" onclick="handleLogout()">Logout</a>'
+          : '<a href="login.html" class="header-login-btn">Log in</a><a href="signup.html" class="header-login-btn">Sign Up</a>';
+      }
+      if (floatingLogout) floatingLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
+      if (roleTierBadge) {
+        if (isLoggedIn) {
+          roleTierBadge.innerHTML = `<span class="glow-role">${roleText}</span> · <span class="tier-text">${tierText}</span>`;
+          roleTierBadge.style.display = 'block';
+        } else {
+          roleTierBadge.style.display = 'none';
+        }
+      }
+      if (deleteLink) deleteLink.style.display = isLoggedIn ? 'inline-block' : 'none';
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.href = 'login.html';
+        return;
+      }
+      userDocRef = db.collection('users').doc(user.uid);
+      localStorage.setItem('cameras_decoded_uid', user.uid);
+
+      document.querySelectorAll('a[href*="settings.camerasdecoded.com"]').forEach(link => {
+        if (!link.href.includes('opToken=') && !link.href.includes('?uid=') && !link.href.includes('&uid=')) {
+          const sep = link.href.includes('?') ? '&' : '?';
+          link.href = link.href + sep + 'opToken=' + user.uid;
+        }
+      });
+      document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${user.uid}`;
+      document.getElementById('statCardsLink').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
+      document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
+
+      userDocRef.onSnapshot(doc => {
+        if (!doc.exists) {
+          userDocRef.set({
+            savedProtocols: [], savedCards: [], savedBlogs: [], savedPodcasts: [], savedCommunityPosts: [],
+            subscription: { tier: 'monthly', status: 'active' },
+            name: '', username: '', email: user.email || '', tier: 'free', billingInterval: 'monthly',
+            preferences: { brands: [], lenses: [], interests: [] }, confidence: 0,
+            referralCode: '', totalReferrals: 0, totalCommissionEarned: 0, ambassadorTier: 'signal'
+          });
+          return;
+        }
+        const data = doc.data();
+        updateProfile(data);
+        updateReferralSection(data);
+        const savedProtocols = data.savedProtocols || [];
+        const savedCards = data.savedCards || [];
+        const savedBlogs = data.savedBlogs || [];
+        const savedPodcasts = data.savedPodcasts || [];
+        const savedCommunity = data.savedCommunityPosts || [];
+        updateStats(savedProtocols, savedCards, savedBlogs, savedPodcasts, savedCommunity);
+        renderProtocols(savedProtocols, document.querySelector('.filter-tab.active')?.dataset.genre || 'all');
+        renderRecommended(savedProtocols);
+        renderItemList('cardsList', savedCards, cardsMap, getCardLink, 'No snapshot cards saved yet.');
+        renderItemList('blogsList', savedBlogs, {}, () => '#', 'No blog posts saved yet.');
+        renderItemList('podcastsList', savedPodcasts, {}, () => '#', 'No podcast episodes saved yet.');
+        renderItemList('communityList', savedCommunity, {}, () => '#', 'No community posts saved yet.');
+
+        const role = data.role || 'Operator';
+        const tierLabel = data.tier === 'pro' ? 'Pro' : 'Free';
+        updateAuthUI(true, role, tierLabel);
+      });
+
+      userDocRef.collection('commissions').onSnapshot(snapshot => {
+        const commissions = [];
+        snapshot.forEach(doc => { commissions.push({ id: doc.id, ...doc.data() }); });
+        renderCommissionHistory(commissions);
+      });
+
+      document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+          if (userDocRef) {
+            userDocRef.get().then(doc => {
+              if (doc.exists) renderProtocols(doc.data().savedProtocols || [], this.dataset.genre);
+            });
+          }
+        });
+      });
+    });
+
+    // ===== SUBSTACK TEASER =====
+    (function() {
+      const CACHE_KEY = 'substack_teaser_cache';
+      const CACHE_DURATION = 3 * 60 * 60 * 1000;
+      function showTeaser(title, snippet, link) {
+        document.getElementById('substackTitle').textContent = title;
+        document.getElementById('substackSnippet').textContent = snippet;
+        document.getElementById('substackLink').href = link;
+        document.getElementById('substackTeaser').style.display = 'block';
+      }
+      function showCachedOrFetch() {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const data = JSON.parse(cached);
+          if (Date.now() - data.timestamp < CACHE_DURATION) {
+            showTeaser(data.title, data.snippet, data.link);
+            return;
+          }
+        }
+        fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === 'ok' && data.items && data.items.length > 0) {
+              const latest = data.items[0];
+              const tempDiv = document.createElement('div');
+              tempDiv.innerHTML = latest.description;
+              let snippet = tempDiv.textContent || tempDiv.innerText || '';
+              snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
+              if (snippet.length === 140) snippet += '…';
+              localStorage.setItem(CACHE_KEY, JSON.stringify({ title: latest.title, snippet, link: latest.link, timestamp: Date.now() }));
+              showTeaser(latest.title, snippet, latest.link);
             }
+          })
+          .catch(() => {
+            showTeaser('The White Balance Lie', 'Why your indoor photos look yellow — and the one setting that fixes it.', 'https://camerasdecoded.substack.com');
+          });
+      }
+      showCachedOrFetch();
+    })();
 
-            function showCachedOrFetch() {
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    const data = JSON.parse(cached);
-                    if (Date.now() - data.timestamp < CACHE_DURATION) {
-                        showTeaser(data.title, data.snippet, data.link);
-                        return;
-                    }
-                }
-                fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.status === 'ok' && data.items && data.items.length > 0) {
-                            const latest = data.items[0];
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = latest.description;
-                            let snippet = tempDiv.textContent || tempDiv.innerText || '';
-                            snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
-                            if (snippet.length === 140) snippet += '…';
-                            localStorage.setItem(CACHE_KEY, JSON.stringify({
-                                title: latest.title,
-                                snippet,
-                                link: latest.link,
-                                timestamp: Date.now()
-                            }));
-                            showTeaser(latest.title, snippet, latest.link);
-                        }
-                    })
-                    .catch(() => {
-                        showTeaser('The White Balance Lie',
-                            'Why your indoor photos look yellow — and the one setting that fixes it.',
-                            'https://camerasdecoded.substack.com');
-                    });
-            }
-            showCachedOrFetch();
-        })();
-    </script>
+    // ===== QUIZ WIDGET SCRIPT =====
+    (function() {
+      const streak = parseInt(localStorage.getItem('quizStreak') || '0');
+      const streakEl = document.getElementById('streakNum');
+      if (streakEl) streakEl.textContent = streak;
+      const launchBtn = document.getElementById('quizLaunchBtn');
+      const diffSelect = document.getElementById('diffSelect');
+      function updateLink() {
+        if (launchBtn && diffSelect) {
+          launchBtn.href = `quiz-full.html?level=${diffSelect.value}`;
+        }
+      }
+      if (diffSelect) diffSelect.addEventListener('change', updateLink);
+      updateLink();
+    })();
+  </script>
 </body>
 </html>
