@@ -748,20 +748,35 @@ script>
     };
 
     function performDelete() {
-      const user = auth.currentUser;
-      if (!user) { alert("No user logged in."); return; }
-      db.collection('users').doc(user.uid).delete()
-        .then(() => auth.signOut())
-        .then(() => {
-          localStorage.removeItem('cameras_decoded_uid');
-          localStorage.removeItem('cameras_decoded_user');
-          window.location.href = 'index.html';
-        })
-        .catch((error) => {
-          console.error("Delete error:", error);
-          alert("Could not delete account. Please try again.");
-        });
-    }
+  const user = auth.currentUser;
+  if (!user) {
+    alert("No user logged in.");
+    return;
+  }
+
+  // 1. Delete the Firestore document (resets all data)
+  db.collection('users').doc(user.uid).delete()
+    .then(() => {
+      // 2. Delete the Auth user (removes the login account entirely)
+      return user.delete();
+    })
+    .then(() => {
+      // 3. Clear local storage and go to home
+      localStorage.removeItem('cameras_decoded_uid');
+      localStorage.removeItem('cameras_decoded_user');
+      window.location.href = 'index.html';
+    })
+    .catch((error) => {
+      console.error("Delete error:", error);
+      if (error.code === 'auth/requires-recent-login') {
+        alert("For security, you must sign out and log in again before deleting your account. We'll sign you out now.");
+        auth.signOut();
+        window.location.href = 'login.html';
+      } else {
+        alert("Could not delete account: " + error.message);
+      }
+    });
+}
 
     // ===== PROTOCOL LIBRARY =====
     const PROTOCOL_LIBRARY = [
