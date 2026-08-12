@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quiz Arena — Cameras Decoded</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    :root {
+      --green: #8deb00;
+      --green-dim: rgba(141,235,0,0.12);
+      --text-muted: #b4b4b4;
+      --bg-panel: #0A0A0A;
+      --border-dim: #1A1A1A;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000;
+      background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 24px 24px;
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: linear-gradient(180deg, rgba(29,179,27,0.15) 0%, rgba(0,0,0,0.95) 70%, #000000 100%);
+      pointer-events: none;
+      z-index: -1;
+    }
+    .quiz-full-container {
+      max-width: 760px;
+      width: 100%;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: 16px;
+      padding: 32px 36px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      position: relative;
+      z-index: 2;
+    }
+    .quiz-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border-dim);
+      padding-bottom: 16px;
+    }
+    .quiz-header h1 {
+      font-family: 'Space Mono', monospace;
+      font-size: 20px;
+      color: var(--green);
+      letter-spacing: 1px;
+    }
+    .back-link {
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      text-decoration: none;
+      transition: 0.2s;
+    }
+    .back-link:hover { color: var(--green); }
+    .back-link i { margin-right: 6px; }
+
+    .question-text {
+      font-family: 'Space Mono', monospace;
+      font-size: 20px;
+      font-weight: 400;
+      margin-bottom: 28px;
+      line-height: 1.5;
+      color: #fff;
+    }
+    .answers-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .answer-btn {
+      background: transparent;
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      padding: 14px 20px;
+      color: #fff;
+      font-size: 15px;
+      font-family: 'Montserrat', sans-serif;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .answer-btn:hover:not(:disabled) {
+      border-color: var(--green);
+      background: rgba(141,235,0,0.05);
+      transform: translateX(4px);
+    }
+    .answer-btn .letter {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+      text-align: center;
+      line-height: 30px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .answer-btn.correct { border-color: var(--green) !important; background: rgba(141,235,0,0.12) !important; }
+    .answer-btn.correct .letter { background: var(--green); color: #000; }
+    .answer-btn.wrong { border-color: #ff4a4a !important; background: rgba(255,74,74,0.12) !important; }
+    .answer-btn.wrong .letter { background: #ff4a4a; color: #000; }
+    .answer-btn:disabled { opacity: 0.6; cursor: default; transform: none !important; }
+
+    .feedback-box {
+      margin-top: 20px;
+      padding: 16px 20px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.02);
+      border-left: 4px solid var(--green);
+      display: none;
+    }
+    .feedback-box .fb-title { font-weight: 700; font-size: 15px; }
+    .feedback-box .fb-explain { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
+
+    .next-btn {
+      margin-top: 24px;
+      padding: 12px 0;
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      color: var(--green);
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s;
+      display: none;
+      text-align: center;
+    }
+    .next-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 15px rgba(141,235,0,0.2); }
+
+    .results-box {
+      text-align: center;
+      padding: 20px 0;
+      display: none;
+    }
+    .results-box .emoji { font-size: 56px; margin-bottom: 10px; }
+    .results-box h2 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 24px; }
+    .results-box .sub { color: var(--text-muted); font-size: 16px; margin: 8px 0; }
+    .results-box .score-highlight { font-size: 32px; font-weight: 700; color: #fff; }
+    .retake-btn {
+      margin-top: 16px;
+      padding: 10px 30px;
+      background: transparent;
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      color: var(--green);
+      font-family: 'Space Mono', monospace;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .retake-btn:hover { background: rgba(141,235,0,0.1); }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .progress-meta .count { color: var(--green); }
+    .bar-track {
+      width: 100%;
+      height: 4px;
+      background: var(--border-dim);
+      border-radius: 2px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    .bar-track .fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.5s ease; width: 0%; }
+
+    @media (max-width: 600px) {
+      .quiz-full-container { padding: 20px 16px; }
+      .question-text { font-size: 17px; }
+      .answer-btn { font-size: 14px; padding: 12px 14px; }
+      .quiz-header h1 { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="quiz-full-container">
+  <div class="quiz-header">
+    <h1><i class="fas fa-brain" style="margin-right:8px;"></i> Quiz Arena</h1>
+    <a href="operator-dashboard.html" class="back-link"><i class="fas fa-arrow-left"></i> Dashboard</a>
+  </div>
+
+  <!-- QUIZ UI -->
+  <div id="quizUI">
+    <div class="progress-meta">
+      <span class="count" id="qProgress">1 / 5</span>
+      <span id="qStreak"><i class="fas fa-fire" style="color:#ffaa00;"></i> Streak: 0</span>
+    </div>
+    <div class="bar-track"><div class="fill" id="qFill"></div></div>
+
+    <div id="questionArea">
+      <div class="question-text" id="qText">Loading question...</div>
+      <div class="answers-grid" id="answersContainer"></div>
+    </div>
+
+    <div class="feedback-box" id="feedbackBox">
+      <div class="fb-title" id="fbTitle">✅ Correct!</div>
+      <div class="fb-explain" id="fbExplain">Explanation goes here.</div>
+    </div>
+
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
+
+    <div class="results-box" id="resultsBox">
+      <div class="emoji">🎉</div>
+      <h2>Quiz Complete!</h2>
+      <div class="sub">You scored</div>
+      <div class="score-highlight"><span id="finalScore">0</span> / <span id="totalQ">5</span></div>
+      <div class="sub" id="resultMsg" style="color:var(--green); font-family:'Space Mono',monospace; margin-top:10px;">Keep decoding!</div>
+      <button class="retake-btn" onclick="resetQuiz()"><i class="fas fa-redo"></i> Retake Quiz</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ===== QUIZ DATA =====
+  const quizData = [
+    { q: "What is the foundational skill every photographer must master to control exposure?", a: ["Lens Focal Length", "The Exposure Triangle", "White Balance Presets", "Sensor Megapixels"], c: 1, e: "The Exposure Triangle (Aperture, Shutter Speed, ISO) is the core. Mastering this gives you creative control over light and motion." },
+    { q: "In portraiture, what does a shallow depth of field (wide aperture) primarily achieve?", a: ["Keeps the entire image in focus", "Blurs the background to isolate the subject", "Increases sharpness in the corners", "Reduces the need for lighting"], c: 1, e: "A wide aperture (like f/1.8 or f/2.8) creates a beautiful bokeh effect, separating your subject from a distracting background." },
+    { q: "When shooting in RAW format, which advantage is most critical for post-processing?", a: ["Smaller file sizes", "Maximum dynamic range and color data", "Directly shareable to social media", "Automatic lens correction"], c: 1, e: "RAW files retain significantly more highlight and shadow detail than JPEGs, giving you immense flexibility to recover data in editing." },
+    { q: "Which lighting setup is standard for creating a classic, dramatic 3/4 portrait?", a: ["Flat Lighting", "Split Lighting", "Rembrandt Lighting", "Butterfly Lighting"], c: 2, e: "Rembrandt lighting is defined by a small triangle of light on the shadow side of the face. It creates depth and a classic fine-art feel." },
+    { q: "What is the 'Inverse Square Law' in photography?", a: ["Light intensity doubles with every 1m distance", "Light falls off dramatically as distance increases", "Aperture and shutter speed are inversely related", "Focal length inversely affects field of view"], c: 1, e: "It states that the intensity of light is inversely proportional to the square of the distance from the source. Move a light twice as far, and you get 1/4 the power." }
+  ];
+
+  // ===== STATE =====
+  let current = 0, score = 0, answered = false, streak = parseInt(localStorage.getItem('quizStreak') || '0');
+
+  const letters = ['A', 'B', 'C', 'D'];
+
+  function loadQuestion() {
+    const ui = document.getElementById('quizUI');
+    const area = document.getElementById('questionArea');
+    const feedback = document.getElementById('feedbackBox');
+    const nextBtn = document.getElementById('nextBtn');
+    const results = document.getElementById('resultsBox');
+
+    feedback.style.display = 'none';
+    nextBtn.style.display = 'none';
+    results.style.display = 'none';
+    area.style.display = 'block';
+    answered = false;
+
+    if (current < quizData.length) {
+      const q = quizData[current];
+      document.getElementById('qText').innerText = q.q;
+      document.getElementById('qProgress').innerText = `${current + 1} / ${quizData.length}`;
+      document.getElementById('qStreak').innerHTML = `<i class="fas fa-fire" style="color:#ffaa00;"></i> Streak: ${streak}`;
+      document.getElementById('qFill').style.width = ((current) / quizData.length * 100) + '%';
+
+      const container = document.getElementById('answersContainer');
+      container.innerHTML = '';
+      q.a.forEach((ans, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'answer-btn';
+        btn.innerHTML = `<span class="letter">${letters[idx]}</span> ${ans}`;
+        btn.dataset.idx = idx;
+        btn.addEventListener('click', () => handleAnswer(idx));
+        container.appendChild(btn);
+      });
+    } else {
+      showResults();
+    }
+  }
+
+  function handleAnswer(selected) {
+    if (answered) return;
+    answered = true;
+    const q = quizData[current];
+    const isCorrect = selected === q.c;
+    if (isCorrect) { score++; streak++; } else { streak = 0; }
+    localStorage.setItem('quizStreak', streak.toString());
+
+    const btns = document.querySelectorAll('.answer-btn');
+    btns.forEach((btn, idx) => {
+      btn.disabled = true;
+      if (idx === q.c) btn.classList.add('correct');
+      if (idx === selected && !isCorrect) btn.classList.add('wrong');
+    });
+
+    const fb = document.getElementById('feedbackBox');
+    const title = document.getElementById('fbTitle');
+    const explain = document.getElementById('fbExplain');
+    fb.style.display = 'block';
+    fb.style.borderLeftColor = isCorrect ? 'var(--green)' : '#ff4a4a';
+    title.innerHTML = isCorrect ? '✅ Correct!' : '❌ Not quite.';
+    title.style.color = isCorrect ? 'var(--green)' : '#ff4a4a';
+    explain.innerText = q.e;
+
+    document.getElementById('nextBtn').style.display = 'block';
+    document.getElementById('nextBtn').innerHTML = (current === quizData.length - 1) ? 'See Results 🏆' : 'Next Question →';
+  }
+
+  function nextQuestion() { current++; loadQuestion(); }
+
+  function showResults() {
+    document.getElementById('questionArea').style.display = 'none';
+    document.getElementById('feedbackBox').style.display = 'none';
+    document.getElementById('nextBtn').style.display = 'none';
+    document.getElementById('qFill').style.width = '100%';
+    document.getElementById('qProgress').innerText = '🎯 Complete';
+
+    const box = document.getElementById('resultsBox');
+    box.style.display = 'block';
+    document.getElementById('finalScore').innerText = score;
+    document.getElementById('totalQ').innerText = quizData.length;
+
+    let msg = 'Keep studying the signal!';
+    if (score === quizData.length) msg = '🌟 Perfect! You are a true Decoder Master!';
+    else if (score >= quizData.length - 1) msg = '🔥 Almost perfect! You\'re on fire!';
+    else if (score >= Math.floor(quizData.length / 2)) msg = '📡 Good job! Review the missed concepts to level up.';
+    document.getElementById('resultMsg').innerText = msg;
+  }
+
+  function resetQuiz() { current = 0; score = 0; loadQuestion(); }
+
+  // Init
+  document.addEventListener('DOMContentLoaded', loadQuestion);
+</script>
+</body>
+</html>
