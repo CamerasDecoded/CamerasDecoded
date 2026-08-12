@@ -4,710 +4,203 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Operator Dashboard — Cameras Decoded</title>
-  <meta name="description" content="Your personal command center. Saved items appear here automatically." />
+  <meta name="description" content="Your personal command center." />
 
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <!-- FIREBASE SDK (load first) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></
-script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="cd-ui.js"></script>   <!-- ★ Add this -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <style>
     :root {
-      --space-sm: 16px;
-      --space-md: 32px;
-      --space-lg: 64px;
-      --space-xl: 96px;
-      --space-xxl: 140px;
-      --brand-green: #8deb00;
-      --brand-green-glow: rgba(141,235,0,0.15);
-      --text-main: #ffffff;
+      --green: #8deb00;
+      --green-glow: rgba(141,235,0,0.15);
       --text-muted: #b4b4b4;
-      --bg-black: #000000;
       --bg-panel: #0A0A0A;
       --border-dim: #1A1A1A;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background-color: var(--bg-black);
-      background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
-      background-size: 24px 24px;
-      color: var(--text-main);
+      background: #000;
+      color: #fff;
       font-family: 'Montserrat', sans-serif;
-      line-height: 1.6;
-      position: relative;
       display: flex;
       min-height: 100vh;
     }
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      background: linear-gradient(180deg, rgba(29,179,27,0.30) 0%, rgba(0,0,0,0.95) 70%, #000000 100%);
-      pointer-events: none;
-      z-index: -1;
-    }
-
-    #binary-rain {
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      z-index: 0; pointer-events: none; opacity: 0.2;
-    }
-    #rain-fade {
-      position: fixed; bottom: 0; left: 0; width: 100vw; height: 45vh;
-      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 60%, #000000 100%);
-      pointer-events: none; z-index: 0;
-    }
-
-    h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
-    .green-text { color: var(--brand-green); }
-    .grey-text { color: var(--text-muted); }
-    a { text-decoration: none; color: inherit; transition: 0.2s; }
 
     .sidebar {
-      width: 240px; background: rgba(0,0,0,0.9); padding: 24px 24px;
-      border-right: 1px solid var(--border-dim); height: 100vh; position: sticky; top: 0;
-      flex-shrink: 0; z-index: 2; overflow-y: auto;
+      width: 240px;
+      background: rgba(0,0,0,0.95);
+      padding: 24px;
+      border-right: 1px solid var(--border-dim);
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      flex-shrink: 0;
+      z-index: 2;
     }
-    .sidebar .logo img { display: block; height: 120px; width: auto; }
+    .sidebar .logo img { height: 100px; }
     .sidebar .nav-item {
       display: flex; align-items: center; gap: 10px;
-      padding: 12px 0; color: var(--text-muted);
-      font-family: 'Space Mono', monospace; font-size: 13px;
-      letter-spacing: 0.5px; border-bottom: 1px solid transparent; transition: all 0.2s;
+      padding: 10px 0;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      border-bottom: 1px solid transparent;
+      transition: 0.2s;
     }
-    .sidebar .nav-item i { font-size: 15px; width: 20px; text-align: center; transition: color 0.2s; color: inherit; }
-    .sidebar .nav-item:hover,
-    .sidebar .nav-item:hover i {
-      color: var(--brand-green); transform: translateX(6px) scale(1.05);
-      text-shadow: 0 0 12px var(--brand-green-glow); border-bottom: 1px solid var(--brand-green);
-    }
-    .sidebar .nav-item.active,
-    .sidebar .nav-item.active i {
-      color: var(--brand-green); border-left: 2px solid var(--brand-green); padding-left: 10px;
-      text-shadow: 0 0 12px var(--brand-green-glow);
-    }
-    .sidebar-divider { border: none; border-top: 1px solid var(--border-dim); margin: 8px 0; }
-
-    .header-login-btn {
-      display: block; color: var(--brand-green); font-family: 'Space Mono', monospace;
-      font-size: 12px; border: 1px solid var(--brand-green); padding: 0 10px 0 14px;
-      border-radius: 20px; background: transparent; transition: 0.2s; text-decoration: none;
-      text-align: center; width: fit-content;
-    }
-    .header-login-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 15px rgba(141,235,0,0.3); }
+    .sidebar .nav-item i { width: 20px; text-align: center; }
+    .sidebar .nav-item:hover { color: var(--green); border-bottom: 1px solid var(--green); }
+    .sidebar .nav-item.active { color: var(--green); }
+    .sidebar-divider { border-top: 1px solid var(--border-dim); margin: 8px 0; }
 
     .main-content {
-      flex: 1; padding: 24px 40px 40px 40px; padding-top: 80px;
-      max-width: 1200px; position: relative; z-index: 2;
-      animation: fadeIn 0.5s ease-in-out forwards;
+      flex: 1;
+      padding: 80px 40px 40px;
+      max-width: 1100px;
     }
-    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
 
     .floating-header {
-      position: fixed; top: 12px; left: 240px; right: 0; z-index: 99;
-      display: flex; align-items: center; gap: 20px; padding: 10px 24px;
-      background: rgba(0,0,0,0.25); backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(141,235,0,0.15); border-radius: 30px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      font-family: 'Space Mono', monospace; font-size: 13px; color: var(--text-muted);
+      position: fixed;
+      top: 12px; left: 240px; right: 0;
+      z-index: 99;
+      display: flex; align-items: center; gap: 20px;
+      padding: 10px 24px;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(141,235,0,0.2);
+      border-radius: 30px;
       margin: 0 12px;
     }
-    .floating-header a { color: var(--brand-green); transition: color 0.2s; }
-    .floating-header a:hover { color: #a0f520; }
-    .floating-home-icon { font-size: 17px; flex-shrink: 0; }
-    .floating-nav-links { display: flex; flex: 1; justify-content: center; gap: 25px; flex-wrap: wrap; align-items: center; }
+    .floating-header a { color: var(--green); }
     .floating-header .logout-btn {
-      background: transparent; border: 1px solid var(--brand-green); border-radius: 20px;
-      padding: 4px 12px; color: var(--brand-green); font-family: 'Space Mono', monospace;
-      font-size: 12px; cursor: pointer; transition: 0.2s; margin-left: 12px;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      padding: 4px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
     }
-    .floating-header .logout-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 12px rgba(141,235,0,0.2); }
 
-    @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-    @keyframes spinBorder { to { --angle: 360deg; } }
-    .chasing-border { position: relative; z-index: 0; }
-    .chasing-border::before {
-      content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
-      border-radius: inherit;
-      background: conic-gradient(from var(--angle, 0deg), #8deb00, #00e5ff, #a0f520, #8deb00);
-      animation: spinBorder 4s linear infinite;
-      z-index: -1;
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor; mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      mask-composite: exclude; padding: 2px;
+    .role-tier-badge {
+      position: absolute;
+      bottom: -24px;
+      left: 16px;
+      background: rgba(10,10,10,0.9);
+      border: 1px solid rgba(141,235,0,0.3);
+      border-radius: 14px;
+      padding: 2px 10px;
+      font-size: 10px;
+      color: var(--green);
+      display: none;
     }
-    .cart-header-link {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: transparent; border: 1px solid var(--brand-green); border-radius: 20px;
-      padding: 6px 14px; color: var(--brand-green); font-family: 'Space Mono', monospace;
-      font-size: 13px; transition: 0.2s; text-decoration: none; flex-shrink: 0;
+
+    .dash-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 15px; margin-bottom: 30px; }
+    .stat-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      text-decoration: none;
+      color: inherit;
     }
-    .cart-header-link:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 12px rgba(141,235,0,0.3); }
-    .cart-count-badge { background: var(--brand-green); color: #000; border-radius: 50%; padding: 1px 7px; font-size: 11px; font-weight: 700; display: inline-block; }
+    .stat-card .number { font-size: 30px; color: var(--green); font-weight: 700; }
+    .stat-card .label { font-size: 12px; color: var(--text-muted); }
 
-    .floating-toggle {
-      display: none; background: transparent; border: none;
-      color: var(--brand-green); font-size: 24px; cursor: pointer;
-      padding: 0 6px; flex-shrink: 0; margin-left: 8px; transition: color 0.2s;
-    }
-    .floating-toggle:hover { color: #a0f520; }
-
-    /* ===== DASHBOARD STYLES (UNCHANGED) ===== */
-    .dash-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-dim); padding-bottom: 16px; }
-    .dash-title-img { max-height: 50px; width: auto; height: auto; display: block; }
-    .dash-header .greeting { color: var(--text-muted); font-size: 14px; display: flex; align-items: center; gap: 12px; }
-    .subscription-badge { background: rgba(141,235,0,0.08); border: 1px solid rgba(141,235,0,0.2); border-radius: 20px; padding: 2px 14px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--brand-green); text-transform: uppercase; letter-spacing: 0.5px; }
-
-    .dash-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
-    .stat-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 16px 18px; text-align: center; transition: border-color 0.2s; text-decoration: none; color: inherit; display: block; }
-    .stat-card:hover { border-color: var(--brand-green); }
-    .stat-card .number { font-size: 30px; font-weight: 700; color: var(--brand-green); text-shadow: 0 0 20px rgba(141,235,0,0.15); }
-    .stat-card .label { font-size: 12px; color: var(--text-muted); font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-
-    .profile-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px 24px; margin-bottom: 30px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px; }
-    .profile-item { display: flex; flex-direction: column; }
-    .profile-item .label { font-size: 10px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-    .profile-item .value { font-size: 14px; color: #fff; font-weight: 500; word-break: break-word; }
-    .profile-item .value.green { color: var(--brand-green); }
-
-    .referral-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 20px 24px; margin-bottom: 30px; }
-    .referral-section .row { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; }
-    .referral-section .link-area { flex: 1; min-width: 200px; }
-    .referral-section .link-area .label { font-size: 12px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-    .referral-section .link-area .link { font-family: 'Space Mono', monospace; color: var(--brand-green); word-break: break-all; margin-top: 4px; }
-    .referral-section .stats { display: flex; gap: 30px; flex-wrap: wrap; }
-    .referral-section .stats .stat { text-align: center; }
-    .referral-section .stats .stat .num { font-size: 28px; font-weight: 700; color: var(--brand-green); }
-    .referral-section .stats .stat .lbl { font-size: 12px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-    .referral-section .tier-info { margin-top: 12px; border-top: 1px solid var(--border-dim); padding-top: 12px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; }
-    .referral-section .tier-info .tier-badge { font-family: 'Space Mono', monospace; color: var(--brand-green); font-size: 14px; background: rgba(141,235,0,0.08); padding: 4px 14px; border-radius: 20px; border: 1px solid rgba(141,235,0,0.2); }
-    .referral-section .tier-info .progress-wrap { flex: 1; margin-left: 20px; min-width: 150px; }
-    .referral-section .tier-info .progress-wrap .progress-label { font-size: 11px; color: #666; font-family: 'Space Mono', monospace; }
-    .referral-section .tier-info .progress-wrap .bar { height: 4px; background: var(--border-dim); border-radius: 2px; margin-top: 4px; overflow: hidden; }
-    .referral-section .tier-info .progress-wrap .bar .fill { height: 100%; background: var(--brand-green); border-radius: 2px; transition: width 0.6s ease; }
-
-    .commission-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 20px 24px; margin-bottom: 30px; }
-    .commission-section .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
-    .commission-section .header h3 { font-family: 'Space Mono', monospace; color: var(--brand-green); font-size: 18px; }
-    .commission-section .header .test-btn { padding: 6px 16px; background: transparent; border: 1px solid #e0b12d; border-radius: 20px; color: #e0b12d; font-family: 'Space Mono', monospace; font-size: 12px; cursor: pointer; transition: 0.2s; }
-    .commission-section .header .test-btn:hover { background: rgba(224,177,45,0.1); box-shadow: 0 0 20px rgba(224,177,45,0.2); }
-    .commission-list { display: flex; flex-direction: column; gap: 8px; }
-    .commission-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0F0F0F; border-radius: 6px; border-left: 3px solid var(--brand-green); font-size: 14px; }
-    .commission-item .left .name { color: #fff; font-weight: 500; }
-    .commission-item .left .date { color: #666; font-size: 12px; font-family: 'Space Mono', monospace; }
-    .commission-item .right .amount { color: var(--brand-green); font-weight: 700; }
-    .commission-item .right .status { font-size: 11px; font-family: 'Space Mono', monospace; padding: 2px 10px; border-radius: 12px; margin-left: 10px; }
-    .commission-item .right .status.pending { background: rgba(255,170,0,0.12); color: #ffaa00; border: 1px solid rgba(255,170,0,0.2); }
-    .commission-item .right .status.paid { background: rgba(141,235,0,0.12); color: var(--brand-green); border: 1px solid rgba(141,235,0,0.2); }
-    .commission-item .right .status.failed { background: rgba(255,68,68,0.12); color: #ff4444; border: 1px solid rgba(255,68,68,0.2); }
-    .commission-empty { color: #666; font-size: 13px; font-style: italic; padding: 10px 0; text-align: center; }
-
-    .section-header { margin: 30px 0 16px 0; border-bottom: 1px solid var(--border-dim); padding-bottom: 12px; }
-    .section-header h2 { font-family: 'Space Mono', monospace; font-size: 18px; color: var(--brand-green); letter-spacing: 1px; text-transform: uppercase; }
-
-    .filter-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-    .filter-tab { background: transparent; border: 1px solid var(--border-dim); border-radius: 20px; padding: 6px 18px; color: var(--text-muted); font-family: 'Space Mono', monospace; font-size: 12px; cursor: pointer; transition: all 0.2s; }
-    .filter-tab:hover { border-color: var(--brand-green); color: var(--brand-green); }
-    .filter-tab.active { background: rgba(141,235,0,0.06); border-color: var(--brand-green); color: var(--brand-green); }
-
-    .protocol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 10px; }
-    .protocol-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px 18px 16px; transition: all 0.25s; display: flex; flex-direction: column; }
-    .protocol-card:hover { border-color: var(--brand-green); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
-    .protocol-card .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-    .protocol-card .type-icon { font-size: 18px; color: var(--brand-green); background: rgba(141,235,0,0.06); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(141,235,0,0.08); }
-    .protocol-card .remove-btn { background: transparent; border: none; color: #555; cursor: pointer; font-size: 14px; transition: color 0.2s; padding: 4px; }
-    .protocol-card .remove-btn:hover { color: #ff4444; }
-    .protocol-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; color: #ffffff; }
-    .protocol-card .genre-tag { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--brand-green); background: rgba(141,235,0,0.06); padding: 0 10px; border-radius: 12px; border: 1px solid rgba(141,235,0,0.08); display: inline-block; margin-bottom: 6px; width: fit-content; }
-    .protocol-card .description { font-size: 13px; color: var(--text-muted); line-height: 1.5; flex: 1; margin-bottom: 10px; }
-    .protocol-card .brand { font-size: 11px; color: #888; font-family: 'Space Mono', monospace; letter-spacing: 0.5px; }
-
-    .empty-state { grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px 0; font-family: 'Space Mono', monospace; font-size: 14px; font-style: italic; }
+    .section-header h2 { color: var(--green); font-family: 'Space Mono', monospace; font-size: 18px; }
 
     .item-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .item-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; transition: all 0.2s; color: #ffffff; text-decoration: none; }
-    .item-card:hover { border-color: var(--brand-green); background: rgba(141,235,0,0.04); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-    .item-card .icon { font-size: 18px; color: var(--brand-green); width: 30px; text-align: center; }
-    .item-card .info { flex: 1; }
-    .item-card .info .title { font-size: 14px; font-weight: 500; }
-    .item-card .info .sub { font-size: 12px; color: var(--text-muted); }
+    .item-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: #fff;
+    }
+    .item-card .icon { color: var(--green); }
 
-    details.other-content { margin-top: 30px; border-top: 1px solid var(--border-dim); padding-top: 16px; }
-    details.other-content summary { cursor: pointer; font-family: 'Space Mono', monospace; font-size: 14px; color: var(--brand-green); letter-spacing: 0.5px; list-style: none; display: flex; align-items: center; gap: 8px; }
-    details.other-content summary::-webkit-details-marker { display: none; }
-    details.other-content summary::before { content: '▶'; font-size: 12px; transition: transform 0.3s; color: var(--brand-green); }
-    details.other-content[open] summary::before { transform: rotate(90deg); }
-    details.other-content .inner { margin-top: 16px; }
-
-    .recommended-row { margin: 40px 0 20px; }
-    .recommended-row .row-title { font-family: 'Space Mono', monospace; font-size: 15px; color: var(--text-muted); margin-bottom: 12px; }
-    .recommended-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
-    .recommended-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 14px 16px; transition: all 0.2s; cursor: pointer; }
-    .recommended-card:hover { border-color: var(--brand-green); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
-    .recommended-card .title { font-size: 13px; font-weight: 500; color: #ffffff; margin-bottom: 4px; }
-    .recommended-card .genre { font-size: 10px; font-family: 'Space Mono', monospace; color: var(--brand-green); background: rgba(141,235,0,0.06); padding: 0 10px; border-radius: 12px; border: 1px solid rgba(141,235,0,0.08); display: inline-block; margin-bottom: 6px; }
-    .recommended-card .desc { font-size: 12px; color: var(--text-muted); }
-    .recommended-card .save-hint { margin-top: 8px; font-size: 11px; color: var(--brand-green); font-family: 'Space Mono', monospace; opacity: 0.6; }
-
-    .ambassador-cta { border: 1px solid var(--border-dim); border-radius: 12px; padding: 28px 30px; margin-top: 40px; text-align: center; background: rgba(141,235,0,0.02); transition: border-color 0.3s; }
-    .ambassador-cta:hover { border-color: var(--brand-green); }
-    .ambassador-cta h3 { font-family: 'Space Mono', monospace; color: var(--brand-green); font-size: 18px; margin-bottom: 6px; }
-    .ambassador-cta p { color: var(--text-muted); font-size: 14px; margin-bottom: 16px; }
-    .btn-neon-outline { display: inline-block; padding: 10px 30px; background: transparent; border: 1px solid var(--brand-green); border-radius: 8px; color: var(--brand-green); font-family: 'Space Mono', monospace; font-size: 14px; transition: 0.2s; text-decoration: none; }
-    .btn-neon-outline:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 15px rgba(141,235,0,0.3); }
-    .btn-sm { padding: 6px 16px; background: transparent; border: 1px solid var(--brand-green); border-radius: 6px; color: var(--brand-green); font-family: 'Space Mono', monospace; font-size: 12px; cursor: pointer; transition: 0.2s; }
-    .btn-sm:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 12px rgba(141,235,0,0.2); }
-
-    .footer { border-top: 1px solid var(--border-dim); padding-top: 20px; margin-top: 40px; display: flex; flex-direction: column; gap: 15px; font-size: 12px; color: var(--text-muted); text-align: center; }
-    .footer .socials { display: flex; justify-content: center; gap: 20px; }
-    .footer .socials a { color: #ffffff !important; font-size: 18px; transition: 0.2s; }
-    .footer .socials a:hover { color: var(--brand-green) !important; }
-    .footer .footer-links { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
-    .footer .footer-links a { color: var(--brand-green) !important; }
-    .footer .footer-links a:hover { color: #a0f520 !important; }
-
-    /* ===== SUBSTACK TEASER CARD ===== */
     .substack-teaser {
       background: var(--bg-panel);
       border: 1px solid var(--border-dim);
       border-radius: 10px;
-      padding: 18px 22px;
-      margin-bottom: 24px;
-      transition: border-color 0.2s;
+      padding: 18px;
+      margin-bottom: 30px;
     }
-    .substack-teaser:hover { border-color: var(--brand-green); }
-    .teaser-header { display: flex; align-items: center; margin-bottom: 4px; }
 
-    /* ===== ROLE + TIER BADGE ===== */
-    .role-tier-badge {
-      position: absolute; bottom: -24px; left: 16px; z-index: 101;
-      background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(8px);
-      border: 1px solid rgba(141, 235, 0, 0.3); border-radius: 14px;
-      padding: 2px 10px; font-family: 'Space Mono', monospace; font-size: 9px;
-      color: var(--brand-green); letter-spacing: 0.5px; white-space: nowrap;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.4); display: none; pointer-events: none;
-    }
-    .role-tier-badge .glow-role { font-weight: 700; text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00; }
-    .role-tier-badge .tier-text { opacity: 0.8; }
-
-    #deleteAccountLink:hover { background: rgba(255,74,74,0.1); }
+    .delete-link { color: #ff4a4a; font-size: 11px; text-align: left; margin-top: 20px; }
 
     @media (max-width: 1024px) {
       body { flex-direction: column; }
-      .sidebar {
-        width: 100%; height: auto; position: static; border-right: none;
-        border-bottom: 1px solid var(--border-dim); padding: 15px 20px;
-        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; flex-direction: row;
-      }
-      .sidebar .logo { margin: 0; }
-      .sidebar .logo img { height: 50px; width: auto; margin: 0; }
-      .sidebar .nav-group { display: none !important; }
-      .sidebar .mobile-toggle { display: block !important; background: transparent; border: none; color: var(--brand-green); font-size: 28px; cursor: pointer; padding: 4px 8px; z-index: 101; }
-      .floating-toggle { display: block !important; }
-      .main-content { padding: 20px; padding-top: 100px; }
+      .sidebar { width: 100%; height: auto; position: static; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 15px 20px; }
+      .sidebar .logo img { height: 50px; }
+      .sidebar .nav-group { display: none; }
+      .sidebar .mobile-toggle { display: block !important; background: none; border: none; color: var(--green); font-size: 28px; }
+      .main-content { padding: 100px 20px 20px; }
+      .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; }
       .dash-stats { grid-template-columns: 1fr 1fr; }
       .item-grid { grid-template-columns: 1fr; }
-      .protocol-grid { grid-template-columns: 1fr; }
-      .profile-section { grid-template-columns: 1fr 1fr; }
-      .referral-section .row { flex-direction: column; align-items: stretch; }
-      .referral-section .stats { justify-content: space-around; }
-      .commission-section .header { flex-direction: column; align-items: stretch; }
-      .commission-item { flex-direction: column; align-items: flex-start; gap: 6px; }
-      .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; border-radius: 25px; gap: 10px; }
-      .floating-nav-links { gap: 12px; }
-      #cartHeaderLabel { display: none; }
     }
-    @media (max-width: 600px) {
-      .recommended-grid { grid-template-columns: 1fr; }
-      .profile-section { grid-template-columns: 1fr; }
-      .referral-section .stats { flex-direction: column; align-items: center; gap: 10px; }
-    }
-
-    .nav-group-overlay {
-      display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0, 0, 0, 0.85); z-index: 10000; flex-direction: column;
-      justify-content: center; align-items: center; gap: 12px; padding: 40px 20px; overflow-y: auto;
-    }
-    .nav-group-overlay.open { display: flex !important; }
-    .nav-group-overlay .nav-item {
-      font-size: 22px; padding: 12px 0; color: #ffffff; font-family: 'Space Mono', monospace;
-      letter-spacing: 0.5px; width: 100%; max-width: 360px; text-align: center;
-      display: flex; align-items: center; justify-content: center; gap: 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.06); text-decoration: none; transition: color 0.2s;
-    }
-    .nav-group-overlay .nav-item i { color: var(--brand-green); font-size: 18px; width: 28px; }
-    .nav-group-overlay .nav-item:hover { color: var(--brand-green); }
-    .nav-group-overlay .close-btn {
-      position: fixed; top: 20px; right: 20px; color: var(--brand-green); font-size: 32px;
-      cursor: pointer; background: transparent; border: none; padding: 8px; z-index: 10001; font-family: 'Space Mono', monospace;
-    }
-    .nav-group-overlay .sidebar-divider { display: none; }
-    .sidebar .mobile-toggle { display: none; }
-    @media (min-width: 1025px) {
-      .sidebar .nav-group { display: flex !important; flex-direction: column !important; }
-    }
-
-    #scrollTopBtn {
-      position: fixed; bottom: 30px; right: 30px; visibility: hidden; opacity: 0;
-      width: 45px; height: 45px; border-radius: 50%; border: 1px solid var(--brand-green);
-      background: rgba(0,0,0,0.85); color: var(--brand-green); cursor: pointer; font-size: 18px;
-      z-index: 999; font-family: 'Space Mono', monospace; transition: opacity 0.3s ease, visibility 0.3s ease;
-      box-shadow: 0 0 10px rgba(141,235,0,0.2);
-    }
-    #scrollTopBtn.show { visibility: visible; opacity: 1; }
-    #scrollTopBtn:hover { background: var(--brand-green); color: #000000; box-shadow: 0 0 20px rgba(141,235,0,0.6); transform: translateY(-2px); }
-    @keyframes pulse {
-      0%   { transform: scale(1);   box-shadow: 0 0 10px rgba(141,235,0,0.2); }
-      50%  { transform: scale(1.15); box-shadow: 0 0 25px rgba(141,235,0,0.5); }
-      100% { transform: scale(1);   box-shadow: 0 0 10px rgba(141,235,0,0.2); }
-    }
-    #scrollTopBtn.pulse { animation: pulse 1.2s ease-in-out infinite; }
   </style>
 </head>
 <body>
 
-  <canvas id="binary-rain"></canvas>
-  <div id="rain-fade"></div>
-
-  <!-- SIDEBAR -->
   <aside class="sidebar">
-    <div class="logo">
-      <a href="https://camerasdecoded.com"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a>
-    </div>
-    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
-      <a href="login.html" class="header-login-btn">Log in</a>
-      <a href="signup.html" class="header-login-btn">Sign Up</a>
-    </div>
-    <div class="nav-group" id="navGroupDesktop">
+    <div class="logo"><a href="https://camerasdecoded.com"><img src="cameras-decoded-logo.png" alt="Cameras Decoded"></a></div>
+    <div class="nav-group" id="navGroup">
       <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-      <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-      <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-      <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-      <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-      <hr class="sidebar-divider">
       <a href="operator-dashboard.html" class="nav-item active"><i class="fas fa-chart-simple"></i> Dashboard</a>
-      <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-      <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
       <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-      <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-      <hr class="sidebar-divider">
-      <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-      <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-      <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-      <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
+      <a href="#" class="nav-item" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
     <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
   </aside>
 
-  <!-- MOBILE OVERLAY -->
-  <div class="nav-group-overlay" id="navGroupOverlay">
-    <button class="close-btn" id="closeToggle">✕</button>
-    <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-    <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-    <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-    <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-    <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-    <hr class="sidebar-divider">
-    <a href="operator-dashboard.html" class="nav-item active"><i class="fas fa-chart-simple"></i> Dashboard</a>
-    <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-    <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-    <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-    <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-    <hr class="sidebar-divider">
-    <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-    <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-    <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-    <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
-    <div id="mobileDashboardContainer"></div>
-  </div>
-
-  <!-- FLOATING HEADER -->
   <div class="floating-header" id="floatingHeader">
-    <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
-
-    <!-- ROLE + TIER BADGE -->
-    <div id="roleTierBadge" class="role-tier-badge">
-      <span id="roleTierText">
-        <span class="glow-role">Operator</span> · <span class="tier-text">Free</span>
-      </span>
-    </div>
-
-    <div class="floating-nav-links">
-      <a href="operators.html">Operators</a>
-      <a href="partners.html">Partners</a>
-      <a href="educators-pdf-viewer.html">Instructors</a>
-    </div>
-    <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
-      <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
-      <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
-    </a>
+    <a href="index.html"><i class="fas fa-home"></i></a>
+    <div id="roleTierBadge" class="role-tier-badge">Operator · Free</div>
     <button class="logout-btn" id="floatingLogoutBtn" style="display:none;" onclick="handleLogout()">Logout</button>
-    <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
+    <button class="mobile-toggle" id="floatingToggle" aria-label="Menu">☰</button>
   </div>
 
-  <!-- MAIN CONTENT -->
   <main class="main-content">
-
     <div class="dash-header">
-      <img src="custom-site-titles/operator-dashboard.png" alt="Operator Dashboard" class="dash-title-img">
-      <div class="greeting" id="greeting">
-        <span>Welcome back, Operator.</span>
-        <span class="subscription-badge" id="subscriptionBadge">● Active</span>
-      </div>
+      <h2 style="color:var(--green); font-family:'Space Mono',monospace;">Operator Dashboard</h2>
+      <div class="greeting" id="greeting">Welcome back, Operator.</div>
     </div>
 
-    <!-- Stats -->
-    <div class="dash-stats" id="statsContainer">
+    <div class="dash-stats">
       <div class="stat-card"><div class="number" id="statProtocols">0</div><div class="label">Saved Protocols</div></div>
-      <a href="#" id="statCardsLink" class="stat-card">
-        <div class="number" id="statCards">0</div>
-        <div class="label">Snapshot Cards</div>
-      </a>
+      <a href="#" id="statCardsLink" class="stat-card"><div class="number" id="statCards">0</div><div class="label">Snapshot Cards</div></a>
       <div class="stat-card"><div class="number" id="statOther">0</div><div class="label">Other Saved</div></div>
       <div class="stat-card"><div class="number" id="statCommunity">0</div><div class="label">Community Posts</div></div>
     </div>
 
-    <!-- Substack RSS Teaser -->
     <div id="substackTeaser" class="substack-teaser" style="display:none;">
-      <div class="teaser-header">
-        <i class="fas fa-satellite-dish" style="color:#8deb00; margin-right:8px;"></i>
-        <span style="font-family:'Space Mono',monospace; font-size:13px; color:#8deb00; letter-spacing:0.5px;">Latest Transmission</span>
-        <span style="font-size:11px; color:#666; margin-left:auto;">via Substack</span>
-      </div>
-      <a id="substackLink" href="https://camerasdecoded.substack.com" target="_blank" style="text-decoration:none; color:inherit;">
-        <h4 id="substackTitle" style="font-size:15px; color:#fff; margin:8px 0 4px;">Loading…</h4>
-        <p id="substackSnippet" style="font-size:13px; color:#b4b4b4; line-height:1.5; margin:0;"></p>
+      <i class="fas fa-satellite-dish" style="color:var(--green)"></i> <span>Latest Transmission</span>
+      <a id="substackLink" href="https://camerasdecoded.substack.com" target="_blank" style="color:#fff; text-decoration:none;">
+        <h4 id="substackTitle">Loading…</h4>
+        <p id="substackSnippet"></p>
       </a>
-      <div style="margin-top:10px; display:flex; gap:12px; align-items:center;">
-        <a href="dailyprotocols-op-dashboard.html" class="btn-sm" style="display:inline-flex; align-items:center; gap:4px;">
-          <i class="fas fa-bolt"></i> Get Daily Protocols
-        </a>
-        <span style="font-size:11px; color:#666;">$5/mo · premium</span>
-      </div>
+      <a href="dailyprotocols-op-dashboard.html" class="btn-sm">Get Daily Protocols</a>
     </div>
 
-    <!-- Profile Section -->
-    <div class="profile-section" id="profileSection">
-      <div class="profile-item"><span class="label">Username</span><span class="value" id="profileUsername">—</span></div>
-      <div class="profile-item"><span class="label">Full Name</span><span class="value" id="profileName">—</span></div>
-      <div class="profile-item"><span class="label">Email</span><span class="value" id="profileEmail">—</span></div>
-      <div class="profile-item"><span class="label">Plan</span><span class="value green" id="profilePlan">—</span></div>
-      <div class="profile-item"><span class="label">Camera</span><span class="value" id="profileCamera">—</span></div>
-      <div class="profile-item"><span class="label">Lenses</span><span class="value" id="profileLenses">—</span></div>
-      <div class="profile-item"><span class="label">Interests</span><span class="value" id="profileInterests">—</span></div>
-      <div class="profile-item"><span class="label">Confidence</span><span class="value" id="profileConfidence">—</span></div>
-      <div class="profile-item"><span class="label">Referral</span><span class="value" id="profileReferral">—</span></div>
-    </div>
-
-    <!-- Referral & Commissions -->
-    <div class="referral-section" id="referralSection">
-      <div class="row">
-        <div class="link-area">
-          <div class="label">Your Referral Link</div>
-          <div class="link" id="referralLink">camerasdecoded.com/ref/—</div>
-          <button class="btn-sm" onclick="copyReferralLink()" style="margin-top:6px;"><i class="fas fa-copy"></i> Copy</button>
-        </div>
-        <div class="stats">
-          <div class="stat">
-            <div class="num" id="totalReferrals">0</div>
-            <div class="lbl">Referrals</div>
-          </div>
-          <div class="stat">
-            <div class="num" id="totalCommission">$0</div>
-            <div class="lbl">Commission</div>
-          </div>
-          <div class="stat">
-            <div class="num" id="ambassadorTier">—</div>
-            <div class="lbl">Tier</div>
-          </div>
-        </div>
-      </div>
-      <div class="tier-info" id="tierProgress" style="display:none;">
-        <span class="tier-badge" id="nextTierBadge">Next: Operator Creator</span>
-        <div class="progress-wrap">
-          <div class="progress-label" id="progressLabel">0 / 10 referrals</div>
-          <div class="bar"><div class="fill" id="progressFill" style="width:0%;"></div></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Commission History -->
-    <div class="commission-section" id="commissionSection">
-      <div class="header">
-        <h3><i class="fas fa-coin" style="color:#8deb00; margin-right:8px;"></i>Commission History</h3>
-        <button class="test-btn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
-      </div>
-      <div class="commission-list" id="commissionList">
-        <div class="commission-empty">No commissions yet.</div>
-      </div>
-    </div>
-
-    <!-- Protocol Library -->
-    <div class="section-header"><h2><i class="fas fa-book-open" style="color:#8deb00; margin-right:8px;"></i>My Protocol Library</h2></div>
-    <div class="filter-tabs" id="filterTabs">
-      <button class="filter-tab active" data-genre="all">All</button>
-      <button class="filter-tab" data-genre="real-estate">Real Estate</button>
-      <button class="filter-tab" data-genre="street">Street</button>
-      <button class="filter-tab" data-genre="portrait">Portrait</button>
-      <button class="filter-tab" data-genre="sports">Sports</button>
-      <button class="filter-tab" data-genre="influencer">Influencer</button>
-    </div>
-    <div id="protocolGrid" class="protocol-grid"><div class="empty-state">No saved protocols yet.</div></div>
-
-    <!-- Recommended -->
-    <div class="recommended-row" id="recommendedRow">
-      <div class="row-title"><i class="fas fa-lightbulb" style="color:#8deb00; margin-right:6px;"></i>Recommended for you</div>
-      <div id="recommendedGrid" class="recommended-grid"></div>
-    </div>
-
-    <!-- Snapshot Cards -->
-    <div class="section-header"><h2><i class="fas fa-id-card" style="color:#8deb00; margin-right:8px;"></i>Snapshot Cards</h2></div>
+    <div class="section-header"><h2><i class="fas fa-id-card"></i> Snapshot Cards</h2></div>
     <div id="cardsList" class="item-grid"><div class="empty-state">No snapshot cards saved yet.</div></div>
 
-    <!-- Other Saved -->
-    <details class="other-content" id="otherSaved">
-      <summary>Other saved content <span style="color:#b4b4b4; font-size:12px;">(blogs, podcasts, community)</span></summary>
-      <div class="inner">
-        <div class="section-header" style="margin-top:0;"><h2><i class="fas fa-newspaper" style="color:#8deb00; margin-right:8px;"></i>Blog Posts</h2></div>
-        <div id="blogsList" class="item-grid"></div>
-        <div class="section-header"><h2><i class="fas fa-podcast" style="color:#8deb00; margin-right:8px;"></i>Podcast Episodes</h2></div>
-        <div id="podcastsList" class="item-grid"></div>
-        <div class="section-header"><h2><i class="fas fa-comments" style="color:#8deb00; margin-right:8px;"></i>Community Posts</h2></div>
-        <div id="communityList" class="item-grid"></div>
-      </div>
-    </details>
-
-    <!-- Ambassador CTA -->
-    <div class="ambassador-cta">
-      <h3>📡 Become a Decoder Ambassador</h3>
-      <p>Earn by sharing the signal. Create content. Share your link. Earn 30–50% commission on every guide sale.</p>
-      <a href="https://tally.so/r/ODk9YY" target="_blank" class="btn-neon-outline">Apply to the program →</a>
-    </div>
-
-    <div style="display:flex; flex-wrap:wrap; gap:15px; margin-top:30px; justify-content:center;">
-      <a href="#" id="goToAtlasBtn" class="btn-neon-outline"><i class="fas fa-globe"></i> Open Decoder Atlas</a>
-      <a href="#" id="goToCollectionBtn" class="btn-neon-outline"><i class="fas fa-folder-open"></i> My Collection</a>
-      <a href="https://camerasdecoded.com" class="btn-neon-outline"><i class="fas fa-home"></i> Main Site</a>
-    </div>
-
-    <!-- Delete Account Link – subtle, left-aligned -->
-    <div style="text-align:left; margin-top:12px;">
-      <a href="#" id="deleteAccountLink" style="display:none; color:#ff4a4a; font-family:'Space Mono',monospace; font-size:11px; text-decoration:none; opacity:0.7; transition:0.2s;"
-         onclick="handleDeleteAccount(); return false;">
-        <i class="fas fa-trash-alt" style="font-size:10px;"></i> Delete account
-      </a>
-    </div>
-
-    <footer class="footer">
-      <div>© 2026 Cameras Decoded. All rights reserved.</div>
-      <div class="socials">
-        <a href="https://www.youtube.com/@CamerasDecoded"><i class="fab fa-youtube"></i></a>
-        <a href="https://www.tiktok.com/@cameras.decoded"><i class="fab fa-tiktok"></i></a>
-        <a href="https://www.instagram.com/camerasdecoded/reels/"><i class="fab fa-instagram"></i></a>
-        <a href="https://www.facebook.com/profile.php?id=61553594660326"><i class="fab fa-facebook-f"></i></a>
-        <a href="https://camerasdecoded.substack.com"><i class="fas fa-bookmark"></i></a>
-        <a href="https://podcasts.apple.com/us/podcast/cameras-decoded/idYOURID" target="_blank"><i class="fas fa-podcast"></i></a>
-      </div>
-      <div>© Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
-      <div class="footer-links" style="margin-bottom:10px;">
-        <a href="roadmap.html">Roadmap</a> · 
-        <a href="blog-updates.html">Blog/Updates</a> · 
-        <a href="faq.html">FAQ</a> · 
-        <a href="contact.html">Contact</a>
-        <a href="podcast.html">Podcast</a>
-      </div>
-      <div class="footer-links">
-        <a href="terms.html">Privacy/Terms</a>
-        <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
-      </div>
-    </footer>
-
+    <div class="delete-link"><a href="#" id="deleteAccountLink" style="display:none;" onclick="handleDeleteAccount()">Delete account</a></div>
   </main>
 
-  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
-
   <script>
-    // ===== MOBILE MENU =====
-    document.addEventListener('DOMContentLoaded', function() {
-      const mobileToggle = document.getElementById('mobileToggle');
-      const floatingToggle = document.getElementById('floatingToggle');
-      const closeToggle = document.getElementById('closeToggle');
-      const overlay = document.getElementById('navGroupOverlay');
-      function openMenu() { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
-      function closeMenu() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
-      if (mobileToggle) mobileToggle.addEventListener('click', openMenu);
-      if (floatingToggle) floatingToggle.addEventListener('click', openMenu);
-      if (closeToggle) closeToggle.addEventListener('click', closeMenu);
-      if (overlay) overlay.addEventListener('click', function(e) { if (e.target === overlay) closeMenu(); });
-    });
-
-    // ===== SCROLL TO TOP =====
-    window.onscroll = function() {
-      const btn = document.getElementById('scrollTopBtn');
-      if (!btn) return;
-      const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
-      if (show) { btn.classList.add('show'); requestAnimationFrame(() => btn.classList.add('pulse')); }
-      else { btn.classList.remove('show', 'pulse'); }
-    };
-
-    // ===== BINARY RAIN =====
-    (function() {
-      const canvas = document.getElementById('binary-rain');
-      const ctx = canvas.getContext('2d');
-      let width = window.innerWidth, height = window.innerHeight;
-      canvas.width = width; canvas.height = height;
-      const fontSize = 16, columns = Math.floor(width / fontSize);
-      const drops = Array(columns).fill(1), speed = 0.55;
-      function draw() {
-        ctx.fillStyle = 'rgba(0,0,0,0.05)';
-        ctx.fillRect(0, 0, width, height);
-        ctx.font = fontSize + 'px "Space Mono", monospace';
-        ctx.textAlign = 'center';
-        for (let i = 0; i < drops.length; i++) {
-          const char = Math.random() > 0.5 ? '1' : '0';
-          const x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
-          if (char === '1') { ctx.shadowColor = '#8deb00'; ctx.shadowBlur = 8; ctx.fillStyle = '#8deb00'; }
-          else { ctx.shadowColor = '#3a7a1a'; ctx.shadowBlur = 4; ctx.fillStyle = '#4caf50'; }
-          ctx.fillText(char, x, y);
-          if (char === '1' && Math.random() < 0.025) {
-            ctx.shadowBlur = 15; ctx.fillStyle = '#ffffff';
-            ctx.beginPath(); ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-          }
-          if (y > height && Math.random() > 0.97) { drops[i] = 0; }
-          drops[i] += speed;
-        }
-        requestAnimationFrame(draw);
-      }
-      draw();
-      window.addEventListener('resize', () => {
-        width = window.innerWidth; height = window.innerHeight;
-        canvas.width = width; canvas.height = height;
-        const newColumns = Math.floor(width / fontSize);
-        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
-        else drops.length = newColumns;
-      });
-    })();
-
-    // ===== CART COUNTER =====
-    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
-    function updateCartUI() {
-      const cart = getCart();
-      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-      const countEl = document.getElementById('cartHeaderCount');
-      const labelEl = document.getElementById('cartHeaderLabel');
-      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
-      if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
-    }
-    updateCartUI();
-
-    // ===== FIREBASE CONFIG =====
     const firebaseConfig = {
       apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
       authDomain: "cameras-decoded.firebaseapp.com",
@@ -721,555 +214,86 @@ script>
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // ===== LOGOUT HANDLER =====
+    // Mobile menu
+    function toggleMenu() {
+      const nav = document.getElementById('navGroup');
+      nav.style.display = nav.style.display === 'flex' ? 'none' : 'flex';
+    }
+    document.getElementById('mobileToggle').addEventListener('click', toggleMenu);
+    document.getElementById('floatingToggle').addEventListener('click', toggleMenu);
+
     window.handleLogout = function() {
       auth.signOut().then(() => {
         localStorage.removeItem('cameras_decoded_uid');
-        localStorage.removeItem('cameras_decoded_user');
-        window.location.href = 'login.html';
-      }).catch(() => {
-        localStorage.clear();
         window.location.href = 'login.html';
       });
     };
 
-    // ===== DELETE ACCOUNT HANDLER =====
     window.handleDeleteAccount = function() {
-      if (typeof cdConfirm !== 'undefined') {
-        cdConfirm("Delete your account and all saved data? This cannot be undone.").then((confirmed) => {
-          if (!confirmed) return;
-          performDelete();
-        });
-      } else {
-        if (confirm("Delete your account and all saved data? This cannot be undone.")) {
-          performDelete();
-        }
+      if (confirm('Delete your account and all data?')) {
+        const user = auth.currentUser;
+        if (!user) return;
+        db.collection('users').doc(user.uid).delete()
+          .then(() => user.delete())
+          .then(() => {
+            localStorage.clear();
+            window.location.href = 'index.html';
+          })
+          .catch(err => alert('Delete error: ' + err.message));
       }
     };
 
-    // ================================================================
-//  FULL ACCOUNT DELETION – removes all user content and auth
-// ================================================================
-async function performDelete() {
-  const user = auth.currentUser;
-  if (!user) {
-    alert("No user logged in.");
-    return;
-  }
-  const uid = user.uid;
-  const db = firebase.firestore();
-
-  try {
-    // ----- Helper: delete all docs in a query using batches of 500 -----
-    async function performDelete() {
-  const user = auth.currentUser;
-  if (!user) {
-    alert("No user logged in.");
-    return;
-  }
-  const uid = user.uid;
-  const db = firebase.firestore();
-
-  try {
-    // ---- Helper to batch-delete a query, with error protection ----
-    async function deleteQueryBatchSafe(query) {
-      try {
-        const snapshot = await query.get();
-        if (snapshot.empty) return;
-        const batch = db.batch();
-        snapshot.docs.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-      } catch (err) {
-        console.warn("Skipping batch delete – permission or missing field", err);
-        // Continue regardless
-      }
-    }
-
-    // 1. Delete all POSTS by this user (may fail if no posts, ignored)
-    await deleteQueryBatchSafe(db.collection('posts').where('authorUid', '==', uid));
-
-    // 2. Delete all COMMENTS (posts + articles) by this user
-    await deleteQueryBatchSafe(db.collectionGroup('comments').where('authorUid', '==', uid));
-
-    // 3. Delete LIKES on articles
-    await deleteQueryBatchSafe(db.collectionGroup('likes').where('userId', '==', uid));
-
-    // 4. Delete COMMISSIONS (subcollection under user doc)
-    await deleteQueryBatchSafe(db.collection('users').doc(uid).collection('commissions'));
-
-    // 5. Delete REFERRAL CODES – wrap in try/catch so a bad document never blocks deletion
-    try {
-      const refSnap = await db.collection('referralCodes').where('uid', '==', uid).get();
-      if (!refSnap.empty) {
-        const batch = db.batch();
-        refSnap.docs.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-      }
-    } catch (e) {
-      console.warn("Could not delete referral codes (non‑critical)", e);
-    }
-
-    // 6. Delete the USER DOCUMENT (core step)
-    await db.collection('users').doc(uid).delete();
-
-    // 7. Delete the AUTH account (core step)
-    await user.delete();
-
-    // Cleanup local storage and redirect
-    localStorage.removeItem('cameras_decoded_uid');
-    localStorage.removeItem('cameras_decoded_user');
-    window.location.href = 'index.html';
-
-  } catch (error) {
-    console.error("Delete error:", error);
-    if (error.code === 'auth/requires-recent-login') {
-      alert("For security, you must sign out and log in again before deleting your account. We'll sign you out now.");
-      auth.signOut().then(() => {
-        localStorage.removeItem('cameras_decoded_uid');
+    auth.onAuthStateChanged(user => {
+      if (!user) {
         window.location.href = 'login.html';
-      });
-    } else {
-      alert("Could not delete account: " + error.message);
-    }
-  }
-}
-
-    // ===== PROTOCOL LIBRARY =====
-    const PROTOCOL_LIBRARY = [
-      { id: 'proto_001', title: 'Mastering Real Estate HDR', genre: 'real-estate', type: 'video', description: 'Learn to shoot interior HDR with confidence.', brand: 'Sony' },
-      { id: 'proto_002', title: 'Street Photography: Zone Focus', genre: 'street', type: 'guide', description: 'Pre‑focus and capture decisive moments.', brand: 'Canon' },
-      { id: 'proto_003', title: 'Portrait Natural Light Setup', genre: 'portrait', type: 'tutorial', description: 'Use window light and a simple reflector.', brand: 'Nikon' },
-      { id: 'proto_004', title: 'Sports: Tracking AF Techniques', genre: 'sports', type: 'video', description: 'Keep fast‑moving subjects sharp.', brand: 'Sony' },
-      { id: 'proto_005', title: 'Influencer Flat Lay Photography', genre: 'influencer', type: 'article', description: 'Master styled flat lays for social media.', brand: 'All' },
-      { id: 'proto_006', title: 'Real Estate Twilight Exteriors', genre: 'real-estate', type: 'tutorial', description: 'Capture stunning twilight shots.', brand: 'Canon' },
-      { id: 'proto_007', title: 'Street: High‑Contrast B&W', genre: 'street', type: 'guide', description: 'Develop your eye for black & white.', brand: 'All' },
-      { id: 'proto_008', title: 'Portrait Off‑Camera Flash', genre: 'portrait', type: 'video', description: 'One‑light setup for dramatic portraits.', brand: 'Nikon' },
-      { id: 'proto_009', title: 'Sports: Panning Technique', genre: 'sports', type: 'tutorial', description: 'Create dynamic motion blur.', brand: 'Sony' },
-      { id: 'proto_010', title: 'Influencer Product Photography', genre: 'influencer', type: 'article', description: 'Tips for shooting products that sell.', brand: 'All' },
-      { id: 'proto_011', title: 'Real Estate 360° Virtual Tours', genre: 'real-estate', type: 'guide', description: 'Create immersive walkthroughs.', brand: 'All' },
-      { id: 'proto_012', title: 'Street: Night Photography', genre: 'street', type: 'video', description: 'Master low‑light street scenes.', brand: 'Sony' }
-    ];
-
-    const cardsMap = {
-      'sony-a7iv-portrait-bright-natural': 'Sony A7IV Portrait Bright Natural',
-      'sony-a7iv-event-golden-hour': 'Sony A7IV Event Golden Hour',
-      'canon-r6ii-portrait-low-light': 'Canon R6 II Portrait Low Light',
-    };
-
-    function getCardLink(slug) {
-      const uid = (auth.currentUser && auth.currentUser.uid) || localStorage.getItem('cameras_decoded_uid') || '';
-      const tokenParam = uid ? `?opToken=${uid}` : '';
-      return `https://settings.camerasdecoded.com/collection.html${tokenParam}`;
-    }
-
-    const blogsMap = {
-      'white-balance-lie': 'Why Your Indoor Photos Look Yellow',
-      'metering-mistake': 'The Metering Mistake',
-      'autofocus-trap': 'The Autofocus Trap',
-    };
-    function getBlogLink(slug) { return `https://camerasdecoded.com/blog-updates.html#${slug}`; }
-
-    const podcastsMap = {
-      'ep001': 'Episode 001 – The Signal Begins',
-      'ep002': 'Episode 002 – Operator Confidence',
-    };
-    function getPodcastLink(slug) { return `https://camerasdecoded.com/podcast.html?episode=${slug}`; }
-
-    const communityMap = {
-      'welcome-post': 'Welcome to the Community',
-      'first-shoot': 'My First Paid Shoot – Advice?',
-    };
-    function getCommunityLink(slug) { return `https://camerasdecoded.com/community.html#${slug}`; }
-
-    // Render helpers
-    function renderItemList(containerId, items, map, linkFn, emptyMsg) {
-      const container = document.getElementById(containerId);
-      if (!container) return;
-      if (!items || items.length === 0) {
-        container.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
         return;
       }
-      let html = '';
-      items.forEach(slug => {
-        const title = map[slug] || slug;
-        const link = linkFn(slug);
-        html += `<a href="${link}" class="item-card">
-          <span class="icon">→</span>
-          <div class="info"><div class="title">${title}</div><div class="sub">${slug}</div></div>
-        </a>`;
-      });
-      container.innerHTML = html;
-    }
+      const uid = user.uid;
+      localStorage.setItem('cameras_decoded_uid', uid);
+      document.getElementById('statCardsLink').href = `https://settings.camerasdecoded.com/collection.html?opToken=${uid}`;
+      document.getElementById('floatingLogoutBtn').style.display = 'inline-block';
+      document.getElementById('deleteAccountLink').style.display = 'inline-block';
+      document.getElementById('roleTierBadge').style.display = 'block';
 
-    function renderProtocols(savedIds, genreFilter = 'all') {
-      const grid = document.getElementById('protocolGrid');
-      if (!grid) return;
-      let filtered = PROTOCOL_LIBRARY.filter(p => savedIds.includes(p.id));
-      if (genreFilter !== 'all') filtered = filtered.filter(p => p.genre === genreFilter);
-      if (filtered.length === 0) {
-        grid.innerHTML = `<div class="empty-state">${savedIds.length === 0 ? 'No saved protocols yet.' : 'No protocols saved in this genre.'}</div>`;
-        return;
-      }
-      let html = '';
-      filtered.forEach(p => {
-        const typeIcon = { 'video':'fa-play-circle', 'article':'fa-file-alt', 'guide':'fa-book', 'tutorial':'fa-chalkboard-teacher', 'template':'fa-paste' }[p.type] || 'fa-file';
-        html += `<div class="protocol-card" data-id="${p.id}">
-          <div class="top"><span class="type-icon"><i class="fas ${typeIcon}"></i></span><button class="remove-btn" onclick="unsaveProtocol('${p.id}')" title="Remove"><i class="fas fa-times"></i></button></div>
-          <h4>${p.title}</h4><span class="genre-tag">${p.genre.replace('-',' ')}</span>
-          <div class="description">${p.description}</div><div class="brand">${p.brand}</div>
-        </div>`;
-      });
-      grid.innerHTML = html;
-    }
-
-    function renderRecommended(savedIds) {
-      const container = document.getElementById('recommendedGrid');
-      if (!container) return;
-      const unsaved = PROTOCOL_LIBRARY.filter(p => !savedIds.includes(p.id));
-      const recommend = unsaved.slice(0, 4);
-      if (recommend.length === 0) {
-        container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">You've saved everything! 🎉</div>`;
-        return;
-      }
-      let html = '';
-      recommend.forEach(p => {
-        html += `<div class="recommended-card" onclick="saveProtocol('${p.id}')">
-          <div class="genre">${p.genre.replace('-',' ')}</div>
-          <div class="title">${p.title}</div>
-          <div class="desc">${p.description.substring(0, 50)}…</div>
-          <div class="save-hint"><i class="fas fa-plus-circle"></i> Save to library</div>
-        </div>`;
-      });
-      container.innerHTML = html;
-    }
-
-    // Firestore save/unsave
-    function saveProtocol(protocolId) {
-      if (!userDocRef) return;
-      userDocRef.update({ savedProtocols: firebase.firestore.FieldValue.arrayUnion(protocolId) }).catch(console.error);
-    }
-    window.unsaveProtocol = function(protocolId) {
-      if (!userDocRef) return;
-      userDocRef.update({ savedProtocols: firebase.firestore.FieldValue.arrayRemove(protocolId) }).catch(console.error);
-    };
-
-    function updateStats(sp, sc, sb, spc, scom) {
-      document.getElementById('statProtocols').textContent = sp.length;
-      document.getElementById('statCards').textContent = sc.length;
-      document.getElementById('statOther').textContent = sb.length + spc.length;
-      document.getElementById('statCommunity').textContent = scom.length;
-    }
-
-    // Profile update
-    function updateProfile(data) {
-      document.getElementById('profileUsername').textContent = data.username || '—';
-      document.getElementById('profileName').textContent = data.name || '—';
-      document.getElementById('profileEmail').textContent = data.email || '—';
-      let plan = data.tier || 'free';
-      if (plan === 'free') plan = 'Free';
-      else if (plan === 'pro') {
-        let interval = data.billingInterval || 'monthly';
-        if (interval === 'weekly') plan = 'Pro (Weekly)';
-        else if (interval === 'annual') plan = 'Pro (Annual)';
-        else plan = 'Pro (Monthly)';
-      }
-      document.getElementById('profilePlan').textContent = plan;
-      const prefs = data.preferences || {};
-      const camera = prefs.camera || (prefs.brands && prefs.brands.length > 0 ? prefs.brands.join(', ') : null);
-      document.getElementById('profileCamera').textContent = camera || '—';
-      document.getElementById('profileLenses').textContent = (prefs.lenses && prefs.lenses.length > 0) ? prefs.lenses.join(', ') : '—';
-      document.getElementById('profileInterests').textContent = (prefs.interests && prefs.interests.length > 0) ? prefs.interests.join(', ') : '—';
-      document.getElementById('profileConfidence').textContent = data.confidence ? data.confidence + '/10' : '—';
-      document.getElementById('profileReferral').textContent = data.referralCode || '—';
-      const greeting = document.getElementById('greeting');
-      const badge = document.getElementById('subscriptionBadge');
-      if (data.username) greeting.innerHTML = `Welcome back, ${data.username}. <span class="subscription-badge" id="subscriptionBadge">● Active</span>`;
-      else if (data.name) greeting.innerHTML = `Welcome back, ${data.name}. <span class="subscription-badge" id="subscriptionBadge">● Active</span>`;
-      if (plan) badge.textContent = plan + ' ● Active';
-    }
-
-    // Referral update
-    function updateReferralSection(data) {
-      const code = data.referralCode || '';
-      const link = `camerasdecoded.com/ref/${code}`;
-      document.getElementById('referralLink').textContent = link;
-      document.getElementById('totalReferrals').textContent = data.totalReferrals || 0;
-      document.getElementById('totalCommission').textContent = '$' + (data.totalCommissionEarned || 0);
-      const referrals = data.totalReferrals || 0;
-      const commission = data.totalCommissionEarned || 0;
-      let tier = 'signal', tierName = 'Signal Creator';
-      if (referrals >= 50 || commission >= 5000) { tier = 'transmission_elite'; tierName = 'Transmission Elite'; }
-      else if (referrals >= 10 || commission >= 500) { tier = 'operator'; tierName = 'Operator Creator'; }
-      document.getElementById('ambassadorTier').textContent = tierName;
-      const progressEl = document.getElementById('tierProgress');
-      if (tier === 'transmission_elite') { progressEl.style.display = 'none'; return; }
-      progressEl.style.display = 'flex';
-      let nextTierName = 'Operator Creator', needRefs = 10;
-      if (tier === 'operator') { nextTierName = 'Transmission Elite'; needRefs = 50; }
-      document.getElementById('nextTierBadge').textContent = 'Next: ' + nextTierName;
-      const progress = Math.min(100, (referrals / needRefs) * 100);
-      document.getElementById('progressLabel').textContent = `${referrals} / ${needRefs} referrals`;
-      document.getElementById('progressFill').style.width = progress + '%';
-    }
-
-    function renderCommissionHistory(commissions) {
-      const list = document.getElementById('commissionList');
-      if (!list) return;
-      if (!commissions || commissions.length === 0) {
-        list.innerHTML = `<div class="commission-empty">No commissions yet.</div>`;
-        return;
-      }
-      const sorted = commissions.slice().sort((a, b) => {
-        const dateA = a.createdAt?.toDate?.() || new Date(0);
-        const dateB = b.createdAt?.toDate?.() || new Date(0);
-        return dateB - dateA;
-      });
-      let html = '';
-      sorted.forEach(c => {
-        const date = c.createdAt?.toDate?.() || new Date();
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        const statusClass = c.status || 'pending';
-        const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
-        html += `<div class="commission-item">
-          <div class="left"><div class="name">${c.productName || 'Purchase'}</div><div class="date">${dateStr}</div></div>
-          <div class="right"><span class="amount">$${c.amount.toFixed(2)}</span><span class="status ${statusClass}">${statusLabel}</span></div>
-        </div>`;
-      });
-      list.innerHTML = html;
-    }
-
-    function simulatePurchase() {
-      if (!userDocRef) { alert('Please log in first.'); return; }
-      userDocRef.get().then(doc => {
-        if (!doc.exists) return;
-        const data = doc.data();
-        const tier = data.ambassadorTier || 'signal';
-
-        // Determine commission rate based on tier
-        let rate = 0.30;
-        if (tier === 'operator') rate = 0.40;
-        else if (tier === 'transmission_elite') rate = 0.50;
-
-        // Random product from a list of plausible camera‑related items
-        const products = [
-          'Camera Confidence Guide',
-          'Decoder Atlas – Premium Access',
-          'Snapshot Card Pack',
-          'One‑on‑One Coaching Session',
-          'Event Photography Masterclass',
-          'Real Estate Photography Bundle',
-          'Portrait Lighting Workshop',
-          'Sports Photography Deep Dive',
-          'Influencer Content Kit',
-          'Cynetis‑7 Protocol Pack'
-        ];
-        const productName = products[Math.floor(Math.random() * products.length)];
-
-        // Random purchase amount between $20 and $120
-        const purchaseAmount = Math.floor(Math.random() * 101) + 20; // 20–120
-        const commissionAmount = purchaseAmount * rate;
-
-        const commissionRef = userDocRef.collection('commissions').doc();
-        const commissionData = {
-          productName: productName + ' (simulated)',
-          amount: commissionAmount,
-          status: 'pending',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          purchaseId: 'sim-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-          purchaseAmount: purchaseAmount,
-          rate: rate,
-          tier: tier
-        };
-
-        return commissionRef.set(commissionData).then(() => {
-          return userDocRef.update({
-            totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount)
-          });
-        }).then(() => {
-          alert(`✅ Simulated commission!\n\n${productName} — $${purchaseAmount} purchase\nYour cut (${Math.round(rate*100)}%): $${commissionAmount.toFixed(2)}`);
-        });
-      }).catch(err => {
-        console.error('Simulate error:', err);
-        alert('Error: ' + err.message);
-      });
-    }
-
-    function copyReferralLink() {
-      const link = document.getElementById('referralLink').textContent;
-      navigator.clipboard.writeText('https://' + link).then(() => alert('Referral link copied!')).catch(() => {
-        const input = document.createElement('input');
-        input.value = 'https://' + link;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-        alert('Copied!');
-      });
-    }
-
-    // ===== INIT AUTH + DATA =====
-    let userDocRef = null;
-    const sidebarAuthContainer = document.querySelector('.sidebar div[style*="flex; gap:10px"]');
-    const roleTierBadge = document.getElementById('roleTierBadge');
-    const roleTierText = document.getElementById('roleTierText');
-    const floatingLogout = document.getElementById('floatingLogoutBtn');
-    const deleteLink = document.getElementById('deleteAccountLink');
-
-    function updateAuthUI(isLoggedIn, roleText = 'Operator', tierText = 'Free') {
-      if (sidebarAuthContainer) {
-        sidebarAuthContainer.innerHTML = isLoggedIn
-          ? '<a href="#" class="header-login-btn" onclick="handleLogout()">Logout</a>'
-          : '<a href="login.html" class="header-login-btn">Log in</a><a href="signup.html" class="header-login-btn">Sign Up</a>';
-      }
-      if (floatingLogout) floatingLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
-      if (roleTierBadge && roleTierText) {
-        if (isLoggedIn) {
-          roleTierText.innerHTML = '<span class="glow-role">' + roleText + '</span> · <span class="tier-text">' + tierText + '</span>';
-          roleTierBadge.style.display = 'block';
-        } else {
-          roleTierBadge.style.display = 'none';
-        }
-      }
-      // Show/hide delete account link
-      if (deleteLink) deleteLink.style.display = isLoggedIn ? 'inline-block' : 'none';
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-      auth.onAuthStateChanged((user) => {
-        if (!user) {
-          window.location.href = 'login.html';
-          return;
-        }
-        userDocRef = db.collection('users').doc(user.uid);
-
-        // Dynamic opToken for all settings links
-        document.querySelectorAll('a[href*="settings.camerasdecoded.com"]').forEach(link => {
-          if (!link.href.includes('opToken=') && !link.href.includes('?uid=') && !link.href.includes('&uid=')) {
-            const sep = link.href.includes('?') ? '&' : '?';
-            link.href = link.href + sep + 'opToken=' + user.uid;
-          }
-        });
-
-        // Set direct buttons
-        document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${user.uid}`;
-        document.getElementById('statCardsLink').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
-        document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
-
-        // Firestore snapshot
-        userDocRef.onSnapshot((doc) => {
-          if (!doc.exists) {
-            userDocRef.set({
-              savedProtocols: [], savedCards: [], savedBlogs: [], savedPodcasts: [], savedCommunityPosts: [],
-              subscription: { tier: 'monthly', status: 'active' },
-              name: '', username: '', email: user.email || '', tier: 'free', billingInterval: 'monthly',
-              preferences: { brands: [], lenses: [], interests: [] }, confidence: 0,
-              referralCode: '', totalReferrals: 0, totalCommissionEarned: 0, ambassadorTier: 'signal'
-            }).catch(console.error);
-            return;
-          }
+      db.collection('users').doc(uid).onSnapshot(doc => {
+        if (doc.exists) {
           const data = doc.data();
-          updateProfile(data);
-          updateReferralSection(data);
-          const savedProtocols = data.savedProtocols || [];
           const savedCards = data.savedCards || [];
-          const savedBlogs = data.savedBlogs || [];
-          const savedPodcasts = data.savedPodcasts || [];
-          const savedCommunity = data.savedCommunityPosts || [];
-          updateStats(savedProtocols, savedCards, savedBlogs, savedPodcasts, savedCommunity);
-          const currentFilter = document.querySelector('.filter-tab.active')?.dataset.genre || 'all';
-          renderProtocols(savedProtocols, currentFilter);
-          renderRecommended(savedProtocols);
-          renderItemList('cardsList', savedCards, cardsMap, getCardLink, 'No snapshot cards saved yet.');
-          renderItemList('blogsList', savedBlogs, blogsMap, getBlogLink, 'No blog posts saved yet.');
-          renderItemList('podcastsList', savedPodcasts, podcastsMap, getPodcastLink, 'No podcast episodes saved yet.');
-          renderItemList('communityList', savedCommunity, communityMap, getCommunityLink, 'No community posts saved yet.');
-
-          // Auth UI + badge
-          let role = data.role || 'Operator';
-          let tierLabel = 'Free';
-          const tier = data.tier || 'free';
-          if (tier === 'free') tierLabel = 'Free';
-          else if (tier === 'pro') {
-            const interval = data.billingInterval || 'monthly';
-            if (interval === 'weekly') tierLabel = 'Pro Weekly';
-            else if (interval === 'annual') tierLabel = 'Pro Annual';
-            else tierLabel = 'Pro Monthly';
+          document.getElementById('statCards').textContent = savedCards.length;
+          // Render cards
+          const cardsList = document.getElementById('cardsList');
+          if (savedCards.length === 0) {
+            cardsList.innerHTML = '<div class="empty-state">No snapshot cards saved yet.</div>';
+          } else {
+            cardsList.innerHTML = savedCards.map(slug => `
+              <a href="https://settings.camerasdecoded.com/collection.html?opToken=${uid}" class="item-card">
+                <span class="icon">→</span>
+                <div class="info">
+                  <div class="title">${slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                </div>
+              </a>
+            `).join('');
           }
-          updateAuthUI(true, role, tierLabel);
-        });
-
-        // Commission listener
-        userDocRef.collection('commissions').onSnapshot((snapshot) => {
-          const commissions = [];
-          snapshot.forEach(doc => { commissions.push({ id: doc.id, ...doc.data() }); });
-          renderCommissionHistory(commissions);
-        });
-
-        // Filter tabs
-        document.querySelectorAll('.filter-tab').forEach(tab => {
-          tab.addEventListener('click', function() {
-            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-            this.classList.add('active');
-            const genre = this.dataset.genre;
-            if (userDocRef) {
-              userDocRef.get().then(doc => {
-                if (doc.exists) {
-                  const saved = doc.data().savedProtocols || [];
-                  renderProtocols(saved, genre);
-                }
-              }).catch(console.error);
-            }
-          });
-        });
+          // Update role badge
+          const role = data.role || 'Operator';
+          document.getElementById('roleTierBadge').innerHTML = `${role} · Free`;
+        }
       });
     });
 
-    // ===== SUBSTACK RSS TEASER =====
-    (function() {
-      const CACHE_KEY = 'substack_teaser_cache';
-      const CACHE_DURATION = 3 * 60 * 60 * 1000;
-
-      function showTeaser(title, snippet, link) {
-        document.getElementById('substackTitle').textContent = title;
-        document.getElementById('substackSnippet').textContent = snippet;
-        document.getElementById('substackLink').href = link;
-        document.getElementById('substackTeaser').style.display = 'block';
-      }
-
-      function showCachedOrFetch() {
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const data = JSON.parse(cached);
-          if (Date.now() - data.timestamp < CACHE_DURATION) {
-            showTeaser(data.title, data.snippet, data.link);
-            return;
-          }
+    // Substack teaser (simplified)
+    fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
+      .then(res => res.json())
+      .then(data => {
+        if (data.items && data.items.length > 0) {
+          const latest = data.items[0];
+          document.getElementById('substackTitle').textContent = latest.title;
+          document.getElementById('substackSnippet').textContent = latest.description.replace(/<[^>]*>/g, '').substring(0, 120);
+          document.getElementById('substackLink').href = latest.link;
+          document.getElementById('substackTeaser').style.display = 'block';
         }
-        fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
-          .then(res => res.json())
-          .then(data => {
-            if (data.status === 'ok' && data.items && data.items.length > 0) {
-              const latest = data.items[0];
-              const title = latest.title;
-              const tempDiv = document.createElement('div');
-              tempDiv.innerHTML = latest.description;
-              let snippet = tempDiv.textContent || tempDiv.innerText || '';
-              snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
-              if (snippet.length === 140) snippet += '…';
-              const link = latest.link;
-              localStorage.setItem(CACHE_KEY, JSON.stringify({
-                title, snippet, link, timestamp: Date.now()
-              }));
-              showTeaser(title, snippet, link);
-            }
-          })
-          .catch(() => {
-            showTeaser('The White Balance Lie', 'Why your indoor photos look yellow — and the one setting that fixes it.', 'https://camerasdecoded.substack.com');
-          });
-      }
-
-      showCachedOrFetch();
-    })();
+      })
+      .catch(() => {});
   </script>
 </body>
 </html>
