@@ -30,7 +30,6 @@
       min-height: 100vh;
       position: relative;
       overflow-x: hidden;
-      /* No flex on body because sidebar is fixed */
     }
     body::before {
       content: "";
@@ -38,9 +37,6 @@
       background: linear-gradient(180deg, rgba(29,179,27,0.30) 0%, rgba(0,0,0,0.95) 70%, #000000 100%);
       pointer-events: none; z-index: -1;
     }
-
-    #binary-rain { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; opacity: 0.2; }
-    #rain-fade { position: fixed; bottom: 0; left: 0; width: 100vw; height: 45vh; background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.85) 60%, #000 100%); pointer-events: none; z-index: 0; }
 
     h1,h2,h3,.mono { font-family: 'Space Mono', monospace; }
     a { text-decoration: none; color: inherit; transition: 0.2s; }
@@ -69,7 +65,14 @@
     .sidebar .nav-item i { width: 20px; text-align: center; }
     .sidebar .nav-item:hover { color: var(--green); border-bottom: 1px solid var(--green); }
     .sidebar .nav-item.active { color: var(--green); }
-    .sidebar-divider { border-top: 1px solid var(--border-dim); margin: 8px 0; }
+
+    /* ===== FIXED: more subtle dividers ===== */
+    .sidebar-divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 8px 0;
+    }
+
     .header-login-btn {
       display: block; color: var(--green); font-family: 'Space Mono', monospace; font-size: 12px;
       border: 1px solid var(--green); padding: 0 10px; border-radius: 20px; background: transparent;
@@ -78,7 +81,7 @@
 
     /* ===== MAIN CONTENT — PUSHED RIGHT ===== */
     .main-content {
-      margin-left: 240px; /* sidebar width */
+      margin-left: 240px;
       padding: 80px 40px 40px;
       max-width: calc(1200px + 240px);
       position: relative;
@@ -91,7 +94,7 @@
     .floating-header {
       position: fixed;
       top: 12px;
-      left: 252px; /* sidebar width (240) + 12px gap */
+      left: 252px;
       right: 12px;
       z-index: 99;
       display: flex;
@@ -339,9 +342,6 @@
   </style>
 </head>
 <body>
-  <canvas id="binary-rain"></canvas>
-  <div id="rain-fade"></div>
-
   <!-- SIDEBAR (FIXED LEFT) -->
   <aside class="sidebar">
     <div class="logo">
@@ -543,27 +543,36 @@
       </div>
     </details>
 
-    <!-- ===== COMPACT QUIZ WIDGET ===== -->
-    <div style="display:flex; align-items:center; gap:16px; background:var(--bg-panel); border:1px solid var(--border-dim); border-radius:10px; padding:12px 20px; margin-top:30px; transition:border-color 0.2s; flex-wrap:wrap;">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <div style="width:32px; height:32px; border-radius:8px; background:rgba(141,235,0,0.08); border:1px solid rgba(141,235,0,0.12); display:flex; align-items:center; justify-content:center;">
-          <i class="fas fa-brain" style="color:var(--green); font-size:15px;"></i>
+    <!-- ===== COMPACT QUIZ WIDGET with CLICKABLE SCORE ===== -->
+    <div style="background:var(--bg-panel); border:1px solid var(--border-dim); border-radius:10px; padding:12px 20px; margin-top:30px; transition:border-color 0.2s;">
+      <!-- Top row: widget controls -->
+      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:32px; height:32px; border-radius:8px; background:rgba(141,235,0,0.08); border:1px solid rgba(141,235,0,0.12); display:flex; align-items:center; justify-content:center;">
+            <i class="fas fa-brain" style="color:var(--green); font-size:15px;"></i>
+          </div>
+          <div>
+            <div style="font-size:12px; color:var(--text-muted); font-family:'Space Mono',monospace;">Quiz Arena</div>
+            <div style="font-size:11px; color:#666;"><i class="fas fa-fire" style="color:#ffaa00; font-size:11px;"></i> Streak: <span id="streakNum">0</span></div>
+          </div>
         </div>
-        <div>
-          <div style="font-size:12px; color:var(--text-muted); font-family:'Space Mono',monospace;">Quiz Arena</div>
-          <div style="font-size:11px; color:#666;"><i class="fas fa-fire" style="color:#ffaa00; font-size:11px;"></i> Streak: <span id="streakNum">0</span></div>
+        <div style="display:flex; align-items:center; gap:8px; margin-left:auto;">
+          <select id="diffSelect" style="background:transparent; border:1px solid var(--border-dim); border-radius:4px; color:#fff; padding:4px 10px; font-family:'Space Mono',monospace; font-size:11px; height:30px;">
+            <option value="beginner">🌱 Beginner</option>
+            <option value="intermediate">⚡ Intermediate</option>
+            <option value="advanced">🚀 Advanced</option>
+          </select>
+          <a href="#" id="quizLaunchBtn" style="padding:6px 18px; background:transparent; border:1px solid var(--green); border-radius:6px; color:var(--green); font-family:'Space Mono',monospace; font-size:12px; text-decoration:none; transition:0.2s; white-space:nowrap;" onmouseover="this.style.background='rgba(141,235,0,0.1)'" onmouseout="this.style.background='transparent'">
+            Launch <i class="fas fa-arrow-right" style="margin-left:4px; font-size:11px;"></i>
+          </a>
         </div>
       </div>
-      <div style="display:flex; align-items:center; gap:8px; margin-left:auto;">
-        <select id="diffSelect" style="background:transparent; border:1px solid var(--border-dim); border-radius:4px; color:#fff; padding:4px 10px; font-family:'Space Mono',monospace; font-size:11px; height:30px;">
-          <option value="beginner">🌱 Beginner</option>
-          <option value="intermediate">⚡ Intermediate</option>
-          <option value="advanced">🚀 Advanced</option>
-        </select>
-        <a href="#" id="quizLaunchBtn" style="padding:6px 18px; background:transparent; border:1px solid var(--green); border-radius:6px; color:var(--green); font-family:'Space Mono',monospace; font-size:12px; text-decoration:none; transition:0.2s; white-space:nowrap;" onmouseover="this.style.background='rgba(141,235,0,0.1)'" onmouseout="this.style.background='transparent'">
-          Launch <i class="fas fa-arrow-right" style="margin-left:4px; font-size:11px;"></i>
-        </a>
-      </div>
+
+      <!-- Bottom row: Last Score — CLICKABLE with tooltip -->
+      <a href="#" id="scoreLaunchBtn" style="display:flex; align-items:center; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.06); margin-top:10px; padding-top:8px; font-family:'Space Mono',monospace; font-size:12px; color:var(--text-muted); text-decoration:none; transition:0.2s; cursor:pointer;" title="Beat your best! 🎯" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text-muted)'">
+        <span><i class="fas fa-trophy" style="color:var(--green); margin-right:6px; font-size:11px;"></i>Last Score</span>
+        <span id="lastScoreDisplay" style="color:#fff; font-weight:600; transition:0.2s;">—</span>
+      </a>
     </div>
 
     <!-- Ambassador CTA -->
@@ -634,44 +643,6 @@
       if (show) { btn.classList.add('show'); requestAnimationFrame(() => btn.classList.add('pulse')); }
       else { btn.classList.remove('show', 'pulse'); }
     };
-
-    // ===== BINARY RAIN =====
-    (function() {
-      const canvas = document.getElementById('binary-rain');
-      const ctx = canvas.getContext('2d');
-      let width = window.innerWidth, height = window.innerHeight;
-      canvas.width = width; canvas.height = height;
-      const fontSize = 16, columns = Math.floor(width / fontSize);
-      const drops = Array(columns).fill(1), speed = 0.55;
-      function draw() {
-        ctx.fillStyle = 'rgba(0,0,0,0.05)';
-        ctx.fillRect(0, 0, width, height);
-        ctx.font = fontSize + 'px "Space Mono", monospace';
-        ctx.textAlign = 'center';
-        for (let i = 0; i < drops.length; i++) {
-          const char = Math.random() > 0.5 ? '1' : '0';
-          const x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
-          if (char === '1') { ctx.shadowColor = '#8deb00'; ctx.shadowBlur = 8; ctx.fillStyle = '#8deb00'; }
-          else { ctx.shadowColor = '#3a7a1a'; ctx.shadowBlur = 4; ctx.fillStyle = '#4caf50'; }
-          ctx.fillText(char, x, y);
-          if (char === '1' && Math.random() < 0.025) {
-            ctx.shadowBlur = 15; ctx.fillStyle = '#ffffff';
-            ctx.beginPath(); ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-          }
-          if (y > height && Math.random() > 0.97) drops[i] = 0;
-          drops[i] += speed;
-        }
-        requestAnimationFrame(draw);
-      }
-      draw();
-      window.addEventListener('resize', () => {
-        width = window.innerWidth; height = window.innerHeight;
-        canvas.width = width; canvas.height = height;
-        const newColumns = Math.floor(width / fontSize);
-        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
-        else drops.length = newColumns;
-      });
-    })();
 
     // ===== CART COUNTER =====
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
@@ -1064,20 +1035,59 @@
       showCachedOrFetch();
     })();
 
-    // ===== QUIZ WIDGET SCRIPT =====
+    // ===== QUIZ WIDGET — STREAK & SCORE =====
     (function() {
+      // Streak
       const streak = parseInt(localStorage.getItem('quizStreak') || '0');
       const streakEl = document.getElementById('streakNum');
       if (streakEl) streakEl.textContent = streak;
+
+      // Launch button
       const launchBtn = document.getElementById('quizLaunchBtn');
       const diffSelect = document.getElementById('diffSelect');
-      function updateLink() {
+      function updateLaunchLink() {
         if (launchBtn && diffSelect) {
           launchBtn.href = `quiz-full.html?level=${diffSelect.value}`;
         }
       }
-      if (diffSelect) diffSelect.addEventListener('change', updateLink);
-      updateLink();
+      if (diffSelect) diffSelect.addEventListener('change', updateLaunchLink);
+      updateLaunchLink();
+
+      // Score display — clickable (launches quiz with selected difficulty)
+      const scoreDisplay = document.getElementById('lastScoreDisplay');
+      const scoreLaunchBtn = document.getElementById('scoreLaunchBtn');
+
+      function updateQuizScore() {
+        if (!scoreDisplay) return;
+        const stored = localStorage.getItem('quizLastScore');
+        if (stored) {
+          try {
+            const data = JSON.parse(stored);
+            const levelNames = { beginner: '🌱', intermediate: '⚡', advanced: '🚀' };
+            const levelIcon = levelNames[data.level] || '';
+            scoreDisplay.textContent = `${levelIcon} ${data.score}/${data.total}`;
+          } catch {
+            scoreDisplay.textContent = '—';
+          }
+        } else {
+          scoreDisplay.textContent = '—';
+        }
+      }
+
+      // Click on score → launch quiz with current difficulty
+      if (scoreLaunchBtn) {
+        scoreLaunchBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const selectedLevel = diffSelect ? diffSelect.value : 'beginner';
+          window.location.href = `quiz-full.html?level=${selectedLevel}`;
+        });
+      }
+
+      // Update on load and cross‑tab storage changes
+      document.addEventListener('DOMContentLoaded', updateQuizScore);
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'quizLastScore') updateQuizScore();
+      });
     })();
   </script>
 </body>

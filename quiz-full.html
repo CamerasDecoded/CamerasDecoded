@@ -6,6 +6,7 @@
   <title>Quiz Arena — Cameras Decoded</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
   <style>
     :root {
       --green: #8deb00;
@@ -17,43 +18,59 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: #000;
-      background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
-      background-size: 24px 24px;
-      color: #fff;
       font-family: 'Montserrat', sans-serif;
+      color: #fff;
+      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      padding: 40px 20px;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
     }
-    body::before {
+    /* Particle canvas */
+    #particles {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+    /* Subtle radial gradient overlay */
+    body::after {
       content: "";
       position: fixed;
       top: 0; left: 0;
       width: 100vw; height: 100vh;
-      background: linear-gradient(180deg, rgba(29,179,27,0.15) 0%, rgba(0,0,0,0.95) 70%, #000000 100%);
+      background: radial-gradient(circle at 20% 30%, rgba(141,235,0,0.05) 0%, transparent 70%);
       pointer-events: none;
-      z-index: -1;
+      z-index: 1;
     }
-    .quiz-full-container {
-      max-width: 760px;
+
+    .quiz-container {
+      max-width: 820px;
       width: 100%;
-      background: var(--bg-panel);
+      background: rgba(10,10,10,0.85);
+      backdrop-filter: blur(12px);
       border: 1px solid var(--border-dim);
-      border-radius: 16px;
-      padding: 32px 36px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+      border-radius: 20px;
+      padding: 30px 32px 40px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.9);
       position: relative;
       z-index: 2;
+      transition: border-color 0.3s;
     }
+    .quiz-container:hover { border-color: rgba(141,235,0,0.2); }
+
+    /* ----- HEADER ----- */
     .quiz-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 24px;
-      border-bottom: 1px solid var(--border-dim);
-      padding-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
     }
     .quiz-header h1 {
       font-family: 'Space Mono', monospace;
@@ -61,31 +78,125 @@
       color: var(--green);
       letter-spacing: 1px;
     }
-    .back-link {
+    .quiz-header .back-link {
       color: var(--text-muted);
       font-family: 'Space Mono', monospace;
       font-size: 13px;
       text-decoration: none;
       transition: 0.2s;
     }
-    .back-link:hover { color: var(--green); }
-    .back-link i { margin-right: 6px; }
+    .quiz-header .back-link:hover { color: var(--green); }
+    .quiz-header .back-link i { margin-right: 6px; }
 
+    /* ----- SIGNAL METER (from your snippet) ----- */
+    .signal-meter {
+      background: rgba(255,255,255,0.02);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+      border: 1px solid var(--border-dim);
+    }
+    .signal-meter .top-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .signal-meter .label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--green);
+      letter-spacing: 1px;
+      min-width: 60px;
+    }
+    .signal-meter .bar {
+      flex: 1;
+      height: 4px;
+      background: var(--border-dim);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .signal-meter .bar .fill {
+      height: 100%;
+      width: 0%;
+      background: var(--green);
+      transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .signal-meter .percentage {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--green);
+      min-width: 40px;
+      text-align: right;
+    }
+    .signal-meter .step-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      display: block;
+    }
+
+    /* ----- STEP WAVE (progress dots) ----- */
+    .step-wave {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin: 16px 0 20px;
+    }
+    .wave-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border-dim);
+      transition: 0.3s;
+      cursor: default;
+    }
+    .wave-dot.active { background: var(--green); box-shadow: 0 0 12px var(--green); }
+    .wave-dot.completed { background: var(--green); opacity: 0.4; }
+
+    /* ----- DIFFICULTY SELECTOR ----- */
+    .difficulty-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .diff-btn {
+      padding: 6px 18px;
+      border: 1px solid var(--border-dim);
+      border-radius: 20px;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .diff-btn:hover { border-color: var(--green); color: var(--green); }
+    .diff-btn.active { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+
+    /* ----- QUESTION AREA ----- */
     .question-text {
       font-family: 'Space Mono', monospace;
       font-size: 20px;
       font-weight: 400;
-      margin-bottom: 28px;
+      margin: 16px 0 24px;
       line-height: 1.5;
-      color: #fff;
+      min-height: 60px;
+      animation: slideUp 0.4s ease;
     }
+    @keyframes slideUp {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
     .answers-grid {
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
     .answer-btn {
-      background: transparent;
+      background: rgba(255,255,255,0.02);
       border: 1px solid var(--border-dim);
       border-radius: 10px;
       padding: 14px 20px;
@@ -123,6 +234,7 @@
     .answer-btn.wrong .letter { background: #ff4a4a; color: #000; }
     .answer-btn:disabled { opacity: 0.6; cursor: default; transform: none !important; }
 
+    /* ----- FEEDBACK BOX ----- */
     .feedback-box {
       margin-top: 20px;
       padding: 16px 20px;
@@ -130,7 +242,9 @@
       background: rgba(255,255,255,0.02);
       border-left: 4px solid var(--green);
       display: none;
+      animation: fadeIn 0.3s ease;
     }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .feedback-box .fb-title { font-weight: 700; font-size: 15px; }
     .feedback-box .fb-explain { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
 
@@ -149,18 +263,21 @@
       display: none;
       text-align: center;
     }
-    .next-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 15px rgba(141,235,0,0.2); }
+    .next-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 20px rgba(141,235,0,0.15); }
 
+    /* ----- RESULTS ----- */
     .results-box {
       text-align: center;
       padding: 20px 0;
       display: none;
+      animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    .results-box .emoji { font-size: 56px; margin-bottom: 10px; }
+    @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    .results-box .emoji { font-size: 56px; margin-bottom: 10px; display: block; }
     .results-box h2 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 24px; }
     .results-box .sub { color: var(--text-muted); font-size: 16px; margin: 8px 0; }
     .results-box .score-highlight { font-size: 32px; font-weight: 700; color: #fff; }
-    .retake-btn {
+    .retake-btn, .reset-diff-btn {
       margin-top: 16px;
       padding: 10px 30px;
       background: transparent;
@@ -171,30 +288,11 @@
       cursor: pointer;
       transition: 0.2s;
     }
-    .retake-btn:hover { background: rgba(141,235,0,0.1); }
+    .retake-btn:hover, .reset-diff-btn:hover { background: rgba(141,235,0,0.1); }
 
-    .progress-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-    .progress-meta .count { color: var(--green); }
-    .bar-track {
-      width: 100%;
-      height: 4px;
-      background: var(--border-dim);
-      border-radius: 2px;
-      margin-top: 10px;
-      overflow: hidden;
-    }
-    .bar-track .fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.5s ease; width: 0%; }
-
+    /* ----- RESPONSIVE ----- */
     @media (max-width: 600px) {
-      .quiz-full-container { padding: 20px 16px; }
+      .quiz-container { padding: 20px 16px; }
       .question-text { font-size: 17px; }
       .answer-btn { font-size: 14px; padding: 12px 14px; }
       .quiz-header h1 { font-size: 16px; }
@@ -203,146 +301,429 @@
 </head>
 <body>
 
-<div class="quiz-full-container">
-  <div class="quiz-header">
-    <h1><i class="fas fa-brain" style="margin-right:8px;"></i> Quiz Arena</h1>
-    <a href="operator-dashboard.html" class="back-link"><i class="fas fa-arrow-left"></i> Dashboard</a>
+  <!-- PARTICLE CANVAS -->
+  <canvas id="particles"></canvas>
+
+  <div class="quiz-container">
+    <!-- HEADER -->
+    <div class="quiz-header">
+      <h1><i class="fas fa-brain" style="margin-right:8px;"></i> Quiz Arena</h1>
+      <a href="operator-dashboard.html" class="back-link"><i class="fas fa-arrow-left"></i> Dashboard</a>
+    </div>
+
+    <!-- SIGNAL METER -->
+    <div class="signal-meter">
+      <div class="top-row">
+        <span class="label" id="signalLabel">SIGNAL</span>
+        <div class="bar"><div class="fill" id="signalFill"></div></div>
+        <span class="percentage" id="signalPercent">0%</span>
+      </div>
+      <div class="step-label" id="stepLabel">⚡ Step 1: Choose difficulty</div>
+    </div>
+
+    <!-- STEP WAVE -->
+    <div class="step-wave" id="stepWave">
+      <span class="wave-dot active" data-step="0"></span>
+      <span class="wave-dot" data-step="1"></span>
+      <span class="wave-dot" data-step="2"></span>
+      <span class="wave-dot" data-step="3"></span>
+      <span class="wave-dot" data-step="4"></span>
+      <span class="wave-dot" data-step="5"></span>
+    </div>
+
+    <!-- DIFFICULTY SELECTOR -->
+    <div class="difficulty-selector" id="diffSelector">
+      <button class="diff-btn active" data-level="beginner">🌱 Beginner</button>
+      <button class="diff-btn" data-level="intermediate">⚡ Intermediate</button>
+      <button class="diff-btn" data-level="advanced">🚀 Advanced</button>
+    </div>
+
+    <!-- QUIZ UI -->
+    <div id="quizUI">
+      <div id="questionArea">
+        <div class="question-text" id="qText">Select a difficulty to begin.</div>
+        <div class="answers-grid" id="answersContainer"></div>
+      </div>
+
+      <div class="feedback-box" id="feedbackBox">
+        <div class="fb-title" id="fbTitle">✅ Correct!</div>
+        <div class="fb-explain" id="fbExplain">Explanation goes here.</div>
+      </div>
+
+      <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
+
+      <div class="results-box" id="resultsBox">
+        <span class="emoji" id="resultEmoji">🎉</span>
+        <h2>Quiz Complete!</h2>
+        <div class="sub">You scored</div>
+        <div class="score-highlight"><span id="finalScore">0</span> / <span id="totalQ">0</span></div>
+        <div class="sub" id="resultMsg" style="color:var(--green); font-family:'Space Mono',monospace; margin-top:10px;">Keep decoding!</div>
+        <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+          <button class="retake-btn" onclick="resetQuiz()"><i class="fas fa-redo"></i> Retake</button>
+          <button class="reset-diff-btn" onclick="resetDifficulty()"><i class="fas fa-arrow-left"></i> Change Difficulty</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- QUIZ UI -->
-  <div id="quizUI">
-    <div class="progress-meta">
-      <span class="count" id="qProgress">1 / 5</span>
-      <span id="qStreak"><i class="fas fa-fire" style="color:#ffaa00;"></i> Streak: 0</span>
-    </div>
-    <div class="bar-track"><div class="fill" id="qFill"></div></div>
+  <script>
+    // ============================================================
+    // 1.  PARTICLES BACKGROUND (optimised)
+    // ============================================================
+    (function() {
+      const canvas = document.getElementById('particles');
+      const ctx = canvas.getContext('2d');
+      let w, h;
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
 
-    <div id="questionArea">
-      <div class="question-text" id="qText">Loading question...</div>
-      <div class="answers-grid" id="answersContainer"></div>
-    </div>
+      const particles = [];
+      const count = 80;
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.6,
+          vy: (Math.random() - 0.5) * 0.6,
+          r: Math.random() * 2 + 1,
+          alpha: Math.random() * 0.5 + 0.2
+        });
+      }
 
-    <div class="feedback-box" id="feedbackBox">
-      <div class="fb-title" id="fbTitle">✅ Correct!</div>
-      <div class="fb-explain" id="fbExplain">Explanation goes here.</div>
-    </div>
+      function drawParticles() {
+        ctx.clearRect(0, 0, w, h);
+        particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.x < 0 || p.x > w) p.vx *= -1;
+          if (p.y < 0 || p.y > h) p.vy *= -1;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(141, 235, 0, ${p.alpha})`;
+          ctx.fill();
+        });
+        // Draw lines between nearby particles
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 120) {
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = `rgba(141, 235, 0, ${0.08 * (1 - dist/120)})`;
+              ctx.lineWidth = 0.6;
+              ctx.stroke();
+            }
+          }
+        }
+        requestAnimationFrame(drawParticles);
+      }
+      drawParticles();
+    })();
 
-    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
+    // ============================================================
+    // 2.  QUIZ DATA (Beginner / Intermediate / Advanced)
+    // ============================================================
+    const questionBank = {
+      beginner: [
+        { q: "What does ISO primarily control in a camera?", a: ["Aperture", "Shutter speed", "Light sensitivity", "White balance"], c: 2, e: "ISO adjusts the sensor's sensitivity to light. Higher ISO = brighter in low light, but more noise." },
+        { q: "Which shutter speed freezes fast motion best?", a: ["1/15s", "1/60s", "1/500s", "1/2s"], c: 2, e: "1/500s is fast enough to freeze most sports and moving subjects." },
+        { q: "What does 'f/2.8' refer to?", a: ["Shutter speed", "ISO", "Aperture (focal ratio)", "White balance"], c: 2, e: "f/2.8 is a wide aperture that lets in lots of light and creates shallow depth of field." },
+        { q: "Which file format gives the most editing flexibility?", a: ["JPEG", "PNG", "RAW", "TIFF"], c: 2, e: "RAW files contain unprocessed sensor data, offering maximum latitude for exposure and colour adjustments." },
+        { q: "What is the 'rule of thirds'?", a: ["Exposure rule", "Composition guideline", "Focus technique", "Lighting setup"], c: 1, e: "It divides the frame into 9 equal parts, placing key elements along the lines or intersections for balance." },
+        { q: "Which lens is best for portraits?", a: ["50mm f/1.8", "18-55mm kit lens", "70-200mm f/4", "24mm f/2.8"], c: 0, e: "A 50mm or 85mm prime with wide aperture gives pleasing bokeh and natural perspective for portraits." },
+        { q: "What does 'white balance' correct?", a: ["Exposure", "Colour temperature", "Focus", "Depth of field"], c: 1, e: "White balance adjusts the colour cast so that white objects appear white under different lighting conditions." },
+        { q: "When should you use a tripod?", a: ["Always", "Only for video", "In low light and long exposures", "Never"], c: 2, e: "Tripods eliminate camera shake, essential for long exposures, low light, and macro work." },
+        { q: "Which mode gives you full creative control?", a: ["Auto", "Aperture Priority", "Shutter Priority", "Manual"], c: 3, e: "Manual mode lets you set both aperture and shutter speed independently, offering complete creative freedom." },
+        { q: "What is 'bokeh'?", a: ["A type of lens", "Background blur quality", "A colour profile", "A light meter"], c: 1, e: "Bokeh describes the aesthetic quality of the out‑of‑focus areas, often soft and creamy with fast lenses." },
+      ],
+      intermediate: [
+        { q: "What is the 'exposure triangle' composed of?", a: ["ISO, Shutter Speed, Aperture", "ISO, Focal Length, Shutter Speed", "Aperture, White Balance, ISO", "Shutter Speed, Flash, Aperture"], c: 0, e: "The triangle consists of ISO, shutter speed, and aperture – balancing them determines exposure." },
+        { q: "How does aperture affect depth of field?", a: ["Wider aperture = deeper DOF", "Wider aperture = shallower DOF", "No effect", "It affects colour"], c: 1, e: "A wide aperture (small f‑number) reduces depth of field, blurring backgrounds." },
+        { q: "What is the benefit of shooting in RAW over JPEG?", a: ["Smaller size", "More dynamic range", "Sharper images", "Better out‑of‑camera colours"], c: 1, e: "RAW preserves much more highlight and shadow detail, giving you room to recover data in post‑processing." },
+        { q: "Which lighting pattern creates a triangle of light on the shadow side of the face?", a: ["Rembrandt", "Split", "Butterfly", "Loop"], c: 0, e: "Rembrandt lighting is defined by that signature triangular highlight under the eye on the shadow side." },
+        { q: "What does 'hyperfocal distance' mean?", a: ["Focus point that maximises depth of field", "The closest focus distance", "The focus distance for infinity", "A lens calibration method"], c: 0, e: "Hyperfocal distance is the focus point that keeps everything from half that distance to infinity acceptably sharp – ideal for landscapes." },
+        { q: "Which metering mode evaluates the entire scene for average exposure?", a: ["Spot", "Center‑weighted", "Evaluative (Matrix)", "Partial"], c: 2, e: "Evaluative metering analyses the whole frame, using algorithms to balance exposure across highlights and shadows." },
+        { q: "What is 'reciprocity failure' in film photography?", a: ["Light reciprocity in digital", "Film's non‑linear response at long exposures", "Colour shifts", "Shutter delay"], c: 1, e: "At exposures longer than ~1 second, film requires more light than the meter suggests due to reciprocity failure." },
+        { q: "Which flash sync speed is typically the maximum for most DSLRs?", a: ["1/60s", "1/125s", "1/250s", "1/1000s"], c: 2, e: "Most cameras sync up to 1/200s or 1/250s; beyond that, you need high‑speed sync if your flash supports it." },
+        { q: "What is 'focus stacking'?", a: ["Combining multiple exposures", "Combining different focus points to increase DOF", "Stacking filters", "A lens adjustment"], c: 1, e: "Focus stacking merges several images taken at different focus distances to achieve extreme depth of field, common in macro." },
+        { q: "How do you achieve a 'high‑key' portrait?", a: ["Low contrast and bright tones", "High contrast and dark shadows", "Natural light only", "Black and white"], c: 0, e: "High‑key lighting uses bright, even light with minimal shadows, resulting in a light, airy look." },
+      ],
+      advanced: [
+        { q: "What is the 'inverse square law' in relation to light?", a: ["Light intensity doubles with distance", "Light intensity falls off as the square of distance", "Light spreads linearly", "Light is constant"], c: 1, e: "It states intensity = 1/d². Move a light twice as far and you get 1/4 the power." },
+        { q: "What is 'T‑stop' compared to f‑stop?", a: ["Same as f‑stop", "Measures actual light transmission", "A measure of sharpness", "Aperture in video"], c: 1, e: "T‑stops account for light loss within the lens; they are more accurate for exposure, especially in cinema." },
+        { q: "What causes 'lens flare' and how can it be used creatively?", a: ["Internal reflections", "Chromatic aberration", "Vignetting", "Diffraction"], c: 0, e: "Flare occurs when light scatters inside the lens. It can add a dramatic, moody look if controlled." },
+        { q: "What is 'ETTR' (Expose To The Right) and why use it?", a: ["Overexpose to capture shadows", "Push histogram to the right", "Always underexpose", "Use flash"], c: 1, e: "ETTR means slightly overexposing (without clipping highlights) to maximise signal‑to‑noise ratio in the shadows." },
+        { q: "What is 'focus breathing'?", a: ["Lens changes focal length as it focuses", "Lens vibrates during AF", "Image stabilisation issues", "Depth of field shifts"], c: 0, e: "Focus breathing is a change in angle of view as focus is adjusted, common in many zoom lenses." },
+        { q: "How does 'diffraction' affect image sharpness?", a: ["It increases sharpness", "It reduces sharpness at small apertures", "It causes colour shifts", "It doesn't affect sharpness"], c: 1, e: "At very small apertures (like f/16+), light bends around the aperture blades, reducing overall sharpness due to diffraction." },
+        { q: "What is a 'colour checker' used for?", a: ["Colour calibration", "White balance only", "Checking RGB values", "Printer calibration"], c: 0, e: "A colour checker provides known colour patches to create a custom profile, ensuring accurate colour reproduction." },
+        { q: "What is 'HDR' photography and when is it best used?", a: ["High Dynamic Range – merging exposures", "High Definition Resolution", "A type of filter", "A shooting mode"], c: 0, e: "HDR combines multiple exposures to capture a wider dynamic range, ideal for high‑contrast scenes like landscapes." },
+        { q: "What is 'perspective distortion' and how can it be minimised?", a: ["Wide‑angle close‑up distortion", "Use a longer focal length", "Use a tilt‑shift lens", "All of the above"], c: 3, e: "All three methods reduce perspective distortion: longer lenses compress space, tilt‑shift corrects perspective, and backing up helps." },
+        { q: "What is the purpose of a 'neutral density' (ND) filter?", a: ["Reduce light without affecting colour", "Add colour cast", "Increase contrast", "Sharpen image"], c: 0, e: "ND filters cut light evenly, allowing wider apertures or slower shutter speeds in bright conditions for creative effects." },
+      ]
+    };
 
-    <div class="results-box" id="resultsBox">
-      <div class="emoji">🎉</div>
-      <h2>Quiz Complete!</h2>
-      <div class="sub">You scored</div>
-      <div class="score-highlight"><span id="finalScore">0</span> / <span id="totalQ">5</span></div>
-      <div class="sub" id="resultMsg" style="color:var(--green); font-family:'Space Mono',monospace; margin-top:10px;">Keep decoding!</div>
-      <button class="retake-btn" onclick="resetQuiz()"><i class="fas fa-redo"></i> Retake Quiz</button>
-    </div>
-  </div>
-</div>
+    // ============================================================
+    // 3.  QUIZ ENGINE
+    // ============================================================
+    let currentLevel = 'beginner';
+    let questions = [];
+    let currentQ = 0;
+    let score = 0;
+    let answered = false;
+    let streak = parseInt(localStorage.getItem('quizStreak') || '0');
 
-<script>
-  // ===== QUIZ DATA =====
-  const quizData = [
-    { q: "What is the foundational skill every photographer must master to control exposure?", a: ["Lens Focal Length", "The Exposure Triangle", "White Balance Presets", "Sensor Megapixels"], c: 1, e: "The Exposure Triangle (Aperture, Shutter Speed, ISO) is the core. Mastering this gives you creative control over light and motion." },
-    { q: "In portraiture, what does a shallow depth of field (wide aperture) primarily achieve?", a: ["Keeps the entire image in focus", "Blurs the background to isolate the subject", "Increases sharpness in the corners", "Reduces the need for lighting"], c: 1, e: "A wide aperture (like f/1.8 or f/2.8) creates a beautiful bokeh effect, separating your subject from a distracting background." },
-    { q: "When shooting in RAW format, which advantage is most critical for post-processing?", a: ["Smaller file sizes", "Maximum dynamic range and color data", "Directly shareable to social media", "Automatic lens correction"], c: 1, e: "RAW files retain significantly more highlight and shadow detail than JPEGs, giving you immense flexibility to recover data in editing." },
-    { q: "Which lighting setup is standard for creating a classic, dramatic 3/4 portrait?", a: ["Flat Lighting", "Split Lighting", "Rembrandt Lighting", "Butterfly Lighting"], c: 2, e: "Rembrandt lighting is defined by a small triangle of light on the shadow side of the face. It creates depth and a classic fine-art feel." },
-    { q: "What is the 'Inverse Square Law' in photography?", a: ["Light intensity doubles with every 1m distance", "Light falls off dramatically as distance increases", "Aperture and shutter speed are inversely related", "Focal length inversely affects field of view"], c: 1, e: "It states that the intensity of light is inversely proportional to the square of the distance from the source. Move a light twice as far, and you get 1/4 the power." }
-  ];
+    const letters = ['A', 'B', 'C', 'D'];
+    const totalQuestionsPerLevel = 10; // we use 10 per level, but can be dynamic
 
-  // ===== STATE =====
-  let current = 0, score = 0, answered = false, streak = parseInt(localStorage.getItem('quizStreak') || '0');
-
-  const letters = ['A', 'B', 'C', 'D'];
-
-  function loadQuestion() {
-    const ui = document.getElementById('quizUI');
-    const area = document.getElementById('questionArea');
-    const feedback = document.getElementById('feedbackBox');
+    // DOM refs
+    const qText = document.getElementById('qText');
+    const answersContainer = document.getElementById('answersContainer');
+    const feedbackBox = document.getElementById('feedbackBox');
+    const fbTitle = document.getElementById('fbTitle');
+    const fbExplain = document.getElementById('fbExplain');
     const nextBtn = document.getElementById('nextBtn');
-    const results = document.getElementById('resultsBox');
+    const resultsBox = document.getElementById('resultsBox');
+    const finalScore = document.getElementById('finalScore');
+    const totalQSpan = document.getElementById('totalQ');
+    const resultMsg = document.getElementById('resultMsg');
+    const resultEmoji = document.getElementById('resultEmoji');
+    const signalFill = document.getElementById('signalFill');
+    const signalPercent = document.getElementById('signalPercent');
+    const stepLabel = document.getElementById('stepLabel');
+    const waveDots = document.querySelectorAll('.wave-dot');
 
-    feedback.style.display = 'none';
-    nextBtn.style.display = 'none';
-    results.style.display = 'none';
-    area.style.display = 'block';
-    answered = false;
+    // Difficulty buttons
+    document.querySelectorAll('.diff-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentLevel = this.dataset.level;
+        resetQuiz();
+      });
+    });
 
-    if (current < quizData.length) {
-      const q = quizData[current];
-      document.getElementById('qText').innerText = q.q;
-      document.getElementById('qProgress').innerText = `${current + 1} / ${quizData.length}`;
-      document.getElementById('qStreak').innerHTML = `<i class="fas fa-fire" style="color:#ffaa00;"></i> Streak: ${streak}`;
-      document.getElementById('qFill').style.width = ((current) / quizData.length * 100) + '%';
+    function loadQuestions(level) {
+      questions = questionBank[level] || questionBank.beginner;
+      // Shuffle for variety (optional) – we'll keep order fixed for consistency
+      // but you could shuffle: questions = questions.sort(() => Math.random() - 0.5);
+      return questions;
+    }
 
-      const container = document.getElementById('answersContainer');
-      container.innerHTML = '';
+    function startQuiz() {
+      const level = currentLevel;
+      questions = loadQuestions(level);
+      currentQ = 0;
+      score = 0;
+      answered = false;
+      resultsBox.style.display = 'none';
+      document.getElementById('questionArea').style.display = 'block';
+      feedbackBox.style.display = 'none';
+      nextBtn.style.display = 'none';
+      // Update step wave and meter
+      updateWaveAndMeter(0);
+      stepLabel.textContent = `⚡ ${level.charAt(0).toUpperCase()+level.slice(1)} · Question 1 of ${questions.length}`;
+      renderQuestion();
+    }
+
+    function renderQuestion() {
+      if (currentQ >= questions.length) {
+        showResults();
+        return;
+      }
+      const q = questions[currentQ];
+      qText.textContent = q.q;
+      answersContainer.innerHTML = '';
       q.a.forEach((ans, idx) => {
         const btn = document.createElement('button');
         btn.className = 'answer-btn';
         btn.innerHTML = `<span class="letter">${letters[idx]}</span> ${ans}`;
         btn.dataset.idx = idx;
         btn.addEventListener('click', () => handleAnswer(idx));
-        container.appendChild(btn);
+        answersContainer.appendChild(btn);
       });
-    } else {
-      showResults();
+      feedbackBox.style.display = 'none';
+      nextBtn.style.display = 'none';
+      answered = false;
+      // Update step label
+      stepLabel.textContent = `⚡ ${currentLevel.charAt(0).toUpperCase()+currentLevel.slice(1)} · Question ${currentQ+1} of ${questions.length}`;
+      updateWaveAndMeter(currentQ);
     }
-  }
 
-  function handleAnswer(selected) {
-    if (answered) return;
-    answered = true;
-    const q = quizData[current];
-    const isCorrect = selected === q.c;
-    if (isCorrect) { score++; streak++; } else { streak = 0; }
-    localStorage.setItem('quizStreak', streak.toString());
+    function handleAnswer(selected) {
+      if (answered) return;
+      answered = true;
+      const q = questions[currentQ];
+      const isCorrect = selected === q.c;
+      if (isCorrect) { score++; streak++; } else { streak = 0; }
+      localStorage.setItem('quizStreak', streak.toString());
 
-    const btns = document.querySelectorAll('.answer-btn');
-    btns.forEach((btn, idx) => {
-      btn.disabled = true;
-      if (idx === q.c) btn.classList.add('correct');
-      if (idx === selected && !isCorrect) btn.classList.add('wrong');
+      const btns = document.querySelectorAll('.answer-btn');
+      btns.forEach((btn, idx) => {
+        btn.disabled = true;
+        if (idx === q.c) btn.classList.add('correct');
+        if (idx === selected && !isCorrect) btn.classList.add('wrong');
+      });
+
+      // Update signal meter based on score so far
+      const progress = (score / questions.length) * 100;
+      signalFill.style.width = progress + '%';
+      signalPercent.textContent = Math.round(progress) + '%';
+
+      // Show feedback
+      feedbackBox.style.display = 'block';
+      feedbackBox.style.borderLeftColor = isCorrect ? 'var(--green)' : '#ff4a4a';
+      fbTitle.innerHTML = isCorrect ? '✅ Correct!' : '❌ Not quite.';
+      fbTitle.style.color = isCorrect ? 'var(--green)' : '#ff4a4a';
+      fbExplain.textContent = q.e;
+
+      nextBtn.style.display = 'block';
+      nextBtn.textContent = (currentQ === questions.length - 1) ? 'See Results 🏆' : 'Next Question →';
+      // Update wave dot to completed
+      waveDots.forEach((dot, i) => {
+        if (i <= currentQ) dot.classList.add('completed');
+        else dot.classList.remove('completed');
+      });
+      // Highlight current dot as active
+      waveDots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === currentQ + 1);
+      });
+    }
+
+    function nextQuestion() {
+      currentQ++;
+      renderQuestion();
+    }
+
+    function showResults() {
+// Save score for dashboard
+localStorage.setItem('quizLastScore', JSON.stringify({ 
+  score: score, 
+  total: questions.length, 
+  level: currentLevel 
+}));
+      document.getElementById('questionArea').style.display = 'none';
+      feedbackBox.style.display = 'none';
+      nextBtn.style.display = 'none';
+      resultsBox.style.display = 'block';
+      finalScore.textContent = score;
+      totalQSpan.textContent = questions.length;
+      // Emoji and message
+      let emoji, msg;
+      if (score === questions.length) { emoji = '🌟'; msg = 'Perfect! You are a true Decoder Master!'; }
+      else if (score >= questions.length - 1) { emoji = '🔥'; msg = 'Almost perfect! You\'re on fire!'; }
+      else if (score >= Math.floor(questions.length * 0.6)) { emoji = '📡'; msg = 'Good job! Review the missed concepts to level up.'; }
+      else { emoji = '📚'; msg = 'Keep studying the signal! Try again.'; }
+      resultEmoji.textContent = emoji;
+      resultMsg.textContent = msg;
+      // Set signal to final score
+      const finalPct = (score / questions.length) * 100;
+      signalFill.style.width = finalPct + '%';
+      signalPercent.textContent = Math.round(finalPct) + '%';
+      stepLabel.textContent = '🎯 Quiz Complete!';
+      // Update wave dots all completed
+      waveDots.forEach(d => d.classList.add('completed'));
+      // Confetti if perfect
+      if (score === questions.length) launchConfetti();
+    }
+
+    function resetQuiz() {
+      startQuiz();
+    }
+
+    function resetDifficulty() {
+      // Show difficulty selector again, hide results, reset UI
+      resultsBox.style.display = 'none';
+      document.getElementById('questionArea').style.display = 'block';
+      qText.textContent = 'Select a difficulty to begin.';
+      answersContainer.innerHTML = '';
+      feedbackBox.style.display = 'none';
+      nextBtn.style.display = 'none';
+      signalFill.style.width = '0%';
+      signalPercent.textContent = '0%';
+      stepLabel.textContent = '⚡ Step 1: Choose difficulty';
+      waveDots.forEach(d => { d.classList.remove('active', 'completed'); });
+      waveDots[0].classList.add('active');
+      // Reset score display
+      finalScore.textContent = '0';
+      totalQSpan.textContent = '0';
+    }
+
+    function updateWaveAndMeter(qIndex) {
+      // Update wave dots: active at current, completed before
+      waveDots.forEach((dot, i) => {
+        if (i < qIndex) dot.classList.add('completed');
+        else dot.classList.remove('completed');
+        dot.classList.toggle('active', i === qIndex);
+      });
+      // Signal meter based on progress (questions answered)
+      const progress = qIndex / (questions.length || 1) * 100;
+      signalFill.style.width = progress + '%';
+      signalPercent.textContent = Math.round(progress) + '%';
+    }
+
+    // ============================================================
+    // 4.  CONFETTI (simple canvas burst)
+    // ============================================================
+    function launchConfetti() {
+      const colors = ['#8deb00', '#00e5ff', '#ffdd00', '#ff4a4a', '#a0f520'];
+      const container = document.querySelector('.quiz-container');
+      for (let i = 0; i < 60; i++) {
+        const el = document.createElement('div');
+        el.style.cssText = `
+          position: fixed; 
+          width: ${Math.random()*8+4}px; 
+          height: ${Math.random()*8+4}px; 
+          background: ${colors[Math.floor(Math.random()*colors.length)]};
+          left: ${Math.random()*100}vw; 
+          top: -10px;
+          border-radius: ${Math.random()>0.5 ? '50%' : '2px'};
+          pointer-events: none;
+          z-index: 9999;
+          transform: rotate(${Math.random()*360}deg);
+          animation: confettiFall ${Math.random()*2+2}s linear forwards;
+          animation-delay: ${Math.random()*0.5}s;
+        `;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 4000);
+      }
+      // Inject keyframes if not present
+      if (!document.getElementById('confettiStyle')) {
+        const style = document.createElement('style');
+        style.id = 'confettiStyle';
+        style.textContent = `
+          @keyframes confettiFall {
+            0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg) scale(0.2); opacity: 0; }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+
+    // ============================================================
+    // 5.  INIT – read URL param ?level=... and auto‑start
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      const params = new URLSearchParams(window.location.search);
+      const levelParam = params.get('level');
+      if (levelParam && ['beginner','intermediate','advanced'].includes(levelParam)) {
+        currentLevel = levelParam;
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.level === levelParam);
+        });
+        startQuiz();
+      } else {
+        // Show default state: difficulty selected, but not started
+        resetDifficulty();
+      }
     });
-
-    const fb = document.getElementById('feedbackBox');
-    const title = document.getElementById('fbTitle');
-    const explain = document.getElementById('fbExplain');
-    fb.style.display = 'block';
-    fb.style.borderLeftColor = isCorrect ? 'var(--green)' : '#ff4a4a';
-    title.innerHTML = isCorrect ? '✅ Correct!' : '❌ Not quite.';
-    title.style.color = isCorrect ? 'var(--green)' : '#ff4a4a';
-    explain.innerText = q.e;
-
-    document.getElementById('nextBtn').style.display = 'block';
-    document.getElementById('nextBtn').innerHTML = (current === quizData.length - 1) ? 'See Results 🏆' : 'Next Question →';
-  }
-
-  function nextQuestion() { current++; loadQuestion(); }
-
-  function showResults() {
-    document.getElementById('questionArea').style.display = 'none';
-    document.getElementById('feedbackBox').style.display = 'none';
-    document.getElementById('nextBtn').style.display = 'none';
-    document.getElementById('qFill').style.width = '100%';
-    document.getElementById('qProgress').innerText = '🎯 Complete';
-
-    const box = document.getElementById('resultsBox');
-    box.style.display = 'block';
-    document.getElementById('finalScore').innerText = score;
-    document.getElementById('totalQ').innerText = quizData.length;
-
-    let msg = 'Keep studying the signal!';
-    if (score === quizData.length) msg = '🌟 Perfect! You are a true Decoder Master!';
-    else if (score >= quizData.length - 1) msg = '🔥 Almost perfect! You\'re on fire!';
-    else if (score >= Math.floor(quizData.length / 2)) msg = '📡 Good job! Review the missed concepts to level up.';
-    document.getElementById('resultMsg').innerText = msg;
-  }
-
-  function resetQuiz() { current = 0; score = 0; loadQuestion(); }
-
-  // Init
-  document.addEventListener('DOMContentLoaded', loadQuestion);
-</script>
+  </script>
 </body>
 </html>
