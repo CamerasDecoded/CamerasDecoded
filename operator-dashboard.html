@@ -9,12 +9,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <!-- FIREBASE SDK -->
+  <!-- FIREBASE SDK (load first) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <style>
+    /* ===== EXISTING DASHBOARD CSS (UNCHANGED) ===== */
     :root {
       --space-sm: 16px;
       --space-md: 32px;
@@ -41,6 +42,15 @@
       position: relative;
       display: flex;
       min-height: 100vh;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: linear-gradient(180deg, rgba(29,179,27,0.30) 0%, rgba(0,0,0,0.95) 70%, #000000 100%);
+      pointer-events: none;
+      z-index: -1;
     }
 
     #binary-rain {
@@ -112,6 +122,12 @@
     .floating-header a:hover { color: #a0f520; }
     .floating-home-icon { font-size: 17px; flex-shrink: 0; }
     .floating-nav-links { display: flex; flex: 1; justify-content: center; gap: 25px; flex-wrap: wrap; align-items: center; }
+    .floating-header .logout-btn {
+      background: transparent; border: 1px solid var(--brand-green); border-radius: 20px;
+      padding: 4px 12px; color: var(--brand-green); font-family: 'Space Mono', monospace;
+      font-size: 12px; cursor: pointer; transition: 0.2s; margin-left: 12px;
+    }
+    .floating-header .logout-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 12px rgba(141,235,0,0.2); }
 
     @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
     @keyframes spinBorder { to { --angle: 360deg; } }
@@ -126,7 +142,6 @@
       -webkit-mask-composite: xor; mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
       mask-composite: exclude; padding: 2px;
     }
-
     .cart-header-link {
       display: inline-flex; align-items: center; gap: 6px;
       background: transparent; border: 1px solid var(--brand-green); border-radius: 20px;
@@ -143,14 +158,7 @@
     }
     .floating-toggle:hover { color: #a0f520; }
 
-    .floating-header .logout-btn {
-      background: transparent; border: 1px solid var(--brand-green); border-radius: 20px;
-      padding: 4px 12px; color: var(--brand-green); font-family: 'Space Mono', monospace;
-      font-size: 12px; cursor: pointer; transition: 0.2s; margin-left: 12px;
-    }
-    .floating-header .logout-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 12px rgba(141,235,0,0.2); }
-
-    /* ===== DASHBOARD STYLES (unchanged) ===== */
+    /* ===== DASHBOARD STYLES (UNCHANGED) ===== */
     .dash-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-dim); padding-bottom: 16px; }
     .dash-title-img { max-height: 50px; width: auto; height: auto; display: block; }
     .dash-header .greeting { color: var(--text-muted); font-size: 14px; display: flex; align-items: center; gap: 12px; }
@@ -247,17 +255,6 @@
     .recommended-card .desc { font-size: 12px; color: var(--text-muted); }
     .recommended-card .save-hint { margin-top: 8px; font-size: 11px; color: var(--brand-green); font-family: 'Space Mono', monospace; opacity: 0.6; }
 
-    .substack-teaser {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-dim);
-      border-radius: 10px;
-      padding: 18px 22px;
-      margin-bottom: 24px;
-      transition: border-color 0.2s;
-    }
-    .substack-teaser:hover { border-color: var(--brand-green); }
-    .teaser-header { display: flex; align-items: center; margin-bottom: 4px; }
-
     .ambassador-cta { border: 1px solid var(--border-dim); border-radius: 12px; padding: 28px 30px; margin-top: 40px; text-align: center; background: rgba(141,235,0,0.02); transition: border-color 0.3s; }
     .ambassador-cta:hover { border-color: var(--brand-green); }
     .ambassador-cta h3 { font-family: 'Space Mono', monospace; color: var(--brand-green); font-size: 18px; margin-bottom: 6px; }
@@ -275,30 +272,16 @@
     .footer .footer-links a { color: var(--brand-green) !important; }
     .footer .footer-links a:hover { color: #a0f520 !important; }
 
-    /* ===== ROLE + TIER BADGE (anchored to floating header, below home icon) ===== */
+    /* ===== ROLE + TIER BADGE (anchored to floating header) ===== */
     .role-tier-badge {
-      position: absolute;
-      bottom: -24px;
-      left: 16px;
-      z-index: 101;
-      background: rgba(10, 10, 10, 0.85);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(141, 235, 0, 0.3);
-      border-radius: 14px;
-      padding: 2px 10px;
-      font-family: 'Space Mono', monospace;
-      font-size: 9px;
-      color: var(--brand-green);
-      letter-spacing: 0.5px;
-      white-space: nowrap;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-      display: none;
-      pointer-events: none;
+      position: absolute; bottom: -24px; left: 16px; z-index: 101;
+      background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(8px);
+      border: 1px solid rgba(141, 235, 0, 0.3); border-radius: 14px;
+      padding: 2px 10px; font-family: 'Space Mono', monospace; font-size: 9px;
+      color: var(--brand-green); letter-spacing: 0.5px; white-space: nowrap;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4); display: none; pointer-events: none;
     }
-    .role-tier-badge .glow-role {
-      font-weight: 700;
-      text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00;
-    }
+    .role-tier-badge .glow-role { font-weight: 700; text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00; }
     .role-tier-badge .tier-text { opacity: 0.8; }
 
     @media (max-width: 1024px) {
@@ -430,7 +413,7 @@
     <div id="mobileDashboardContainer"></div>
   </div>
 
-  <!-- FLOATING HEADER (badge inside, one logout button) -->
+  <!-- FLOATING HEADER -->
   <div class="floating-header" id="floatingHeader">
     <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
 
@@ -473,7 +456,7 @@
       <div class="stat-card"><div class="number" id="statCommunity">0</div><div class="label">Community Posts</div></div>
     </div>
 
-<!-- ★ SUBSTACK RSS TEASER CARD -->
+    <!-- Substack RSS Teaser -->
     <div id="substackTeaser" class="substack-teaser" style="display:none;">
       <div class="teaser-header">
         <i class="fas fa-satellite-dish" style="color:#8deb00; margin-right:8px;"></i>
@@ -621,6 +604,8 @@
     </footer>
   </main>
 
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+
   <script>
     // ===== MOBILE MENU =====
     document.addEventListener('DOMContentLoaded', function() {
@@ -742,7 +727,13 @@
       'sony-a7iv-event-golden-hour': 'Sony A7IV Event Golden Hour',
       'canon-r6ii-portrait-low-light': 'Canon R6 II Portrait Low Light',
     };
-    function getCardLink(slug) { return `https://settings.camerasdecoded.com/${slug}.html`; }
+
+    // ★★★ UPDATED: links to collection page with opToken ★★★
+    function getCardLink(slug) {
+      const uid = (auth.currentUser && auth.currentUser.uid) || localStorage.getItem('cameras_decoded_uid') || '';
+      const tokenParam = uid ? `?opToken=${uid}` : '';
+      return `https://settings.camerasdecoded.com/collection.html${tokenParam}`;
+    }
 
     const blogsMap = {
       'white-balance-lie': 'Why Your Indoor Photos Look Yellow',
@@ -1074,9 +1065,8 @@
         });
       });
     });
-    // ============================================================
-    //  SUBSTACK RSS TEASER
-    // ============================================================
+
+    // ===== SUBSTACK RSS TEASER =====
     (function() {
       const CACHE_KEY = 'substack_teaser_cache';
       const CACHE_DURATION = 3 * 60 * 60 * 1000; // 3 hours
@@ -1097,21 +1087,18 @@
             return;
           }
         }
-        // Fetch fresh data via RSS-to-JSON proxy
         fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
           .then(res => res.json())
           .then(data => {
             if (data.status === 'ok' && data.items && data.items.length > 0) {
               const latest = data.items[0];
               const title = latest.title;
-              // Strip HTML from description, limit to ~120 chars
               const tempDiv = document.createElement('div');
               tempDiv.innerHTML = latest.description;
               let snippet = tempDiv.textContent || tempDiv.innerText || '';
               snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
               if (snippet.length === 140) snippet += '…';
               const link = latest.link;
-              // Cache it
               localStorage.setItem(CACHE_KEY, JSON.stringify({
                 title, snippet, link, timestamp: Date.now()
               }));
@@ -1119,7 +1106,6 @@
             }
           })
           .catch(() => {
-            // Fallback: show static message
             showTeaser('The White Balance Lie', 'Why your indoor photos look yellow — and the one setting that fixes it.', 'https://camerasdecoded.substack.com');
           });
       }
