@@ -15,99 +15,112 @@
 
   <style>
     :root {
-      --green: #8deb00;
-      --green-dim: rgba(141,235,0,0.12);
-      --green-glow: rgba(141,235,0,0.15);
-      --text-muted: #b4b4b4;
-      --bg-panel: #0A0A0A;
-      --border-dim: #1A1A1A;
-      --gold: #e0b12d;
+      --space-sm: 16px; --space-md: 32px; --space-lg: 64px; --space-xl: 96px; --space-xxl: 140px;
+      --green: #8deb00; --green-dim: rgba(141,235,0,0.12); --green-glow: rgba(141,235,0,0.15);
+      --text-muted: #b4b4b4; --bg-panel: #0A0A0A; --border-dim: #1A1A1A; --gold: #e0b12d;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: #000;
+      background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 24px 24px;
       color: #fff;
       font-family: 'Montserrat', sans-serif;
       display: flex;
       min-height: 100vh;
       position: relative;
+      overflow-x: hidden;
     }
+    body::before {
+      content: "";
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: linear-gradient(180deg, rgba(29,179,27,0.30) 0%, rgba(0,0,0,0.95) 70%, #000000 100%);
+      pointer-events: none; z-index: -1;
+    }
+
+    #binary-rain { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; opacity: 0.2; }
+    #rain-fade { position: fixed; bottom: 0; left: 0; width: 100vw; height: 45vh; background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.85) 60%, #000 100%); pointer-events: none; z-index: 0; }
+
+    h1,h2,h3,.mono { font-family: 'Space Mono', monospace; }
+    a { text-decoration: none; color: inherit; transition: 0.2s; }
+
     .sidebar {
-      width: 240px;
-      background: rgba(0,0,0,0.95);
-      padding: 24px;
-      border-right: 1px solid var(--border-dim);
-      height: 100vh;
-      position: sticky;
-      top: 0;
-      flex-shrink: 0;
-      z-index: 2;
+      width: 240px; background: rgba(0,0,0,0.95); padding: 24px;
+      border-right: 1px solid var(--border-dim); height: 100vh; position: sticky; top: 0;
+      flex-shrink: 0; z-index: 2; overflow-y: auto;
     }
-    .sidebar .logo img { height: 120px; }
+    .sidebar .logo img { height: 120px; width: auto; }
     .sidebar .nav-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 12px 0;
-      color: var(--text-muted);
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      border-bottom: 1px solid transparent;
-      transition: 0.2s;
+      display: flex; align-items: center; gap: 10px; padding: 12px 0;
+      color: var(--text-muted); font-family: 'Space Mono', monospace; font-size: 13px;
+      border-bottom: 1px solid transparent; transition: all 0.2s;
     }
     .sidebar .nav-item i { width: 20px; text-align: center; }
     .sidebar .nav-item:hover { color: var(--green); border-bottom: 1px solid var(--green); }
     .sidebar .nav-item.active { color: var(--green); }
     .sidebar-divider { border-top: 1px solid var(--border-dim); margin: 8px 0; }
     .header-login-btn {
-      display: block; color: var(--green); font-family: 'Space Mono', monospace;
-      font-size: 12px; border: 1px solid var(--green); padding: 0 10px;
-      border-radius: 20px; background: transparent; text-align: center; width: fit-content;
-      margin: 5px 0; text-decoration: none;
+      display: block; color: var(--green); font-family: 'Space Mono', monospace; font-size: 12px;
+      border: 1px solid var(--green); padding: 0 10px; border-radius: 20px; background: transparent;
+      text-align: center; width: fit-content; margin: 5px 0; text-decoration: none;
     }
+
     .main-content {
       flex: 1; padding: 80px 40px 40px; max-width: 1200px; position: relative; z-index: 2;
+      animation: fadeIn 0.5s ease-in-out forwards;
     }
+    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+
     .floating-header {
       position: fixed; top: 12px; left: 240px; right: 0; z-index: 99;
       display: flex; align-items: center; gap: 20px; padding: 10px 24px;
-      background: rgba(0,0,0,0.4); backdrop-filter: blur(12px);
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(141,235,0,0.2); border-radius: 30px; margin: 0 12px;
     }
     .floating-header a { color: var(--green); }
     .floating-header .logout-btn {
       background: transparent; border: 1px solid var(--green); color: var(--green);
-      padding: 4px 12px; border-radius: 20px; cursor: pointer;
-      font-family: 'Space Mono', monospace; font-size: 12px; margin-left: 12px;
+      padding: 4px 12px; border-radius: 20px; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; margin-left: 12px;
     }
     .floating-toggle { display: none; background: none; border: none; color: var(--green); font-size: 24px; cursor: pointer; }
+
     .role-tier-badge {
       position: absolute; bottom: -24px; left: 16px; background: rgba(10,10,10,0.9);
       border: 1px solid rgba(141,235,0,0.3); border-radius: 14px; padding: 2px 10px;
       font-size: 10px; color: var(--green); display: none;
     }
+    .glow-role { font-weight: 700; text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00; }
+    .tier-text { opacity: 0.8; }
+
     .dash-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-dim); padding-bottom: 16px; }
     .dash-title-img { max-height: 50px; }
     .greeting { color: var(--text-muted); font-size: 14px; }
     .subscription-badge { background: var(--green-dim); border: 1px solid rgba(141,235,0,0.2); border-radius: 20px; padding: 2px 14px; font-size: 11px; color: var(--green); }
 
     .dash-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 15px; margin-bottom: 30px; }
-    .stat-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 16px; text-align: center; text-decoration: none; color: inherit; }
-    .stat-card .number { font-size: 30px; font-weight: 700; color: var(--green); }
-    .stat-card .label { font-size: 12px; color: var(--text-muted); }
+    .stat-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 16px; text-align: center; text-decoration: none; color: inherit; transition: border-color 0.2s; }
+    .stat-card:hover { border-color: var(--green); }
+    .stat-card .number { font-size: 30px; font-weight: 700; color: var(--green); text-shadow: 0 0 20px rgba(141,235,0,0.15); }
+    .stat-card .label { font-size: 12px; color: var(--text-muted); font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
 
-    .substack-teaser { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px 22px; margin-bottom: 24px; }
-    .teaser-header { display: flex; align-items: center; gap: 8px; }
+    .substack-teaser { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px 22px; margin-bottom: 24px; transition: border-color 0.2s; }
+    .substack-teaser:hover { border-color: var(--green); }
+    .teaser-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 
     .profile-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px 24px; margin-bottom: 30px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px; }
-    .profile-item .label { font-size: 10px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; }
-    .profile-item .value { font-size: 14px; }
+    .profile-item .label { font-size: 10px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+    .profile-item .value { font-size: 14px; color: #fff; }
     .profile-item .value.green { color: var(--green); }
 
     .referral-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 20px 24px; margin-bottom: 30px; }
-    .referral-section .row { display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; }
-    .referral-section .link-area .link { font-family: 'Space Mono', monospace; color: var(--green); }
+    .referral-section .row { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; }
+    .referral-section .link-area { flex: 1; min-width: 200px; }
+    .referral-section .link-area .label { font-size: 12px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; }
+    .referral-section .link-area .link { font-family: 'Space Mono', monospace; color: var(--green); word-break: break-all; }
     .referral-section .stats { display: flex; gap: 30px; flex-wrap: wrap; }
     .referral-section .stat .num { font-size: 28px; font-weight: 700; color: var(--green); }
+    .referral-section .stat .lbl { font-size: 12px; color: #666; }
     .tier-info { margin-top: 12px; border-top: 1px solid var(--border-dim); padding-top: 12px; display: flex; align-items: center; justify-content: space-between; }
     .tier-badge { font-family: 'Space Mono', monospace; font-size: 14px; color: var(--green); background: var(--green-dim); padding: 4px 14px; border-radius: 20px; border: 1px solid rgba(141,235,0,0.2); }
     .progress-wrap { flex: 1; margin-left: 20px; }
@@ -115,40 +128,74 @@
     .bar .fill { height: 100%; background: var(--green); transition: width 0.6s ease; }
 
     .commission-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 20px 24px; margin-bottom: 30px; }
-    .commission-section .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .test-btn { padding: 6px 16px; background: transparent; border: 1px solid var(--gold); border-radius: 20px; color: var(--gold); cursor: pointer; }
+    .commission-section .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+    .commission-section .header h3 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 18px; }
+    .test-btn { padding: 6px 16px; background: transparent; border: 1px solid var(--gold); border-radius: 20px; color: var(--gold); cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; }
     .commission-list { display: flex; flex-direction: column; gap: 8px; }
-    .commission-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0F0F0F; border-radius: 6px; border-left: 3px solid var(--green); }
-    .commission-empty { color: #666; font-style: italic; text-align: center; }
+    .commission-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0F0F0F; border-radius: 6px; border-left: 3px solid var(--green); font-size: 14px; }
+    .commission-item .left .name { color: #fff; }
+    .commission-item .left .date { color: #666; font-size: 12px; }
+    .commission-item .right .amount { color: var(--green); font-weight: 700; }
+    .commission-item .right .status { font-size: 11px; font-family: 'Space Mono', monospace; padding: 2px 10px; border-radius: 12px; margin-left: 10px; }
+    .commission-item .right .status.pending { background: rgba(255,170,0,0.12); color: #ffaa00; border: 1px solid rgba(255,170,0,0.2); }
+    .commission-empty { color: #666; font-style: italic; text-align: center; padding: 10px 0; }
 
     .section-header { margin: 30px 0 16px 0; border-bottom: 1px solid var(--border-dim); padding-bottom: 12px; }
-    .section-header h2 { font-family: 'Space Mono', monospace; font-size: 18px; color: var(--green); text-transform: uppercase; }
+    .section-header h2 { font-family: 'Space Mono', monospace; font-size: 18px; color: var(--green); text-transform: uppercase; letter-spacing: 1px; }
 
     .filter-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-    .filter-tab { background: transparent; border: 1px solid var(--border-dim); border-radius: 20px; padding: 6px 18px; color: var(--text-muted); cursor: pointer; }
-    .filter-tab.active { border-color: var(--green); color: var(--green); }
+    .filter-tab { background: transparent; border: 1px solid var(--border-dim); border-radius: 20px; padding: 6px 18px; color: var(--text-muted); cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; transition: all 0.2s; }
+    .filter-tab:hover, .filter-tab.active { border-color: var(--green); color: var(--green); }
+    .filter-tab.active { background: rgba(141,235,0,0.06); }
 
-    .protocol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-    .protocol-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px; }
-    .protocol-card .top { display: flex; justify-content: space-between; }
-    .remove-btn { background: none; border: none; color: #555; cursor: pointer; }
-    .remove-btn:hover { color: #ff4444; }
+    .protocol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 10px; }
+    .protocol-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px; transition: all 0.25s; display: flex; flex-direction: column; }
+    .protocol-card:hover { border-color: var(--green); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .protocol-card .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .protocol-card .type-icon { font-size: 18px; color: var(--green); background: rgba(141,235,0,0.06); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(141,235,0,0.08); }
+    .protocol-card .remove-btn { background: transparent; border: none; color: #555; cursor: pointer; font-size: 14px; transition: color 0.2s; padding: 4px; }
+    .protocol-card .remove-btn:hover { color: #ff4444; }
+    .protocol-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .protocol-card .genre-tag { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--green); background: rgba(141,235,0,0.06); padding: 0 10px; border-radius: 12px; border: 1px solid rgba(141,235,0,0.08); display: inline-block; margin-bottom: 6px; width: fit-content; }
+    .protocol-card .description { font-size: 13px; color: var(--text-muted); line-height: 1.5; flex: 1; margin-bottom: 10px; }
+    .protocol-card .brand { font-size: 11px; color: #888; font-family: 'Space Mono', monospace; letter-spacing: 0.5px; }
+
+    .empty-state { grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px 0; font-family: 'Space Mono', monospace; font-size: 14px; font-style: italic; }
 
     .item-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .item-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 14px; display: flex; align-items: center; gap: 12px; text-decoration: none; color: #fff; }
-    .item-card .icon { color: var(--green); }
+    .item-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; transition: all 0.2s; color: #ffffff; text-decoration: none; }
+    .item-card:hover { border-color: var(--green); background: rgba(141,235,0,0.04); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .item-card .icon { font-size: 18px; color: var(--green); width: 30px; text-align: center; }
+    .item-card .info { flex: 1; }
+    .item-card .info .title { font-size: 14px; font-weight: 500; }
+    .item-card .info .sub { font-size: 12px; color: var(--text-muted); }
 
     .recommended-row { margin: 40px 0 20px; }
+    .recommended-row .row-title { font-family: 'Space Mono', monospace; font-size: 15px; color: var(--text-muted); margin-bottom: 12px; }
     .recommended-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
-    .recommended-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 14px; cursor: pointer; }
+    .recommended-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 14px 16px; transition: all 0.2s; cursor: pointer; }
+    .recommended-card:hover { border-color: var(--green); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+    .recommended-card .title { font-size: 13px; font-weight: 500; color: #ffffff; margin-bottom: 4px; }
+    .recommended-card .genre { font-size: 10px; font-family: 'Space Mono', monospace; color: var(--green); background: rgba(141,235,0,0.06); padding: 0 10px; border-radius: 12px; border: 1px solid rgba(141,235,0,0.08); display: inline-block; margin-bottom: 6px; }
+    .recommended-card .desc { font-size: 12px; color: var(--text-muted); }
+    .recommended-card .save-hint { margin-top: 8px; font-size: 11px; color: var(--green); font-family: 'Space Mono', monospace; opacity: 0.6; }
 
-    .ambassador-cta { border: 1px solid var(--border-dim); border-radius: 12px; padding: 28px 30px; margin-top: 40px; text-align: center; }
-    .btn-neon-outline { display: inline-block; padding: 10px 30px; background: transparent; border: 1px solid var(--green); border-radius: 8px; color: var(--green); text-decoration: none; }
-    .btn-sm { padding: 6px 16px; background: transparent; border: 1px solid var(--green); border-radius: 6px; color: var(--green); cursor: pointer; }
+    .ambassador-cta { border: 1px solid var(--border-dim); border-radius: 12px; padding: 28px 30px; margin-top: 40px; text-align: center; background: rgba(141,235,0,0.02); transition: border-color 0.3s; }
+    .ambassador-cta:hover { border-color: var(--green); }
+    .ambassador-cta h3 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 18px; margin-bottom: 6px; }
+    .ambassador-cta p { color: var(--text-muted); font-size: 14px; margin-bottom: 16px; }
+    .btn-neon-outline { display: inline-block; padding: 10px 30px; background: transparent; border: 1px solid var(--green); border-radius: 8px; color: var(--green); font-family: 'Space Mono', monospace; font-size: 14px; transition: 0.2s; text-decoration: none; }
+    .btn-neon-outline:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 15px rgba(141,235,0,0.3); }
+    .btn-sm { padding: 6px 16px; background: transparent; border: 1px solid var(--green); border-radius: 6px; color: var(--green); font-family: 'Space Mono', monospace; font-size: 12px; cursor: pointer; transition: 0.2s; }
+    .btn-sm:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 12px rgba(141,235,0,0.2); }
 
-    .footer { border-top: 1px solid var(--border-dim); padding-top: 20px; margin-top: 40px; text-align: center; font-size: 12px; color: var(--text-muted); }
-    .footer .socials a { color: #fff; margin: 0 10px; }
-    .footer .footer-links a { color: var(--green); margin: 0 10px; }
+    .footer { border-top: 1px solid var(--border-dim); padding-top: 20px; margin-top: 40px; display: flex; flex-direction: column; gap: 15px; font-size: 12px; color: var(--text-muted); text-align: center; }
+    .footer .socials { display: flex; justify-content: center; gap: 20px; }
+    .footer .socials a { color: #ffffff; font-size: 18px; transition: 0.2s; }
+    .footer .socials a:hover { color: var(--green); }
+    .footer .footer-links { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+    .footer .footer-links a { color: var(--green); }
+    .footer .footer-links a:hover { color: #a0f520; }
 
     .delete-link { text-align: left; margin-top: 20px; }
     .delete-link a { color: #ff4a4a; font-size: 11px; }
@@ -171,12 +218,39 @@
       .profile-section { grid-template-columns: 1fr; }
       .referral-section .stats { flex-direction: column; }
     }
+
+    .nav-group-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.85); z-index: 10000; flex-direction: column;
+      justify-content: center; align-items: center; gap: 12px; padding: 40px 20px; overflow-y: auto;
+    }
+    .nav-group-overlay.open { display: flex !important; }
+    .nav-group-overlay .nav-item {
+      font-size: 22px; padding: 12px 0; color: #ffffff; font-family: 'Space Mono', monospace;
+      letter-spacing: 0.5px; width: 100%; max-width: 360px; text-align: center;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06); text-decoration: none; transition: color 0.2s;
+    }
+    .nav-group-overlay .nav-item i { color: var(--green); font-size: 18px; width: 28px; }
+    .nav-group-overlay .nav-item:hover { color: var(--green); }
+    .nav-group-overlay .close-btn {
+      position: fixed; top: 20px; right: 20px; color: var(--green); font-size: 32px;
+      cursor: pointer; background: transparent; border: none; padding: 8px; z-index: 10001;
+      font-family: 'Space Mono', monospace;
+    }
+    .nav-group-overlay .sidebar-divider { display: none; }
   </style>
 </head>
 <body>
+  <canvas id="binary-rain"></canvas>
+  <div id="rain-fade"></div>
+
+  <!-- SIDEBAR -->
   <aside class="sidebar">
-    <div class="logo"><a href="https://camerasdecoded.com"><img src="cameras-decoded-logo.png" alt="Cameras Decoded"></a></div>
-    <div style="display:flex; gap:10px; margin-top:10px; margin-bottom:20px;">
+    <div class="logo">
+      <a href="https://camerasdecoded.com"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
       <a href="login.html" class="header-login-btn">Log in</a>
       <a href="signup.html" class="header-login-btn">Sign Up</a>
     </div>
@@ -201,7 +275,8 @@
     <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
   </aside>
 
-  <div class="nav-group-overlay" id="navGroupOverlay" style="display:none;">
+  <!-- MOBILE OVERLAY -->
+  <div class="nav-group-overlay" id="navGroupOverlay">
     <button class="close-btn" id="closeToggle">✕</button>
     <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
     <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
@@ -222,6 +297,7 @@
     <div id="mobileDashboardContainer"></div>
   </div>
 
+  <!-- FLOATING HEADER -->
   <div class="floating-header" id="floatingHeader">
     <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
     <div id="roleTierBadge" class="role-tier-badge"><span class="glow-role">Operator</span> · <span class="tier-text">Free</span></div>
@@ -238,15 +314,24 @@
     <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
   </div>
 
+  <!-- MAIN CONTENT -->
   <main class="main-content">
+
     <div class="dash-header">
       <img src="custom-site-titles/operator-dashboard.png" alt="Operator Dashboard" class="dash-title-img">
-      <div class="greeting" id="greeting"><span>Welcome back, Operator.</span> <span class="subscription-badge" id="subscriptionBadge">● Active</span></div>
+      <div class="greeting" id="greeting">
+        <span>Welcome back, Operator.</span>
+        <span class="subscription-badge" id="subscriptionBadge">● Active</span>
+      </div>
     </div>
 
-    <div class="dash-stats">
+    <!-- Stats -->
+    <div class="dash-stats" id="statsContainer">
       <div class="stat-card"><div class="number" id="statProtocols">0</div><div class="label">Saved Protocols</div></div>
-      <a href="#" id="statCardsLink" class="stat-card"><div class="number" id="statCards">0</div><div class="label">Snapshot Cards</div></a>
+      <a href="#" id="statCardsLink" class="stat-card">
+        <div class="number" id="statCards">0</div>
+        <div class="label">Snapshot Cards</div>
+      </a>
       <div class="stat-card"><div class="number" id="statOther">0</div><div class="label">Other Saved</div></div>
       <div class="stat-card"><div class="number" id="statCommunity">0</div><div class="label">Community Posts</div></div>
     </div>
@@ -254,16 +339,18 @@
     <!-- Substack RSS Teaser -->
     <div id="substackTeaser" class="substack-teaser" style="display:none;">
       <div class="teaser-header">
-        <i class="fas fa-satellite-dish" style="color:var(--green)"></i>
-        <span style="font-family:'Space Mono',monospace; font-size:13px; color:var(--green)">Latest Transmission</span>
+        <i class="fas fa-satellite-dish" style="color:var(--green); margin-right:8px;"></i>
+        <span style="font-family:'Space Mono',monospace; font-size:13px; color:var(--green); letter-spacing:0.5px;">Latest Transmission</span>
         <span style="font-size:11px; color:#666; margin-left:auto;">via Substack</span>
       </div>
       <a id="substackLink" href="https://camerasdecoded.substack.com" target="_blank" style="text-decoration:none; color:inherit;">
-        <h4 id="substackTitle" style="margin:8px 0 4px;">Loading…</h4>
-        <p id="substackSnippet" style="font-size:13px; color:var(--text-muted);"></p>
+        <h4 id="substackTitle" style="font-size:15px; color:#fff; margin:8px 0 4px;">Loading…</h4>
+        <p id="substackSnippet" style="font-size:13px; color:var(--text-muted); line-height:1.5; margin:0;"></p>
       </a>
-      <div style="margin-top:10px;">
-        <a href="dailyprotocols-op-dashboard.html" class="btn-sm">Get Daily Protocols</a>
+      <div style="margin-top:10px; display:flex; gap:12px; align-items:center;">
+        <a href="dailyprotocols-op-dashboard.html" class="btn-sm" style="display:inline-flex; align-items:center; gap:4px;">
+          <i class="fas fa-bolt"></i> Get Daily Protocols
+        </a>
         <span style="font-size:11px; color:#666;">$5/mo · premium</span>
       </div>
     </div>
@@ -287,12 +374,21 @@
         <div class="link-area">
           <div class="label">Your Referral Link</div>
           <div class="link" id="referralLink">camerasdecoded.com/ref/—</div>
-          <button class="btn-sm" onclick="copyReferralLink()">Copy</button>
+          <button class="btn-sm" onclick="copyReferralLink()" style="margin-top:6px;"><i class="fas fa-copy"></i> Copy</button>
         </div>
         <div class="stats">
-          <div class="stat"><div class="num" id="totalReferrals">0</div><div class="lbl">Referrals</div></div>
-          <div class="stat"><div class="num" id="totalCommission">$0</div><div class="lbl">Commission</div></div>
-          <div class="stat"><div class="num" id="ambassadorTier">—</div><div class="lbl">Tier</div></div>
+          <div class="stat">
+            <div class="num" id="totalReferrals">0</div>
+            <div class="lbl">Referrals</div>
+          </div>
+          <div class="stat">
+            <div class="num" id="totalCommission">$0</div>
+            <div class="lbl">Commission</div>
+          </div>
+          <div class="stat">
+            <div class="num" id="ambassadorTier">—</div>
+            <div class="lbl">Tier</div>
+          </div>
         </div>
       </div>
       <div class="tier-info" id="tierProgress" style="display:none;">
@@ -307,14 +403,16 @@
     <!-- Commission History -->
     <div class="commission-section" id="commissionSection">
       <div class="header">
-        <h3><i class="fas fa-coin"></i> Commission History</h3>
+        <h3><i class="fas fa-coin" style="color:var(--green); margin-right:8px;"></i>Commission History</h3>
         <button class="test-btn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
       </div>
-      <div class="commission-list" id="commissionList"><div class="commission-empty">No commissions yet.</div></div>
+      <div class="commission-list" id="commissionList">
+        <div class="commission-empty">No commissions yet.</div>
+      </div>
     </div>
 
     <!-- Protocol Library -->
-    <div class="section-header"><h2><i class="fas fa-book-open"></i> My Protocol Library</h2></div>
+    <div class="section-header"><h2><i class="fas fa-book-open" style="color:var(--green); margin-right:8px;"></i>My Protocol Library</h2></div>
     <div class="filter-tabs" id="filterTabs">
       <button class="filter-tab active" data-genre="all">All</button>
       <button class="filter-tab" data-genre="real-estate">Real Estate</button>
@@ -326,24 +424,24 @@
     <div id="protocolGrid" class="protocol-grid"><div class="empty-state">No saved protocols yet.</div></div>
 
     <!-- Recommended -->
-    <div class="recommended-row">
-      <div class="row-title" style="margin-bottom:12px;"><i class="fas fa-lightbulb"></i> Recommended for you</div>
+    <div class="recommended-row" id="recommendedRow">
+      <div class="row-title"><i class="fas fa-lightbulb" style="color:var(--green); margin-right:6px;"></i>Recommended for you</div>
       <div id="recommendedGrid" class="recommended-grid"></div>
     </div>
 
     <!-- Snapshot Cards -->
-    <div class="section-header"><h2><i class="fas fa-id-card"></i> Snapshot Cards</h2></div>
+    <div class="section-header"><h2><i class="fas fa-id-card" style="color:var(--green); margin-right:8px;"></i>Snapshot Cards</h2></div>
     <div id="cardsList" class="item-grid"><div class="empty-state">No snapshot cards saved yet.</div></div>
 
     <!-- Other Saved -->
     <details class="other-content" id="otherSaved" style="margin-top:30px;">
-      <summary style="cursor:pointer; color:var(--green); font-family:'Space Mono',monospace;">Other saved content</summary>
+      <summary style="cursor:pointer; color:var(--green); font-family:'Space Mono',monospace;">Other saved content <span style="color:var(--text-muted); font-size:12px;">(blogs, podcasts, community)</span></summary>
       <div class="inner">
-        <div class="section-header"><h2>Blog Posts</h2></div>
+        <div class="section-header" style="margin-top:0;"><h2><i class="fas fa-newspaper"></i> Blog Posts</h2></div>
         <div id="blogsList" class="item-grid"></div>
-        <div class="section-header"><h2>Podcast Episodes</h2></div>
+        <div class="section-header"><h2><i class="fas fa-podcast"></i> Podcast Episodes</h2></div>
         <div id="podcastsList" class="item-grid"></div>
-        <div class="section-header"><h2>Community Posts</h2></div>
+        <div class="section-header"><h2><i class="fas fa-comments"></i> Community Posts</h2></div>
         <div id="communityList" class="item-grid"></div>
       </div>
     </details>
@@ -351,14 +449,14 @@
     <!-- Ambassador CTA -->
     <div class="ambassador-cta">
       <h3>📡 Become a Decoder Ambassador</h3>
-      <p>Earn 30–50% commission on every guide sale.</p>
+      <p>Earn by sharing the signal. Create content. Share your link. Earn 30–50% commission on every guide sale.</p>
       <a href="https://tally.so/r/ODk9YY" target="_blank" class="btn-neon-outline">Apply to the program →</a>
     </div>
 
     <div style="display:flex; flex-wrap:wrap; gap:15px; margin-top:30px; justify-content:center;">
-      <a href="#" id="goToAtlasBtn" class="btn-neon-outline">Open Decoder Atlas</a>
-      <a href="#" id="goToCollectionBtn" class="btn-neon-outline">My Collection</a>
-      <a href="https://camerasdecoded.com" class="btn-neon-outline">Main Site</a>
+      <a href="#" id="goToAtlasBtn" class="btn-neon-outline"><i class="fas fa-globe"></i> Open Decoder Atlas</a>
+      <a href="#" id="goToCollectionBtn" class="btn-neon-outline"><i class="fas fa-folder-open"></i> My Collection</a>
+      <a href="https://camerasdecoded.com" class="btn-neon-outline"><i class="fas fa-home"></i> Main Site</a>
     </div>
 
     <footer class="footer">
@@ -367,22 +465,107 @@
         <a href="https://www.youtube.com/@CamerasDecoded"><i class="fab fa-youtube"></i></a>
         <a href="https://www.tiktok.com/@cameras.decoded"><i class="fab fa-tiktok"></i></a>
         <a href="https://www.instagram.com/camerasdecoded/reels/"><i class="fab fa-instagram"></i></a>
+        <a href="https://www.facebook.com/profile.php?id=61553594660326"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://camerasdecoded.substack.com"><i class="fas fa-bookmark"></i></a>
+        <a href="https://podcasts.apple.com/us/podcast/cameras-decoded/idYOURID" target="_blank"><i class="fas fa-podcast"></i></a>
+      </div>
+      <div>© Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
+      <div class="footer-links" style="margin-bottom:10px;">
+        <a href="roadmap.html">Roadmap</a> · 
+        <a href="blog-updates.html">Blog/Updates</a> · 
+        <a href="faq.html">FAQ</a> · 
+        <a href="contact.html">Contact</a>
+        <a href="podcast.html">Podcast</a>
       </div>
       <div class="footer-links">
-        <a href="roadmap.html">Roadmap</a> ·
-        <a href="blog-updates.html">Blog/Updates</a> ·
-        <a href="faq.html">FAQ</a> ·
-        <a href="contact.html">Contact</a>
+        <a href="terms.html">Privacy/Terms</a>
+        <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
       </div>
-      <div class="footer-links"><a href="terms.html">Privacy/Terms</a></div>
     </footer>
 
+    <!-- Delete Account Link at the bottom -->
     <div class="delete-link">
-      <a href="#" id="deleteAccountLink" style="display:none;" onclick="handleDeleteAccount(); return false;">Delete account</a>
+      <a href="#" id="deleteAccountLink" style="display:none;" onclick="handleDeleteAccount(); return false;">
+        <i class="fas fa-trash-alt" style="font-size:10px;"></i> Delete account
+      </a>
     </div>
   </main>
 
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+
   <script>
+    // Mobile menu
+    const mobileToggle = document.getElementById('mobileToggle');
+    const floatingToggle = document.getElementById('floatingToggle');
+    const closeToggle = document.getElementById('closeToggle');
+    const overlay = document.getElementById('navGroupOverlay');
+    function openMenu() { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
+    function closeMenu() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
+    mobileToggle.addEventListener('click', openMenu);
+    floatingToggle.addEventListener('click', openMenu);
+    closeToggle.addEventListener('click', closeMenu);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMenu(); });
+
+    // Scroll top
+    window.onscroll = function() {
+      const btn = document.getElementById('scrollTopBtn');
+      if (!btn) return;
+      const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
+      if (show) { btn.classList.add('show'); requestAnimationFrame(() => btn.classList.add('pulse')); }
+      else { btn.classList.remove('show', 'pulse'); }
+    };
+
+    // Binary rain
+    (function() {
+      const canvas = document.getElementById('binary-rain');
+      const ctx = canvas.getContext('2d');
+      let width = window.innerWidth, height = window.innerHeight;
+      canvas.width = width; canvas.height = height;
+      const fontSize = 16, columns = Math.floor(width / fontSize);
+      const drops = Array(columns).fill(1), speed = 0.55;
+      function draw() {
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = fontSize + 'px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < drops.length; i++) {
+          const char = Math.random() > 0.5 ? '1' : '0';
+          const x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
+          if (char === '1') { ctx.shadowColor = '#8deb00'; ctx.shadowBlur = 8; ctx.fillStyle = '#8deb00'; }
+          else { ctx.shadowColor = '#3a7a1a'; ctx.shadowBlur = 4; ctx.fillStyle = '#4caf50'; }
+          ctx.fillText(char, x, y);
+          if (char === '1' && Math.random() < 0.025) {
+            ctx.shadowBlur = 15; ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+          }
+          if (y > height && Math.random() > 0.97) drops[i] = 0;
+          drops[i] += speed;
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+      window.addEventListener('resize', () => {
+        width = window.innerWidth; height = window.innerHeight;
+        canvas.width = width; canvas.height = height;
+        const newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
+        else drops.length = newColumns;
+      });
+    })();
+
+    // Cart counter
+    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
+    function updateCartUI() {
+      const cart = getCart();
+      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+      const countEl = document.getElementById('cartHeaderCount');
+      const labelEl = document.getElementById('cartHeaderLabel');
+      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
+      if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
+    }
+    updateCartUI();
+
+    // Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
       authDomain: "cameras-decoded.firebaseapp.com",
@@ -397,27 +580,19 @@
     const db = firebase.firestore();
     let userDocRef = null;
 
-    // Mobile menu
-    const mobileToggle = document.getElementById('mobileToggle');
-    const floatingToggle = document.getElementById('floatingToggle');
-    const closeToggle = document.getElementById('closeToggle');
-    const overlay = document.getElementById('navGroupOverlay');
-    function openMenu() { overlay.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
-    function closeMenu() { overlay.style.display = 'none'; document.body.style.overflow = ''; }
-    mobileToggle.addEventListener('click', openMenu);
-    floatingToggle.addEventListener('click', openMenu);
-    closeToggle.addEventListener('click', closeMenu);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMenu(); });
-
     window.handleLogout = function() {
       auth.signOut().then(() => {
         localStorage.removeItem('cameras_decoded_uid');
+        localStorage.removeItem('cameras_decoded_user');
+        window.location.href = 'login.html';
+      }).catch(() => {
+        localStorage.clear();
         window.location.href = 'login.html';
       });
     };
 
     window.handleDeleteAccount = async function() {
-      if (!confirm('Delete your account and all data?')) return;
+      if (!confirm('Delete your account and all saved data? This cannot be undone.')) return;
       const user = auth.currentUser;
       if (!user) return;
       try {
@@ -428,6 +603,20 @@
       } catch (err) {
         alert('Delete error: ' + err.message);
       }
+    };
+
+    const PROTOCOL_LIBRARY = [
+      { id: 'proto_001', title: 'Mastering Real Estate HDR', genre: 'real-estate', type: 'video', description: 'Learn to shoot interior HDR with confidence.', brand: 'Sony' },
+      { id: 'proto_002', title: 'Street Photography: Zone Focus', genre: 'street', type: 'guide', description: 'Pre‑focus and capture decisive moments.', brand: 'Canon' },
+      { id: 'proto_003', title: 'Portrait Natural Light Setup', genre: 'portrait', type: 'tutorial', description: 'Use window light and a simple reflector.', brand: 'Nikon' },
+      { id: 'proto_004', title: 'Sports: Tracking AF Techniques', genre: 'sports', type: 'video', description: 'Keep fast‑moving subjects sharp.', brand: 'Sony' },
+      { id: 'proto_005', title: 'Influencer Flat Lay Photography', genre: 'influencer', type: 'article', description: 'Master styled flat lays for social media.', brand: 'All' }
+    ];
+
+    const cardsMap = {
+      'sony-a7iv-portrait-bright-natural': 'Sony A7IV Portrait Bright Natural',
+      'sony-a7iv-event-golden-hour': 'Sony A7IV Event Golden Hour',
+      'canon-r6ii-portrait-low-light': 'Canon R6 II Portrait Low Light',
     };
 
     function getCardLink(slug) {
@@ -445,15 +634,9 @@
       container.innerHTML = items.map(slug => {
         const title = map[slug] || slug;
         const link = linkFn(slug);
-        return `<a href="${link}" class="item-card"><span class="icon">→</span><div class="info"><div class="title">${title}</div></div></a>`;
+        return `<a href="${link}" class="item-card"><span class="icon">→</span><div class="info"><div class="title">${title}</div><div class="sub">${slug}</div></div></a>`;
       }).join('');
     }
-
-    const PROTOCOL_LIBRARY = [
-      { id: 'proto_001', title: 'Mastering Real Estate HDR', genre: 'real-estate', type: 'video', description: 'Learn to shoot interior HDR.', brand: 'Sony' },
-      { id: 'proto_002', title: 'Street Photography: Zone Focus', genre: 'street', type: 'guide', description: 'Pre‑focus and capture decisive moments.', brand: 'Canon' },
-      { id: 'proto_003', title: 'Portrait Natural Light Setup', genre: 'portrait', type: 'tutorial', description: 'Window light and a simple reflector.', brand: 'Nikon' }
-    ];
 
     function renderProtocols(savedIds, genreFilter = 'all') {
       const grid = document.getElementById('protocolGrid');
@@ -463,14 +646,34 @@
         grid.innerHTML = `<div class="empty-state">${savedIds.length === 0 ? 'No saved protocols yet.' : 'No protocols saved in this genre.'}</div>`;
         return;
       }
-      grid.innerHTML = filtered.map(p => `<div class="protocol-card"><div class="top"><span class="type-icon"><i class="fas fa-play-circle"></i></span><button class="remove-btn" onclick="unsaveProtocol('${p.id}')"><i class="fas fa-times"></i></button></div><h4>${p.title}</h4><span class="genre-tag">${p.genre}</span><div class="description">${p.description}</div><div class="brand">${p.brand}</div></div>`).join('');
+      grid.innerHTML = filtered.map(p => `
+        <div class="protocol-card">
+          <div class="top">
+            <span class="type-icon"><i class="fas fa-play-circle"></i></span>
+            <button class="remove-btn" onclick="unsaveProtocol('${p.id}')"><i class="fas fa-times"></i></button>
+          </div>
+          <h4>${p.title}</h4>
+          <span class="genre-tag">${p.genre.replace('-',' ')}</span>
+          <div class="description">${p.description}</div>
+          <div class="brand">${p.brand}</div>
+        </div>
+      `).join('');
     }
 
     function renderRecommended(savedIds) {
       const container = document.getElementById('recommendedGrid');
       const unsaved = PROTOCOL_LIBRARY.filter(p => !savedIds.includes(p.id));
       const recommend = unsaved.slice(0, 4);
-      container.innerHTML = recommend.length === 0 ? `<div class="empty-state">You've saved everything!</div>` : recommend.map(p => `<div class="recommended-card" onclick="saveProtocol('${p.id}')"><div class="genre">${p.genre}</div><div class="title">${p.title}</div><div class="save-hint"><i class="fas fa-plus-circle"></i> Save</div></div>`).join('');
+      container.innerHTML = recommend.length === 0
+        ? `<div class="empty-state">You've saved everything! 🎉</div>`
+        : recommend.map(p => `
+          <div class="recommended-card" onclick="saveProtocol('${p.id}')">
+            <div class="genre">${p.genre.replace('-',' ')}</div>
+            <div class="title">${p.title}</div>
+            <div class="desc">${p.description.substring(0,50)}…</div>
+            <div class="save-hint"><i class="fas fa-plus-circle"></i> Save to library</div>
+          </div>
+        `).join('');
     }
 
     window.saveProtocol = function(protocolId) {
@@ -527,29 +730,108 @@
     function simulatePurchase() {
       if (!userDocRef) return;
       userDocRef.get().then(doc => {
+        if (!doc.exists) return;
         const data = doc.data();
         const tier = data.ambassadorTier || 'signal';
         let rate = 0.30;
         if (tier === 'operator') rate = 0.40;
         else if (tier === 'transmission_elite') rate = 0.50;
-        const purchaseAmount = 50;
+
+        const products = [
+          'Camera Confidence Guide',
+          'Decoder Atlas – Premium Access',
+          'Snapshot Card Pack',
+          'One‑on‑One Coaching Session',
+          'Event Photography Masterclass',
+          'Real Estate Photography Bundle',
+          'Portrait Lighting Workshop',
+          'Sports Photography Deep Dive',
+          'Influencer Content Kit',
+          'Cynetis‑7 Protocol Pack'
+        ];
+        const productName = products[Math.floor(Math.random() * products.length)];
+        const purchaseAmount = Math.floor(Math.random() * 101) + 20;
         const commissionAmount = purchaseAmount * rate;
+
         const commissionRef = userDocRef.collection('commissions').doc();
         commissionRef.set({
-          productName: 'Camera Confidence Guide (test)',
+          productName: productName + ' (simulated)',
           amount: commissionAmount,
           status: 'pending',
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          rate: rate
+          purchaseId: 'sim-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          purchaseAmount: purchaseAmount,
+          rate: rate,
+          tier: tier
         }).then(() => {
-          return userDocRef.update({ totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount) });
-        }).then(() => alert(`Test commission created! $${commissionAmount.toFixed(2)}`));
+          return userDocRef.update({
+            totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount)
+          });
+        }).then(() => {
+          alert(`✅ Simulated commission!\n\n${productName} — $${purchaseAmount} purchase\nYour cut (${Math.round(rate*100)}%): $${commissionAmount.toFixed(2)}`);
+        });
       });
+    }
+
+    function renderCommissionHistory(commissions) {
+      const list = document.getElementById('commissionList');
+      if (!list) return;
+      if (!commissions || commissions.length === 0) {
+        list.innerHTML = `<div class="commission-empty">No commissions yet.</div>`;
+        return;
+      }
+      const sorted = commissions.slice().sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || new Date(0);
+        return dateB - dateA;
+      });
+      list.innerHTML = sorted.map(c => {
+        const date = c.createdAt?.toDate?.() || new Date();
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const statusClass = c.status || 'pending';
+        const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+        return `<div class="commission-item">
+          <div class="left"><div class="name">${c.productName || 'Purchase'}</div><div class="date">${dateStr}</div></div>
+          <div class="right"><span class="amount">$${c.amount.toFixed(2)}</span><span class="status ${statusClass}">${statusLabel}</span></div>
+        </div>`;
+      }).join('');
     }
 
     function copyReferralLink() {
       const link = document.getElementById('referralLink').textContent;
-      navigator.clipboard.writeText('https://' + link).then(() => alert('Copied!'));
+      navigator.clipboard.writeText('https://' + link).then(() => alert('Referral link copied!')).catch(() => {
+        const input = document.createElement('input');
+        input.value = 'https://' + link;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        alert('Copied!');
+      });
+    }
+
+    // Auth
+    const sidebarAuthContainer = document.querySelector('.sidebar div[style*="flex; gap:10px"]');
+    const roleTierBadge = document.getElementById('roleTierBadge');
+    const floatingLogout = document.getElementById('floatingLogoutBtn');
+    const deleteLink = document.getElementById('deleteAccountLink');
+
+    function updateAuthUI(isLoggedIn, roleText = 'Operator', tierText = 'Free') {
+      if (sidebarAuthContainer) {
+        sidebarAuthContainer.innerHTML = isLoggedIn
+          ? '<a href="#" class="header-login-btn" onclick="handleLogout()">Logout</a>'
+          : '<a href="login.html" class="header-login-btn">Log in</a><a href="signup.html" class="header-login-btn">Sign Up</a>';
+      }
+      if (floatingLogout) floatingLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
+      if (roleTierBadge) {
+        if (isLoggedIn) {
+          roleTierBadge.innerHTML = `<span class="glow-role">${roleText}</span> · <span class="tier-text">${tierText}</span>`;
+          roleTierBadge.style.display = 'block';
+        } else {
+          roleTierBadge.style.display = 'none';
+        }
+      }
+      if (deleteLink) deleteLink.style.display = isLoggedIn ? 'inline-block' : 'none';
     }
 
     auth.onAuthStateChanged(user => {
@@ -559,19 +841,23 @@
       }
       userDocRef = db.collection('users').doc(user.uid);
       localStorage.setItem('cameras_decoded_uid', user.uid);
-      document.getElementById('statCardsLink').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
+
+      document.querySelectorAll('a[href*="settings.camerasdecoded.com"]').forEach(link => {
+        if (!link.href.includes('opToken=') && !link.href.includes('?uid=') && !link.href.includes('&uid=')) {
+          const sep = link.href.includes('?') ? '&' : '?';
+          link.href = link.href + sep + 'opToken=' + user.uid;
+        }
+      });
       document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${user.uid}`;
+      document.getElementById('statCardsLink').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
       document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
-      document.getElementById('floatingLogoutBtn').style.display = 'inline-block';
-      document.getElementById('deleteAccountLink').style.display = 'inline-block';
-      document.getElementById('roleTierBadge').style.display = 'block';
 
       userDocRef.onSnapshot(doc => {
         if (!doc.exists) {
           userDocRef.set({
             savedProtocols: [], savedCards: [], savedBlogs: [], savedPodcasts: [], savedCommunityPosts: [],
             subscription: { tier: 'monthly', status: 'active' },
-            name: '', username: '', email: user.email || '', tier: 'free',
+            name: '', username: '', email: user.email || '', tier: 'free', billingInterval: 'monthly',
             preferences: { brands: [], lenses: [], interests: [] }, confidence: 0,
             referralCode: '', totalReferrals: 0, totalCommissionEarned: 0, ambassadorTier: 'signal'
           });
@@ -588,35 +874,24 @@
         updateStats(savedProtocols, savedCards, savedBlogs, savedPodcasts, savedCommunity);
         renderProtocols(savedProtocols, document.querySelector('.filter-tab.active')?.dataset.genre || 'all');
         renderRecommended(savedProtocols);
-        const cardsMap = {
-          'sony-a7iv-portrait-bright-natural': 'Sony A7IV Portrait Bright Natural',
-          'sony-a7iv-event-golden-hour': 'Sony A7IV Event Golden Hour',
-          'canon-r6ii-portrait-low-light': 'Canon R6 II Portrait Low Light'
-        };
         renderItemList('cardsList', savedCards, cardsMap, getCardLink, 'No snapshot cards saved yet.');
         renderItemList('blogsList', savedBlogs, {}, () => '#', 'No blog posts saved yet.');
         renderItemList('podcastsList', savedPodcasts, {}, () => '#', 'No podcast episodes saved yet.');
         renderItemList('communityList', savedCommunity, {}, () => '#', 'No community posts saved yet.');
-        // Role badge
+
         const role = data.role || 'Operator';
         const tierLabel = data.tier === 'pro' ? 'Pro' : 'Free';
-        document.getElementById('roleTierBadge').innerHTML = `<span class="glow-role">${role}</span> · <span class="tier-text">${tierLabel}</span>`;
+        updateAuthUI(true, role, tierLabel);
       });
 
-      // Substack teaser
-      fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
-        .then(res => res.json())
-        .then(data => {
-          if (data.items && data.items.length > 0) {
-            const latest = data.items[0];
-            document.getElementById('substackTitle').textContent = latest.title;
-            document.getElementById('substackSnippet').textContent = latest.description.replace(/<[^>]*>/g, '').substring(0, 140);
-            document.getElementById('substackLink').href = latest.link;
-            document.getElementById('substackTeaser').style.display = 'block';
-          }
-        })
-        .catch(() => {});
+      // Commission listener
+      userDocRef.collection('commissions').onSnapshot(snapshot => {
+        const commissions = [];
+        snapshot.forEach(doc => { commissions.push({ id: doc.id, ...doc.data() }); });
+        renderCommissionHistory(commissions);
+      });
 
+      // Filter tabs
       document.querySelectorAll('.filter-tab').forEach(tab => {
         tab.addEventListener('click', function() {
           document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
@@ -629,6 +904,46 @@
         });
       });
     });
+
+    // Substack teaser
+    (function() {
+      const CACHE_KEY = 'substack_teaser_cache';
+      const CACHE_DURATION = 3 * 60 * 60 * 1000;
+      function showTeaser(title, snippet, link) {
+        document.getElementById('substackTitle').textContent = title;
+        document.getElementById('substackSnippet').textContent = snippet;
+        document.getElementById('substackLink').href = link;
+        document.getElementById('substackTeaser').style.display = 'block';
+      }
+      function showCachedOrFetch() {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const data = JSON.parse(cached);
+          if (Date.now() - data.timestamp < CACHE_DURATION) {
+            showTeaser(data.title, data.snippet, data.link);
+            return;
+          }
+        }
+        fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === 'ok' && data.items && data.items.length > 0) {
+              const latest = data.items[0];
+              const tempDiv = document.createElement('div');
+              tempDiv.innerHTML = latest.description;
+              let snippet = tempDiv.textContent || tempDiv.innerText || '';
+              snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
+              if (snippet.length === 140) snippet += '…';
+              localStorage.setItem(CACHE_KEY, JSON.stringify({ title: latest.title, snippet, link: latest.link, timestamp: Date.now() }));
+              showTeaser(latest.title, snippet, latest.link);
+            }
+          })
+          .catch(() => {
+            showTeaser('The White Balance Lie', 'Why your indoor photos look yellow — and the one setting that fixes it.', 'https://camerasdecoded.substack.com');
+          });
+      }
+      showCachedOrFetch();
+    })();
   </script>
 </body>
 </html>
