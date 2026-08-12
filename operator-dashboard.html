@@ -761,65 +761,61 @@ async function performDelete() {
 
   try {
     // ----- Helper: delete all docs in a query using batches of 500 -----
-    async function deleteQueryBatch(query) {
-      const snapshot = await query.get();
-      if (snapshot.empty) return;
+    async function performDelete() {
+  const user = auth.currentUser;
+  if (!user) {
+    alert("No user logged in.");
+    return;
+  }
+  const uid = user.uid;
+  const db = firebase.firestore();
 
-      const batchSize = snapshot.size;
-      if (batchSize === 0) return;
-
-      // Use a single batch if possible, otherwise chunk
-      const batch = db.batch();
-      snapshot.docs.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-
-      // If there are more than 500 docs (unlikely for a single user), recurse
-      if (batchSize >= 500) {
-        // Re‑query the same collection to get the next batch
-        await deleteQueryBatch(query);
+  try {
+    // ---- Helper to batch-delete a query, with error protection ----
+    async function deleteQueryBatchSafe(query) {
+      try {
+        const snapshot = await query.get();
+        if (snapshot.empty) return;
+        const batch = db.batch();
+        snapshot.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+      } catch (err) {
+        console.warn("Skipping batch delete – permission or missing field", err);
+        // Continue regardless
       }
     }
 
-    // 1. Delete all POSTS by this user
-    await deleteQueryBatch(db.collection('posts').where('authorUid', '==', uid));
+    // 1. Delete all POSTS by this user (may fail if no posts, ignored)
+    await deleteQueryBatchSafe(db.collection('posts').where('authorUid', '==', uid));
 
-    // 2. Delete COMMENTS under posts (subcollection query)
-    //    First we need to fetch all posts (even deleted ones?) – but we already deleted them,
-    //    so any subcollection is gone as well. However, if a comment was made on another
-    //    user's post, we need to delete those individually.
-    const allPostsSnap = await db.collectionGroup('comments').where('authorUid', '==', uid).get();
-    const batch = db.batch();
-    allPostsSnap.forEach(doc => batch.delete(doc.ref));
-    if (allPostsSnap.size > 0) await batch.commit();
+    // 2. Delete all COMMENTS (posts + articles) by this user
+    await deleteQueryBatchSafe(db.collectionGroup('comments').where('authorUid', '==', uid));
 
-    // 3. Delete COMMENTS on articles
-    await deleteQueryBatch(db.collectionGroup('comments').where('authorUid', '==', uid).where('articleId', '>=', '')); // careful: this would require a composite index; alternative: iterate articles? Simpler: use collection group with filter on authorUid only, but we need to ensure we're only hitting article comments. We'll just query all comments by uid across all collections.
-    // Since comments on articles are stored as /articles/{articleId}/comments/{commentId},
-    // a collection group query for 'comments' filtered by authorUid will catch both post and article comments if they share the same field. But we already handled posts above. To be safe, we'll run the collection group query again (it may delete both). No harm.
-    // We already deleted all comments with authorUid == uid from all collections.
-    // So step 2 and 3 can be combined – a single collection group query on 'comments' where authorUid == uid.
-    // But we need to ensure that we don't delete comments from the same subcollection twice; that's fine.
-    // Let's re-use the earlier batch for comments; we'll just do it once.
+    // 3. Delete LIKES on articles
+    await deleteQueryBatchSafe(db.collectionGroup('likes').where('userId', '==', uid));
 
-    // Already did: allPostsSnap.delete() above; it covers all comments (posts + articles) if we query collectionGroup('comments').
-    // So no separate step needed.
+    // 4. Delete COMMISSIONS (subcollection under user doc)
+    await deleteQueryBatchSafe(db.collection('users').doc(uid).collection('commissions'));
 
-    // 4. Delete LIKES on articles
-    await deleteQueryBatch(db.collectionGroup('likes').where('userId', '==', uid)); // assuming the field is userId in /articleLikes/{articleId}/likes/{userId}
+    // 5. Delete REFERRAL CODES – wrap in try/catch so a bad document never blocks deletion
+    try {
+      const refSnap = await db.collection('referralCodes').where('uid', '==', uid).get();
+      if (!refSnap.empty) {
+        const batch = db.batch();
+        refSnap.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+      }
+    } catch (e) {
+      console.warn("Could not delete referral codes (non‑critical)", e);
+    }
 
-    // 5. Delete COMMISSIONS (subcollection under user doc)
-    await deleteQueryBatch(db.collection('users').doc(uid).collection('commissions'));
-
-    // 6. Delete REFERRAL CODES
-    // await deleteQueryBatch(db.collection('referralCodes').where('uid', '==', uid));
-
-    // 7. Delete the USER document itself
+    // 6. Delete the USER DOCUMENT (core step)
     await db.collection('users').doc(uid).delete();
 
-    // 8. Delete AUTH user
+    // 7. Delete the AUTH account (core step)
     await user.delete();
 
-    // 9. Clean up local storage and redirect
+    // Cleanup local storage and redirect
     localStorage.removeItem('cameras_decoded_uid');
     localStorage.removeItem('cameras_decoded_user');
     window.location.href = 'index.html';
