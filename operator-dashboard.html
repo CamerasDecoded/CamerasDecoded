@@ -943,42 +943,52 @@
     }
 
     // ===== RESET COMMISSION HISTORY =====
-    function resetCommissionHistory() {
-      if (!userDocRef) {
-        cdToast('Please log in first.', 'error');
+    // ===== RESET COMMISSION HISTORY =====
+function resetCommissionHistory() {
+  if (!userDocRef) {
+    cdToast('Please log in first.', 'error');
+    return;
+  }
+  
+  // First, check if there are any commissions to delete
+  userDocRef.collection('commissions').get()
+    .then(snapshot => {
+      if (snapshot.empty) {
+        cdToast('No commission history to reset.', 'error');
         return;
       }
       
-      userDocRef.collection('commissions').get()
-        .then(snapshot => {
-          if (snapshot.empty) {
-            cdToast('No commission history to reset.', 'error');
-            return;
-          }
-          
-          if (!confirm('Delete all commission history? This action cannot be undone.')) {
-            return;
-          }
-          
-          const batch = db.batch();
-          snapshot.docs.forEach(doc => {
-            batch.delete(doc.ref);
+      if (!confirm('Delete all commission history and reset your commission earnings? This action cannot be undone.')) {
+        return;
+      }
+      
+      // Delete all commission documents in batches of 500
+      const batch = db.batch();
+      snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      return batch.commit()
+        .then(() => {
+          // Reset totalCommissionEarned to 0
+          return userDocRef.update({
+            totalCommissionEarned: 0
           });
-          
-          return batch.commit()
-            .then(() => {
-              cdToast('✅ Commission history reset successfully.', '');
-            })
-            .catch(err => {
-              console.error('Reset error:', err);
-              cdToast('❌ Failed to reset commission history: ' + err.message, 'error');
-            });
+        })
+        .then(() => {
+          cdToast('✅ Commission history reset successfully.', '');
+          // The UI will update automatically via the Firestore listener
         })
         .catch(err => {
-          console.error('Get commissions error:', err);
-          cdToast('❌ Error loading commission history: ' + err.message, 'error');
+          console.error('Reset error:', err);
+          cdToast('❌ Failed to reset commission history: ' + err.message, 'error');
         });
-    }
+    })
+    .catch(err => {
+      console.error('Get commissions error:', err);
+      cdToast('❌ Error loading commission history: ' + err.message, 'error');
+    });
+}
 
     function renderCommissionHistory(commissions) {
       const list = document.getElementById('commissionList');
