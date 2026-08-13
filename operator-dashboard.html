@@ -66,7 +66,6 @@
     .sidebar .nav-item:hover { color: var(--green); border-bottom: 1px solid var(--green); }
     .sidebar .nav-item.active { color: var(--green); }
 
-    /* ===== FIXED: more subtle dividers ===== */
     .sidebar-divider {
       border: none;
       border-top: 1px solid rgba(255,255,255,0.06);
@@ -142,6 +141,10 @@
     .profile-item .label { font-size: 10px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
     .profile-item .value { font-size: 14px; color: #fff; }
     .profile-item .value.green { color: var(--green); }
+
+    .learning-journey-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 18px 24px; margin-bottom: 30px; }
+    .learning-journey-section h3 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 16px; margin-bottom: 12px; }
+    .learning-journey-section .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px; }
 
     .referral-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 20px 24px; margin-bottom: 30px; }
     .referral-section .row { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; }
@@ -253,7 +256,6 @@
       pointer-events: none; z-index: 0; will-change: transform;
     }
 
-    /* ===== MOBILE OVERLAY ===== */
     .nav-group-overlay {
       display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
       background: rgba(0,0,0,0.85); z-index: 10000; flex-direction: column;
@@ -295,7 +297,6 @@
     }
     #scrollTopBtn.pulse { animation: pulse 1.2s ease-in-out infinite; }
 
-    /* ===== RESPONSIVE ===== */
     @media (max-width: 1024px) {
       .sidebar {
         position: static;
@@ -328,10 +329,12 @@
       .item-grid { grid-template-columns: 1fr; }
       .protocol-grid { grid-template-columns: 1fr; }
       .profile-section { grid-template-columns: 1fr 1fr; }
+      .learning-journey-section .grid { grid-template-columns: 1fr 1fr; }
       .sidebar .mobile-toggle { display: block !important; }
     }
     @media (max-width: 600px) {
       .profile-section { grid-template-columns: 1fr; }
+      .learning-journey-section .grid { grid-template-columns: 1fr; }
       .referral-section .stats { flex-direction: column; }
       .dash-stats { grid-template-columns: 1fr 1fr; }
     }
@@ -463,6 +466,21 @@
       <div class="profile-item"><span class="label">Interests</span><span class="value" id="profileInterests">—</span></div>
       <div class="profile-item"><span class="label">Confidence</span><span class="value" id="profileConfidence">—</span></div>
       <div class="profile-item"><span class="label">Referral</span><span class="value" id="profileReferral">—</span></div>
+    </div>
+
+    <!-- ===== NEW: LEARNING JOURNEY ===== -->
+    <div class="learning-journey-section">
+      <h3><i class="fas fa-compass" style="margin-right:8px;"></i> Learning Journey</h3>
+      <div class="grid" id="learningJourneyContainer">
+        <div class="profile-item"><span class="label">Experience</span><span class="value" id="ljExperience">—</span></div>
+        <div class="profile-item"><span class="label">Primary Goal</span><span class="value" id="ljPrimaryGoal">—</span></div>
+        <div class="profile-item"><span class="label">Ambition</span><span class="value" id="ljAmbition">—</span></div>
+        <div class="profile-item"><span class="label">Content Format</span><span class="value" id="ljContentFormat">—</span></div>
+        <div class="profile-item"><span class="label">Delivery Channel</span><span class="value" id="ljDeliveryChannel">—</span></div>
+        <div class="profile-item"><span class="label">Pain Points</span><span class="value" id="ljPainPoints">—</span></div>
+        <div class="profile-item"><span class="label">6‑Month Goal</span><span class="value" id="ljSixMonthGoal">—</span></div>
+        <div class="profile-item"><span class="label">Dream Project</span><span class="value" id="ljDreamProject">—</span></div>
+      </div>
     </div>
 
     <!-- Referral & Commissions -->
@@ -800,6 +818,36 @@
       document.getElementById('profileReferral').textContent = data.referralCode || '—';
     }
 
+    // ===== NEW: Update Learning Journey =====
+    function updateLearningJourney(data) {
+      const lj = data.learningJourney || {};
+      
+      const experienceMap = { '<6':'Less than 6 months', '6-12':'6–12 months', '1-2':'1–2 years', '3-5':'3–5 years', '5+':'5+ years' };
+      document.getElementById('ljExperience').textContent = experienceMap[lj.experience] || lj.experience || '—';
+      
+      const goalMap = { 'master-manual':'Master manual mode', 'start-business':'Start a photography/video business', 'improve-social':'Improve social media content', 'family-travel':'Capture family/travel memories', 'professional-event':'Become a professional event/wedding photographer', 'filmmaker':'Become a filmmaker/videographer', 'other':'Other' };
+      document.getElementById('ljPrimaryGoal').textContent = goalMap[lj.primaryGoal] || lj.primaryGoal || '—';
+      
+      const ambitionMap = { 'hobbyist':'Hobbyist', 'semi-pro':'Semi‑professional', 'professional':'Professional' };
+      document.getElementById('ljAmbition').textContent = ambitionMap[lj.ambition] || lj.ambition || '—';
+      
+      const formatMap = { 'video':'Video', 'written':'Written guides', 'interactive':'Interactive exercises', 'audio':'Audio/Podcasts', 'mixed':'Mix of everything' };
+      document.getElementById('ljContentFormat').textContent = formatMap[lj.contentFormat] || lj.contentFormat || '—';
+      
+      const channelMap = { 'email':'Email', 'sms':'SMS', 'push':'Push notifications', 'email-sms':'Email + SMS' };
+      document.getElementById('ljDeliveryChannel').textContent = channelMap[lj.deliveryChannel] || lj.deliveryChannel || '—';
+      
+      const painMap = { 'technical':'Technical confusion', 'creative':'Creative block', 'editing':'Editing/post‑processing', 'color-grading':'Color grading', 'business':'Business/marketing', 'portfolio':'Building a portfolio/showreel', 'clients':'Attracting clients', 'inspiration':'Lack of inspiration', 'technical2':'Understanding my camera', 'audio':'Audio/Sound', 'lighting':'Lighting for video' };
+      const painStr = (lj.painPoints || []).map(p => painMap[p] || p).join(', ');
+      document.getElementById('ljPainPoints').textContent = painStr || '—';
+      
+      const sixMonthMap = { 'exposure':'Exposure triangle (manual mode)', 'composition':'Composition & storytelling', 'lighting':'Lighting (photo & video)', 'editing':'Editing/post‑production', 'color':'Color grading', 'audio':'Audio for video', 'business':'Business & client management', 'gear':'Mastering my specific gear' };
+      document.getElementById('ljSixMonthGoal').textContent = sixMonthMap[lj.sixMonthGoal] || lj.sixMonthGoal || '—';
+      
+      const dreamMap = { 'portrait-series':'A portrait series', 'short-film':'A short film', 'documentary':'A documentary', 'music-video':'A music video', 'commercial':'A commercial/corporate video', 'travel-film':'A travel film', 'wedding-film':'A wedding film', 'social-content':'Social media content (Reels/TikTok)', 'photobook':'A photo book/portfolio' };
+      document.getElementById('ljDreamProject').textContent = dreamMap[lj.dreamProject] || lj.dreamProject || '—';
+    }
+
     function updateReferralSection(data) {
       document.getElementById('referralLink').textContent = `camerasdecoded.com/ref/${data.referralCode || ''}`;
       document.getElementById('totalReferrals').textContent = data.totalReferrals || 0;
@@ -957,6 +1005,7 @@
         }
         const data = doc.data();
         updateProfile(data);
+        updateLearningJourney(data); // <-- NEW
         updateReferralSection(data);
         const savedProtocols = data.savedProtocols || [];
         const savedCards = data.savedCards || [];
@@ -1037,12 +1086,10 @@
 
     // ===== QUIZ WIDGET — STREAK & SCORE =====
     (function() {
-      // Streak
       const streak = parseInt(localStorage.getItem('quizStreak') || '0');
       const streakEl = document.getElementById('streakNum');
       if (streakEl) streakEl.textContent = streak;
 
-      // Launch button
       const launchBtn = document.getElementById('quizLaunchBtn');
       const diffSelect = document.getElementById('diffSelect');
       function updateLaunchLink() {
@@ -1053,7 +1100,6 @@
       if (diffSelect) diffSelect.addEventListener('change', updateLaunchLink);
       updateLaunchLink();
 
-      // Score display — clickable (launches quiz with selected difficulty)
       const scoreDisplay = document.getElementById('lastScoreDisplay');
       const scoreLaunchBtn = document.getElementById('scoreLaunchBtn');
 
@@ -1074,7 +1120,6 @@
         }
       }
 
-      // Click on score → launch quiz with current difficulty
       if (scoreLaunchBtn) {
         scoreLaunchBtn.addEventListener('click', function(e) {
           e.preventDefault();
@@ -1083,7 +1128,6 @@
         });
       }
 
-      // Update on load and cross‑tab storage changes
       document.addEventListener('DOMContentLoaded', updateQuizScore);
       window.addEventListener('storage', (e) => {
         if (e.key === 'quizLastScore') updateQuizScore();
