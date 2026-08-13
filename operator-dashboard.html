@@ -146,7 +146,7 @@
     .learning-journey-section h3 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 16px; margin-bottom: 12px; }
     .learning-journey-section .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px; }
     .learning-journey-section .profile-item .label { font-size: 9px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-    .learning-journey-section .profile-item .value { font-size: 11px; color: #fff; }
+    .learning-journey-section .profile-item .value { font-size: 12px; color: #fff; }
 
     .referral-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 20px 24px; margin-bottom: 30px; }
     .referral-section .row { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; }
@@ -165,7 +165,11 @@
     .commission-section { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 20px 24px; margin-bottom: 30px; }
     .commission-section .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
     .commission-section .header h3 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 18px; }
-    .test-btn { padding: 6px 16px; background: transparent; border: 1px solid var(--gold); border-radius: 20px; color: var(--gold); cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; }
+    .commission-section .header .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .test-btn { padding: 6px 16px; background: transparent; border: 1px solid var(--gold); border-radius: 20px; color: var(--gold); cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; transition: 0.2s; }
+    .test-btn:hover { background: rgba(224,177,45,0.1); box-shadow: 0 0 20px rgba(224,177,45,0.2); }
+    .test-btn.danger { border-color: #ff4a4a; color: #ff4a4a; }
+    .test-btn.danger:hover { background: rgba(255,74,74,0.1); box-shadow: 0 0 20px rgba(255,74,74,0.2); }
     .commission-list { display: flex; flex-direction: column; gap: 8px; }
     .commission-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0F0F0F; border-radius: 6px; border-left: 3px solid var(--green); font-size: 14px; }
     .commission-item .left .name { color: #fff; }
@@ -348,12 +352,16 @@
       .profile-section { grid-template-columns: 1fr 1fr; }
       .learning-journey-section .grid { grid-template-columns: 1fr 1fr; }
       .sidebar .mobile-toggle { display: block !important; }
+      .commission-section .header { flex-direction: column; align-items: stretch; }
+      .commission-section .header .btn-group { justify-content: center; }
     }
     @media (max-width: 600px) {
       .profile-section { grid-template-columns: 1fr; }
       .learning-journey-section .grid { grid-template-columns: 1fr; }
       .referral-section .stats { flex-direction: column; }
       .dash-stats { grid-template-columns: 1fr 1fr; }
+      .commission-section .header .btn-group { flex-direction: column; align-items: stretch; }
+      .commission-item { flex-direction: column; align-items: flex-start; gap: 6px; }
     }
     @media (min-width: 1025px) {
       .sidebar .nav-group { display: flex !important; flex-direction: column !important; }
@@ -534,19 +542,19 @@
 
     <!-- Commission History -->
     <div class="commission-section" id="commissionSection">
-  <div class="header">
-    <h3><i class="fas fa-coin" style="color:var(--green); margin-right:8px;"></i>Commission History</h3>
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      <button class="test-btn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
-      <button class="test-btn" onclick="resetCommissionHistory()" style="border-color:#ff4a4a; color:#ff4a4a;" id="resetCommissionBtn" title="Delete all commission history">
-        <i class="fas fa-trash-alt"></i> Reset
-      </button>
+      <div class="header">
+        <h3><i class="fas fa-coin" style="color:var(--green); margin-right:8px;"></i>Commission History</h3>
+        <div class="btn-group">
+          <button class="test-btn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
+          <button class="test-btn danger" onclick="resetCommissionHistory()" id="resetCommissionBtn" style="display:none;">
+            <i class="fas fa-trash-alt"></i> Reset
+          </button>
+        </div>
+      </div>
+      <div class="commission-list" id="commissionList">
+        <div class="commission-empty">No commissions yet.</div>
+      </div>
     </div>
-  </div>
-  <div class="commission-list" id="commissionList">
-    <div class="commission-empty">No commissions yet.</div>
-  </div>
-</div>
 
     <!-- Protocol Library -->
     <div class="section-header"><h2><i class="fas fa-book-open" style="color:var(--green); margin-right:8px;"></i>My Protocol Library</h2></div>
@@ -898,48 +906,6 @@
         if (tier === 'operator') rate = 0.40;
         else if (tier === 'transmission_elite') rate = 0.50;
 
-// ===== RESET COMMISSION HISTORY =====
-function resetCommissionHistory() {
-  if (!userDocRef) {
-    cdToast('Please log in first.', 'error');
-    return;
-  }
-  
-  // Check if there are any commissions to delete
-  userDocRef.collection('commissions').get()
-    .then(snapshot => {
-      if (snapshot.empty) {
-        cdToast('No commission history to reset.', 'error');
-        return;
-      }
-      
-      // Confirm with user
-      if (!confirm('Delete all commission history? This action cannot be undone.')) {
-        return;
-      }
-      
-      // Delete all commission documents in batches of 500
-      const batch = db.batch();
-      snapshot.docs.forEach(doc => {
-        batch.delete(doc.ref);
-      });
-      
-      return batch.commit()
-        .then(() => {
-          cdToast('✅ Commission history reset successfully.', '');
-          // The UI will update automatically via the Firestore listener
-        })
-        .catch(err => {
-          console.error('Reset error:', err);
-          cdToast('❌ Failed to reset commission history: ' + err.message, 'error');
-        });
-    })
-    .catch(err => {
-      console.error('Get commissions error:', err);
-      cdToast('❌ Error loading commission history: ' + err.message, 'error');
-    });
-}
-
         const products = [
           'Camera Confidence Guide',
           'Decoder Atlas – Premium Access',
@@ -971,23 +937,64 @@ function resetCommissionHistory() {
             totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount)
           });
         }).then(() => {
-          alert(`✅ Simulated commission!\n\n${productName} — $${purchaseAmount} purchase\nYour cut (${Math.round(rate*100)}%): $${commissionAmount.toFixed(2)}`);
+          cdToast(`✅ Simulated commission!\n\n${productName} — $${purchaseAmount} purchase\nYour cut (${Math.round(rate*100)}%): $${commissionAmount.toFixed(2)}`, '');
         });
       });
     }
 
-    function renderCommissionHistory(commissions) {
-      const list = document.getElementById('commissionList');
-      if (!list) return;
-      if (!commissions || commissions.length === 0) {
-        list.innerHTML = `<div class="commission-empty">No commissions yet.</div>`;
+    // ===== RESET COMMISSION HISTORY =====
+    function resetCommissionHistory() {
+      if (!userDocRef) {
+        cdToast('Please log in first.', 'error');
         return;
       }
-// Show/hide reset button based on commissions count
-const resetBtn = document.getElementById('resetCommissionBtn');
-if (resetBtn) {
-  resetBtn.style.display = (commissions && commissions.length > 0) ? 'inline-block' : 'none';
-}
+      
+      userDocRef.collection('commissions').get()
+        .then(snapshot => {
+          if (snapshot.empty) {
+            cdToast('No commission history to reset.', 'error');
+            return;
+          }
+          
+          if (!confirm('Delete all commission history? This action cannot be undone.')) {
+            return;
+          }
+          
+          const batch = db.batch();
+          snapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+          
+          return batch.commit()
+            .then(() => {
+              cdToast('✅ Commission history reset successfully.', '');
+            })
+            .catch(err => {
+              console.error('Reset error:', err);
+              cdToast('❌ Failed to reset commission history: ' + err.message, 'error');
+            });
+        })
+        .catch(err => {
+          console.error('Get commissions error:', err);
+          cdToast('❌ Error loading commission history: ' + err.message, 'error');
+        });
+    }
+
+    function renderCommissionHistory(commissions) {
+      const list = document.getElementById('commissionList');
+      const resetBtn = document.getElementById('resetCommissionBtn');
+      
+      if (!list) return;
+      
+      if (!commissions || commissions.length === 0) {
+        list.innerHTML = `<div class="commission-empty">No commissions yet.</div>`;
+        if (resetBtn) resetBtn.style.display = 'none';
+        return;
+      }
+      
+      // Show reset button
+      if (resetBtn) resetBtn.style.display = 'inline-block';
+      
       const sorted = commissions.slice().sort((a, b) => {
         const dateA = a.createdAt?.toDate?.() || new Date(0);
         const dateB = b.createdAt?.toDate?.() || new Date(0);
@@ -1048,39 +1055,30 @@ if (resetBtn) {
     let typewriterObserver = null;
 
     function initTypewriterOnScroll() {
-      // Find all value elements in profile and learning journey sections
       const valueElements = document.querySelectorAll(
         '.profile-section .profile-item .value, .learning-journey-section .profile-item .value'
       );
       
-      // Store original text in data attribute (if not already stored)
       valueElements.forEach(el => {
         const text = el.textContent;
-        // Only store if it's not empty or just a dash
         if (text !== '—' && text !== '' && !el.dataset.originalText) {
           el.dataset.originalText = text;
         }
-        // Reset typed flag so elements can type again if content changes
         el.dataset.typed = 'false';
       });
       
-      // If observer exists, disconnect it
       if (typewriterObserver) {
         typewriterObserver.disconnect();
       }
       
-      // Intersection Observer – triggers when element enters viewport
       typewriterObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
             const el = entry.target;
-            // Skip if already typed or no original text
             if (el.dataset.typed === 'true' || !el.dataset.originalText) return;
             const text = el.dataset.originalText;
-            // Don't type if it's just a dash or empty
             if (text === '—' || text === '') return;
             el.dataset.typed = 'true';
-            // Small delay before typing starts
             setTimeout(() => {
               typeWriterValue(el, text, 20);
             }, 100);
@@ -1091,21 +1089,17 @@ if (resetBtn) {
         rootMargin: '0px 0px -30px 0px'
       });
       
-      // Observe each value element
       valueElements.forEach(el => {
-        // Only observe if it has text content
         if (el.textContent && el.textContent !== '—') {
           typewriterObserver.observe(el);
         }
       });
     }
 
-    // Typewriter function for values (smaller, faster)
     function typeWriterValue(element, text, speed = 20) {
       let i = 0;
       element.textContent = '';
       
-      // Add cursor
       const cursor = document.createElement('span');
       cursor.className = 'typewriter-cursor';
       element.appendChild(cursor);
@@ -1119,12 +1113,29 @@ if (resetBtn) {
           setTimeout(type, speed);
         } else {
           cursor.remove();
-          // Mark as typed
           element.dataset.typed = 'true';
         }
       }
       
       type();
+    }
+
+    // ================================================================
+    // TOAST FUNCTION
+    // ================================================================
+    function cdToast(message, type) {
+      const container = document.getElementById('cd-toast-container');
+      if (!container) {
+        // Fallback to alert if container doesn't exist
+        alert(message);
+        return;
+      }
+      const toast = document.createElement('div');
+      toast.className = 'cd-toast' + (type === 'error' ? ' error' : '');
+      toast.textContent = message;
+      container.appendChild(toast);
+      requestAnimationFrame(() => { toast.classList.add('show'); });
+      setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
     }
 
     // ================================================================
@@ -1180,10 +1191,7 @@ if (resetBtn) {
         const tierLabel = data.tier === 'pro' ? 'Pro' : 'Free';
         updateAuthUI(true, role, tierLabel);
 
-        // === TRIGGER TYPEWRITER ON SCROLL ===
-        // Small delay to ensure DOM is updated with new values
         setTimeout(() => {
-          // Store original text for all value elements
           document.querySelectorAll('.profile-section .profile-item .value, .learning-journey-section .profile-item .value')
             .forEach(el => {
               const text = el.textContent;
@@ -1192,7 +1200,6 @@ if (resetBtn) {
               }
               el.dataset.typed = 'false';
             });
-          // Re-init observer
           initTypewriterOnScroll();
         }, 150);
       });
