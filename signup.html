@@ -112,6 +112,7 @@
     let selectedTier = 'free', isAnnual = false, isWeekly = false;
     let partnerSelectedTier = 'signal', partnerIsAnnual = false;
     let instructorIsAnnual = true;
+    let sliderConfirmed = false; // Slider confirmation state
 
     // ================================================================
     // PATHS DEFINITION (Operator: 10 steps)
@@ -142,7 +143,7 @@
           buttonText: 'Continue',
           onNext: function() { if (document.querySelectorAll('.gear-card.selected').length === 0) { cdToast('Please select at least one camera brand.', 'error'); return false; } return true; }
         },
-        // STEP 3: Signal Focus (includes "Content Creation")
+        // STEP 3: Signal Focus (with Content Creation)
         {
           title: 'Signal Focus', icon: '🎯', subtitle: 'What do you shoot most? Choose up to <span class="highlight">3</span>.', fields: [],
           html: `<div class="interest-chips" id="interestChips"><span class="interest-chip" data-interest="portraits" onclick="toggleInterest(this)">Portraits</span><span class="interest-chip" data-interest="events" onclick="toggleInterest(this)">Events / Weddings</span><span class="interest-chip" data-interest="landscape" onclick="toggleInterest(this)">Landscape</span><span class="interest-chip" data-interest="street" onclick="toggleInterest(this)">Street</span><span class="interest-chip" data-interest="sports" onclick="toggleInterest(this)">Sports / Action</span><span class="interest-chip" data-interest="real-estate" onclick="toggleInterest(this)">Real Estate</span><span class="interest-chip" data-interest="product" onclick="toggleInterest(this)">Product</span><span class="interest-chip" data-interest="wildlife" onclick="toggleInterest(this)">Wildlife</span><span class="interest-chip" data-interest="astro" onclick="toggleInterest(this)">Astro</span><span class="interest-chip" data-interest="food" onclick="toggleInterest(this)">Food</span><span class="interest-chip" data-interest="videography" onclick="toggleInterest(this)">Videography / Film</span><span class="interest-chip" data-interest="documentary" onclick="toggleInterest(this)">Documentary</span><span class="interest-chip" data-interest="music-video" onclick="toggleInterest(this)">Music Videos</span><span class="interest-chip" data-interest="corporate" onclick="toggleInterest(this)">Corporate / Commercial</span><span class="interest-chip" data-interest="content" onclick="toggleInterest(this)">Content Creation</span></div><div class="interest-counter">Selected: <span class="count" id="interestCount">0</span> / 3</div>`,
@@ -170,7 +171,7 @@
           buttonText: 'Continue',
           onNext: function() { return true; }
         },
-        // STEP 7: Pain Points (includes video)
+        // STEP 7: Pain Points
         {
           title: 'Pain Points', icon: '💥', subtitle: 'What holds you back the most? Select up to <span class="highlight">3</span>.', fields: ['painPoints'],
           html: `<div style="margin-bottom:12px; font-size:13px; color:var(--text-muted);">Choose the areas where you feel stuck.</div><div class="interest-chips" id="painChips"><span class="interest-chip" data-pain="technical" onclick="togglePain(this)">Technical confusion (settings, gear)</span><span class="interest-chip" data-pain="creative" onclick="togglePain(this)">Creative block</span><span class="interest-chip" data-pain="editing" onclick="togglePain(this)">Editing / post‑processing</span><span class="interest-chip" data-pain="color-grading" onclick="togglePain(this)">Color grading</span><span class="interest-chip" data-pain="business" onclick="togglePain(this)">Business / marketing</span><span class="interest-chip" data-pain="portfolio" onclick="togglePain(this)">Building a portfolio / showreel</span><span class="interest-chip" data-pain="clients" onclick="togglePain(this)">Attracting clients</span><span class="interest-chip" data-pain="inspiration" onclick="togglePain(this)">Lack of inspiration</span><span class="interest-chip" data-pain="technical2" onclick="togglePain(this)">Understanding my camera</span><span class="interest-chip" data-pain="audio" onclick="togglePain(this)">Audio / Sound</span><span class="interest-chip" data-pain="lighting" onclick="togglePain(this)">Lighting for video</span></div><div class="interest-counter">Selected: <span class="count" id="painCount">0</span> / 3</div>`,
@@ -181,7 +182,7 @@
             return true;
           }
         },
-        // STEP 8: Vision (dropdowns instead of text input)
+        // STEP 8: Vision
         {
           title: 'Vision', icon: '🔭', subtitle: 'Where do you see yourself in 6 months?', fields: ['sixMonthGoal', 'dreamProject'],
           html: `<div class="form-group"><label for="sixMonthGoal">What is the single most important skill you want to master in the next 6 months?</label><select id="sixMonthGoal"><option value="exposure">Exposure triangle (manual mode)</option><option value="composition">Composition & storytelling</option><option value="lighting">Lighting (photo & video)</option><option value="editing">Editing / post‑production</option><option value="color">Color grading</option><option value="audio">Audio for video</option><option value="business">Business & client management</option><option value="gear">Mastering my specific gear</option></select></div><div class="form-group"><label for="dreamProject">What type of project do you want to create?</label><select id="dreamProject"><option value="portrait-series">A portrait series</option><option value="short-film">A short film</option><option value="documentary">A documentary</option><option value="music-video">A music video</option><option value="commercial">A commercial / corporate video</option><option value="travel-film">A travel film</option><option value="wedding-film">A wedding film</option><option value="social-content">Social media content (Reels/TikTok)</option><option value="photobook">A photo book / portfolio</option></select></div>`,
@@ -195,10 +196,32 @@
           buttonText: 'Continue',
           onNext: function() { return true; }
         },
-        // STEP 10: Activate (with fixed checkbox)
+        // STEP 10: Activate (with slider confirmation)
         {
           title: 'Activate', icon: '🔐', subtitle: 'Set your password and confirm your details.', fields: ['password', 'phone'],
-          html: `<div class="form-group"><label for="password">Password <span style="color:#666; font-weight:400;">(min 6 chars)</span></label><input type="password" id="password" placeholder="••••••••" required /></div><div class="form-group"><label for="confirmPassword">Confirm Password</label><input type="password" id="confirmPassword" placeholder="••••••••" required /><div class="error-hint" id="confirmPasswordError">Passwords do not match.</div></div><div class="form-group" id="phoneGroup"><label for="phone">Phone number <span style="color:#666; font-weight:400;">(for SMS – optional)</span></label><input type="tel" id="phone" placeholder="+1 234 567 890" /></div><div style="margin: 18px 0 12px; border-top: 1px solid var(--border); padding-top: 12px;"><p style="font-family: 'Space Mono', monospace; font-size: 14px; color: var(--green); margin-bottom: 8px;">📋 Review your signal profile</p><div class="summary-card" id="summaryCard"></div></div><div class="form-group" style="margin-top: 8px;"><label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-family: 'Montserrat', sans-serif; font-size: 14px; color: #fff; line-height: 1.4;"><input type="checkbox" id="confirmCheckbox" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #8deb00; flex-shrink: 0;" /><span>I confirm that the information provided is accurate and I understand that Cameras Decoded will use this data to personalise my dashboard, recommend protocols, and connect me with the community. My data is private and will never be shared. <span style="color: var(--green);">(required)</span></span></label><div class="error-hint" id="confirmError" style="display: none;">Please confirm to activate your account.</div></div><div id="signupError" style="color:#ff4444; font-size:13px; margin-top:8px; display:none;"></div><div id="signupSpinner" class="spinner"></div><button class="btn-primary" id="activateBtn" onclick="activateSignal()" style="display:none; width:100%; margin-top:12px;">Activate Signal →</button><div class="signal-locked" id="signalLocked"><div class="ring"><i class="fas fa-bolt"></i></div><h3>Signal Locked</h3><p>Welcome to the Operator Network. Check your email to confirm your account.</p><p style="margin-top:12px;">Share your referral link:</p><span class="referral-success-link" id="newReferralLink">—</span><button class="btn-sm" onclick="copyNewReferralLink()" style="margin-top:8px;">Copy Link</button></div>`,
+          html: `<div class="form-group"><label for="password">Password <span style="color:#666; font-weight:400;">(min 6 chars)</span></label><input type="password" id="password" placeholder="••••••••" required /></div><div class="form-group"><label for="confirmPassword">Confirm Password</label><input type="password" id="confirmPassword" placeholder="••••••••" required /><div class="error-hint" id="confirmPasswordError">Passwords do not match.</div></div><div class="form-group" id="phoneGroup"><label for="phone">Phone number <span style="color:#666; font-weight:400;">(for SMS – optional)</span></label><input type="tel" id="phone" placeholder="+1 234 567 890" /></div><div style="margin: 18px 0 12px; border-top: 1px solid var(--border); padding-top: 12px;"><p style="font-family: 'Space Mono', monospace; font-size: 14px; color: var(--green); margin-bottom: 8px;">📋 Review your signal profile</p><div class="summary-card" id="summaryCard"></div></div>
+          <!-- SLIDER CONFIRMATION (replaces checkbox) -->
+          <div style="margin-top: 12px; border-top: 1px solid var(--border); padding-top: 14px;">
+            <p style="font-family: 'Space Mono', monospace; font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+              <i class="fas fa-shield-alt" style="color: var(--green); margin-right: 6px;"></i>
+              Slide to confirm your agreement
+            </p>
+            <div id="sliderConfirmContainer" style="position: relative; width: 100%; height: 52px; background: rgba(255,255,255,0.04); border-radius: 30px; border: 1px solid var(--border); overflow: hidden; cursor: pointer; user-select: none; transition: border-color 0.3s;">
+              <div id="sliderTrack" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--green); border-radius: 30px; transition: width 0.05s linear; opacity: 0.15;"></div>
+              <div id="sliderKnob" style="position: absolute; top: 4px; left: 4px; width: 44px; height: 44px; border-radius: 50%; background: var(--green); box-shadow: 0 0 20px rgba(141,235,0,0.3); transition: left 0.05s linear; display: flex; align-items: center; justify-content: center; color: #000; font-size: 18px; cursor: grab; z-index: 2;">
+                <i class="fas fa-arrow-right"></i>
+              </div>
+              <div id="sliderText" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Space Mono', monospace; font-size: 13px; color: var(--text-muted); pointer-events: none; white-space: nowrap; transition: opacity 0.3s;">
+                <span id="sliderLabel">→ Slide to confirm</span>
+                <span id="sliderConfirmed" style="display: none; color: var(--green);">✓ Confirmed</span>
+              </div>
+            </div>
+            <div class="error-hint" id="confirmError" style="display: none; margin-top: 8px;">Please slide to confirm your agreement.</div>
+          </div>
+          <div id="signupError" style="color:#ff4444; font-size:13px; margin-top:8px; display:none;"></div>
+          <div id="signupSpinner" class="spinner"></div>
+          <button class="btn-primary" id="activateBtn" onclick="activateSignal()" style="display:none; width:100%; margin-top:12px;">Activate Signal →</button>
+          <div class="signal-locked" id="signalLocked"><div class="ring"><i class="fas fa-bolt"></i></div><h3>Signal Locked</h3><p>Welcome to the Operator Network. Check your email to confirm your account.</p><p style="margin-top:12px;">Share your referral link:</p><span class="referral-success-link" id="newReferralLink">—</span><button class="btn-sm" onclick="copyNewReferralLink()" style="margin-top:8px;">Copy Link</button></div>`,
           buttonText: null,
           onNext: function() { return true; }
         }
@@ -299,12 +322,7 @@
       const partnerAnnual = document.getElementById('partnerIsAnnual'); if (partnerAnnual) formData['partnerIsAnnual'] = partnerAnnual.value === 'true';
       const instructorAnnual = document.getElementById('instructorIsAnnual'); if (instructorAnnual) formData['instructorIsAnnual'] = instructorAnnual.value === 'true';
       formData['isAnnual'] = isAnnual; formData['isWeekly'] = isWeekly;
-      
-      // Save checkbox state
-      const confirmCheck = document.querySelector('#confirmCheckbox');
-      if (confirmCheck) {
-        formData['confirmCheckbox'] = confirmCheck.checked;
-      }
+      // Note: slider confirmation is handled via sliderConfirmed variable, not formData
     }
 
     function restoreFormData() {
@@ -314,13 +332,6 @@
           else { el.value = formData[el.id]; }
         }
       });
-      // Restore checkbox state
-      if (formData.hasOwnProperty('confirmCheckbox')) {
-        const confirmCheck = document.querySelector('#confirmCheckbox');
-        if (confirmCheck) {
-          confirmCheck.checked = formData['confirmCheckbox'];
-        }
-      }
     }
 
     function restoreSelections() {
@@ -410,6 +421,146 @@
       if (currentStepIndex === steps.length - 1) pctEl.classList.add('static-glow');
     }
 
+    // ---------------------------------------------------------------
+    // SLIDER CONFIRMATION – INIT
+    // ---------------------------------------------------------------
+    function initSlider() {
+      const container = document.getElementById('sliderConfirmContainer');
+      const knob = document.getElementById('sliderKnob');
+      const track = document.getElementById('sliderTrack');
+      const label = document.getElementById('sliderLabel');
+      const confirmed = document.getElementById('sliderConfirmed');
+      
+      if (!container) return;
+      
+      // Reset slider state
+      sliderConfirmed = false;
+      const containerWidth = container.offsetWidth;
+      const knobWidth = 44;
+      const maxLeft = containerWidth - knobWidth - 8;
+      
+      let startX = 0;
+      let currentLeft = 4;
+      let dragging = false;
+      
+      function updateSlider(clientX) {
+        const rect = container.getBoundingClientRect();
+        let newLeft = clientX - rect.left - knobWidth / 2;
+        newLeft = Math.max(4, Math.min(maxLeft, newLeft));
+        currentLeft = newLeft;
+        knob.style.left = newLeft + 'px';
+        const progress = (newLeft - 4) / (maxLeft - 4);
+        track.style.width = (progress * 100) + '%';
+        
+        if (progress >= 0.95) {
+          sliderConfirmed = true;
+          label.style.display = 'none';
+          confirmed.style.display = 'inline';
+          container.style.borderColor = 'var(--green)';
+          knob.innerHTML = '<i class="fas fa-check"></i>';
+          knob.style.background = 'var(--green)';
+          document.getElementById('confirmError').style.display = 'none';
+        } else {
+          sliderConfirmed = false;
+          label.style.display = 'inline';
+          confirmed.style.display = 'none';
+          container.style.borderColor = 'var(--border)';
+          knob.innerHTML = '<i class="fas fa-arrow-right"></i>';
+        }
+      }
+      
+      function startDrag(e) {
+        e.preventDefault();
+        dragging = true;
+        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        startX = clientX;
+        knob.style.cursor = 'grabbing';
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchmove', onDragTouch, { passive: false });
+        document.addEventListener('touchend', endDragTouch);
+      }
+      
+      function onDrag(e) {
+        e.preventDefault();
+        if (!dragging) return;
+        updateSlider(e.clientX);
+      }
+      
+      function onDragTouch(e) {
+        e.preventDefault();
+        if (!dragging) return;
+        updateSlider(e.touches[0].clientX);
+      }
+      
+      function endDrag() {
+        dragging = false;
+        knob.style.cursor = 'grab';
+        if (!sliderConfirmed) {
+          knob.style.left = '4px';
+          track.style.width = '0%';
+          label.style.display = 'inline';
+          confirmed.style.display = 'none';
+          container.style.borderColor = 'var(--border)';
+          knob.innerHTML = '<i class="fas fa-arrow-right"></i>';
+        }
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('mouseup', endDrag);
+        document.removeEventListener('touchmove', onDragTouch);
+        document.removeEventListener('touchend', endDragTouch);
+      }
+      
+      function endDragTouch() {
+        dragging = false;
+        if (!sliderConfirmed) {
+          knob.style.left = '4px';
+          track.style.width = '0%';
+          label.style.display = 'inline';
+          confirmed.style.display = 'none';
+          container.style.borderColor = 'var(--border)';
+          knob.innerHTML = '<i class="fas fa-arrow-right"></i>';
+        }
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('mouseup', endDrag);
+        document.removeEventListener('touchmove', onDragTouch);
+        document.removeEventListener('touchend', endDragTouch);
+      }
+      
+      // Bind events
+      knob.addEventListener('mousedown', startDrag);
+      container.addEventListener('mousedown', function(e) {
+        if (e.target === knob) return;
+        const rect = container.getBoundingClientRect();
+        const clickX = e.clientX - rect.left - knobWidth / 2;
+        if (clickX > 20 && clickX < containerWidth - 20) {
+          startDrag(e);
+          updateSlider(e.clientX);
+        }
+      });
+      knob.addEventListener('touchstart', startDrag, { passive: true });
+      container.addEventListener('touchstart', function(e) {
+        if (e.target === knob) return;
+        const rect = container.getBoundingClientRect();
+        const touch = e.touches[0];
+        const clickX = touch.clientX - rect.left - knobWidth / 2;
+        if (clickX > 20 && clickX < containerWidth - 20) {
+          startDrag(e);
+          updateSlider(touch.clientX);
+        }
+      }, { passive: true });
+      
+      // Reset on window resize
+      window.addEventListener('resize', function() {
+        if (!sliderConfirmed) {
+          knob.style.left = '4px';
+          track.style.width = '0%';
+        }
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // RENDER CURRENT STEP
+    // ---------------------------------------------------------------
     function renderCurrentStep() {
       saveFormData();
       const container = document.getElementById('stepContainer');
@@ -445,7 +596,6 @@
             backBtn.textContent = '← Back';
             backBtn.onclick = requestBackConfirmation;
             const errorDiv = document.getElementById('signupError');
-            // SAFER: check errorDiv exists and has a parent before using insertBefore
             if (errorDiv && errorDiv.parentNode && errorDiv.parentNode === summaryCard.parentNode) {
               summaryCard.parentNode.insertBefore(backBtn, errorDiv);
             } else {
@@ -456,12 +606,13 @@
         const btn = document.getElementById('activateBtn');
         if (btn) {
           btn.style.display = 'block';
-          // REMOVE any existing listeners and add fresh one
+          // Remove any existing listeners and add fresh one
           btn.removeEventListener('click', window.activateSignal);
           btn.addEventListener('click', window.activateSignal);
-          console.log('🔵 Activate button bound with event listener');
         }
         updateSummary();
+        // Initialize slider after a small delay to ensure DOM is ready
+        setTimeout(initSlider, 150);
       }
       
       if (selectedRole === 'Instructor' && currentStepIndex === 1) {
@@ -509,6 +660,7 @@
       selectedRole = null; currentPath = null; currentStepIndex = 0; steps = [];
       if (titleInterval) clearInterval(titleInterval); titleInterval = null;
       formData = {};
+      sliderConfirmed = false;
       showRoleSelection();
       document.getElementById('signalFill').style.width = '0%';
       document.getElementById('signalPercent').textContent = '0%';
@@ -517,6 +669,7 @@
     }
     function selectPath(role) {
       formData = {};
+      sliderConfirmed = false;
       selectedRole = role;
       currentPath = role;
       steps = paths[role];
@@ -740,46 +893,35 @@
     }
 
     // ================================================================
-    // SAVE CHECKBOX STATE ON CHANGE
-    // ================================================================
-    document.addEventListener('change', function(e) {
-      if (e.target && e.target.id === 'confirmCheckbox') {
-        formData['confirmCheckbox'] = e.target.checked;
-        saveFormData();
-      }
-    });
-
-    // ================================================================
-    // ACTIVATE SIGNAL (FULLY WORKING)
+    // ACTIVATE SIGNAL (with slider confirmation)
     // ================================================================
     window.activateSignal = function() {
       console.log('🔵 activateSignal called');
-      console.log('🔵 formData.confirmCheckbox:', formData['confirmCheckbox']);
+      console.log('🔵 sliderConfirmed:', sliderConfirmed);
 
       const btn = document.getElementById('activateBtn');
       const spinner = document.getElementById('signupSpinner');
       const errorEl = document.getElementById('signupError');
       const locked = document.getElementById('signalLocked');
 
-      // === CHECKBOX VALIDATION – read from formData ===
-      const isChecked = formData['confirmCheckbox'] || false;
-      const confirmError = document.getElementById('confirmError');
-      
-      if (!isChecked) {
+      // === SLIDER CONFIRMATION ===
+      if (!sliderConfirmed) {
+        const confirmError = document.getElementById('confirmError');
         if (confirmError) confirmError.style.display = 'block';
-        errorEl.textContent = '⚠️ Please confirm your agreement before activating.';
+        errorEl.textContent = '⚠️ Please slide to confirm your agreement.';
         errorEl.style.display = 'block';
-        const confirmCheck = document.querySelector('#confirmCheckbox');
-        if (confirmCheck) {
-          confirmCheck.style.outline = '2px solid #ff4a4a';
-          confirmCheck.style.boxShadow = '0 0 20px rgba(255,74,74,0.3)';
+        const container = document.getElementById('sliderConfirmContainer');
+        if (container) {
+          container.style.borderColor = '#ff4a4a';
+          container.style.boxShadow = '0 0 20px rgba(255,74,74,0.2)';
           setTimeout(() => { 
-            confirmCheck.style.outline = ''; 
-            confirmCheck.style.boxShadow = ''; 
+            container.style.borderColor = 'var(--border)';
+            container.style.boxShadow = 'none';
           }, 2000);
         }
         return;
       }
+      const confirmError = document.getElementById('confirmError');
       if (confirmError) confirmError.style.display = 'none';
 
       // === FIELD VALIDATION ===
