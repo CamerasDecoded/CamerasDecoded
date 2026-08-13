@@ -534,14 +534,19 @@
 
     <!-- Commission History -->
     <div class="commission-section" id="commissionSection">
-      <div class="header">
-        <h3><i class="fas fa-coin" style="color:var(--green); margin-right:8px;"></i>Commission History</h3>
-        <button class="test-btn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
-      </div>
-      <div class="commission-list" id="commissionList">
-        <div class="commission-empty">No commissions yet.</div>
-      </div>
+  <div class="header">
+    <h3><i class="fas fa-coin" style="color:var(--green); margin-right:8px;"></i>Commission History</h3>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="test-btn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
+      <button class="test-btn" onclick="resetCommissionHistory()" style="border-color:#ff4a4a; color:#ff4a4a;" id="resetCommissionBtn" title="Delete all commission history">
+        <i class="fas fa-trash-alt"></i> Reset
+      </button>
     </div>
+  </div>
+  <div class="commission-list" id="commissionList">
+    <div class="commission-empty">No commissions yet.</div>
+  </div>
+</div>
 
     <!-- Protocol Library -->
     <div class="section-header"><h2><i class="fas fa-book-open" style="color:var(--green); margin-right:8px;"></i>My Protocol Library</h2></div>
@@ -893,6 +898,48 @@
         if (tier === 'operator') rate = 0.40;
         else if (tier === 'transmission_elite') rate = 0.50;
 
+// ===== RESET COMMISSION HISTORY =====
+function resetCommissionHistory() {
+  if (!userDocRef) {
+    cdToast('Please log in first.', 'error');
+    return;
+  }
+  
+  // Check if there are any commissions to delete
+  userDocRef.collection('commissions').get()
+    .then(snapshot => {
+      if (snapshot.empty) {
+        cdToast('No commission history to reset.', 'error');
+        return;
+      }
+      
+      // Confirm with user
+      if (!confirm('Delete all commission history? This action cannot be undone.')) {
+        return;
+      }
+      
+      // Delete all commission documents in batches of 500
+      const batch = db.batch();
+      snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      return batch.commit()
+        .then(() => {
+          cdToast('✅ Commission history reset successfully.', '');
+          // The UI will update automatically via the Firestore listener
+        })
+        .catch(err => {
+          console.error('Reset error:', err);
+          cdToast('❌ Failed to reset commission history: ' + err.message, 'error');
+        });
+    })
+    .catch(err => {
+      console.error('Get commissions error:', err);
+      cdToast('❌ Error loading commission history: ' + err.message, 'error');
+    });
+}
+
         const products = [
           'Camera Confidence Guide',
           'Decoder Atlas – Premium Access',
@@ -936,6 +983,11 @@
         list.innerHTML = `<div class="commission-empty">No commissions yet.</div>`;
         return;
       }
+// Show/hide reset button based on commissions count
+const resetBtn = document.getElementById('resetCommissionBtn');
+if (resetBtn) {
+  resetBtn.style.display = (commissions && commissions.length > 0) ? 'inline-block' : 'none';
+}
       const sorted = commissions.slice().sort((a, b) => {
         const dateA = a.createdAt?.toDate?.() || new Date(0);
         const dateB = b.createdAt?.toDate?.() || new Date(0);
