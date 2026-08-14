@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard — Cameras Decoded</title>
+  <meta name="description" content="Internal admin control center." />
+
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    /* ============================================================
+       HOMEPAGE STYLES (copied for consistency)
+    ============================================================ */
+    :root {
+      --space-sm: 16px; --space-md: 32px; --space-lg: 64px; --space-xl: 96px; --space-xxl: 140px;
+      --green: #8deb00; --green-dim: rgba(141,235,0,0.12); --green-glow: rgba(141,235,0,0.15);
+      --text-muted: #b4b4b4; --bg-panel: #0A0A0A; --border-dim: #1A1A1A; --gold: #e0b12d;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050705;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(141, 235, 0, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(141, 235, 0, 0.04) 0%, transparent 45%),
+        linear-gradient(rgba(141, 235, 0, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(141, 235, 0, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+      background-attachment: fixed;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      display: flex;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    #binary-rain { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; opacity: 0.1; }
+    #rain-fade { position: fixed; bottom: 0; left: 0; width: 100vw; height: 45vh; background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 60%, #000000 100%); pointer-events: none; z-index: 0; }
+
+    h1,h2,h3,.mono { font-family: 'Space Mono', monospace; }
+    a { text-decoration: none; color: inherit; transition: 0.2s; }
+
+    .sidebar { width: 240px; background: rgba(0,0,0,0.9); padding: var(--space-md) var(--space-md); border-right: 1px solid #1A1A1A; height: 100vh; position: sticky; top: 0; flex-shrink: 0; z-index: 2; }
+    .sidebar .logo img { display: block; height: 120px; width: auto; }
+    .sidebar .nav-item { display: flex; align-items: center; gap: 10px; padding: 12px 0; color: #b4b4b4; font-family: 'Space Mono', monospace; font-size: 13px; letter-spacing: 0.5px; border-bottom: 1px solid transparent; transition: all 0.2s; }
+    .sidebar .nav-item i { font-size: 15px; width: 20px; text-align: center; }
+    .sidebar .nav-item:hover, .sidebar .nav-item:hover i { color: #8deb00; transform: translateX(6px) scale(1.05); border-bottom: 1px solid #8deb00; }
+    .sidebar .nav-item.active, .sidebar .nav-item.active i { color: #8deb00; border-left: 2px solid #8deb00; padding-left: 10px; }
+    .sidebar-divider { border: none; border-top: 1px solid #1A1A1A; margin: 8px 0; }
+
+    .main-content { flex: 1; padding: 120px var(--space-lg) var(--space-lg) var(--space-lg); max-width: 1200px; position: relative; z-index: 2; }
+
+    .floating-header { position: fixed; top: 12px; left: 240px; right: 0; z-index: 99; display: flex; align-items: center; gap: 20px; padding: 10px 24px; background: rgba(0,0,0,0.25); backdrop-filter: blur(16px); border: 1px solid rgba(141,235,0,0.15); border-radius: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); font-family: 'Space Mono', monospace; font-size: 13px; color: #b4b4b4; margin: 0 12px; }
+    .floating-header a { color: #8deb00; }
+    .floating-header a:hover { color: #a0f520; }
+    .floating-home-icon { font-size: 17px; flex-shrink: 0; }
+    .floating-nav-links { display: flex; flex: 1; justify-content: center; gap: 25px; flex-wrap: wrap; align-items: center; }
+
+    @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+    @keyframes spinBorder { to { --angle: 360deg; } }
+    .chasing-border { position: relative; border-color: transparent !important; background-clip: padding-box; }
+    .chasing-border::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00); -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box; -webkit-mask-composite: xor; mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box; mask-composite: exclude; animation: spinBorder 4s linear infinite; pointer-events: none; z-index: 0; }
+
+    .cart-header-link { display: inline-flex; align-items: center; gap: 6px; background: transparent; border-radius: 20px; padding: 6px 14px; color: #8deb00; font-family: 'Space Mono', monospace; font-size: 13px; text-decoration: none; flex-shrink: 0; margin-left: auto; }
+    .cart-header-link:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 12px rgba(141,235,0,0.3); }
+    .cart-count-badge { background: #8deb00; color: #000; border-radius: 50%; padding: 1px 7px; font-size: 11px; font-weight: 700; display: inline-block; }
+
+    .floating-toggle { display: none; background: transparent; border: none; color: #8deb00; font-size: 24px; cursor: pointer; padding: 0 6px; flex-shrink: 0; margin-left: 8px; }
+    .floating-header .logout-btn { background: transparent; border: 1px solid #8deb00; border-radius: 20px; padding: 4px 12px; color: #8deb00; font-family: 'Space Mono', monospace; font-size: 12px; cursor: pointer; transition: 0.2s; margin-left: 12px; }
+    .floating-header .logout-btn:hover { background: rgba(141,235,0,0.1); }
+
+    .role-tier-badge { position: absolute; bottom: -24px; left: 16px; z-index: 101; background: rgba(10,10,10,0.85); backdrop-filter: blur(8px); border: 1px solid rgba(141,235,0,0.3); border-radius: 14px; padding: 2px 10px; font-family: 'Space Mono', monospace; font-size: 9px; color: #8deb00; letter-spacing: 0.5px; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,0.4); display: none; pointer-events: none; }
+    .role-tier-badge .glow-role { font-weight: 700; text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00; }
+
+    .header-login-btn { display: block; color: #8deb00; font-family: 'Space Mono', monospace; font-size: 12px; border: 1px solid #8deb00; padding: 0 10px 0 14px; border-radius: 20px; background: transparent; text-decoration: none; width: fit-content; }
+
+    .nav-group-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 10000; flex-direction: column; justify-content: center; align-items: center; gap: 12px; padding: 40px 20px; overflow-y: auto; }
+    .nav-group-overlay.open { display: flex !important; }
+    .nav-group-overlay .nav-item { font-size: 22px; padding: 12px 0; color: #ffffff; font-family: 'Space Mono', monospace; text-align: center; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); text-decoration: none; }
+    .nav-group-overlay .nav-item i { color: #8deb00; font-size: 18px; width: 28px; }
+    .nav-group-overlay .nav-item:hover { color: #8deb00; }
+    .nav-group-overlay .close-btn { position: fixed; top: 20px; right: 20px; color: #8deb00; font-size: 32px; cursor: pointer; background: transparent; border: none; padding: 8px; }
+    .sidebar .mobile-toggle { display: none; }
+    @media (min-width: 1025px) { .sidebar .nav-group { display: flex !important; flex-direction: column !important; } }
+
+    /* ===== ADMIN SPECIFIC ===== */
+    .admin-header {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+      margin-bottom: 24px; border-bottom: 1px solid var(--border-dim); padding-bottom: 16px;
+    }
+    .admin-header h1 { font-family: 'Space Mono', monospace; font-size: 26px; color: #fff; }
+    .admin-header h1 span { color: var(--green); }
+    .admin-header .badge { background: var(--green-dim); border: 1px solid rgba(141,235,0,0.2); border-radius: 20px; padding: 2px 16px; font-size: 11px; color: var(--green); font-family: 'Space Mono', monospace; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 30px; }
+    .stat-card { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 8px; padding: 18px 16px; text-align: center; }
+    .stat-card .number { font-size: 32px; font-weight: 700; color: var(--green); text-shadow: 0 0 20px rgba(141,235,0,0.15); }
+    .stat-card .label { font-size: 11px; color: var(--text-muted); font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .panel { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 10px; padding: 20px 24px; margin-bottom: 30px; }
+    .panel h3 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 16px; margin-bottom: 12px; }
+    .panel .sub { color: var(--text-muted); font-size: 13px; margin-bottom: 16px; }
+
+    .tool-usage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+    .tool-usage-item { display: flex; justify-content: space-between; padding: 6px 12px; background: rgba(255,255,255,0.02); border-radius: 4px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .tool-usage-item .tool-name { color: #fff; }
+    .tool-usage-item .tool-count { color: var(--green); font-family: 'Space Mono', monospace; font-weight: 700; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 8px; border-bottom: 2px solid var(--border-dim); color: var(--text-muted); font-family: 'Space Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    td .plan-badge { font-size: 10px; background: var(--green-dim); padding: 1px 8px; border-radius: 12px; color: var(--green); }
+    td .plan-badge.free { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .footer { border-top: 1px solid var(--border-dim); padding-top: 20px; margin-top: 40px; display: flex; flex-direction: column; gap: 15px; font-size: 12px; color: var(--text-muted); text-align: center; }
+    .footer .socials { display: flex; justify-content: center; gap: 20px; }
+    .footer .socials a { color: #ffffff; font-size: 18px; }
+    .footer .socials a:hover { color: var(--green); }
+    .footer .footer-links { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+    .footer .footer-links a { color: var(--green); }
+
+    #scrollTopBtn { position: fixed; bottom: 30px; right: 30px; visibility: hidden; opacity: 0; width: 45px; height: 45px; border-radius: 50%; border: 1px solid var(--green); background: rgba(0,0,0,0.85); color: var(--green); cursor: pointer; font-size: 18px; z-index: 999; font-family: 'Space Mono', monospace; transition: opacity 0.3s ease, visibility 0.3s ease; }
+    #scrollTopBtn.show { visibility: visible; opacity: 1; }
+    #scrollTopBtn:hover { background: var(--green); color: #000; }
+
+    .admin-error { text-align: center; padding: 60px 20px; color: #ff6b6b; }
+    .admin-error i { font-size: 48px; margin-bottom: 16px; }
+
+    @media (max-width: 1024px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border-dim); padding: 15px 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; flex-direction: row; }
+      .sidebar .logo img { height: 50px; }
+      .sidebar .nav-group { display: none !important; }
+      .sidebar .mobile-toggle { display: block !important; background: none; border: none; color: var(--green); font-size: 28px; }
+      .floating-toggle { display: block !important; }
+      .main-content { padding: 100px 20px 20px; }
+      .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .admin-header { flex-direction: column; align-items: stretch; gap: 8px; }
+    }
+    @media (min-width: 1025px) { .sidebar .mobile-toggle { display: none !important; } }
+  </style>
+</head>
+<body>
+
+  <canvas id="binary-rain"></canvas>
+  <div id="rain-fade"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></div>
+    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
+      <a href="login.html" class="header-login-btn">Log in</a>
+      <a href="signup.html" class="header-login-btn">Sign Up</a>
+    </div>
+    <div class="nav-group" id="navGroupDesktop">
+      <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
+      <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
+      <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
+      <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+      <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
+      <hr class="sidebar-divider">
+      <a href="operator-dashboard.html" class="nav-item"><i class="fas fa-chart-simple"></i> Dashboard</a>
+      <a href="admin-dashboard.html" class="nav-item active"><i class="fas fa-shield-alt"></i> Admin</a>
+      <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
+      <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
+      <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
+      <hr class="sidebar-divider">
+      <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
+      <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
+      <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
+      <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
+    </div>
+    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
+  </aside>
+
+  <!-- MOBILE OVERLAY -->
+  <div class="nav-group-overlay" id="navGroupOverlay">
+    <button class="close-btn" id="closeToggle">✕</button>
+    <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
+    <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
+    <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
+    <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+    <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
+    <hr class="sidebar-divider">
+    <a href="operator-dashboard.html" class="nav-item"><i class="fas fa-chart-simple"></i> Dashboard</a>
+    <a href="admin-dashboard.html" class="nav-item active"><i class="fas fa-shield-alt"></i> Admin</a>
+    <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
+    <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
+    <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
+    <hr class="sidebar-divider">
+    <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
+    <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
+    <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
+    <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
+  </div>
+
+  <!-- FLOATING HEADER -->
+  <div class="floating-header" id="floatingHeader">
+    <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
+    <div id="roleTierBadge" class="role-tier-badge"><span class="glow-role">Admin</span></div>
+    <div class="floating-nav-links">
+      <a href="operators.html">Operators</a>
+      <a href="partners.html">Partners</a>
+      <a href="educators-pdf-viewer.html">Instructors</a>
+    </div>
+    <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
+      <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
+      <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
+    </a>
+    <button class="logout-btn" id="floatingLogoutBtn" style="display:none;" onclick="handleLogout()">Logout</button>
+    <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content" id="mainContent">
+
+    <!-- Loading / Error State -->
+    <div id="loadingState" style="text-align:center; padding:80px 20px;">
+      <i class="fas fa-spinner fa-spin" style="font-size:32px; color:var(--green);"></i>
+      <p style="margin-top:16px; color:var(--text-muted);">Loading admin data…</p>
+    </div>
+
+    <div id="adminContent" style="display:none;">
+      <div class="admin-header">
+        <div>
+          <h1><i class="fas fa-shield-alt" style="color:var(--green);"></i> Admin <span>Console</span></h1>
+          <div style="font-size:13px; color:var(--text-muted);">Internal system overview & user management.</div>
+        </div>
+        <span class="badge"><i class="fas fa-lock"></i> Secure</span>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="number" id="statUsers">0</div><div class="label">Total Users</div></div>
+        <div class="stat-card"><div class="number" id="statPro">0</div><div class="label">Pro Users</div></div>
+        <div class="stat-card"><div class="number" id="statTodayUses">0</div><div class="label">AI Uses Today</div></div>
+        <div class="stat-card"><div class="number" id="statTotalUses">0</div><div class="label">Total AI Uses</div></div>
+        <div class="stat-card"><div class="number" id="statCommissions">$0</div><div class="label">Total Commissions</div></div>
+        <div class="stat-card"><div class="number" id="statReferrals">0</div><div class="label">Total Referrals</div></div>
+      </div>
+
+      <!-- AI Tool Breakdown -->
+      <div class="panel">
+        <h3><i class="fas fa-chart-pie" style="color:var(--green);"></i> AI Tool Usage Breakdown</h3>
+        <div class="tool-usage-grid" id="toolUsageGrid">
+          <div class="tool-usage-item"><span class="tool-name">Prompt Generator</span><span class="tool-count" id="usagePrompt">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Snapshot Card</span><span class="tool-count" id="usageSnapshot">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Content Ideas</span><span class="tool-count" id="usageIdeas">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Image Generator (Pro)</span><span class="tool-count" id="usageImage">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Photo Critique</span><span class="tool-count" id="usageCritique">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Learning Path</span><span class="tool-count" id="usagePath">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Challenges</span><span class="tool-count" id="usageChallenge">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Culling</span><span class="tool-count" id="usageCulling">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Style Transfer</span><span class="tool-count" id="usageStyle">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Upscaler</span><span class="tool-count" id="usageUpscale">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Proposals</span><span class="tool-count" id="usageProposal">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Shoot Planner</span><span class="tool-count" id="usagePlanner">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Portfolio Builder</span><span class="tool-count" id="usagePortfolio">0</span></div>
+          <div class="tool-usage-item"><span class="tool-name">Brand Identity</span><span class="tool-count" id="usageBrand">0</span></div>
+        </div>
+      </div>
+
+      <!-- User Table -->
+      <div class="panel">
+        <h3><i class="fas fa-users" style="color:var(--green);"></i> All Users</h3>
+        <div class="sub">Click any row to view raw data (opens Firestore console).</div>
+        <div class="table-wrap">
+          <table id="userTable">
+            <thead>
+              <tr>
+                <th>UID</th>
+                <th>Email / Name</th>
+                <th>Plan</th>
+                <th>Role</th>
+                <th>Confidence</th>
+                <th>Referrals</th>
+                <th>AI Uses</th>
+              </tr>
+            </thead>
+            <tbody id="userTableBody">
+              <tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No users loaded.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <div>© 2026 Cameras Decoded. All rights reserved.</div>
+      <div class="socials">
+        <a href="https://www.youtube.com/@CamerasDecoded"><i class="fab fa-youtube"></i></a>
+        <a href="https://www.tiktok.com/@cameras.decoded"><i class="fab fa-tiktok"></i></a>
+        <a href="https://www.instagram.com/camerasdecoded/reels/"><i class="fab fa-instagram"></i></a>
+        <a href="https://www.facebook.com/profile.php?id=61553594660326"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://camerasdecoded.substack.com"><i class="fas fa-bookmark"></i></a>
+      </div>
+      <div class="footer-links">
+        <a href="terms.html">Privacy/Terms</a>
+        <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
+      </div>
+    </footer>
+  </main>
+
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+
+  <script>
+    // ============================================================
+    // FIREBASE CONFIG
+    // ============================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ============================================================
+    // DOM REFS
+    // ============================================================
+    const loadingState = document.getElementById('loadingState');
+    const adminContent = document.getElementById('adminContent');
+    const userTableBody = document.getElementById('userTableBody');
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+    function cdToast(msg) { alert(msg); } // simple fallback
+
+    window.handleLogout = function() {
+      auth.signOut().then(() => {
+        localStorage.clear();
+        window.location.href = 'login.html';
+      });
+    };
+
+    // ============================================================
+    // CHECK ADMIN + LOAD DATA
+    // ============================================================
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        window.location.href = 'login.html?redirect=' + encodeURIComponent('admin-dashboard.html');
+        return;
+      }
+
+      try {
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (!doc.exists || doc.data().role !== 'admin') {
+          loadingState.innerHTML = `
+            <div class="admin-error">
+              <i class="fas fa-ban"></i>
+              <h2>Access Denied</h2>
+              <p>You do not have admin privileges.</p>
+              <a href="operator-dashboard.html" style="color:var(--green);">Return to Dashboard</a>
+            </div>
+          `;
+          return;
+        }
+
+        // Admin confirmed – load data
+        loadingState.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:32px; color:var(--green);"></i><p style="margin-top:16px;">Loading user data…</p>';
+        await loadAdminData();
+        loadingState.style.display = 'none';
+        adminContent.style.display = 'block';
+
+        // Show logout button
+        document.getElementById('floatingLogoutBtn').style.display = 'inline-block';
+
+        // Show role badge
+        document.getElementById('roleTierBadge').style.display = 'block';
+
+      } catch (err) {
+        loadingState.innerHTML = `
+          <div class="admin-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h2>Error</h2>
+            <p>${err.message}</p>
+          </div>
+        `;
+        console.error(err);
+      }
+    });
+
+    // ============================================================
+    // LOAD ADMIN DATA
+    // ============================================================
+    async function loadAdminData() {
+      // Fetch ALL users (admin-only read permission required)
+      const usersSnapshot = await db.collection('users').get();
+
+      const users = [];
+      let totalUsers = 0;
+      let proUsers = 0;
+      let totalAIUses = 0;
+      let todayAIUses = 0;
+      let totalReferrals = 0;
+      let totalCommissions = 0;
+
+      // Tool usage aggregator
+      const toolUsage = {
+        prompt: 0, snapshot: 0, ideas: 0, image: 0,
+        critique: 0, path: 0, challenge: 0, culling: 0,
+        style: 0, upscale: 0, proposal: 0, planner: 0,
+        portfolio: 0, brand: 0
+      };
+
+      const today = new Date().toDateString();
+
+      usersSnapshot.forEach(doc => {
+        const data = doc.data();
+        const uid = doc.id;
+        const ai = data.aiUsage || { total: 0 };
+        const plan = data.tier || 'free';
+
+        totalUsers++;
+        if (plan === 'pro') proUsers++;
+
+        const total = ai.total || 0;
+        totalAIUses += total;
+
+        // Today's usage (approximate – we use the per-tool counts and compare if aiLastReset is today)
+        // Since we don't have daily breakdowns per user, we approximate total today from aiLastReset.
+        // A more accurate way: store daily logs, but this is a good free approach.
+        if (data.aiLastReset) {
+          const resetDate = data.aiLastReset.toDate ? data.aiLastReset.toDate() : new Date(data.aiLastReset);
+          if (resetDate.toDateString() === today) {
+            todayAIUses += total; // they used all their current total today (since it resets daily)
+          }
+        }
+
+        // Tool-specific counts
+        Object.keys(toolUsage).forEach(key => {
+          if (ai[key]) toolUsage[key] += ai[key];
+        });
+
+        totalReferrals += (data.totalReferrals || 0);
+        totalCommissions += (data.totalCommissionEarned || 0);
+
+        // Store user for table
+        users.push({
+          uid,
+          email: data.email || '—',
+          name: data.name || '—',
+          plan: plan,
+          role: data.role || 'Operator',
+          confidence: data.confidence || '—',
+          referrals: data.totalReferrals || 0,
+          aiUses: total
+        });
+      });
+
+      // ---- Update Stats ----
+      document.getElementById('statUsers').textContent = totalUsers;
+      document.getElementById('statPro').textContent = proUsers;
+      document.getElementById('statTodayUses').textContent = todayAIUses;
+      document.getElementById('statTotalUses').textContent = totalAIUses;
+      document.getElementById('statCommissions').textContent = '$' + totalCommissions.toFixed(2);
+      document.getElementById('statReferrals').textContent = totalReferrals;
+
+      // ---- Update Tool Usage ----
+      Object.keys(toolUsage).forEach(key => {
+        const el = document.getElementById('usage' + key.charAt(0).toUpperCase() + key.slice(1));
+        if (el) el.textContent = toolUsage[key];
+      });
+
+      // ---- Render User Table ----
+      if (users.length === 0) {
+        userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No users found.</td></tr>';
+        return;
+      }
+
+      // Sort by AI uses (descending)
+      users.sort((a, b) => b.aiUses - a.aiUses);
+
+      userTableBody.innerHTML = users.map(u => `
+        <tr onclick="window.open('https://console.firebase.google.com/project/cameras-decoded/firestore/data/~2Fusers~2F${u.uid}', '_blank')" style="cursor:pointer;">
+          <td style="font-family:'Space Mono',monospace; font-size:11px; color:var(--text-muted);">${u.uid.substring(0,8)}…</td>
+          <td><strong>${u.name}</strong><br/><span style="font-size:11px; color:var(--text-muted);">${u.email}</span></td>
+          <td><span class="plan-badge ${u.plan === 'free' ? 'free' : ''}">${u.plan === 'pro' ? '⭐ Pro' : 'Free'}</span></td>
+          <td>${u.role}</td>
+          <td>${u.confidence}</td>
+          <td>${u.referrals}</td>
+          <td style="font-family:'Space Mono',monospace; color:var(--green);">${u.aiUses}</td>
+        </tr>
+      `).join('');
+
+      // ---- Fetch commissions for each user to get total if needed (already done above) ----
+      // The total commissions is already aggregated from the user document fields.
+    }
+
+    // ============================================================
+    // MOBILE MENU, SCROLL TOP, BINARY RAIN (copy-pasted from homepage)
+    // ============================================================
+    // Mobile menu
+    document.addEventListener('DOMContentLoaded', function() {
+      const mobileToggle = document.getElementById('mobileToggle');
+      const floatingToggle = document.getElementById('floatingToggle');
+      const closeToggle = document.getElementById('closeToggle');
+      const overlay = document.getElementById('navGroupOverlay');
+      function openMenu() { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
+      function closeMenu() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
+      if (mobileToggle) mobileToggle.addEventListener('click', (e) => { e.stopPropagation(); openMenu(); });
+      if (floatingToggle) floatingToggle.addEventListener('click', (e) => { e.stopPropagation(); openMenu(); });
+      if (closeToggle) closeToggle.addEventListener('click', (e) => { e.stopPropagation(); closeMenu(); });
+      if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMenu(); });
+    });
+
+    // Scroll top
+    window.onscroll = function() {
+      const btn = document.getElementById('scrollTopBtn');
+      if (!btn) return;
+      const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
+      if (show) { btn.classList.add('show'); } else { btn.classList.remove('show'); }
+    };
+
+    // Binary rain
+    (function() {
+      const canvas = document.getElementById('binary-rain');
+      const ctx = canvas.getContext('2d');
+      let width = window.innerWidth, height = window.innerHeight;
+      canvas.width = width; canvas.height = height;
+      const fontSize = 16, columns = Math.floor(width / fontSize);
+      const drops = Array(columns).fill(1), speed = 0.55;
+      let frameCount = 0;
+      function draw() {
+        frameCount++;
+        if (frameCount % 2 === 0) { requestAnimationFrame(draw); return; }
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = fontSize + 'px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < drops.length; i++) {
+          const char = Math.random() > 0.5 ? '1' : '0';
+          const x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
+          if (char === '1') { ctx.shadowColor = '#8deb00'; ctx.shadowBlur = 8; ctx.fillStyle = '#8deb00'; }
+          else { ctx.shadowColor = '#3a7a1a'; ctx.shadowBlur = 4; ctx.fillStyle = '#4caf50'; }
+          ctx.fillText(char, x, y);
+          if (char === '1' && Math.random() < 0.025) {
+            ctx.shadowBlur = 15; ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2); ctx.fill();
+          }
+          if (y > height && Math.random() > 0.97) { drops[i] = 0; }
+          drops[i] += speed;
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+      window.addEventListener('resize', () => {
+        width = window.innerWidth; height = window.innerHeight;
+        canvas.width = width; canvas.height = height;
+        const newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
+        else drops.length = newColumns;
+      });
+    })();
+
+    // Cart counter
+    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
+    function updateCartUI() {
+      const cart = getCart();
+      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+      const countEl = document.getElementById('cartHeaderCount');
+      const labelEl = document.getElementById('cartHeaderLabel');
+      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
+      if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
+    }
+    updateCartUI();
+  </script>
+</body>
+</html>
