@@ -807,20 +807,25 @@
 
     // Helper to record usage
     async function recordUsage(tool) {
-      if (!currentUser) return;
-      if (userPlan === 'free' && usage.total >= DAILY_LIMIT_FREE) {
-        alert('Daily limit reached. Upgrade to Pro for unlimited access.');
-        return;
-      }
-      usage[tool] = (usage[tool] || 0) + 1;
-      usage.total = (usage.total || 0) + 1;
-      await db.collection('users').doc(currentUser.uid).update({
-        [`aiUsage.${tool}`]: usage[tool],
-        'aiUsage.total': usage.total
-      });
-      updateUsageUI();
-      updateButtons();
-    }
+  if (!currentUser) return;
+  if (userPlan === 'free' && usage.total >= DAILY_LIMIT_FREE) {
+    alert('Daily limit reached. Upgrade to Pro for unlimited access.');
+    return;
+  }
+
+  // Increment the specific tool and total
+  usage[tool] = (usage[tool] || 0) + 1;
+  usage.total = (usage.total || 0) + 1;
+
+  // 🔥 SAFE UPDATE: This will create `aiUsage` if missing,
+  // and write ALL the counts (existing + new) without overwriting other user fields.
+  await db.collection('users').doc(currentUser.uid).set({
+    aiUsage: usage
+  }, { merge: true });
+
+  updateUsageUI();
+  updateButtons();
+}
 
     // --------------------------------------------------------------
     // SNAPSHOT CARD (existing logic, but now in a function)
