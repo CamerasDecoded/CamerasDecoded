@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Tools – Cameras Decoded</title>
+  <meta name="description" content="AI‑powered tools for operators – prompt generation, snapshot cards, content ideas, and image generation." />
+
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Firebase v9 compat -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    /* ============================================================
+       HOMEPAGE STYLES (copied verbatim from index.html)
+       ============================================================ */
+    :root {
+      --space-sm: 16px;
+      --space-md: 32px;
+      --space-lg: 64px;
+      --space-xl: 96px;
+      --space-xxl: 140px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050705;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(141, 235, 0, 0.12) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(141, 235, 0, 0.08) 0%, transparent 45%),
+        linear-gradient(rgba(141, 235, 0, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(141, 235, 0, 0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+      background-attachment: fixed;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    #binary-rain {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      z-index: 0; pointer-events: none; opacity: 0.2; will-change: transform;
+    }
+    #rain-fade {
+      position: fixed; bottom: 0; left: 0; width: 100vw; height: 45vh;
+      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 60%, #000000 100%);
+      pointer-events: none; z-index: 0;
+    }
+
+    h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
+    .green-text { color: #8deb00; }
+    .grey-text { color: #b4b4b4; }
+    a { text-decoration: none; color: inherit; transition: 0.2s; }
+
+    .sidebar {
+      width: 240px; background: rgba(0,0,0,0.9); padding: var(--space-md) var(--space-md);
+      border-right: 1px solid #1A1A1A; height: 100vh; position: sticky; top: 0; flex-shrink: 0; z-index: 2;
+    }
+    .sidebar .logo img { display: block; height: 120px; width: auto; }
+    .sidebar .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 12px 0;
+      color: #b4b4b4; font-family: 'Space Mono', monospace; font-size: 13px;
+      letter-spacing: 0.5px; border-bottom: 1px solid transparent; transition: all 0.2s;
+    }
+    .sidebar .nav-item i { font-size: 15px; width: 20px; text-align: center; transition: color 0.2s; color: inherit; }
+    .sidebar .nav-item:hover,
+    .sidebar .nav-item:hover i {
+      color: #8deb00; transform: translateX(6px) scale(1.05);
+      text-shadow: 0 0 12px rgba(141, 235, 0, 0.6); border-bottom: 1px solid #8deb00;
+    }
+    .sidebar .nav-item.active,
+    .sidebar .nav-item.active i {
+      color: #8deb00; border-left: 2px solid #8deb00; padding-left: 10px;
+      text-shadow: 0 0 12px rgba(141, 235, 0, 0.6);
+    }
+    .sidebar-divider { border: none; border-top: 1px solid #1A1A1A; margin: 8px 0; }
+
+    .main-content {
+      flex: 1; padding: 120px var(--space-lg) var(--space-lg) var(--space-lg);
+      max-width: 1200px; position: relative; z-index: 2;
+    }
+
+    .floating-header {
+      position: fixed; top: 12px; left: 240px; right: 0; z-index: 99;
+      display: flex; align-items: center; gap: 20px; padding: 10px 24px;
+      background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(141, 235, 0, 0.15); border-radius: 30px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      font-family: 'Space Mono', monospace; font-size: 13px; color: #b4b4b4;
+      margin: 0 12px;
+    }
+    .floating-header a { color: #8deb00; transition: color 0.2s; }
+    .floating-header a:hover { color: #a0f520; }
+    .floating-home-icon { font-size: 17px; flex-shrink: 0; }
+    .floating-nav-links { display: flex; flex: 1; justify-content: center; gap: 25px; flex-wrap: wrap; align-items: center; }
+
+    @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+    @keyframes spinBorder { to { --angle: 360deg; } }
+    .chasing-border { position: relative; border-color: transparent !important; background-clip: padding-box; }
+    .chasing-border::before {
+      content: ''; position: absolute; inset: -1px; border-radius: inherit; padding: 1px;
+      background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
+      -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      -webkit-mask-composite: xor; mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      mask-composite: exclude; animation: spinBorder 4s linear infinite;
+      pointer-events: none; z-index: 0; will-change: transform;
+    }
+    .chasing-border > *, .chasing-border i, .chasing-border span, .chasing-border a { position: relative; z-index: 1; }
+
+    .cart-header-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: transparent; border-radius: 20px; padding: 6px 14px;
+      color: #8deb00; font-family: 'Space Mono', monospace; font-size: 13px;
+      transition: 0.2s; text-decoration: none; flex-shrink: 0; margin-left: auto;
+    }
+    .cart-header-link:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 12px rgba(141, 235, 0, 0.3); }
+    .cart-count-badge { background: #8deb00; color: #000; border-radius: 50%; padding: 1px 7px; font-size: 11px; font-weight: 700; display: inline-block; }
+
+    .floating-toggle {
+      display: none; background: transparent; border: none; color: #8deb00; font-size: 24px;
+      cursor: pointer; padding: 0 6px; flex-shrink: 0; margin-left: 8px; transition: color 0.2s;
+    }
+    .floating-toggle:hover { color: #a0f520; }
+
+    .floating-header .logout-btn {
+      background: transparent; border: 1px solid #8deb00; border-radius: 20px;
+      padding: 4px 12px; color: #8deb00; font-family: 'Space Mono', monospace;
+      font-size: 12px; cursor: pointer; transition: 0.2s; margin-left: 12px;
+    }
+    .floating-header .logout-btn:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 12px rgba(141, 235, 0, 0.2); }
+
+    .role-tier-badge {
+      position: absolute;
+      bottom: -24px;
+      left: 16px;
+      z-index: 101;
+      background: rgba(10, 10, 10, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(141, 235, 0, 0.3);
+      border-radius: 14px;
+      padding: 2px 10px;
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      color: #8deb00;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+      display: none;
+      pointer-events: none;
+    }
+    .role-tier-badge .glow-role { font-weight: 700; text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00; }
+    .role-tier-badge .tier-text { opacity: 0.8; }
+
+    /* ============================================================
+       PAGE HEADER (replaces hero/typewriter)
+       ============================================================ */
+    .page-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px 24px;
+      margin-bottom: var(--space-md);
+      padding-bottom: 20px;
+      border-bottom: 1px solid #1A1A1A;
+    }
+    .page-header-left h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .page-header-left h1 span { color: #8deb00; }
+    .page-header-left .subtitle {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 15px;
+      margin-top: 2px;
+    }
+    .page-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+    .btn-onboarding {
+      display: inline-flex; align-items: center; gap: 10px; padding: 6px 16px 6px 20px;
+      background: transparent; border: 1px solid rgba(141, 235, 0, 0.3); border-radius: 30px;
+      color: #8deb00; font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 400;
+      text-decoration: none; transition: all 0.3s ease; letter-spacing: 0.5px; backdrop-filter: blur(4px);
+    }
+    .btn-onboarding i { font-size: 12px; transition: transform 0.3s ease; opacity: 0.7; }
+    .btn-onboarding:hover { border-color: #8deb00; background: rgba(141, 235, 0, 0.08); box-shadow: 0 0 30px rgba(141, 235, 0, 0.15); gap: 14px; }
+    .btn-onboarding:hover i { transform: translateX(4px); opacity: 1; }
+
+    .ticker {
+      background: #0F0F0F; border: 1px solid #1A1A1A; padding: 18px 30px;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: var(--space-xxl); flex-wrap: wrap; gap: 14px; border-radius: 8px;
+    }
+    .ticker .left { font-family: 'Space Mono', monospace; font-size: 13px; color: #8deb00; }
+    .ticker .left span { color: #b4b4b4; }
+    .ticker .right { font-size: 12px; color: #b4b4b4; }
+
+    .section-header {
+      margin-bottom: 32px;
+      border-bottom: 1px solid #1A1A1A;
+      padding-bottom: 16px;
+    }
+    .section-header h2 {
+      font-family: 'Space Mono', monospace;
+      font-size: 20px;
+      color: #8deb00;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+    .section-header p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    /* ============================================================
+       AI TOOLS GRID
+       ============================================================ */
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      margin-top: 8px;
+    }
+    .tool-card {
+      border: 1px solid #1A1A1A;
+      border-radius: 8px;
+      padding: 28px 24px;
+      background: #0A0A0A;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+    .tool-card:hover {
+      border-color: #8deb00;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      transform: translateY(-2px);
+    }
+    .tool-card .icon {
+      font-size: 32px;
+      color: #8deb00;
+      margin-bottom: 12px;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(141, 235, 0, 0.08);
+      border-radius: 12px;
+      border: 1px solid rgba(141, 235, 0, 0.15);
+    }
+    .tool-card h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #ffffff;
+    }
+    .tool-card .badge-pro {
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      font-weight: 700;
+      background: rgba(141, 235, 0, 0.12);
+      color: #8deb00;
+      padding: 2px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(141, 235, 0, 0.15);
+      display: inline-block;
+      margin-left: 8px;
+      vertical-align: middle;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tool-card p {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 6px 0 18px;
+      flex: 1;
+    }
+    .tool-card .btn-launch {
+      width: 100%;
+      padding: 12px;
+      text-align: center;
+      background: transparent;
+      border-radius: 8px;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      border: 1px solid #8deb00;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-top: auto;
+    }
+    .tool-card .btn-launch:hover:not(:disabled) {
+      background: rgba(141, 235, 0, 0.05);
+      box-shadow: 0 0 15px rgba(141,235,0,0.3);
+    }
+    .tool-card .btn-launch:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .tool-card .btn-launch.pro {
+      border-color: #8deb00;
+      color: #8deb00;
+    }
+
+    .cynetis-message {
+      background: #0A0A0A;
+      border-left: 4px solid #8deb00;
+      padding: 14px 20px;
+      border-radius: 10px;
+      margin-bottom: var(--space-md);
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.6);
+      border: 1px solid #1A1A1A;
+      border-left-width: 4px;
+    }
+    .cynetis-message .avatar-icon {
+      font-size: 26px;
+      color: #8deb00;
+      flex-shrink: 0;
+      margin-top: 2px;
+      width: 32px;
+      text-align: center;
+    }
+    .cynetis-message strong {
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .usage-badge {
+      background: #0A0A0A;
+      padding: 8px 18px;
+      border-radius: 40px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      border: 1px solid #1A1A1A;
+      color: rgba(255, 255, 255, 0.6);
+      display: inline-block;
+      margin-bottom: var(--space-md);
+    }
+    .usage-badge span { color: #8deb00; font-weight: 700; }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-panel {
+      position: relative;
+      background: rgba(15, 15, 15, 0.92);
+      backdrop-filter: blur(6px);
+      border: 3px solid transparent;
+      border-radius: 24px;
+      max-width: 640px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 32px 30px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+    }
+    .modal-panel::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 24px;
+      background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
+      mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      mask-composite: exclude;
+      -webkit-mask-composite: xor;
+      animation: spinBorder 4s linear infinite;
+      pointer-events: none;
+      z-index: -1;
+    }
+    .modal-panel .close-btn {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      background: none;
+      border: none;
+      color: #b4b4b4;
+      font-size: 28px;
+      cursor: pointer;
+      transition: color 0.2s;
+      line-height: 1;
+    }
+    .modal-panel .close-btn:hover { color: #ffffff; }
+    .modal-panel h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #ffffff;
+    }
+    .modal-panel h2 i { color: #8deb00; }
+    .modal-panel .sub {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .modal-panel .result-box {
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-top: 16px;
+      border: 1px solid #1A1A1A;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 14px;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.6);
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+    .modal-panel .result-box img {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-top: 6px;
+    }
+    .error-msg {
+      color: #ff6b6b;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    .upgrade-prompt {
+      background: rgba(224, 177, 45, 0.08);
+      padding: 16px 20px;
+      border-radius: 12px;
+      margin: 16px 0 0;
+      border: 1px solid rgba(224, 177, 45, 0.2);
+      text-align: center;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+    }
+    .upgrade-prompt a {
+      color: #e0b12d;
+      font-weight: 700;
+      text-decoration: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+    }
+    .upgrade-prompt a:hover { text-decoration: underline; }
+    .copy-btn {
+      background: #0A0A0A;
+      border: 1px solid #1A1A1A;
+      color: rgba(255, 255, 255, 0.6);
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 12px;
+      display: none;
+    }
+    .copy-btn:hover {
+      border-color: #8deb00;
+      color: #ffffff;
+    }
+
+    .btn-neon-block {
+      display: inline-block;
+      width: 100%;
+      max-width: 350px;
+      padding: 12px;
+      text-align: center;
+      margin: 10px auto 0;
+      background: transparent;
+      border-radius: 8px;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      transition: 0.2s;
+      position: relative;
+      z-index: 2;
+      border: 1px solid #8deb00;
+      cursor: pointer;
+    }
+    .btn-neon-block:hover {
+      background: rgba(141, 235, 0, 0.05);
+      box-shadow: 0 0 15px rgba(141,235,0,0.3);
+    }
+    .btn-neon-block:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .input-group {
+      margin-bottom: 18px;
+    }
+    .input-group label {
+      display: block;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.6);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .input-group input,
+    .input-group select,
+    .input-group textarea {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid #1A1A1A;
+      border-radius: 10px;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+    }
+    .input-group input:focus,
+    .input-group select:focus,
+    .input-group textarea:focus {
+      border-color: rgba(141, 235, 0, 0.3);
+      box-shadow: 0 0 30px rgba(141, 235, 0, 0.03);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .footer {
+      border-top: 1px solid #1A1A1A; padding-top: var(--space-lg); margin-top: var(--space-xxl);
+      display: flex; flex-direction: column; gap: 20px; font-size: 12px; color: #b4b4b4; text-align: center;
+    }
+    .footer .socials { display: flex; justify-content: center; gap: 24px; }
+    .footer .socials a { color: #ffffff !important; font-size: 20px; transition: 0.2s; }
+    .footer .socials a:hover { color: #8deb00 !important; }
+    .footer .footer-links { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; }
+    .footer .footer-links a { color: #8deb00 !important; }
+    .footer .footer-links a:hover { color: #a0f520 !important; }
+
+    .reveal-on-scroll {
+      opacity: 0; transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1), transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+      transform: translateY(50px);
+    }
+    .reveal-on-scroll.revealed { opacity: 1; transform: translateY(0) scale(1); }
+    .reveal-left { transform: translateX(-60px); }
+    .reveal-left.revealed { transform: translateX(0); }
+    .reveal-right { transform: translateX(60px); }
+    .reveal-right.revealed { transform: translateX(0); }
+    .reveal-scale { transform: scale(0.92); }
+    .reveal-scale.revealed { transform: scale(1); }
+    .reveal-delay-1 { transition-delay: 0.08s; }
+    .reveal-delay-2 { transition-delay: 0.16s; }
+    .reveal-delay-3 { transition-delay: 0.24s; }
+    .reveal-delay-4 { transition-delay: 0.32s; }
+
+    .header-login-btn {
+      display: block; color: #8deb00; font-family: 'Space Mono', monospace; font-size: 12px;
+      border: 1px solid #8deb00; padding: 0 10px 0 14px; border-radius: 20px;
+      background: transparent; transition: 0.2s; text-decoration: none; text-align: center; width: fit-content;
+    }
+    .header-login-btn:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 15px rgba(141, 235, 0, 0.3); }
+
+    .nav-group-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.85); z-index: 10000; flex-direction: column;
+      justify-content: center; align-items: center; gap: 12px; padding: 40px 20px; overflow-y: auto;
+    }
+    .nav-group-overlay.open { display: flex !important; }
+    .nav-group-overlay .nav-item {
+      font-size: 22px; padding: 12px 0; color: #ffffff; font-family: 'Space Mono', monospace;
+      letter-spacing: 0.5px; width: 100%; max-width: 360px; text-align: center;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06); text-decoration: none; transition: color 0.2s;
+    }
+    .nav-group-overlay .nav-item i { color: #8deb00; font-size: 18px; width: 28px; }
+    .nav-group-overlay .nav-item:hover { color: #8deb00; }
+    .nav-group-overlay .close-btn {
+      position: fixed; top: 20px; right: 20px; color: #8deb00; font-size: 32px;
+      cursor: pointer; background: transparent; border: none; padding: 8px; z-index: 10001;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .sidebar .mobile-toggle { display: none; }
+    @media (min-width: 1025px) {
+      .sidebar .nav-group { display: flex !important; flex-direction: column !important; }
+    }
+
+    @media (max-width: 1024px) {
+      body { flex-direction: column; }
+      .sidebar {
+        width: 100%; height: auto; position: static; border-right: none;
+        border-bottom: 1px solid #1A1A1A; padding: 15px 20px;
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; flex-direction: row;
+      }
+      .sidebar .logo { margin: 0; }
+      .sidebar .logo img { height: 50px; width: auto; margin: 0; }
+      .sidebar .nav-group { display: none !important; }
+      .sidebar .mobile-toggle {
+        display: block !important; background: transparent; border: none; color: #8deb00;
+        font-size: 28px; cursor: pointer; padding: 4px 8px; z-index: 101;
+      }
+      .floating-toggle { display: block !important; }
+      .main-content { padding: 100px 20px 20px 20px; }
+      .ticker { flex-direction: column; align-items: flex-start; }
+      .floating-header {
+        left: 10px !important; right: 10px !important; width: auto !important;
+        top: 70px; padding: 8px 18px; border-radius: 25px; gap: 10px; margin: 0;
+      }
+      .floating-nav-links { gap: 12px; }
+      #cartHeaderLabel { display: none; }
+      .role-tier-badge { font-size: 8px; padding: 1px 8px; }
+      .page-header { flex-direction: column; align-items: stretch; gap: 12px; }
+      .page-header-left h1 { font-size: 26px; }
+      .page-header-actions { justify-content: flex-start; }
+      .tool-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 500px) {
+      .tool-grid { grid-template-columns: 1fr; }
+    }
+
+    #scrollTopBtn {
+      position: fixed; bottom: 30px; right: 30px; visibility: hidden; opacity: 0;
+      width: 45px; height: 45px; border-radius: 50%; border: 1px solid #8deb00;
+      background: rgba(0, 0, 0, 0.85); color: #8deb00; cursor: pointer; font-size: 18px;
+      z-index: 999; font-family: 'Space Mono', monospace; transition: opacity 0.3s ease, visibility 0.3s ease;
+      box-shadow: 0 0 10px rgba(141, 235, 0, 0.2);
+    }
+    #scrollTopBtn.show { visibility: visible; opacity: 1; }
+    #scrollTopBtn:hover { background: #8deb00; color: #000000; box-shadow: 0 0 20px rgba(141, 235, 0, 0.6); transform: translateY(-2px); }
+    @keyframes pulse {
+      0%   { transform: scale(1);   box-shadow: 0 0 10px rgba(141, 235, 0, 0.2); }
+      50%  { transform: scale(1.15); box-shadow: 0 0 25px rgba(141, 235, 0, 0.5); }
+      100% { transform: scale(1);   box-shadow: 0 0 10px rgba(141, 235, 0, 0.2); }
+    }
+    #scrollTopBtn.pulse { animation: pulse 1.2s ease-in-out infinite; }
+
+    .main-content { animation: fadeIn 0.5s ease-in-out forwards; }
+    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+  <canvas id="binary-rain"></canvas>
+  <div id="rain-fade"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></div>
+    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
+      <a href="login.html" class="header-login-btn">Log in</a>
+      <a href="signup.html" class="header-login-btn">Sign Up</a>
+    </div>
+    <div class="nav-group" id="navGroupDesktop">
+      <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
+      <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
+      <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
+      <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+      <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
+      <hr class="sidebar-divider">
+      <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
+      <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
+      <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
+      <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
+      <hr class="sidebar-divider">
+      <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
+      <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
+      <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
+      <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
+    </div>
+    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
+  </aside>
+
+  <!-- MOBILE OVERLAY -->
+  <div class="nav-group-overlay" id="navGroupOverlay">
+    <button class="close-btn" id="closeToggle">✕</button>
+    <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
+    <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
+    <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
+    <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+    <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
+    <hr class="sidebar-divider">
+    <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
+    <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
+    <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
+    <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
+    <hr class="sidebar-divider">
+    <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
+    <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
+    <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
+    <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
+    <div id="mobileDashboardContainer"></div>
+  </div>
+
+  <!-- FLOATING HEADER -->
+  <div class="floating-header" id="floatingHeader">
+    <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
+    <div id="roleTierBadge" class="role-tier-badge">
+      <span id="roleTierText">
+        <span class="glow-role">Operator</span> · <span class="tier-text">Free</span>
+      </span>
+    </div>
+    <div class="floating-nav-links">
+      <a href="operators.html" target="_blank">Operators</a>
+      <a href="partners.html">Partners</a>
+      <a href="educators-pdf-viewer.html">Instructors</a>
+    </div>
+    <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
+      <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
+      <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
+    </a>
+    <button class="logout-btn" id="floatingLogoutBtn" style="display:none;" onclick="handleLogout()">Logout</button>
+    <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- ============================================================
+         PAGE HEADER (replaces hero & typewriter)
+         ============================================================ -->
+    <div class="page-header reveal-on-scroll">
+      <div class="page-header-left">
+        <h1>AI <span>Tools</span></h1>
+        <div class="subtitle">Accelerate your learning and business with AI‑powered utilities.</div>
+      </div>
+      <div class="page-header-actions">
+        <a href="onboarding.html" class="btn-onboarding">
+          <span>Daily Protocol</span>
+          <i class="fas fa-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- TICKER -->
+    <div class="ticker reveal-on-scroll reveal-right">
+      <div class="left">✦ // LATEST TRANSMISSION — Protocol 8 - Why Your Indoor Photos Look Yellow</div>
+      <div class="right"><a href="https://open.substack.com/pub/camerasdecoded" target="_blank">Read on Substack →</a></div>
+    </div>
+
+    <!-- ============================================================
+         AI TOOLS SECTION
+         ============================================================ -->
+    <section class="reveal-on-scroll reveal-left">
+      <div class="section-header">
+        <h2>AI Workbench</h2>
+        <p>Four tools to sharpen your operator edge.</p>
+      </div>
+
+      <!-- Usage badge & Cynetis message -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin: 16px 0 24px;">
+        <div class="usage-badge">
+          <i class="fas fa-bolt" style="color:#8deb00; margin-right:6px;"></i>
+          Used <span id="usageCount">0</span> / <span id="usageLimit">5</span> today
+        </div>
+        <div class="cynetis-message" id="cynetisMessage" style="margin-bottom: 0; flex:1; min-width: 200px;">
+          <div class="avatar-icon"><i class="fas fa-robot"></i></div>
+          <div>
+            <strong>Cynetis‑7:</strong>
+            <span id="cynetisText">Select a tool to accelerate your journey.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tool Grid -->
+      <div class="tool-grid" id="toolGrid">
+        <!-- 1. Prompt Generator -->
+        <div class="tool-card" data-tool="prompt">
+          <div class="icon"><i class="fas fa-wand-magic-sparkles"></i></div>
+          <h3>Prompt Generator</h3>
+          <p>Build structured prompts for AI image/video models like Firefly or Midjourney.</p>
+          <button class="btn-launch" data-tool="prompt">Launch</button>
+        </div>
+
+        <!-- 2. Snapshot Card AI -->
+        <div class="tool-card" data-tool="snapshot">
+          <div class="icon"><i class="fas fa-camera"></i></div>
+          <h3>Snapshot Card AI</h3>
+          <p>Generate a Snapshot Card with key points, examples, and a catchy title instantly.</p>
+          <button class="btn-launch" data-tool="snapshot">Launch</button>
+        </div>
+
+        <!-- 3. Content Idea Engine -->
+        <div class="tool-card" data-tool="ideas">
+          <div class="icon"><i class="fas fa-lightbulb"></i></div>
+          <h3>Content Idea Engine</h3>
+          <p>Get 5 tailored blog, video, or social post ideas based on your learning level.</p>
+          <button class="btn-launch" data-tool="ideas">Launch</button>
+        </div>
+
+        <!-- 4. Image Generator (Pro) -->
+        <div class="tool-card" data-tool="image">
+          <div class="icon"><i class="fas fa-palette"></i></div>
+          <h3>Image Generator <span class="badge-pro">Pro</span></h3>
+          <p>Generate custom images from text prompts using advanced AI (Stable Diffusion).</p>
+          <button class="btn-launch pro" data-tool="image">Launch</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer reveal-on-scroll">
+      <div>© 2026 Cameras Decoded. All rights reserved.</div>
+      <div class="socials">
+        <a href="https://www.youtube.com/@CamerasDecoded"><i class="fab fa-youtube"></i></a>
+        <a href="https://www.tiktok.com/@cameras.decoded"><i class="fab fa-tiktok"></i></a>
+        <a href="https://www.instagram.com/camerasdecoded/reels/"><i class="fab fa-instagram"></i></a>
+        <a href="https://www.facebook.com/profile.php?id=61553594660326"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://camerasdecoded.substack.com"><i class="fas fa-bookmark"></i></a>
+        <a href="https://podcasts.apple.com/us/podcast/cameras-decoded/idYOURID" target="_blank"><i class="fas fa-podcast"></i></a>
+      </div>
+      <div>© Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
+      <div class="footer-links" style="margin-bottom: 10px;">
+        <a href="roadmap.html">Roadmap</a> · 
+        <a href="blog-updates.html">Blog/Updates</a> · 
+        <a href="faq.html">FAQ</a> · 
+        <a href="contact.html">Contact</a> · 
+        <a href="podcast.html">Podcast</a>
+      </div>
+      <div class="footer-links">
+        <a href="terms.html">Privacy/Terms</a>
+        <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
+      </div>
+    </footer>
+  </main>
+
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+
+  <!-- ============================================================
+       JAVASCRIPT
+       ============================================================ -->
+
+  <!-- Binary Rain -->
+  <script>
+    (function() {
+      const canvas = document.getElementById('binary-rain');
+      const ctx = canvas.getContext('2d');
+      let width = window.innerWidth, height = window.innerHeight;
+      canvas.width = width; canvas.height = height;
+      const fontSize = 16, columns = Math.floor(width / fontSize);
+      const drops = Array(columns).fill(1), speed = 0.55;
+      let frameCount = 0;
+      function draw() {
+        frameCount++;
+        if (frameCount % 2 === 0) { requestAnimationFrame(draw); return; }
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = fontSize + 'px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < drops.length; i++) {
+          const char = Math.random() > 0.5 ? '1' : '0';
+          const x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
+          if (char === '1') { ctx.shadowColor = '#8deb00'; ctx.shadowBlur = 8; ctx.fillStyle = '#8deb00'; }
+          else { ctx.shadowColor = '#3a7a1a'; ctx.shadowBlur = 4; ctx.fillStyle = '#4caf50'; }
+          ctx.fillText(char, x, y);
+          if (char === '1' && Math.random() < 0.025) {
+            ctx.shadowBlur = 15; ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+          }
+          if (y > height && Math.random() > 0.97) { drops[i] = 0; }
+          drops[i] += speed;
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+      window.addEventListener('resize', () => {
+        width = window.innerWidth; height = window.innerHeight;
+        canvas.width = width; canvas.height = height;
+        const newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
+        else drops.length = newColumns;
+      });
+    })();
+  </script>
+
+  <!-- Mobile Menu, Scroll Top, Scroll Reveal -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const mobileToggle = document.getElementById('mobileToggle');
+      const floatingToggle = document.getElementById('floatingToggle');
+      const closeToggle = document.getElementById('closeToggle');
+      const overlay = document.getElementById('navGroupOverlay');
+      function openMenu() { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
+      function closeMenu() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
+      if (mobileToggle) mobileToggle.addEventListener('click', (e) => { e.stopPropagation(); openMenu(); });
+      if (floatingToggle) floatingToggle.addEventListener('click', (e) => { e.stopPropagation(); openMenu(); });
+      if (closeToggle) closeToggle.addEventListener('click', (e) => { e.stopPropagation(); closeMenu(); });
+      if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMenu(); });
+    });
+
+    window.onscroll = function() {
+      const btn = document.getElementById('scrollTopBtn');
+      if (!btn) return;
+      const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
+      if (show) { btn.classList.add('show'); requestAnimationFrame(() => btn.classList.add('pulse')); }
+      else { btn.classList.remove('show', 'pulse'); }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const revealEls = document.querySelectorAll('.reveal-on-scroll, .reveal-left, .reveal-right, .reveal-scale');
+      const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('revealed'); });
+      }, { threshold: 0.12, rootMargin: '0px 0px -20px 0px' });
+      revealEls.forEach(el => revealObserver.observe(el));
+    });
+  </script>
+
+  <!-- ============================================================
+       FIREBASE AUTH + AI TOOLS LOGIC
+       ============================================================ -->
+  <script>
+    // Firebase Config (replace with your own)
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
+    const mobileContainer = document.getElementById('mobileDashboardContainer');
+    const sidebarAuthContainer = document.querySelector('.sidebar div[style*="flex; gap:10px"]');
+    const roleTierBadge = document.getElementById('roleTierBadge');
+    const roleTierText = document.getElementById('roleTierText');
+    const floatingLogout = document.getElementById('floatingLogoutBtn');
+
+    function removeDashboardLink() {
+      const existingDesktop = document.getElementById('dynamic-dashboard-node');
+      if (existingDesktop) existingDesktop.remove();
+      const existingMobile = document.getElementById('mobile-dashboard-node');
+      if (existingMobile) existingMobile.remove();
+    }
+
+    function insertDashboardLink(dashboardUrl) {
+      if (homeNav && homeNav.parentNode) {
+        const existing = document.getElementById('dynamic-dashboard-node');
+        if (existing) existing.remove();
+        const dashLink = document.createElement('a');
+        dashLink.id = 'dynamic-dashboard-node';
+        dashLink.className = 'nav-item';
+        dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
+        dashLink.href = dashboardUrl;
+        homeNav.parentNode.insertBefore(dashLink, homeNav);
+      }
+      if (mobileContainer) {
+        const existing = document.getElementById('mobile-dashboard-node');
+        if (existing) existing.remove();
+        const dashLink = document.createElement('a');
+        dashLink.id = 'mobile-dashboard-node';
+        dashLink.className = 'nav-item dashboard-link';
+        dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
+        dashLink.href = dashboardUrl;
+        mobileContainer.appendChild(dashLink);
+      }
+    }
+
+    function updateAuthUI(isLoggedIn, roleText = 'Operator', tierText = 'Free') {
+      if (sidebarAuthContainer) {
+        sidebarAuthContainer.innerHTML = isLoggedIn
+          ? '<a href="#" class="header-login-btn" onclick="handleLogout()">Logout</a>'
+          : '<a href="login.html" class="header-login-btn">Log in</a><a href="signup.html" class="header-login-btn">Sign Up</a>';
+      }
+      if (floatingLogout) {
+        floatingLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
+      }
+      if (roleTierBadge && roleTierText) {
+        if (isLoggedIn) {
+          roleTierText.innerHTML = '<span class="glow-role">' + roleText + '</span> · <span class="tier-text">' + tierText + '</span>';
+          roleTierBadge.style.display = 'block';
+        } else {
+          roleTierBadge.style.display = 'none';
+        }
+      }
+    }
+
+    window.handleLogout = function() {
+      if (typeof auth !== 'undefined' && auth) {
+        auth.signOut().then(() => {
+          localStorage.removeItem('cameras_decoded_uid');
+          localStorage.removeItem('cameras_decoded_user');
+          window.location.href = 'ai-tools.html';
+        }).catch(() => {
+          localStorage.clear();
+          window.location.href = 'ai-tools.html';
+        });
+      } else {
+        localStorage.clear();
+        window.location.href = 'ai-tools.html';
+      }
+    };
+
+    let currentUser = null;
+    let userPlan = 'free';
+
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        currentUser = user;
+        localStorage.setItem('cameras_decoded_uid', user.uid);
+
+        document.querySelectorAll('a[href*="settings.camerasdecoded.com"]').forEach(link => {
+          if (!link.href.includes('opToken=') && !link.href.includes('?uid=') && !link.href.includes('&uid=')) {
+            const sep = link.href.includes('?') ? '&' : '?';
+            link.href = link.href + sep + 'opToken=' + user.uid;
+          }
+        });
+
+        if (typeof db !== 'undefined' && db) {
+          db.collection('users').doc(user.uid).get().then((doc) => {
+            let role = 'Operator';
+            let tierLabel = 'Free';
+            let dashboardUrl = 'operator-dashboard.html';
+            if (doc.exists) {
+              const data = doc.data();
+              role = data.role || 'Operator';
+              const tier = data.tier || 'free';
+              if (tier === 'free') tierLabel = 'Free';
+              else if (tier === 'pro') {
+                const interval = data.billingInterval || 'monthly';
+                if (interval === 'weekly') tierLabel = 'Pro Weekly';
+                else if (interval === 'annual') tierLabel = 'Pro Annual';
+                else tierLabel = 'Pro Monthly';
+              }
+              if (role === 'Instructor') dashboardUrl = 'instructor-dashboard.html';
+              else if (role === 'Partner') dashboardUrl = 'partner-dashboard.html';
+            }
+            updateAuthUI(true, role, tierLabel);
+            insertDashboardLink(dashboardUrl);
+            loadAIToolsUserData();
+          }).catch(() => {
+            updateAuthUI(true, 'Operator', 'Free');
+            insertDashboardLink('operator-dashboard.html');
+            loadAIToolsUserData();
+          });
+        } else {
+          updateAuthUI(true, 'Operator', 'Free');
+          insertDashboardLink('operator-dashboard.html');
+          loadAIToolsUserData();
+        }
+      } else {
+        currentUser = null;
+        localStorage.removeItem('cameras_decoded_uid');
+        removeDashboardLink();
+        updateAuthUI(false);
+        loadAIToolsUserData();
+      }
+    });
+
+    // ============================================================
+    // AI TOOLS LOGIC
+    // ============================================================
+    let usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0, image: 0 };
+    let lastReset = null;
+    const DAILY_LIMIT_FREE = 5;
+
+    const CYNETIS_SAYS = {
+      prompt: [
+        "A strong prompt is the key to a great output. Choose your elements wisely.",
+        "Think about composition and mood – I'll translate that into a powerful prompt."
+      ],
+      snapshot: [
+        "Snapshot Cards are your knowledge anchors. Let's build one that sticks.",
+        "Focus on the core idea – I'll add examples and a memorable title."
+      ],
+      ideas: [
+        "Content consistency beats perfection. Here are some fresh angles for your audience.",
+        "I've mapped these ideas to your current progress – they're tailored for you."
+      ],
+      image: [
+        "Visualize your concept in detail. The more context, the better the generation.",
+        "This is where creativity meets code. Describe your vision vividly."
+      ],
+      default: [
+        "Welcome, operator. Select a tool to accelerate your journey.",
+        "Every master was once a beginner. Which tool calls to you?"
+      ]
+    };
+
+    function getRandomMsg(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    async function loadAIToolsUserData() {
+      if (!currentUser) {
+        document.getElementById('cynetisText').textContent = 'Sign in to unlock AI tools.';
+        updateUsageUI();
+        updateButtons();
+        return;
+      }
+      try {
+        const doc = await db.collection('users').doc(currentUser.uid).get();
+        if (doc.exists) {
+          const data = doc.data();
+          userPlan = data.plan || 'free';
+          const ai = data.aiUsage || {};
+          usage = {
+            total: ai.total || 0,
+            prompt: ai.prompt || 0,
+            snapshot: ai.snapshot || 0,
+            ideas: ai.ideas || 0,
+            image: ai.image || 0
+          };
+          lastReset = data.aiLastReset ? data.aiLastReset.toDate() : null;
+
+          const today = new Date();
+          if (!lastReset || lastReset.getDate() !== today.getDate() ||
+              lastReset.getMonth() !== today.getMonth() ||
+              lastReset.getFullYear() !== today.getFullYear()) {
+            usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0, image: 0 };
+            await db.collection('users').doc(currentUser.uid).update({
+              aiUsage: usage,
+              aiLastReset: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          }
+        } else {
+          await db.collection('users').doc(currentUser.uid).set({
+            plan: 'free',
+            aiUsage: { total: 0, prompt: 0, snapshot: 0, ideas: 0, image: 0 },
+            aiLastReset: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          userPlan = 'free';
+          usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0, image: 0 };
+        }
+      } catch (e) {
+        console.error('Error loading AI user data:', e);
+      }
+      updateUsageUI();
+      updateButtons();
+      document.getElementById('cynetisText').textContent = getRandomMsg(CYNETIS_SAYS.default);
+    }
+
+    function updateUsageUI() {
+      document.getElementById('usageCount').textContent = usage.total || 0;
+      document.getElementById('usageLimit').textContent = userPlan === 'pro' ? '∞' : DAILY_LIMIT_FREE;
+    }
+
+    function updateButtons() {
+      const isPro = userPlan === 'pro';
+      const limitReached = !isPro && (usage.total || 0) >= DAILY_LIMIT_FREE;
+      const isLoggedIn = !!currentUser;
+      document.querySelectorAll('.btn-launch').forEach(btn => {
+        const tool = btn.dataset.tool;
+        if (!isLoggedIn) {
+          btn.disabled = false;
+        } else if (tool === 'image' && !isPro) {
+          btn.disabled = false;
+        } else if (limitReached) {
+          btn.disabled = true;
+        } else {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    function setCynetisMessage(toolKey) {
+      const msgs = CYNETIS_SAYS[toolKey] || CYNETIS_SAYS.default;
+      document.getElementById('cynetisText').textContent = getRandomMsg(msgs);
+    }
+
+    // ============================================================
+    // MODAL
+    // ============================================================
+    const modal = document.getElementById('toolModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalSub = document.getElementById('modalSub');
+    const modalBody = document.getElementById('modalBody');
+    const closeBtn = document.getElementById('modalClose');
+
+    function openModal(tool) {
+      if (!currentUser) {
+        alert('Please sign in to use AI tools.');
+        return;
+      }
+      modal.classList.add('active');
+      const isPro = userPlan === 'pro';
+      const limitReached = !isPro && (usage.total || 0) >= DAILY_LIMIT_FREE;
+
+      setCynetisMessage(tool);
+
+      switch (tool) {
+        case 'prompt':
+          renderPromptGenerator(limitReached);
+          break;
+        case 'snapshot':
+          renderSnapshotAI(limitReached);
+          break;
+        case 'ideas':
+          renderContentIdeas(limitReached);
+          break;
+        case 'image':
+          renderImageGenerator(limitReached, isPro);
+          break;
+        default:
+          modal.classList.remove('active');
+      }
+    }
+
+    function closeModal() { modal.classList.remove('active'); }
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    // ---- Tool: Prompt Generator ----
+    function renderPromptGenerator(disabled) {
+      modalTitle.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Prompt Generator';
+      modalSub.textContent = 'Craft a detailed prompt for AI image/video models.';
+      modalBody.innerHTML = `
+        <div class="input-group">
+          <label>Subject</label>
+          <select id="promptSubject">
+            <option value="portrait">Portrait</option>
+            <option value="landscape">Landscape</option>
+            <option value="product">Product</option>
+            <option value="urban">Urban / City</option>
+            <option value="macro">Macro / Close-up</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>Style</label>
+          <select id="promptStyle">
+            <option value="cinematic">Cinematic</option>
+            <option value="anime">Anime / Illustration</option>
+            <option value="realistic">Hyper-realistic</option>
+            <option value="vintage">Vintage / Film</option>
+            <option value="futuristic">Futuristic / Cyberpunk</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>Mood / Lighting</label>
+          <select id="promptMood">
+            <option value="dramatic">Dramatic / High contrast</option>
+            <option value="bright">Bright / Soft</option>
+            <option value="moody">Moody / Low key</option>
+            <option value="golden">Golden hour</option>
+            <option value="neon">Neon / Colorful</option>
+          </select>
+        </div>
+        <button class="btn-neon-block" id="generatePrompt" ${disabled ? 'disabled' : ''}>
+          ${disabled ? 'Daily limit reached' : 'Generate Prompt'}
+        </button>
+        <div id="promptResult" class="result-box"></div>
+        <button class="copy-btn" id="copyPromptBtn">📋 Copy to clipboard</button>
+        <div id="promptError" class="error-msg"></div>
+        ${disabled ? `<div class="upgrade-prompt">🚀 Upgrade to <a href="#">Pro</a> for unlimited generations.</div>` : ''}
+      `;
+
+      document.getElementById('generatePrompt').addEventListener('click', async () => {
+        const subject = document.getElementById('promptSubject').value;
+        const style = document.getElementById('promptStyle').value;
+        const mood = document.getElementById('promptMood').value;
+        const prompt = `${subject} in ${style} style, ${mood} lighting, highly detailed, professional photography, 8k, award-winning composition.`;
+        const resultBox = document.getElementById('promptResult');
+        resultBox.style.display = 'block';
+        resultBox.textContent = prompt;
+        document.getElementById('copyPromptBtn').style.display = 'inline-block';
+        await recordUsage('prompt');
+      });
+
+      document.getElementById('copyPromptBtn').addEventListener('click', () => {
+        const text = document.getElementById('promptResult').textContent;
+        navigator.clipboard.writeText(text).then(() => alert('Prompt copied!'));
+      });
+    }
+
+    // ---- Tool: Snapshot Card AI ----
+    function renderSnapshotAI(disabled) {
+      modalTitle.innerHTML = '<i class="fas fa-camera"></i> Snapshot Card AI';
+      modalSub.textContent = 'Generate a complete Snapshot Card for any topic.';
+      modalBody.innerHTML = `
+        <div class="input-group">
+          <label>Topic</label>
+          <input type="text" id="snapshotTopic" placeholder="e.g., Aperture, Lighting ratios, Client pitching" />
+        </div>
+        <button class="btn-neon-block" id="generateSnapshot" ${disabled ? 'disabled' : ''}>
+          ${disabled ? 'Daily limit reached' : 'Generate Snapshot Card'}
+        </button>
+        <div id="snapshotResult" class="result-box"></div>
+        <div id="snapshotError" class="error-msg"></div>
+        ${disabled ? `<div class="upgrade-prompt">🚀 Upgrade to <a href="#">Pro</a> for unlimited generations.</div>` : ''}
+      `;
+
+      document.getElementById('generateSnapshot').addEventListener('click', async () => {
+        const topic = document.getElementById('snapshotTopic').value.trim();
+        if (!topic) { document.getElementById('snapshotError').textContent = 'Please enter a topic.'; return; }
+        document.getElementById('snapshotError').textContent = '';
+        const card = generateSnapshotCard(topic);
+        const resultBox = document.getElementById('snapshotResult');
+        resultBox.style.display = 'block';
+        resultBox.innerHTML = `<strong style="color:#fff;">📌 ${card.title}</strong>\n\n${card.points.map(p => '• ' + p).join('\n')}\n\n💡 ${card.tip}`;
+        await recordUsage('snapshot');
+      });
+    }
+
+    function generateSnapshotCard(topic) {
+      const templates = {
+        'aperture': {
+          title: 'Mastering Aperture',
+          points: ['Controls depth of field', 'Affects light intake (f-stop)', 'Wide open (f/1.4) for bokeh', 'Stopped down (f/16) for sharp landscapes'],
+          tip: 'Use aperture priority mode to experiment quickly.'
+        },
+        'lighting': {
+          title: 'Lighting Ratios Decoded',
+          points: ['Key light vs fill light', '2:1 ratio = soft contrast', '4:1 = dramatic', 'Use a grey card to measure'],
+          tip: 'Start with natural window light – it\'s free and beautiful.'
+        }
+      };
+      const key = topic.toLowerCase();
+      if (templates[key]) return templates[key];
+      return {
+        title: `Snapshot: ${topic.charAt(0).toUpperCase() + topic.slice(1)}`,
+        points: [`Core principle of ${topic}`, 'Real-world application', 'Common mistake to avoid', 'Quick win technique'],
+        tip: `Practice ${topic} daily for 10 minutes to build muscle memory.`
+      };
+    }
+
+    // ---- Tool: Content Idea Engine ----
+    function renderContentIdeas(disabled) {
+      modalTitle.innerHTML = '<i class="fas fa-lightbulb"></i> Content Idea Engine';
+      modalSub.textContent = 'Get 5 tailored content ideas based on your focus area.';
+      modalBody.innerHTML = `
+        <div class="input-group">
+          <label>Focus Area</label>
+          <select id="ideasFocus">
+            <option value="photography">Photography Techniques</option>
+            <option value="business">Business & Marketing</option>
+            <option value="editing">Post‑Processing & Editing</option>
+            <option value="gear">Gear & Equipment</option>
+          </select>
+        </div>
+        <button class="btn-neon-block" id="generateIdeas" ${disabled ? 'disabled' : ''}>
+          ${disabled ? 'Daily limit reached' : 'Generate Ideas'}
+        </button>
+        <div id="ideasResult" class="result-box"></div>
+        <div id="ideasError" class="error-msg"></div>
+        ${disabled ? `<div class="upgrade-prompt">🚀 Upgrade to <a href="#">Pro</a> for unlimited generations.</div>` : ''}
+      `;
+
+      document.getElementById('generateIdeas').addEventListener('click', async () => {
+        const focus = document.getElementById('ideasFocus').value;
+        const ideas = getContentIdeas(focus);
+        const resultBox = document.getElementById('ideasResult');
+        resultBox.style.display = 'block';
+        resultBox.innerHTML = ideas.map((idea, i) => `${i+1}. ${idea}`).join('\n');
+        await recordUsage('ideas');
+      });
+    }
+
+    function getContentIdeas(focus) {
+      const map = {
+        'photography': [
+          '5 common composition mistakes (and how to fix them)',
+          'A day in the life: shooting street photography in your city',
+          'The ultimate guide to understanding histograms',
+          'How to find your unique photographic style',
+          'Behind the scenes of a portrait shoot – lighting breakdown'
+        ],
+        'business': [
+          'How to price your photography services confidently',
+          'Building a referral system that actually works',
+          'The 3‑step formula for a winning client pitch',
+          'Using social media to attract high‑paying clients',
+          'Creating a passive income stream with print sales'
+        ],
+        'editing': [
+          '10 Lightroom shortcuts that save hours',
+          'From flat to fab: a complete colour grading workflow',
+          'Retouching skin the right way (frequency separation)',
+          'Creating cinematic looks with LUTs',
+          'How to match colour between different cameras'
+        ],
+        'gear': [
+          'Is full‑frame really necessary? A practical test',
+          'The best budget lenses for portrait photography',
+          'Camera settings for different genres (sports, landscape, portrait)',
+          'What\'s in my camera bag – and why',
+          'How to test a used lens before buying'
+        ]
+      };
+      return map[focus] || map['photography'];
+    }
+
+    // ---- Tool: Image Generator (Pro) ----
+    function renderImageGenerator(disabled, isPro) {
+      modalTitle.innerHTML = '<i class="fas fa-palette"></i> Image Generator <span style="font-size:16px;color:#8deb00;">(Pro)</span>';
+      modalSub.textContent = 'Generate custom images from a text prompt using AI.';
+      const proBlocked = !isPro;
+
+      modalBody.innerHTML = `
+        <div class="input-group">
+          <label>Prompt</label>
+          <textarea id="imagePrompt" rows="3" placeholder="Describe the image you want...">A cinematic portrait of a photographer in a golden hour field, shallow depth of field, 8k</textarea>
+        </div>
+        <button class="btn-neon-block" id="generateImage" ${(disabled || proBlocked) ? 'disabled' : ''}>
+          ${proBlocked ? '🔒 Pro Feature' : (disabled ? 'Daily limit reached' : 'Generate Image')}
+        </button>
+        <div id="imageResult" class="result-box"></div>
+        <div id="imageError" class="error-msg"></div>
+        ${proBlocked ? `<div class="upgrade-prompt">🔒 This tool is for Pro users only. <a href="#">Upgrade now</a> to access AI image generation.</div>` : ''}
+        ${!proBlocked && disabled ? `<div class="upgrade-prompt">🚀 You've hit your daily limit. <a href="#">Upgrade to Pro</a> for unlimited generations.</div>` : ''}
+      `;
+
+      document.getElementById('generateImage').addEventListener('click', async () => {
+        if (!isPro) {
+          document.getElementById('imageError').textContent = 'Upgrade to Pro to use this tool.';
+          return;
+        }
+        const prompt = document.getElementById('imagePrompt').value.trim();
+        if (!prompt) { document.getElementById('imageError').textContent = 'Please enter a prompt.'; return; }
+        document.getElementById('imageError').textContent = '';
+        const btn = document.getElementById('generateImage');
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
+
+        try {
+          const generateImageFn = firebase.functions().httpsCallable('generateImage');
+          const result = await generateImageFn({ prompt });
+          const imageUrl = result.data.imageUrl;
+          const resultBox = document.getElementById('imageResult');
+          resultBox.style.display = 'block';
+          resultBox.innerHTML = `<img src="${imageUrl}" alt="Generated image" />`;
+          await recordUsage('image');
+        } catch (err) {
+          document.getElementById('imageError').textContent = 'Error: ' + (err.message || 'Unknown error');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Generate Image';
+        }
+      });
+    }
+
+    // ---- Usage Tracking ----
+    async function recordUsage(tool) {
+      if (!currentUser) return;
+      if (userPlan === 'free' && usage.total >= DAILY_LIMIT_FREE) {
+        alert('Daily limit reached. Upgrade to Pro for unlimited access.');
+        return;
+      }
+      usage[tool] = (usage[tool] || 0) + 1;
+      usage.total = (usage.total || 0) + 1;
+      await db.collection('users').doc(currentUser.uid).update({
+        [`aiUsage.${tool}`]: usage[tool],
+        'aiUsage.total': usage.total
+      });
+      updateUsageUI();
+      updateButtons();
+    }
+
+    // ---- Event Listeners ----
+    document.querySelectorAll('.btn-launch').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tool = btn.dataset.tool;
+        openModal(tool);
+      });
+    });
+
+    // ---- Cart UI ----
+    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
+    function updateCartUI() {
+      const cart = getCart();
+      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+      const countEl = document.getElementById('cartHeaderCount');
+      const labelEl = document.getElementById('cartHeaderLabel');
+      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
+      if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
+    }
+    updateCartUI();
+
+    console.log('🤖 Cameras Decoded AI Tools – Ready.');
+  </script>
+
+  <!-- ===== MODAL ===== -->
+  <div class="modal-overlay" id="toolModal">
+    <div class="modal-panel">
+      <button class="close-btn" id="modalClose">&times;</button>
+      <h2 id="modalTitle">Tool</h2>
+      <div class="sub" id="modalSub">Fill in the details below.</div>
+      <div id="modalBody">
+        <!-- dynamic content -->
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
