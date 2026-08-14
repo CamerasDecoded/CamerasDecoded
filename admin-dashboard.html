@@ -12,8 +12,8 @@
 
   <style>
     /* ============================================================
-       HOMEPAGE STYLES (copied for consistency)
-    ============================================================ */
+       (Same styles as before – keep all)
+       ============================================================ */
     :root {
       --space-sm: 16px; --space-md: 32px; --space-lg: 64px; --space-xl: 96px; --space-xxl: 140px;
       --green: #8deb00; --green-dim: rgba(141,235,0,0.12); --green-glow: rgba(141,235,0,0.15);
@@ -100,6 +100,12 @@
     .panel h3 { font-family: 'Space Mono', monospace; color: var(--green); font-size: 16px; margin-bottom: 10px; }
     .panel .sub { color: var(--text-muted); font-size: 12px; margin-bottom: 14px; }
 
+    /* Tabs for Community */
+    .tab-bar { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border-dim); }
+    .tab-btn { background: transparent; border: none; padding: 10px 20px; color: var(--text-muted); font-family: 'Space Mono', monospace; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab-btn:hover { color: #fff; }
+    .tab-btn.active { color: var(--green); border-bottom-color: var(--green); }
+
     .tool-usage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px; }
     .tool-usage-item { display: flex; justify-content: space-between; padding: 4px 10px; background: rgba(255,255,255,0.02); border-radius: 4px; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
     .tool-usage-item .tool-name { color: #fff; }
@@ -118,6 +124,11 @@
     .snapshot-stats .stat-box .num { font-size: 24px; font-weight: 700; color: var(--green); }
     .snapshot-stats .stat-box .lbl { font-size: 11px; color: var(--text-muted); }
 
+    .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-icon { background: transparent; border: 1px solid var(--border-dim); border-radius: 4px; color: var(--text-muted); padding: 2px 8px; font-size: 11px; cursor: pointer; transition: 0.2s; font-family: 'Montserrat', sans-serif; }
+    .btn-icon:hover { border-color: var(--green); color: #fff; }
+    .btn-icon.danger:hover { border-color: #ff4a4a; color: #ff4a4a; }
+
     .footer { border-top: 1px solid var(--border-dim); padding-top: 20px; margin-top: 40px; display: flex; flex-direction: column; gap: 15px; font-size: 12px; color: var(--text-muted); text-align: center; }
     .footer .socials { display: flex; justify-content: center; gap: 20px; }
     .footer .socials a { color: #ffffff; font-size: 18px; }
@@ -131,6 +142,18 @@
 
     .admin-error { text-align: center; padding: 60px 20px; color: #ff6b6b; }
     .admin-error i { font-size: 48px; margin-bottom: 16px; }
+
+    /* Modal for edit */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(6px); z-index: 10000; justify-content: center; align-items: center; padding: 20px; }
+    .modal-overlay.active { display: flex; }
+    .modal-panel { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 16px; max-width: 500px; width: 100%; padding: 30px; }
+    .modal-panel h2 { font-family: 'Space Mono', monospace; color: var(--green); margin-bottom: 16px; }
+    .modal-panel label { display: block; font-size: 11px; color: var(--text-muted); font-family: 'Space Mono', monospace; text-transform: uppercase; margin-top: 12px; }
+    .modal-panel input, .modal-panel textarea { width: 100%; padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-dim); border-radius: 6px; color: #fff; font-family: 'Montserrat', sans-serif; font-size: 14px; }
+    .modal-panel .btn-group { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+    .modal-panel .btn-group .btn { padding: 8px 20px; border-radius: 6px; border: none; cursor: pointer; font-family: 'Space Mono', monospace; font-size: 12px; }
+    .modal-panel .btn-group .btn.primary { background: var(--green); color: #000; }
+    .modal-panel .btn-group .btn.secondary { background: transparent; border: 1px solid var(--border-dim); color: var(--text-muted); }
 
     @media (max-width: 1024px) {
       body { flex-direction: column; }
@@ -234,12 +257,12 @@
       <div class="admin-header">
         <div>
           <h1><i class="fas fa-shield-alt" style="color:var(--green);"></i> Admin <span>Console</span></h1>
-          <div style="font-size:13px; color:var(--text-muted);">Full business intelligence & user management.</div>
+          <div style="font-size:13px; color:var(--text-muted);">Full business intelligence & community management.</div>
         </div>
         <span class="badge"><i class="fas fa-lock"></i> Secure</span>
       </div>
 
-      <!-- ===== STATS ===== -->
+      <!-- Stats -->
       <div class="stats-grid" id="statsGrid">
         <div class="stat-card"><div class="number" id="statUsers">0</div><div class="label">Total Users</div></div>
         <div class="stat-card"><div class="number" id="statPro">0</div><div class="label">Pro Users</div></div>
@@ -249,30 +272,18 @@
         <div class="stat-card"><div class="number" id="statTotalAI">0</div><div class="label">Total AI Uses</div></div>
       </div>
 
-      <!-- ===== SNAPSHOT CARDS & REFERRALS ===== -->
+      <!-- Snapshot & Referrals -->
       <div class="panel">
         <h3><i class="fas fa-id-card" style="color:var(--green);"></i> Snapshot Cards & Referrals</h3>
         <div class="snapshot-stats">
-          <div class="stat-box">
-            <div class="num" id="statTotalCards">0</div>
-            <div class="lbl">Total Cards Saved</div>
-          </div>
-          <div class="stat-box">
-            <div class="num" id="statTopCard">—</div>
-            <div class="lbl">Most Saved Card</div>
-          </div>
-          <div class="stat-box">
-            <div class="num" id="statTotalRef">0</div>
-            <div class="lbl">Total Referrals</div>
-          </div>
-          <div class="stat-box">
-            <div class="num" id="statTopReferrer">—</div>
-            <div class="lbl">Top Referrer</div>
-          </div>
+          <div class="stat-box"><div class="num" id="statTotalCards">0</div><div class="lbl">Total Cards Saved</div></div>
+          <div class="stat-box"><div class="num" id="statTopCard">—</div><div class="lbl">Most Saved Card</div></div>
+          <div class="stat-box"><div class="num" id="statTotalRef">0</div><div class="lbl">Total Referrals</div></div>
+          <div class="stat-box"><div class="num" id="statTopReferrer">—</div><div class="lbl">Top Referrer</div></div>
         </div>
       </div>
 
-      <!-- ===== AI TOOL BREAKDOWN ===== -->
+      <!-- AI Tool Usage -->
       <div class="panel">
         <h3><i class="fas fa-chart-pie" style="color:var(--green);"></i> AI Tool Usage</h3>
         <div class="tool-usage-grid" id="toolUsageGrid">
@@ -293,7 +304,38 @@
         </div>
       </div>
 
-      <!-- ===== RECENT PURCHASES ===== -->
+      <!-- ===== COMMUNITY MANAGEMENT ===== -->
+      <div class="panel">
+        <h3><i class="fas fa-comments" style="color:var(--gold);"></i> Community Management</h3>
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="posts">Posts</button>
+          <button class="tab-btn" data-tab="comments">Comments</button>
+        </div>
+        <div id="communityContent">
+          <!-- Posts Tab -->
+          <div id="tab-posts" class="tab-content">
+            <div class="sub">View, edit, or delete community posts.</div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Title</th><th>Author</th><th>Date</th><th>Comments</th><th>Actions</th></tr></thead>
+                <tbody id="postsTableBody"><tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Loading posts…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Comments Tab -->
+          <div id="tab-comments" class="tab-content" style="display:none;">
+            <div class="sub">View, edit, or delete individual comments across all posts.</div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Post Title</th><th>Comment</th><th>Author</th><th>Date</th><th>Actions</th></tr></thead>
+                <tbody id="commentsTableBody"><tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Loading comments…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Purchases -->
       <div class="panel">
         <h3><i class="fas fa-shopping-cart" style="color:var(--gold);"></i> Recent Purchases</h3>
         <div class="sub">Last 20 transactions.</div>
@@ -305,16 +347,14 @@
         </div>
       </div>
 
-      <!-- ===== ALL USERS ===== -->
+      <!-- All Users -->
       <div class="panel">
         <h3><i class="fas fa-users" style="color:var(--green);"></i> All Users</h3>
         <div class="sub">Click any row to view raw data (Firestore console).</div>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr>
-                <th>UID</th><th>Email / Name</th><th>Plan</th><th>Role</th><th>Cards</th><th>AI Uses</th><th>Refs</th>
-              </tr>
+              <tr><th>UID</th><th>Email / Name</th><th>Plan</th><th>Role</th><th>Cards</th><th>AI Uses</th><th>Refs</th></tr>
             </thead>
             <tbody id="userTableBody"><tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No users loaded.</td></tr></tbody>
           </table>
@@ -339,6 +379,20 @@
   </main>
 
   <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal-panel">
+      <h2 id="editModalTitle">Edit Item</h2>
+      <form id="editForm">
+        <div id="editFields"></div>
+        <div class="btn-group">
+          <button type="button" class="btn secondary" onclick="closeEditModal()">Cancel</button>
+          <button type="submit" class="btn primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script>
     // ============================================================
@@ -397,10 +451,10 @@
     });
 
     // ============================================================
-    // CORE DATA LOADER
+    // CORE DATA LOADER (extended with community)
     // ============================================================
     async function loadAdminData() {
-      // 1. Fetch ALL users
+      // --- Users & Stats (same as before) ---
       const usersSnapshot = await db.collection('users').get();
       const users = [];
       let totalUsers = 0, proUsers = 0, totalAIUses = 0, totalRevenue = 0, totalCards = 0;
@@ -419,86 +473,40 @@
         totalUsers++;
         if (plan === 'pro') proUsers++;
         totalAIUses += (ai.total || 0);
-
-        // Active users (if they have a lastActive field, or fallback to aiLastReset)
         const lastActive = data.lastActive?.toDate?.() || data.aiLastReset?.toDate?.() || new Date(0);
         if (lastActive > thirtyDaysAgo) activeUsers++;
-
-        // Snapshot cards
         const cards = data.savedCards || [];
         totalCards += cards.length;
         cards.forEach(slug => { cardCounts[slug] = (cardCounts[slug] || 0) + 1; });
-
-        // Referrals
         const refs = data.totalReferrals || 0;
         totalReferrals += refs;
-        if (refs > topReferrer.count) {
-          topReferrer = { name: data.name || data.email || 'Unknown', count: refs };
-        }
-
-        // Tool usage
-        Object.keys(toolUsage).forEach(key => {
-          if (ai[key]) toolUsage[key] += ai[key];
-        });
-
-        // Revenue (estimate: pro users * 15/mo)
-        if (plan === 'pro') totalRevenue += 15; // monthly estimate
-
-        // Store for user table
-        users.push({
-          uid, email: data.email || '—', name: data.name || '—',
-          plan, role: data.role || 'Operator',
-          cards: cards.length,
-          aiUses: ai.total || 0,
-          refs: refs
-        });
+        if (refs > topReferrer.count) { topReferrer = { name: data.name || data.email || 'Unknown', count: refs }; }
+        Object.keys(toolUsage).forEach(key => { if (ai[key]) toolUsage[key] += ai[key]; });
+        if (plan === 'pro') totalRevenue += 15;
+        users.push({ uid, email: data.email || '—', name: data.name || '—', plan, role: data.role || 'Operator', cards: cards.length, aiUses: ai.total || 0, refs });
       });
 
-      // 2. Fetch Purchases (top 20)
-      const purchasesSnapshot = await db.collection('purchases')
-        .orderBy('createdAt', 'desc')
-        .limit(20)
-        .get();
-      const purchases = [];
-      purchasesSnapshot.forEach(doc => {
-        const p = doc.data();
-        purchases.push({
-          id: doc.id,
-          date: p.createdAt?.toDate?.() || new Date(),
-          userId: p.userId || '—',
-          productName: p.productName || 'Unknown',
-          amount: p.amount || 0,
-          status: p.status || 'completed'
-        });
-      });
+      let topCardSlug = '—', topCardCount = 0;
+      Object.entries(cardCounts).forEach(([slug, count]) => { if (count > topCardCount) { topCardCount = count; topCardSlug = slug; } });
 
-      // 3. Find top card
-      let topCardSlug = '—';
-      let topCardCount = 0;
-      Object.entries(cardCounts).forEach(([slug, count]) => {
-        if (count > topCardCount) { topCardCount = count; topCardSlug = slug; }
-      });
-
-      // ---- UPDATE STATS ----
+      // ---- Update stats ----
       document.getElementById('statUsers').textContent = totalUsers;
       document.getElementById('statPro').textContent = proUsers;
       document.getElementById('statMRR').textContent = '$' + (proUsers * 15);
       document.getElementById('statActive').textContent = activeUsers;
       document.getElementById('statRevenue').textContent = '$' + (totalRevenue);
       document.getElementById('statTotalAI').textContent = totalAIUses;
-
       document.getElementById('statTotalCards').textContent = totalCards;
       document.getElementById('statTopCard').textContent = topCardSlug !== '—' ? `${topCardSlug} (${topCardCount})` : '—';
       document.getElementById('statTotalRef').textContent = totalReferrals;
       document.getElementById('statTopReferrer').textContent = topReferrer.count > 0 ? `${topReferrer.name} (${topReferrer.count})` : '—';
 
-      // ---- UPDATE TOOL USAGE ----
       Object.keys(toolUsage).forEach(key => {
         const el = document.getElementById('usage' + key.charAt(0).toUpperCase() + key.slice(1));
         if (el) el.textContent = toolUsage[key];
       });
 
-      // ---- UPDATE USER TABLE ----
+      // ---- User table ----
       const userTableBody = document.getElementById('userTableBody');
       if (users.length === 0) {
         userTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No users found.</td></tr>';
@@ -517,7 +525,13 @@
         `).join('');
       }
 
-      // ---- UPDATE PURCHASES TABLE ----
+      // ---- Purchases ----
+      const purchasesSnapshot = await db.collection('purchases').orderBy('createdAt', 'desc').limit(20).get();
+      const purchases = [];
+      purchasesSnapshot.forEach(doc => {
+        const p = doc.data();
+        purchases.push({ id: doc.id, date: p.createdAt?.toDate?.() || new Date(), userId: p.userId || '—', productName: p.productName || 'Unknown', amount: p.amount || 0, status: p.status || 'completed' });
+      });
       const purchasesBody = document.getElementById('purchasesTableBody');
       if (purchases.length === 0) {
         purchasesBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No purchases yet.</td></tr>';
@@ -532,6 +546,224 @@
           </tr>
         `).join('');
       }
+
+      // ============================================================
+      // COMMUNITY: POSTS & COMMENTS
+      // ============================================================
+      await loadCommunityData();
+    }
+
+    // ============================================================
+    // COMMUNITY DATA LOADER (with edit/delete)
+    // ============================================================
+    let postsData = [];
+    let commentsData = [];
+
+    async function loadCommunityData() {
+      // Fetch all posts
+      const postsSnapshot = await db.collection('posts').orderBy('createdAt', 'desc').get();
+      postsData = [];
+      postsSnapshot.forEach(doc => {
+        const data = doc.data();
+        postsData.push({ id: doc.id, ...data, createdAt: data.createdAt?.toDate?.() || new Date() });
+      });
+
+      // Fetch all comments (we need to query each post's subcollection)
+      // To avoid many reads, we'll load comments on demand when switching to Comments tab.
+      // For now, we'll load comments only when the tab is activated.
+      // We'll implement a lazy load.
+
+      renderPosts();
+      // Pre-load comments if the comments tab is active by default? We'll load on tab switch.
+    }
+
+    function renderPosts() {
+      const tbody = document.getElementById('postsTableBody');
+      if (postsData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No posts yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = postsData.map(post => `
+        <tr>
+          <td><strong>${post.title || 'Untitled'}</strong></td>
+          <td>${post.authorName || 'Unknown'}</td>
+          <td style="font-size:11px;">${post.createdAt.toLocaleDateString()}</td>
+          <td>${post.commentCount || 0}</td>
+          <td class="action-btns">
+            <button class="btn-icon" onclick="editPost('${post.id}')"><i class="fas fa-edit"></i> Edit</button>
+            <button class="btn-icon danger" onclick="deletePost('${post.id}')"><i class="fas fa-trash"></i> Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadComments() {
+      const tbody = document.getElementById('commentsTableBody');
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Loading comments…</td></tr>';
+      commentsData = [];
+      for (const post of postsData) {
+        const commentsSnap = await db.collection('posts').doc(post.id).collection('comments').orderBy('createdAt', 'desc').get();
+        commentsSnap.forEach(doc => {
+          const data = doc.data();
+          commentsData.push({
+            id: doc.id,
+            postId: post.id,
+            postTitle: post.title || 'Untitled',
+            body: data.body || '',
+            authorName: data.authorName || 'Unknown',
+            createdAt: data.createdAt?.toDate?.() || new Date()
+          });
+        });
+      }
+      renderComments();
+    }
+
+    function renderComments() {
+      const tbody = document.getElementById('commentsTableBody');
+      if (commentsData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No comments yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = commentsData.map(comment => `
+        <tr>
+          <td>${comment.postTitle}</td>
+          <td>${comment.body.substring(0, 60)}${comment.body.length > 60 ? '…' : ''}</td>
+          <td>${comment.authorName}</td>
+          <td style="font-size:11px;">${comment.createdAt.toLocaleDateString()}</td>
+          <td class="action-btns">
+            <button class="btn-icon" onclick="editComment('${comment.postId}','${comment.id}')"><i class="fas fa-edit"></i> Edit</button>
+            <button class="btn-icon danger" onclick="deleteComment('${comment.postId}','${comment.id}')"><i class="fas fa-trash"></i> Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // ---- Tab switching ----
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        const tab = this.dataset.tab;
+        document.getElementById('tab-posts').style.display = tab === 'posts' ? 'block' : 'none';
+        document.getElementById('tab-comments').style.display = tab === 'comments' ? 'block' : 'none';
+        if (tab === 'comments' && commentsData.length === 0) {
+          loadComments();
+        }
+      });
+    });
+
+    // ---- Edit modal ----
+    let editTarget = { type: '', postId: '', commentId: '' };
+
+    function openEditModal(title, fieldsHtml) {
+      document.getElementById('editModalTitle').textContent = title;
+      document.getElementById('editFields').innerHTML = fieldsHtml;
+      document.getElementById('editModal').classList.add('active');
+    }
+    window.closeEditModal = function() {
+      document.getElementById('editModal').classList.remove('active');
+    };
+    // Close on backdrop click
+    document.getElementById('editModal').addEventListener('click', function(e) {
+      if (e.target === this) closeEditModal();
+    });
+
+    // ---- Edit Post ----
+    window.editPost = function(postId) {
+      const post = postsData.find(p => p.id === postId);
+      if (!post) return;
+      editTarget = { type: 'post', postId };
+      openEditModal('Edit Post', `
+        <label>Title</label>
+        <input type="text" id="editPostTitle" value="${post.title || ''}" />
+        <label>Body</label>
+        <textarea id="editPostBody" rows="4">${post.body || ''}</textarea>
+      `);
+    };
+
+    document.getElementById('editForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const target = editTarget;
+      if (target.type === 'post') {
+        const title = document.getElementById('editPostTitle').value.trim();
+        const body = document.getElementById('editPostBody').value.trim();
+        if (!title && !body) { alert('Title or body required.'); return; }
+        try {
+          await db.collection('posts').doc(target.postId).update({ title, body });
+          closeEditModal();
+          // Refresh posts
+          await loadCommunityData();
+          cdToast('Post updated.');
+        } catch (err) { alert('Error: ' + err.message); }
+      } else if (target.type === 'comment') {
+        const body = document.getElementById('editCommentBody').value.trim();
+        if (!body) { alert('Comment body required.'); return; }
+        try {
+          await db.collection('posts').doc(target.postId).collection('comments').doc(target.commentId).update({ body });
+          closeEditModal();
+          await loadComments();
+          cdToast('Comment updated.');
+        } catch (err) { alert('Error: ' + err.message); }
+      }
+    });
+
+    // ---- Edit Comment ----
+    window.editComment = function(postId, commentId) {
+      const comment = commentsData.find(c => c.postId === postId && c.id === commentId);
+      if (!comment) return;
+      editTarget = { type: 'comment', postId, commentId };
+      openEditModal('Edit Comment', `
+        <label>Comment</label>
+        <textarea id="editCommentBody" rows="3">${comment.body || ''}</textarea>
+      `);
+    };
+
+    // ---- Delete Post ----
+    window.deletePost = async function(postId) {
+      if (!confirm('Delete this post and all its comments? This cannot be undone.')) return;
+      try {
+        // Delete all comments first
+        const commentsSnap = await db.collection('posts').doc(postId).collection('comments').get();
+        const batch = db.batch();
+        commentsSnap.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        // Then delete the post
+        await db.collection('posts').doc(postId).delete();
+        cdToast('Post and all comments deleted.');
+        await loadCommunityData();
+      } catch (err) { alert('Error: ' + err.message); }
+    };
+
+    // ---- Delete Comment ----
+    window.deleteComment = async function(postId, commentId) {
+      if (!confirm('Delete this comment?')) return;
+      try {
+        await db.collection('posts').doc(postId).collection('comments').doc(commentId).delete();
+        cdToast('Comment deleted.');
+        await loadComments();
+      } catch (err) { alert('Error: ' + err.message); }
+    };
+
+    // ---- Toast helper ----
+    function cdToast(msg) {
+      const container = document.getElementById('cd-toast-container') || (() => {
+        const div = document.createElement('div');
+        div.id = 'cd-toast-container';
+        div.style.cssText = 'position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;';
+        document.body.appendChild(div);
+        return div;
+      })();
+      const toast = document.createElement('div');
+      toast.className = 'cd-toast';
+      toast.style.cssText = 'background:rgba(10,10,10,0.92);border:1px solid rgba(141,235,0,0.15);color:#fff;font-family:"Space Mono",monospace;font-size:12px;padding:10px 22px;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.4);opacity:0;transform:translateY(-8px);transition:all 0.3s ease;pointer-events:auto;text-align:center;';
+      toast.textContent = msg;
+      container.appendChild(toast);
+      requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
     }
 
     // ============================================================
