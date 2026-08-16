@@ -14,7 +14,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <style>
-    /* ===== ALL STYLES (including new challenge widget) ===== */
+    /* ===== ALL STYLES (including challenge widget) ===== */
     :root {
       --space-sm: 16px; --space-md: 32px; --space-lg: 64px; --space-xl: 96px; --space-xxl: 140px;
       --green: #8deb00; --green-dim: rgba(141,235,0,0.12); --green-glow: rgba(141,235,0,0.15);
@@ -465,7 +465,7 @@
       font-size: 20px;
     }
 
-    /* ===== DAILY CHALLENGE WIDGET (new) ===== */
+    /* ===== DAILY CHALLENGE WIDGET ===== */
     .challenge-widget {
       background: rgba(10, 10, 10, 0.4);
       backdrop-filter: blur(8px);
@@ -645,7 +645,7 @@
       font-family: 'Space Mono', monospace;
     }
 
-    /* ===== POLISHED RECOMMENDED FOR YOU (now at bottom) ===== */
+    /* ===== POLISHED RECOMMENDED FOR YOU ===== */
     .recommended-row {
       margin: 40px 0 20px;
     }
@@ -1420,7 +1420,7 @@
       </div>
     </div>
 
-    <!-- ===== DAILY CHALLENGE WIDGET (NEW) ===== -->
+    <!-- ===== DAILY CHALLENGE WIDGET (STATIC FALLBACK) ===== -->
     <div class="challenge-widget" id="challengeWidget">
       <div class="left">
         <div class="title"><i class="fas fa-bolt"></i> Today's Challenge</div>
@@ -1733,7 +1733,6 @@
     let journeyDocRef = null;
     let journeyTotalNodes = 0;
     let badgesMap = {};
-    let dailyChallengeData = null;
     let userJourneyData = null;
 
     window.handleLogout = function() {
@@ -2381,38 +2380,55 @@
     }
 
     // ============================================================
-// 14. DAILY CHALLENGE WIDGET (Static Fallback Only)
-// ============================================================
-function loadDailyChallenge() {
-  // Static challenges – no Firestore needed
-  const staticChallenges = [
-    { title: 'Golden Hour Portrait', description: 'Go out and capture a portrait during golden hour. Focus on warm tones and backlighting.' },
-    { title: 'Street Scene', description: 'Capture a candid street moment with strong composition.' },
-    { title: 'Minimalist Still Life', description: 'Arrange 3 objects and create a simple, clean composition.' },
-    { title: 'Macro Details', description: 'Find a small subject and capture it in extreme detail.' },
-    { title: 'Reflection Hunt', description: 'Find a reflection (water, glass, mirror) and use it as the main subject.' },
-    { title: 'Low Light Experiment', description: 'Push your camera to its limits in low light – embrace the grain.' },
-    { title: 'Color Harmony', description: 'Find a scene with complementary colors and frame it perfectly.' },
-    { title: 'Motion Blur', description: 'Capture intentional motion blur to tell a story.' },
-    { title: 'Symmetry', description: 'Find a symmetrical scene and make it the hero of your shot.' },
-    { title: 'Silhouette Story', description: 'Shoot a silhouette that tells a story without faces.' }
-  ];
+    // 14. DAILY CHALLENGE WIDGET (STATIC FALLBACK - NO FIRESTORE)
+    // ============================================================
+    function loadDailyChallenge() {
+      // Static challenges – no Firestore needed
+      const staticChallenges = [
+        { title: 'Golden Hour Portrait', description: 'Go out and capture a portrait during golden hour. Focus on warm tones and backlighting.' },
+        { title: 'Street Scene', description: 'Capture a candid street moment with strong composition.' },
+        { title: 'Minimalist Still Life', description: 'Arrange 3 objects and create a simple, clean composition.' },
+        { title: 'Macro Details', description: 'Find a small subject and capture it in extreme detail.' },
+        { title: 'Reflection Hunt', description: 'Find a reflection (water, glass, mirror) and use it as the main subject.' },
+        { title: 'Low Light Experiment', description: 'Push your camera to its limits in low light – embrace the grain.' },
+        { title: 'Color Harmony', description: 'Find a scene with complementary colors and frame it perfectly.' },
+        { title: 'Motion Blur', description: 'Capture intentional motion blur to tell a story.' },
+        { title: 'Symmetry', description: 'Find a symmetrical scene and make it the hero of your shot.' },
+        { title: 'Silhouette Story', description: 'Shoot a silhouette that tells a story without faces.' }
+      ];
 
-  // Rotate based on day of year
-  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
-  const index = dayOfYear % staticChallenges.length;
-  const challenge = staticChallenges[index];
+      // Rotate based on day of year
+      const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+      const index = dayOfYear % staticChallenges.length;
+      const challenge = staticChallenges[index];
 
-  // Update UI
-  document.getElementById('challengeTitle').textContent = challenge.title;
-  document.getElementById('challengeDesc').textContent = challenge.description;
+      // Update UI
+      document.getElementById('challengeTitle').textContent = challenge.title;
+      document.getElementById('challengeDesc').textContent = challenge.description;
 
-  // Store in global for reference
-  dailyChallengeData = challenge;
+      // Store in global for reference
+      dailyChallengeData = challenge;
 
-  // Update button state (will check if already completed today)
-  updateChallengeButton();
-}
+      // Update button state
+      updateChallengeButton();
+    }
+
+    function updateChallengeButton() {
+      const btn = document.getElementById('challengeBtn');
+      if (!userJourneyData) return;
+      const lastDate = userJourneyData.lastDailyChallengeDate || null;
+      const today = new Date().toDateString();
+      const completedToday = lastDate && new Date(lastDate.toDate?.() || lastDate).toDateString() === today;
+
+      if (completedToday) {
+        btn.innerHTML = '<i class="fas fa-check"></i> Completed';
+        btn.classList.add('completed');
+        btn.disabled = true;
+      } else {
+        btn.innerHTML = '<i class="fas fa-play"></i> Start Challenge';
+        btn.classList.remove('completed');
+        btn.disabled = false;
+      }
 
       // Update streak display
       const streak = userJourneyData.dailyChallengeStreak || 0;
@@ -2449,8 +2465,7 @@ function loadDailyChallenge() {
         updateData.dailyChallengeStreak = 1;
       }
 
-      // Add points to user journey (optional: 10 points per challenge)
-      // We'll add to totalPoints in userJourney
+      // Add points to user journey (10 points per challenge)
       userJourneyRef.update({
         ...updateData,
         totalPoints: firebase.firestore.FieldValue.increment(10)
@@ -2462,7 +2477,6 @@ function loadDailyChallenge() {
         updateChallengeButton();
         // Also update journey widget points
         if (journeyDocRef) {
-          // Need to refetch userJourney to update points on journey widget
           userJourneyRef.get().then(doc => {
             if (doc.exists) {
               const data = doc.data();
@@ -2559,7 +2573,7 @@ function loadDailyChallenge() {
     }
 
     // ============================================================
-    // 16. AUTH LISTENER (with journey data and daily challenges)
+    // 16. AUTH LISTENER (with journey data and static challenge)
     // ============================================================
     auth.onAuthStateChanged(user => {
       if (!user) {
@@ -2594,7 +2608,7 @@ function loadDailyChallenge() {
         }
       }).catch(console.warn);
 
-      // --- Load daily challenges ---
+      // --- Load daily challenge (static fallback) ---
       loadDailyChallenge();
 
       // --- Listen to user profile ---
