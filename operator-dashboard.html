@@ -14,6 +14,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <style>
+    /* ===== ALL STYLES UNCHANGED – same as before ===== */
     :root {
       --space-sm: 16px; --space-md: 32px; --space-lg: 64px; --space-xl: 96px; --space-xxl: 140px;
       --green: #8deb00; --green-dim: rgba(141,235,0,0.12); --green-glow: rgba(141,235,0,0.15);
@@ -1034,7 +1035,7 @@
       </div>
     </div>
 
-    <!-- ===== SIGNAL FEED (FIXED) ===== -->
+    <!-- ===== SIGNAL FEED (NOW ALWAYS VISIBLE WHEN LOGGED IN) ===== -->
     <section id="dashboard-feed">
       <div class="feed-header">
         <h2>📡 Your Signal Feed</h2>
@@ -1801,7 +1802,7 @@
     }
 
     // ============================================================
-    // 11. SIGNAL FEED (FIXED VERSION)
+    // 11. SIGNAL FEED (FIXED – ALWAYS SHOWS SECTION)
     // ============================================================
     function renderDashboardFeed(user) {
       const section = document.getElementById('dashboard-feed');
@@ -1816,27 +1817,34 @@
         return;
       }
 
+      // ALWAYS show the section when user is logged in
       section.style.display = 'block';
 
       function setFeedMessage(msg, isError = false) {
         container.innerHTML = `<p class="grey-text" style="grid-column:1/-1;text-align:center;padding:20px;${isError ? 'color:#ff6b6b;' : ''}">${msg}</p>`;
       }
 
+      // Check if tagging engine loaded
       if (typeof window.getUserTags === 'undefined' || typeof window.getRecommendedContent === 'undefined') {
-        console.log('Tagging engine not ready, waiting...');
-        if (!window._feedRetries) window._feedRetries = 0;
-        if (window._feedRetries < 5) {
-          window._feedRetries++;
-          setTimeout(() => renderDashboardFeed(user), 500);
-          return;
+        setFeedMessage('Loading recommendation engine... Please wait.');
+        // Try loading the engine manually if not loaded
+        if (!document.querySelector('script[src="tagging-engine.js"]')) {
+          const tagScript = document.createElement('script');
+          tagScript.src = 'tagging-engine.js';
+          tagScript.onload = function() {
+            setTimeout(() => renderDashboardFeed(user), 300);
+          };
+          tagScript.onerror = function() {
+            setFeedMessage('Recommendation engine could not be loaded. Please refresh.', true);
+          };
+          document.head.appendChild(tagScript);
         } else {
-          setFeedMessage('Recommendation engine timed out. Please refresh the page.', true);
-          console.error('Tagging engine failed to load after 5 retries.');
-          return;
+          // Script exists but maybe not ready – try again after delay
+          setTimeout(() => renderDashboardFeed(user), 500);
         }
+        return;
       }
 
-      window._feedRetries = 0;
       console.log('Tagging engine ready, fetching user data...');
 
       db.collection('users').doc(user.uid).get().then(async (doc) => {
@@ -1922,44 +1930,8 @@
       document.getElementById('statCardsLink').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
       document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
 
-      // --- Load tagging engine with retry logic ---
-      let engineLoaded = false;
-      function tryLoadEngine(callback) {
-        if (typeof window.getUserTags !== 'undefined' && typeof window.getRecommendedContent !== 'undefined') {
-          engineLoaded = true;
-          callback();
-          return;
-        }
-        if (!document.querySelector('script[src="tagging-engine.js"]')) {
-          const tagScript = document.createElement('script');
-          tagScript.src = 'tagging-engine.js';
-          tagScript.onload = function() {
-            setTimeout(() => {
-              if (typeof window.getUserTags !== 'undefined' && typeof window.getRecommendedContent !== 'undefined') {
-                engineLoaded = true;
-                callback();
-              } else {
-                setTimeout(() => tryLoadEngine(callback), 500);
-              }
-            }, 200);
-          };
-          tagScript.onerror = function() {
-            const container = document.getElementById('feed-container');
-            if (container) {
-              container.innerHTML = '<p class="grey-text" style="grid-column:1/-1;text-align:center;padding:20px;">Recommendation engine failed to load. Please refresh.</p>';
-            }
-          };
-          document.head.appendChild(tagScript);
-        } else {
-          // Script exists but might not be ready
-          setTimeout(() => tryLoadEngine(callback), 300);
-        }
-      }
-
-      // Trigger feed loading after engine is ready
-      tryLoadEngine(() => {
-        renderDashboardFeed(user);
-      });
+      // Initialize the feed – show section immediately
+      renderDashboardFeed(user);
 
       userDocRef.onSnapshot(doc => {
         if (!doc.exists) {
