@@ -14,7 +14,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <style>
-    /* ===== ALL STYLES (unchanged, but added .journey-progress-mini) ===== */
+    /* ===== ALL STYLES (including new challenge widget) ===== */
     :root {
       --space-sm: 16px; --space-md: 32px; --space-lg: 64px; --space-xl: 96px; --space-xxl: 140px;
       --green: #8deb00; --green-dim: rgba(141,235,0,0.12); --green-glow: rgba(141,235,0,0.15);
@@ -341,7 +341,7 @@
     }
     .ai-widget-link:hover { color: #a0f520; gap: 10px; }
 
-    /* ===== DYNAMIC JOURNEY CTA (UPDATED) ===== */
+    /* ===== DYNAMIC JOURNEY CTA ===== */
     .journey-cta {
       background: rgba(10, 10, 10, 0.4);
       backdrop-filter: blur(8px);
@@ -463,6 +463,104 @@
     }
     .journey-cta .progress-mini .next-badge .badge-icon {
       font-size: 20px;
+    }
+
+    /* ===== DAILY CHALLENGE WIDGET (new) ===== */
+    .challenge-widget {
+      background: rgba(10, 10, 10, 0.4);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(141,235,0,0.15);
+      border-radius: 10px;
+      padding: 18px 24px;
+      margin-bottom: 30px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: 20px;
+    }
+    .challenge-widget:hover {
+      border-color: rgba(141,235,0,0.3);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .challenge-widget .left {
+      flex: 1;
+      min-width: 200px;
+    }
+    .challenge-widget .left .title {
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .challenge-widget .left .title i {
+      font-size: 18px;
+    }
+    .challenge-widget .left .challenge-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    .challenge-widget .left .challenge-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .challenge-widget .right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .challenge-widget .right .streak {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .challenge-widget .right .streak .num {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--gold);
+    }
+    .challenge-widget .right .btn-challenge {
+      padding: 8px 24px;
+      background: transparent;
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      color: var(--green);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .challenge-widget .right .btn-challenge:hover {
+      background: rgba(141,235,0,0.1);
+      box-shadow: 0 0 20px rgba(141,235,0,0.2);
+    }
+    .challenge-widget .right .btn-challenge.completed {
+      border-color: var(--text-muted);
+      color: var(--text-muted);
+      cursor: default;
+    }
+    .challenge-widget .right .btn-challenge.completed:hover {
+      background: transparent;
+      box-shadow: none;
     }
 
     /* ===== SIGNAL FEED (now at bottom) ===== */
@@ -1102,6 +1200,9 @@
       .journey-cta .btn-journey { justify-content: center; }
       .journey-cta .progress-mini { flex-direction: column; align-items: stretch; text-align: center; }
       .journey-cta .progress-mini .stats { justify-content: center; }
+      .challenge-widget { flex-direction: column; align-items: stretch; }
+      .challenge-widget .right { align-items: stretch; }
+      .challenge-widget .right .btn-challenge { justify-content: center; }
     }
     @media (max-width: 600px) {
       .profile-section { grid-template-columns: 1fr; }
@@ -1290,7 +1391,7 @@
       <div class="top-row">
         <div class="text">
           <span class="icon">
-            <img src="cynetis-7.png" alt="Cynetis-7" style="height:40px; width:auto; display:block;">
+            <img src="cynetis-avatar.png" alt="Cynetis-7" style="height:40px; width:auto; display:block;">
           </span>
           <div>
             <h3>Continue Your Journey</h3>
@@ -1316,6 +1417,24 @@
             <div class="bar-fill" id="jProgressFill" style="width:0%;"></div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ===== DAILY CHALLENGE WIDGET (NEW) ===== -->
+    <div class="challenge-widget" id="challengeWidget">
+      <div class="left">
+        <div class="title"><i class="fas fa-bolt"></i> Today's Challenge</div>
+        <div class="challenge-name" id="challengeTitle">Loading…</div>
+        <div class="challenge-desc" id="challengeDesc">Loading today's challenge…</div>
+      </div>
+      <div class="right">
+        <div class="streak">
+          <i class="fas fa-fire" style="color:#ffaa00;"></i>
+          <span class="num" id="streakNum">0</span> day streak
+        </div>
+        <button class="btn-challenge" id="challengeBtn" onclick="startChallenge()">
+          <i class="fas fa-play"></i> Start Challenge
+        </button>
       </div>
     </div>
 
@@ -1614,6 +1733,8 @@
     let journeyDocRef = null;
     let journeyTotalNodes = 0;
     let badgesMap = {};
+    let dailyChallengeData = null;
+    let userJourneyData = null;
 
     window.handleLogout = function() {
       auth.signOut().then(() => {
@@ -2237,7 +2358,6 @@
       if (journeyData.nodes) {
         for (const node of journeyData.nodes) {
           if (node.badge && !earnedBadges.includes(node.badge)) {
-            // Look up badge details
             const badgeDetails = badgesMap[node.badge] || { name: node.badge, icon: '🏅' };
             nextBadge = badgeDetails;
             break;
@@ -2250,7 +2370,6 @@
         nextBadgeIcon.textContent = nextBadge.icon || '🏅';
         nextBadgeName.textContent = nextBadge.name || 'Next Badge';
       } else {
-        // If all badges earned or no badges defined
         if (earnedBadges.length > 0 && completed >= totalNodes) {
           nextBadgeWrap.style.display = 'inline';
           nextBadgeIcon.textContent = '🎉';
@@ -2262,7 +2381,130 @@
     }
 
     // ============================================================
-    // 14. SIGNAL FEED (now at bottom)
+    // 14. DAILY CHALLENGE WIDGET
+    // ============================================================
+    async function loadDailyChallenge() {
+      try {
+        const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+        const snapshot = await db.collection('dailyChallenges')
+          .where('active', '==', true)
+          .limit(10)
+          .get();
+        if (snapshot.empty) {
+          // Fallback: static challenges
+          const fallback = [
+            { title: 'Golden Hour Portrait', description: 'Go out and capture a portrait during golden hour. Focus on warm tones and backlighting.' },
+            { title: 'Street Scene', description: 'Capture a candid street moment with strong composition.' },
+            { title: 'Minimalist Still Life', description: 'Arrange 3 objects and create a simple, clean composition.' }
+          ];
+          const index = dayOfYear % fallback.length;
+          dailyChallengeData = fallback[index];
+        } else {
+          const challenges = [];
+          snapshot.forEach(doc => challenges.push({ id: doc.id, ...doc.data() }));
+          const index = dayOfYear % challenges.length;
+          dailyChallengeData = challenges[index];
+        }
+
+        // Update UI
+        const titleEl = document.getElementById('challengeTitle');
+        const descEl = document.getElementById('challengeDesc');
+        if (dailyChallengeData) {
+          titleEl.textContent = dailyChallengeData.title || 'Daily Challenge';
+          descEl.textContent = dailyChallengeData.description || 'Complete today\'s challenge to earn points.';
+        } else {
+          titleEl.textContent = 'No challenge today.';
+          descEl.textContent = 'Check back tomorrow.';
+        }
+        updateChallengeButton();
+      } catch (err) {
+        console.warn('Daily challenge error:', err);
+        document.getElementById('challengeTitle').textContent = 'Loading…';
+        document.getElementById('challengeDesc').textContent = 'Could not load today\'s challenge.';
+      }
+    }
+
+    function updateChallengeButton() {
+      const btn = document.getElementById('challengeBtn');
+      if (!userJourneyData) return;
+      const lastDate = userJourneyData.lastDailyChallengeDate || null;
+      const today = new Date().toDateString();
+      const completedToday = lastDate && new Date(lastDate.toDate?.() || lastDate).toDateString() === today;
+
+      if (completedToday) {
+        btn.innerHTML = '<i class="fas fa-check"></i> Completed';
+        btn.classList.add('completed');
+        btn.disabled = true;
+      } else {
+        btn.innerHTML = '<i class="fas fa-play"></i> Start Challenge';
+        btn.classList.remove('completed');
+        btn.disabled = false;
+      }
+
+      // Update streak display
+      const streak = userJourneyData.dailyChallengeStreak || 0;
+      document.getElementById('streakNum').textContent = streak;
+    }
+
+    window.startChallenge = function() {
+      if (!userJourneyData) return;
+      const lastDate = userJourneyData.lastDailyChallengeDate || null;
+      const today = new Date().toDateString();
+      const completedToday = lastDate && new Date(lastDate.toDate?.() || lastDate).toDateString() === today;
+      if (completedToday) {
+        cdToast('You already completed today\'s challenge!');
+        return;
+      }
+
+      // Mark as completed
+      const updateData = {
+        lastDailyChallengeDate: new Date(),
+        dailyChallengesCompleted: firebase.firestore.FieldValue.arrayUnion(new Date().toISOString().split('T')[0])
+      };
+
+      // Check if yesterday was completed to maintain streak, else reset
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toDateString();
+      const lastDateStr = lastDate ? new Date(lastDate.toDate?.() || lastDate).toDateString() : null;
+
+      if (lastDateStr === yesterdayStr) {
+        // Streak continues
+        updateData.dailyChallengeStreak = firebase.firestore.FieldValue.increment(1);
+      } else {
+        // Streak resets to 1 (or start at 1)
+        updateData.dailyChallengeStreak = 1;
+      }
+
+      // Add points to user journey (optional: 10 points per challenge)
+      // We'll add to totalPoints in userJourney
+      userJourneyRef.update({
+        ...updateData,
+        totalPoints: firebase.firestore.FieldValue.increment(10)
+      }).then(() => {
+        cdToast('✅ Challenge completed! +10 points');
+        // Update local data and UI
+        userJourneyData.lastDailyChallengeDate = new Date();
+        userJourneyData.dailyChallengeStreak = updateData.dailyChallengeStreak === 1 ? 1 : (userJourneyData.dailyChallengeStreak || 0) + 1;
+        updateChallengeButton();
+        // Also update journey widget points
+        if (journeyDocRef) {
+          // Need to refetch userJourney to update points on journey widget
+          userJourneyRef.get().then(doc => {
+            if (doc.exists) {
+              const data = doc.data();
+              updateJourneyWidget(journeyDocRef, data);
+            }
+          });
+        }
+      }).catch(err => {
+        console.error('Error completing challenge:', err);
+        cdToast('Error: ' + err.message);
+      });
+    };
+
+    // ============================================================
+    // 15. SIGNAL FEED (now at bottom)
     // ============================================================
     function renderDashboardFeed(user) {
       const section = document.getElementById('dashboard-feed');
@@ -2344,7 +2586,7 @@
     }
 
     // ============================================================
-    // 15. AUTH LISTENER (with journey data)
+    // 16. AUTH LISTENER (with journey data and daily challenges)
     // ============================================================
     auth.onAuthStateChanged(user => {
       if (!user) {
@@ -2362,213 +2604,4 @@
         }
       });
       document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${user.uid}`;
-      document.getElementById('statCardsLink').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
-      document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
-
-      // --- Load journey definition (once) ---
-      db.collection('journeys').doc('beginner').get().then(doc => {
-        if (doc.exists) {
-          journeyDocRef = doc.data();
-          journeyTotalNodes = journeyDocRef.nodes ? journeyDocRef.nodes.length : 0;
-          // Load badges map for next badge display
-          db.collection('badges').get().then(snap => {
-            snap.forEach(b => { badgesMap[b.id] = b.data(); });
-            // Update widget if userJourney already loaded
-            if (userJourney) {
-              updateJourneyWidget(journeyDocRef, userJourney);
-            }
-          });
-        }
-      }).catch(console.warn);
-
-      // --- Listen to user profile ---
-      userDocRef.onSnapshot(doc => {
-        if (!doc.exists) {
-          userDocRef.set({
-            savedProtocols: [], savedCards: [], savedBlogs: [], savedPodcasts: [], savedCommunityPosts: [], role: 'Operator',
-            subscription: { tier: 'monthly', status: 'active' },
-            name: '', username: '', email: user.email || '', tier: 'free', billingInterval: 'monthly',
-            preferences: { brands: [], lenses: [], interests: [] }, confidence: 0,
-            referralCode: '', totalReferrals: 0, totalCommissionEarned: 0, ambassadorTier: 'signal'
-          });
-          return;
-        }
-        const data = doc.data();
-        updateProfile(data);
-        updateLearningJourney(data);
-        updateReferralSection(data);
-        const savedProtocols = data.savedProtocols || [];
-        const savedCards = data.savedCards || [];
-        const savedBlogs = data.savedBlogs || [];
-        const savedPodcasts = data.savedPodcasts || [];
-        const savedCommunity = data.savedCommunityPosts || [];
-        updateStats(savedProtocols, savedCards, savedBlogs, savedPodcasts, savedCommunity);
-        renderProtocols(savedProtocols, document.querySelector('.filter-tab.active')?.dataset.genre || 'all');
-        renderRecommended(savedProtocols);
-        renderItemList('cardsList', savedCards, cardsMap, getCardLink, 'No snapshot cards saved yet.');
-        renderItemList('blogsList', savedBlogs, {}, () => '#', 'No blog posts saved yet.');
-        renderItemList('podcastsList', savedPodcasts, {}, () => '#', 'No podcast episodes saved yet.');
-        renderItemList('communityList', savedCommunity, {}, () => '#', 'No community posts saved yet.');
-
-        const role = data.role || 'Operator';
-        const tierLabel = data.tier === 'pro' ? 'Pro' : 'Free';
-        updateAuthUI(true, role, tierLabel);
-
-        const aiUsage = data.aiUsage || { total: 0 };
-        updateAIWidget(aiUsage, data.tier || 'free');
-
-        setTimeout(() => {
-          document.querySelectorAll('.profile-section .profile-item .value, .learning-journey-section .profile-item .value')
-            .forEach(el => {
-              const text = el.textContent;
-              if (text && text !== '—' && text !== '' && !el.dataset.originalText) {
-                el.dataset.originalText = text;
-              }
-              el.dataset.typed = 'false';
-            });
-          initTypewriterOnScroll();
-        }, 150);
-      });
-
-      // --- Listen to user journey progress ---
-      userJourneyRef.onSnapshot(doc => {
-        if (doc.exists) {
-          userJourney = doc.data();
-        } else {
-          // Create default if not exists
-          userJourney = {
-            completedNodes: [],
-            totalPoints: 0,
-            badgesEarned: [],
-            journeyStarted: false,
-            journeyCompleted: false,
-            redemptions: []
-          };
-          userJourneyRef.set(userJourney);
-        }
-        // Update journey widget if journeyDocRef loaded
-        if (journeyDocRef) {
-          updateJourneyWidget(journeyDocRef, userJourney);
-        }
-      });
-
-      // --- Commission history ---
-      userDocRef.collection('commissions').onSnapshot(snapshot => {
-        const commissions = [];
-        snapshot.forEach(doc => { commissions.push({ id: doc.id, ...doc.data() }); });
-        renderCommissionHistory(commissions);
-      });
-
-      // --- Filter tabs ---
-      document.querySelectorAll('.filter-tab').forEach(tab => {
-        tab.addEventListener('click', function() {
-          document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
-          this.classList.add('active');
-          if (userDocRef) {
-            userDocRef.get().then(doc => {
-              if (doc.exists) renderProtocols(doc.data().savedProtocols || [], this.dataset.genre);
-            });
-          }
-        });
-      });
-
-      // --- Render feed & recommendations (already present in user profile snapshot) ---
-      renderDashboardFeed(user);
-    });
-
-    // ============================================================
-    // 16. SUBSTACK TEASER
-    // ============================================================
-    (function() {
-      const CACHE_KEY = 'substack_teaser_cache';
-      const CACHE_DURATION = 3 * 60 * 60 * 1000;
-      function showTeaser(title, snippet, link) {
-        document.getElementById('substackTitle').textContent = title;
-        document.getElementById('substackSnippet').textContent = snippet;
-        document.getElementById('substackLink').href = link;
-        document.getElementById('substackTeaser').style.display = 'block';
-      }
-      function showCachedOrFetch() {
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const data = JSON.parse(cached);
-          if (Date.now() - data.timestamp < CACHE_DURATION) {
-            showTeaser(data.title, data.snippet, data.link);
-            return;
-          }
-        }
-        fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
-          .then(res => res.json())
-          .then(data => {
-            if (data.status === 'ok' && data.items && data.items.length > 0) {
-              const latest = data.items[0];
-              const tempDiv = document.createElement('div');
-              tempDiv.innerHTML = latest.description;
-              let snippet = tempDiv.textContent || tempDiv.innerText || '';
-              snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
-              if (snippet.length === 140) snippet += '…';
-              localStorage.setItem(CACHE_KEY, JSON.stringify({ title: latest.title, snippet, link: latest.link, timestamp: Date.now() }));
-              showTeaser(latest.title, snippet, latest.link);
-            }
-          })
-          .catch(() => {
-            showTeaser('The White Balance Lie', 'Why your indoor photos look yellow — and the one setting that fixes it.', 'https://camerasdecoded.substack.com');
-          });
-      }
-      showCachedOrFetch();
-    })();
-
-    // ============================================================
-    // 17. QUIZ WIDGET
-    // ============================================================
-    (function() {
-      const streak = parseInt(localStorage.getItem('quizStreak') || '0');
-      const streakEl = document.getElementById('streakNum');
-      if (streakEl) streakEl.textContent = streak;
-
-      const launchBtn = document.getElementById('quizLaunchBtn');
-      const diffSelect = document.getElementById('diffSelect');
-      function updateLaunchLink() {
-        if (launchBtn && diffSelect) {
-          launchBtn.href = `quiz-full.html?level=${diffSelect.value}`;
-        }
-      }
-      if (diffSelect) diffSelect.addEventListener('change', updateLaunchLink);
-      updateLaunchLink();
-
-      const scoreDisplay = document.getElementById('lastScoreDisplay');
-      const scoreLaunchBtn = document.getElementById('scoreLaunchBtn');
-
-      function updateQuizScore() {
-        if (!scoreDisplay) return;
-        const stored = localStorage.getItem('quizLastScore');
-        if (stored) {
-          try {
-            const data = JSON.parse(stored);
-            const levelNames = { beginner: '🌱', intermediate: '⚡', advanced: '🚀' };
-            const levelIcon = levelNames[data.level] || '';
-            scoreDisplay.textContent = `${levelIcon} ${data.score}/${data.total}`;
-          } catch {
-            scoreDisplay.textContent = '—';
-          }
-        } else {
-          scoreDisplay.textContent = '—';
-        }
-      }
-
-      if (scoreLaunchBtn) {
-        scoreLaunchBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          const selectedLevel = diffSelect ? diffSelect.value : 'beginner';
-          window.location.href = `quiz-full.html?level=${selectedLevel}`;
-        });
-      }
-
-      document.addEventListener('DOMContentLoaded', updateQuizScore);
-      window.addEventListener('storage', (e) => {
-        if (e.key === 'quizLastScore') updateQuizScore();
-      });
-    })();
-  </script>
-</body>
-</html>
+      document.getElementById('statCardsLink
