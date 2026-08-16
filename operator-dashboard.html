@@ -2604,4 +2604,218 @@
         }
       });
       document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${user.uid}`;
-      document.getElementById('statCardsLink
+      document.getElementById('statCardsLink').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
+      document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
+
+      // --- Load journey definition (once) ---
+      db.collection('journeys').doc('beginner').get().then(doc => {
+        if (doc.exists) {
+          journeyDocRef = doc.data();
+          journeyTotalNodes = journeyDocRef.nodes ? journeyDocRef.nodes.length : 0;
+          db.collection('badges').get().then(snap => {
+            snap.forEach(b => { badgesMap[b.id] = b.data(); });
+            if (userJourneyData) {
+              updateJourneyWidget(journeyDocRef, userJourneyData);
+            }
+          });
+        }
+      }).catch(console.warn);
+
+      // --- Load daily challenges ---
+      loadDailyChallenge();
+
+      // --- Listen to user profile ---
+      userDocRef.onSnapshot(doc => {
+        if (!doc.exists) {
+          userDocRef.set({
+            savedProtocols: [], savedCards: [], savedBlogs: [], savedPodcasts: [], savedCommunityPosts: [], role: 'Operator',
+            subscription: { tier: 'monthly', status: 'active' },
+            name: '', username: '', email: user.email || '', tier: 'free', billingInterval: 'monthly',
+            preferences: { brands: [], lenses: [], interests: [] }, confidence: 0,
+            referralCode: '', totalReferrals: 0, totalCommissionEarned: 0, ambassadorTier: 'signal'
+          });
+          return;
+        }
+        const data = doc.data();
+        updateProfile(data);
+        updateLearningJourney(data);
+        updateReferralSection(data);
+        const savedProtocols = data.savedProtocols || [];
+        const savedCards = data.savedCards || [];
+        const savedBlogs = data.savedBlogs || [];
+        const savedPodcasts = data.savedPodcasts || [];
+        const savedCommunity = data.savedCommunityPosts || [];
+        updateStats(savedProtocols, savedCards, savedBlogs, savedPodcasts, savedCommunity);
+        renderProtocols(savedProtocols, document.querySelector('.filter-tab.active')?.dataset.genre || 'all');
+        renderRecommended(savedProtocols);
+        renderItemList('cardsList', savedCards, cardsMap, getCardLink, 'No snapshot cards saved yet.');
+        renderItemList('blogsList', savedBlogs, {}, () => '#', 'No blog posts saved yet.');
+        renderItemList('podcastsList', savedPodcasts, {}, () => '#', 'No podcast episodes saved yet.');
+        renderItemList('communityList', savedCommunity, {}, () => '#', 'No community posts saved yet.');
+
+        const role = data.role || 'Operator';
+        const tierLabel = data.tier === 'pro' ? 'Pro' : 'Free';
+        updateAuthUI(true, role, tierLabel);
+
+        const aiUsage = data.aiUsage || { total: 0 };
+        updateAIWidget(aiUsage, data.tier || 'free');
+
+        setTimeout(() => {
+          document.querySelectorAll('.profile-section .profile-item .value, .learning-journey-section .profile-item .value')
+            .forEach(el => {
+              const text = el.textContent;
+              if (text && text !== '—' && text !== '' && !el.dataset.originalText) {
+                el.dataset.originalText = text;
+              }
+              el.dataset.typed = 'false';
+            });
+          initTypewriterOnScroll();
+        }, 150);
+      });
+
+      // --- Listen to user journey progress ---
+      userJourneyRef.onSnapshot(doc => {
+        if (doc.exists) {
+          userJourneyData = doc.data();
+        } else {
+          userJourneyData = {
+            completedNodes: [],
+            totalPoints: 0,
+            badgesEarned: [],
+            journeyStarted: false,
+            journeyCompleted: false,
+            redemptions: [],
+            dailyChallengeStreak: 0,
+            lastDailyChallengeDate: null,
+            dailyChallengesCompleted: []
+          };
+          userJourneyRef.set(userJourneyData);
+        }
+        // Update journey widget if journeyDocRef loaded
+        if (journeyDocRef) {
+          updateJourneyWidget(journeyDocRef, userJourneyData);
+        }
+        // Update challenge button
+        updateChallengeButton();
+      });
+
+      // --- Commission history ---
+      userDocRef.collection('commissions').onSnapshot(snapshot => {
+        const commissions = [];
+        snapshot.forEach(doc => { commissions.push({ id: doc.id, ...doc.data() }); });
+        renderCommissionHistory(commissions);
+      });
+
+      // --- Filter tabs ---
+      document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+          if (userDocRef) {
+            userDocRef.get().then(doc => {
+              if (doc.exists) renderProtocols(doc.data().savedProtocols || [], this.dataset.genre);
+            });
+          }
+        });
+      });
+
+      // --- Render feed & recommendations ---
+      renderDashboardFeed(user);
+    });
+
+    // ============================================================
+    // 17. SUBSTACK TEASER
+    // ============================================================
+    (function() {
+      const CACHE_KEY = 'substack_teaser_cache';
+      const CACHE_DURATION = 3 * 60 * 60 * 1000;
+      function showTeaser(title, snippet, link) {
+        document.getElementById('substackTitle').textContent = title;
+        document.getElementById('substackSnippet').textContent = snippet;
+        document.getElementById('substackLink').href = link;
+        document.getElementById('substackTeaser').style.display = 'block';
+      }
+      function showCachedOrFetch() {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const data = JSON.parse(cached);
+          if (Date.now() - data.timestamp < CACHE_DURATION) {
+            showTeaser(data.title, data.snippet, data.link);
+            return;
+          }
+        }
+        fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === 'ok' && data.items && data.items.length > 0) {
+              const latest = data.items[0];
+              const tempDiv = document.createElement('div');
+              tempDiv.innerHTML = latest.description;
+              let snippet = tempDiv.textContent || tempDiv.innerText || '';
+              snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
+              if (snippet.length === 140) snippet += '…';
+              localStorage.setItem(CACHE_KEY, JSON.stringify({ title: latest.title, snippet, link: latest.link, timestamp: Date.now() }));
+              showTeaser(latest.title, snippet, latest.link);
+            }
+          })
+          .catch(() => {
+            showTeaser('The White Balance Lie', 'Why your indoor photos look yellow — and the one setting that fixes it.', 'https://camerasdecoded.substack.com');
+          });
+      }
+      showCachedOrFetch();
+    })();
+
+    // ============================================================
+    // 18. QUIZ WIDGET
+    // ============================================================
+    (function() {
+      const streak = parseInt(localStorage.getItem('quizStreak') || '0');
+      const streakEl = document.getElementById('streakNum');
+      if (streakEl) streakEl.textContent = streak;
+
+      const launchBtn = document.getElementById('quizLaunchBtn');
+      const diffSelect = document.getElementById('diffSelect');
+      function updateLaunchLink() {
+        if (launchBtn && diffSelect) {
+          launchBtn.href = `quiz-full.html?level=${diffSelect.value}`;
+        }
+      }
+      if (diffSelect) diffSelect.addEventListener('change', updateLaunchLink);
+      updateLaunchLink();
+
+      const scoreDisplay = document.getElementById('lastScoreDisplay');
+      const scoreLaunchBtn = document.getElementById('scoreLaunchBtn');
+
+      function updateQuizScore() {
+        if (!scoreDisplay) return;
+        const stored = localStorage.getItem('quizLastScore');
+        if (stored) {
+          try {
+            const data = JSON.parse(stored);
+            const levelNames = { beginner: '🌱', intermediate: '⚡', advanced: '🚀' };
+            const levelIcon = levelNames[data.level] || '';
+            scoreDisplay.textContent = `${levelIcon} ${data.score}/${data.total}`;
+          } catch {
+            scoreDisplay.textContent = '—';
+          }
+        } else {
+          scoreDisplay.textContent = '—';
+        }
+      }
+
+      if (scoreLaunchBtn) {
+        scoreLaunchBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const selectedLevel = diffSelect ? diffSelect.value : 'beginner';
+          window.location.href = `quiz-full.html?level=${selectedLevel}`;
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', updateQuizScore);
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'quizLastScore') updateQuizScore();
+      });
+    })();
+  </script>
+</body>
+</html>
