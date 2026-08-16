@@ -26,3 +26,4 @@ firebase.firestore().settings({
 
 const auth = firebase.auth();
 const db = firebase.firestore();
+window.db = db;
