@@ -2381,65 +2381,38 @@
     }
 
     // ============================================================
-    // 14. DAILY CHALLENGE WIDGET
-    // ============================================================
-    async function loadDailyChallenge() {
-      try {
-        const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
-        const snapshot = await db.collection('dailyChallenges')
-          .where('active', '==', true)
-          .limit(10)
-          .get();
-        if (snapshot.empty) {
-          // Fallback: static challenges
-          const fallback = [
-            { title: 'Golden Hour Portrait', description: 'Go out and capture a portrait during golden hour. Focus on warm tones and backlighting.' },
-            { title: 'Street Scene', description: 'Capture a candid street moment with strong composition.' },
-            { title: 'Minimalist Still Life', description: 'Arrange 3 objects and create a simple, clean composition.' }
-          ];
-          const index = dayOfYear % fallback.length;
-          dailyChallengeData = fallback[index];
-        } else {
-          const challenges = [];
-          snapshot.forEach(doc => challenges.push({ id: doc.id, ...doc.data() }));
-          const index = dayOfYear % challenges.length;
-          dailyChallengeData = challenges[index];
-        }
+// 14. DAILY CHALLENGE WIDGET (Static Fallback Only)
+// ============================================================
+function loadDailyChallenge() {
+  // Static challenges – no Firestore needed
+  const staticChallenges = [
+    { title: 'Golden Hour Portrait', description: 'Go out and capture a portrait during golden hour. Focus on warm tones and backlighting.' },
+    { title: 'Street Scene', description: 'Capture a candid street moment with strong composition.' },
+    { title: 'Minimalist Still Life', description: 'Arrange 3 objects and create a simple, clean composition.' },
+    { title: 'Macro Details', description: 'Find a small subject and capture it in extreme detail.' },
+    { title: 'Reflection Hunt', description: 'Find a reflection (water, glass, mirror) and use it as the main subject.' },
+    { title: 'Low Light Experiment', description: 'Push your camera to its limits in low light – embrace the grain.' },
+    { title: 'Color Harmony', description: 'Find a scene with complementary colors and frame it perfectly.' },
+    { title: 'Motion Blur', description: 'Capture intentional motion blur to tell a story.' },
+    { title: 'Symmetry', description: 'Find a symmetrical scene and make it the hero of your shot.' },
+    { title: 'Silhouette Story', description: 'Shoot a silhouette that tells a story without faces.' }
+  ];
 
-        // Update UI
-        const titleEl = document.getElementById('challengeTitle');
-        const descEl = document.getElementById('challengeDesc');
-        if (dailyChallengeData) {
-          titleEl.textContent = dailyChallengeData.title || 'Daily Challenge';
-          descEl.textContent = dailyChallengeData.description || 'Complete today\'s challenge to earn points.';
-        } else {
-          titleEl.textContent = 'No challenge today.';
-          descEl.textContent = 'Check back tomorrow.';
-        }
-        updateChallengeButton();
-      } catch (err) {
-        console.warn('Daily challenge error:', err);
-        document.getElementById('challengeTitle').textContent = 'Loading…';
-        document.getElementById('challengeDesc').textContent = 'Could not load today\'s challenge.';
-      }
-    }
+  // Rotate based on day of year
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  const index = dayOfYear % staticChallenges.length;
+  const challenge = staticChallenges[index];
 
-    function updateChallengeButton() {
-      const btn = document.getElementById('challengeBtn');
-      if (!userJourneyData) return;
-      const lastDate = userJourneyData.lastDailyChallengeDate || null;
-      const today = new Date().toDateString();
-      const completedToday = lastDate && new Date(lastDate.toDate?.() || lastDate).toDateString() === today;
+  // Update UI
+  document.getElementById('challengeTitle').textContent = challenge.title;
+  document.getElementById('challengeDesc').textContent = challenge.description;
 
-      if (completedToday) {
-        btn.innerHTML = '<i class="fas fa-check"></i> Completed';
-        btn.classList.add('completed');
-        btn.disabled = true;
-      } else {
-        btn.innerHTML = '<i class="fas fa-play"></i> Start Challenge';
-        btn.classList.remove('completed');
-        btn.disabled = false;
-      }
+  // Store in global for reference
+  dailyChallengeData = challenge;
+
+  // Update button state (will check if already completed today)
+  updateChallengeButton();
+}
 
       // Update streak display
       const streak = userJourneyData.dailyChallengeStreak || 0;
