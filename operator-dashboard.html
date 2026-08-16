@@ -49,6 +49,26 @@
     a { text-decoration: none; color: inherit; transition: 0.2s; }
 
     /* ============================================================
+       BINARY RAIN (NEW)
+       ============================================================ */
+    #binary-rain {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.2;
+    }
+    #rain-fade {
+      position: fixed;
+      bottom: 0; left: 0;
+      width: 100vw; height: 45vh;
+      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 60%, #000000 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ============================================================
        SIDEBAR
        ============================================================ */
     .sidebar {
@@ -123,6 +143,7 @@
     .floating-left-group {
       display: flex;
       align-items: center;
+      gap: 8px;
       flex-shrink: 0;
     }
     .floating-home-icon {
@@ -151,24 +172,6 @@
     }
     .glow-role { font-weight: 700; text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00; }
     .tier-text { opacity: 0.8; }
-
-    #tourButton {
-      background: transparent;
-      border: 1px solid var(--green);
-      color: var(--green);
-      padding: 4px 14px;
-      border-radius: 20px;
-      cursor: pointer;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      transition: 0.2s;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    #tourButton:hover {
-      background: rgba(141,235,0,0.1);
-      box-shadow: 0 0 15px rgba(141,235,0,0.3);
-    }
 
     /* Right group */
     .floating-right-group {
@@ -234,6 +237,62 @@
     }
     .floating-toggle:hover { color: #a0f520; }
 
+    /* ===== SUBTLE TOUR BUTTON (left group) ===== */
+    #tourButton {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 0 4px;
+      transition: color 0.2s ease;
+      white-space: nowrap;
+    }
+    #tourButton:hover {
+      color: var(--green);
+    }
+
+    /* ============================================================
+       CHASING BORDER (KEPT FOR CART)
+       ============================================================ */
+    @property --angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+    @keyframes spinBorder {
+      to { --angle: 360deg; }
+    }
+    .chasing-border {
+      position: relative;
+      border-color: transparent !important;
+      background-clip: padding-box;
+    }
+    .chasing-border::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
+      -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      mask-composite: exclude;
+      animation: spinBorder 4s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+      will-change: transform;
+    }
+    .chasing-border > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ============================================================
+       DASHBOARD HEADER
+       ============================================================ */
     .dash-header {
       display: flex;
       flex-wrap: wrap;
@@ -248,7 +307,7 @@
     .subscription-badge { background: var(--green-dim); border: 1px solid rgba(141,235,0,0.2); border-radius: 20px; padding: 2px 14px; font-size: 11px; color: var(--green); }
 
     /* ============================================================
-       ALL OTHER STYLES (unchanged from previous version)
+       DASHBOARD STAT CARDS
        ============================================================ */
     .dash-stats {
       display: grid;
@@ -304,6 +363,9 @@
       letter-spacing: 0.5px;
     }
 
+    /* ============================================================
+       AI WORKBENCH WIDGET
+       ============================================================ */
     .ai-widget {
       background: rgba(10, 10, 10, 0.25);
       backdrop-filter: blur(8px);
@@ -469,6 +531,9 @@
     }
     .ai-widget-link:hover { color: #a0f520; gap: 10px; }
 
+    /* ============================================================
+       SIDE-BY-SIDE JOURNEY & CHALLENGE
+       ============================================================ */
     .journey-challenge-wrapper {
       display: flex;
       gap: 20px;
@@ -1495,7 +1560,7 @@
       .floating-center-group { gap: 8px; }
       .floating-right-group { gap: 6px; }
       .role-tier-badge { display: none !important; }
-      #tourButton { font-size: 11px; padding: 3px 10px; }
+      #tourButton { font-size: 11px; }
       .dash-stats { grid-template-columns: 1fr 1fr; }
       .item-grid { grid-template-columns: 1fr; }
       .protocol-grid { grid-template-columns: 1fr; }
@@ -1603,6 +1668,12 @@
 </head>
 <body>
   <!-- ============================================================
+       BINARY RAIN (BACKGROUND)
+       ============================================================ -->
+  <canvas id="binary-rain"></canvas>
+  <div id="rain-fade"></div>
+
+  <!-- ============================================================
        SIDEBAR
        ============================================================ -->
   <aside class="sidebar">
@@ -1662,18 +1733,18 @@
        FLOATING HEADER – THREE‑GROUP LAYOUT
        ============================================================ -->
   <div class="floating-header" id="floatingHeader">
-    <!-- Left group: Home icon -->
+    <!-- Left group: Home icon + subtle Tour link -->
     <div class="floating-left-group">
       <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
+      <button id="tourButton" style="display:none;">Tour</button>
     </div>
 
-    <!-- Center group: Role badge + Tour button (perfectly centered) -->
+    <!-- Center group: Role badge (perfectly centered) -->
     <div class="floating-center-group">
       <div id="roleTierBadge" class="role-tier-badge"><span class="glow-role">Operator</span> · <span class="tier-text">Free</span></div>
-      <button id="tourButton" style="display:none;"><i class="fas fa-compass"></i> Tour</button>
     </div>
 
-    <!-- Right group: Cart, Logout, hamburger -->
+    <!-- Right group: Cart (with chasing border), Logout, hamburger -->
     <div class="floating-right-group">
       <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
         <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
@@ -1688,7 +1759,6 @@
        MAIN CONTENT
        ============================================================ -->
   <main class="main-content">
-
     <div class="dash-header">
       <img src="custom-site-titles/operator-dashboard.png" alt="Operator Dashboard" class="dash-title-img">
       <div class="greeting" id="greeting">
@@ -1779,7 +1849,6 @@
 
     <!-- ===== SIDE-BY-SIDE JOURNEY & CHALLENGE ===== -->
     <div class="journey-challenge-wrapper">
-
       <!-- JOURNEY CTA -->
       <div class="journey-cta" id="journeyCta">
         <div class="top-row">
@@ -1829,12 +1898,10 @@
           </button>
         </div>
       </div>
-
     </div>
 
     <!-- ===== PROGRESS SNAPSHOT + CHALLENGE LOG ===== -->
     <div class="progress-log-wrapper">
-
       <!-- PROGRESS SNAPSHOT -->
       <div class="snapshot-card" id="snapshotCard">
         <div class="snapshot-header"><i class="fas fa-chart-line"></i> Journey Progress</div>
@@ -1858,7 +1925,6 @@
           <span class="fire">🔥</span> Current streak: <strong id="logStreak">0</strong> days
         </div>
       </div>
-
     </div>
 
     <!-- SUBSTACK TEASER -->
@@ -2094,9 +2160,73 @@
   <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
 
   <!-- ============================================================
-       SCRIPTS (unchanged from previous version)
+       SCRIPTS
        ============================================================ -->
   <script>
+    // ============================================================
+    // BINARY RAIN
+    // ============================================================
+    (function() {
+      const canvas = document.getElementById('binary-rain');
+      const ctx = canvas.getContext('2d');
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+      const fontSize = 16;
+      const columns = Math.floor(width / fontSize);
+      const drops = Array(columns).fill(1);
+      const speed = 0.55;
+
+      function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = fontSize + 'px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < drops.length; i++) {
+          const char = Math.random() > 0.5 ? '1' : '0';
+          const x = i * fontSize + fontSize / 2;
+          const y = drops[i] * fontSize;
+          if (char === '1') {
+            ctx.shadowColor = '#8deb00';
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = '#8deb00';
+          } else {
+            ctx.shadowColor = '#3a7a1a';
+            ctx.shadowBlur = 4;
+            ctx.fillStyle = '#4caf50';
+          }
+          ctx.fillText(char, x, y);
+          if (char === '1' && Math.random() < 0.025) {
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+          if (y > height && Math.random() > 0.97) {
+            drops[i] = 0;
+          }
+          drops[i] += speed;
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+      window.addEventListener('resize', () => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        const newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) {
+          drops.push(...Array(newColumns - drops.length).fill(1));
+        } else {
+          drops.length = newColumns;
+        }
+      });
+    })();
+
     // ============================================================
     // TOGGLE PROFILE
     // ============================================================
