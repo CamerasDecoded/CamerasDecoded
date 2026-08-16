@@ -14,7 +14,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <style>
-    /* ===== ALL STYLES UNCHANGED – same as before ===== */
+    /* ===== ALL STYLES – same as before ===== */
     :root {
       --space-sm: 16px; --space-md: 32px; --space-lg: 64px; --space-xl: 96px; --space-xxl: 140px;
       --green: #8deb00; --green-dim: rgba(141,235,0,0.12); --green-glow: rgba(141,235,0,0.15);
@@ -1035,7 +1035,7 @@
       </div>
     </div>
 
-    <!-- ===== SIGNAL FEED (NOW ALWAYS VISIBLE WHEN LOGGED IN) ===== -->
+    <!-- ===== SIGNAL FEED ===== -->
     <section id="dashboard-feed">
       <div class="feed-header">
         <h2>📡 Your Signal Feed</h2>
@@ -1802,7 +1802,126 @@
     }
 
     // ============================================================
-    // 11. SIGNAL FEED (FIXED – ALWAYS SHOWS SECTION)
+    // 11. TAGGING ENGINE (INLINED – NO EXTERNAL DEPENDENCY)
+    // ============================================================
+    (function() {
+      // -------------------------------------------------------------
+      // 1. Generate user tags from their profile + activity
+      // -------------------------------------------------------------
+      window.getUserTags = function(userData) {
+        const tags = [];
+        const lj = userData.learningJourney || {};
+
+        if (lj.experience) tags.push('experience:' + lj.experience);
+        if (lj.primaryGoal) tags.push('goal:' + lj.primaryGoal);
+        if (lj.ambition) tags.push('ambition:' + lj.ambition);
+        if (lj.sixMonthGoal) tags.push('goal:' + lj.sixMonthGoal);
+        if (lj.painPoints && Array.isArray(lj.painPoints)) {
+          lj.painPoints.forEach(p => tags.push('pain:' + p));
+        }
+
+        const usage = userData.aiUsage || {};
+        if (usage.prompt > 5) tags.push('interest:prompts');
+        if (usage.snapshot > 3) tags.push('interest:snapshot');
+        if (usage.critique > 0) tags.push('interest:critique');
+        if (usage.image > 0) tags.push('interest:image-generation');
+        if (usage.ideas > 0) tags.push('interest:content-ideas');
+
+        if (userData.savedCards && userData.savedCards.length > 0) tags.push('has:snapshot-cards');
+        if (userData.savedProtocols && userData.savedProtocols.length > 0) tags.push('has:protocols');
+        if (userData.savedBlogs && userData.savedBlogs.length > 0) tags.push('has:blogs');
+        if (userData.savedPodcasts && userData.savedPodcasts.length > 0) tags.push('has:podcasts');
+
+        if (tags.length === 0) tags.push('experience:beginner', 'goal:master-manual');
+
+        return tags;
+      };
+
+      // -------------------------------------------------------------
+      // 2. Calculate relevance score
+      // -------------------------------------------------------------
+      window.calculateRelevance = function(contentTags, userTags) {
+        if (!contentTags || !Array.isArray(contentTags)) return 0;
+        if (!userTags || !Array.isArray(userTags)) return 0;
+
+        let score = 0;
+
+        contentTags.forEach(ct => {
+          if (userTags.includes(ct)) score += 10;
+        });
+
+        userTags.forEach(ut => {
+          if (ut.startsWith('pain:')) {
+            const topic = ut.replace('pain:', '');
+            contentTags.forEach(ct => {
+              if (ct.includes(topic)) score += 5;
+            });
+          }
+          if (ut.startsWith('interest:')) {
+            const topic = ut.replace('interest:', '');
+            contentTags.forEach(ct => {
+              if (ct.includes(topic)) score += 7;
+            });
+          }
+          if (ut.startsWith('goal:')) {
+            const goal = ut.replace('goal:', '');
+            contentTags.forEach(ct => {
+              if (ct.includes(goal)) score += 8;
+            });
+          }
+        });
+
+        const userSkill = userTags.find(t => t.startsWith('experience:'));
+        const contentSkill = contentTags.find(t => t.startsWith('skill:'));
+        if (userSkill && contentSkill) {
+          const uLevel = userSkill.split(':')[1];
+          const cLevel = contentSkill.split(':')[1];
+          if (uLevel === cLevel) score += 5;
+          else if ((uLevel === 'beginner' && cLevel === 'intermediate') ||
+                   (uLevel === 'intermediate' && cLevel === 'advanced')) {
+            score += 3;
+          }
+        }
+
+        return score;
+      };
+
+      // -------------------------------------------------------------
+      // 3. Fetch and score content from any Firestore collection
+      // -------------------------------------------------------------
+      window.getRecommendedContent = async function(collectionName, userTags, limit = 10, extraFilters = {}) {
+        if (!window.db) {
+          console.error('Firestore not initialized (window.db missing)');
+          return [];
+        }
+
+        try {
+          let query = window.db.collection(collectionName).limit(50);
+          if (extraFilters.active !== undefined) {
+            query = query.where('active', '==', extraFilters.active);
+          }
+
+          const snapshot = await query.get();
+          const items = [];
+
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const tags = data.tags || [];
+            const score = window.calculateRelevance(tags, userTags);
+            items.push({ id: doc.id, ...data, score });
+          });
+
+          items.sort((a, b) => (b.score || 0) - (a.score || 0));
+          return items.slice(0, limit);
+        } catch (error) {
+          console.error('Error fetching recommendations from', collectionName, error);
+          return [];
+        }
+      };
+    })();
+
+    // ============================================================
+    // 12. SIGNAL FEED – Renders recommendations
     // ============================================================
     function renderDashboardFeed(user) {
       const section = document.getElementById('dashboard-feed');
@@ -1817,7 +1936,6 @@
         return;
       }
 
-      // ALWAYS show the section when user is logged in
       section.style.display = 'block';
 
       function setFeedMessage(msg, isError = false) {
@@ -1827,21 +1945,8 @@
       // Check if tagging engine loaded
       if (typeof window.getUserTags === 'undefined' || typeof window.getRecommendedContent === 'undefined') {
         setFeedMessage('Loading recommendation engine... Please wait.');
-        // Try loading the engine manually if not loaded
-        if (!document.querySelector('script[src="tagging-engine.js"]')) {
-          const tagScript = document.createElement('script');
-          tagScript.src = 'tagging-engine.js';
-          tagScript.onload = function() {
-            setTimeout(() => renderDashboardFeed(user), 300);
-          };
-          tagScript.onerror = function() {
-            setFeedMessage('Recommendation engine could not be loaded. Please refresh.', true);
-          };
-          document.head.appendChild(tagScript);
-        } else {
-          // Script exists but maybe not ready – try again after delay
-          setTimeout(() => renderDashboardFeed(user), 500);
-        }
+        // The engine is inlined, so this should never happen, but as a safety net:
+        setTimeout(() => renderDashboardFeed(user), 300);
         return;
       }
 
@@ -1857,6 +1962,7 @@
         const userTags = window.getUserTags(userData);
         console.log('User tags:', userTags);
         
+        // Fetch from all content collections
         const [products, protocols, podcasts, blogs] = await Promise.all([
           window.getRecommendedContent('products', userTags, 3, { active: true }),
           window.getRecommendedContent('protocols', userTags, 3, { active: true }),
@@ -1910,7 +2016,7 @@
     }
 
     // ============================================================
-    // 12. AUTH LISTENER
+    // 13. AUTH LISTENER
     // ============================================================
     auth.onAuthStateChanged(user => {
       if (!user) {
@@ -1930,7 +2036,7 @@
       document.getElementById('statCardsLink').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
       document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
 
-      // Initialize the feed – show section immediately
+      // Show the feed immediately
       renderDashboardFeed(user);
 
       userDocRef.onSnapshot(doc => {
@@ -2001,7 +2107,7 @@
     });
 
     // ============================================================
-    // 13. SUBSTACK TEASER
+    // 14. SUBSTACK TEASER
     // ============================================================
     (function() {
       const CACHE_KEY = 'substack_teaser_cache';
@@ -2043,7 +2149,7 @@
     })();
 
     // ============================================================
-    // 14. QUIZ WIDGET — STREAK & SCORE
+    // 15. QUIZ WIDGET — STREAK & SCORE
     // ============================================================
     (function() {
       const streak = parseInt(localStorage.getItem('quizStreak') || '0');
