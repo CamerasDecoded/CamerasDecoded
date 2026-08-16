@@ -6,6 +6,10 @@
   <title>Operator Dashboard — Cameras Decoded</title>
   <meta name="description" content="Your personal command center. Saved items appear here automatically." />
 
+  <!-- ===== SHEPHERD.JS (Tour Library) ===== -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.0.1/dist/css/shepherd.css" />
+  <script src="https://cdn.jsdelivr.net/npm/shepherd.js@11.0.1/dist/js/shepherd.min.js"></script>
+
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
@@ -14,7 +18,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <style>
-    /* ===== ALL STYLES (unchanged, with new additions) ===== */
+    /* ===== ALL STYLES (existing, with Shepherd theme overrides) ===== */
     :root {
       --space-sm: 16px; --space-md: 32px; --space-lg: 64px; --space-xl: 96px; --space-xxl: 140px;
       --green: #8deb00; --green-dim: rgba(141,235,0,0.12); --green-glow: rgba(141,235,0,0.15);
@@ -42,6 +46,7 @@
     h1,h2,h3,.mono { font-family: 'Space Mono', monospace; }
     a { text-decoration: none; color: inherit; transition: 0.2s; }
 
+    /* ===== SIDEBAR ===== */
     .sidebar {
       width: 240px;
       background: rgba(0,0,0,0.95);
@@ -572,7 +577,7 @@
       box-shadow: none;
     }
 
-    /* ===== PROGRESS SNAPSHOT + CHALLENGE LOG (NEW) ===== */
+    /* ===== PROGRESS SNAPSHOT + CHALLENGE LOG ===== */
     .progress-log-wrapper {
       display: flex;
       gap: 20px;
@@ -604,7 +609,6 @@
       box-shadow: 0 8px 24px rgba(0,0,0,0.3);
     }
 
-    /* Progress Snapshot */
     .snapshot-card .snapshot-header {
       display: flex;
       align-items: center;
@@ -627,9 +631,6 @@
     .snapshot-card .snapshot-stats .stat strong {
       color: #fff;
       font-weight: 600;
-    }
-    .snapshot-card .snapshot-stats .stat .highlight {
-      color: var(--green);
     }
     .snapshot-card .snapshot-bar {
       width: 100%;
@@ -655,7 +656,6 @@
       gap: 6px;
     }
 
-    /* Challenge Log */
     .challenge-log .log-header {
       display: flex;
       align-items: center;
@@ -1451,6 +1451,67 @@
       .sidebar .nav-group { display: flex !important; flex-direction: column !important; }
       .sidebar .mobile-toggle { display: none !important; }
     }
+
+    /* ===== SHEPHERD.JS THEME OVERRIDES ===== */
+    .shepherd-button {
+      background: var(--green) !important;
+      color: #000 !important;
+      font-family: 'Space Mono', monospace !important;
+      font-size: 12px !important;
+      padding: 6px 16px !important;
+      border-radius: 6px !important;
+      border: none !important;
+      font-weight: 700 !important;
+    }
+    .shepherd-button-secondary {
+      background: transparent !important;
+      color: var(--text-muted) !important;
+      border: 1px solid var(--border-dim) !important;
+    }
+    .shepherd-button-secondary:hover {
+      border-color: var(--green) !important;
+      color: #fff !important;
+    }
+    .shepherd-text {
+      color: var(--text-muted) !important;
+      font-family: 'Montserrat', sans-serif !important;
+      font-size: 14px !important;
+      line-height: 1.6 !important;
+    }
+    .shepherd-text strong {
+      color: var(--green) !important;
+    }
+    .shepherd-title {
+      color: #fff !important;
+      font-family: 'Space Mono', monospace !important;
+      font-size: 18px !important;
+      font-weight: 700 !important;
+    }
+    .shepherd-footer {
+      border-top: 1px solid var(--border-dim) !important;
+    }
+    .shepherd-header {
+      background: #0A0A0A !important;
+      border-bottom: 1px solid var(--border-dim) !important;
+    }
+    .shepherd-content {
+      background: #0A0A0A !important;
+      border: 1px solid var(--border-dim) !important;
+      border-radius: 12px !important;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.8) !important;
+    }
+    .shepherd-arrow {
+      border-color: var(--border-dim) !important;
+    }
+    .shepherd-cancel-icon {
+      color: var(--text-muted) !important;
+    }
+    .shepherd-cancel-icon:hover {
+      color: #fff !important;
+    }
+    .shepherd-progress {
+      color: var(--text-muted) !important;
+    }
   </style>
 </head>
 <body>
@@ -1518,6 +1579,10 @@
       <a href="partners.html">Partners</a>
       <a href="educators-pdf-viewer.html">Instructors</a>
     </div>
+    <!-- ===== TOUR BUTTON (visible when logged in) ===== -->
+    <button id="tourButton" style="display:none; background:transparent; border:1px solid var(--green); color:var(--green); padding:4px 14px; border-radius:20px; cursor:pointer; font-family:'Space Mono',monospace; font-size:12px; transition:0.2s;">
+      <i class="fas fa-compass"></i> Tour
+    </button>
     <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
       <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
       <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
@@ -1672,7 +1737,7 @@
 
     </div>
 
-    <!-- ===== PROGRESS SNAPSHOT + CHALLENGE LOG (NEW) ===== -->
+    <!-- ===== PROGRESS SNAPSHOT + CHALLENGE LOG ===== -->
     <div class="progress-log-wrapper">
 
       <!-- PROGRESS SNAPSHOT -->
@@ -2016,6 +2081,7 @@
     let journeyTotalNodes = 0;
     let badgesMap = {};
     let userJourneyData = null;
+    let tourStarted = false;
 
     window.handleLogout = function() {
       auth.signOut().then(() => {
@@ -2041,6 +2107,133 @@
         alert('Delete error: ' + err.message);
       }
     };
+
+    // ============================================================
+    // TOUR SYSTEM
+    // ============================================================
+    function buildTour() {
+      if (typeof Shepherd === 'undefined') return;
+
+      // Check if tour already exists and destroy it
+      if (window._currentTour) {
+        window._currentTour.complete();
+        window._currentTour = null;
+      }
+
+      const tour = new Shepherd.Tour({
+        defaultStepOptions: {
+          classes: 'shepherd-theme-dark',
+          scrollTo: { behavior: 'smooth', block: 'center' },
+          cancelIcon: { enabled: true },
+          modalOverlayOpeningPadding: 4,
+        },
+        useModalOverlay: true,
+      });
+
+      tour.addStep({
+        id: 'welcome',
+        title: '👋 Welcome, Operator!',
+        text: `Welcome to your <strong>Command Center</strong>. This is where you'll track your journey, complete daily challenges, and access all your tools.`,
+        attachTo: { element: '.dash-header', on: 'bottom' },
+        buttons: [
+          { text: 'Next →', action: tour.next }
+        ]
+      });
+
+      tour.addStep({
+        id: 'ai-workbench',
+        title: '🤖 AI Workbench',
+        text: `Generate prompts, Snapshot Cards, photo critiques, and more – <strong>all powered by AI</strong>. Your usage resets daily.`,
+        attachTo: { element: '#aiWidget', on: 'bottom' },
+        buttons: [
+          { text: '← Back', action: tour.back },
+          { text: 'Next →', action: tour.next }
+        ]
+      });
+
+      tour.addStep({
+        id: 'journey',
+        title: '📡 Your Learning Journey',
+        text: `Follow your personalized path with Cynetis‑7. Complete nodes, earn <strong>badges</strong>, and unlock <strong>rewards</strong>.`,
+        attachTo: { element: '#journeyCta', on: 'bottom' },
+        buttons: [
+          { text: '← Back', action: tour.back },
+          { text: 'Next →', action: tour.next }
+        ]
+      });
+
+      tour.addStep({
+        id: 'challenge',
+        title: '⚡ Daily Challenge',
+        text: `Every day, a new challenge to sharpen your skills. <strong>Maintain your streak</strong> and earn bonus points.`,
+        attachTo: { element: '#challengeWidget', on: 'bottom' },
+        buttons: [
+          { text: '← Back', action: tour.back },
+          { text: 'Next →', action: tour.next }
+        ]
+      });
+
+      tour.addStep({
+        id: 'profile',
+        title: '👤 Your Profile',
+        text: `Your camera, lenses, and preferences are stored here. <strong>Click the toggle</strong> to expand or collapse.`,
+        attachTo: { element: '.profile-toggle', on: 'bottom' },
+        buttons: [
+          { text: '← Back', action: tour.back },
+          { text: 'Next →', action: tour.next }
+        ]
+      });
+
+      tour.addStep({
+        id: 'protocols',
+        title: '📚 Protocol Library',
+        text: `Your saved protocols live here. <strong>Filter by genre</strong> to find the knowledge you need.`,
+        attachTo: { element: '#filterTabs', on: 'bottom' },
+        buttons: [
+          { text: '← Back', action: tour.back },
+          { text: 'Next →', action: tour.next }
+        ]
+      });
+
+      tour.addStep({
+        id: 'snapshots',
+        title: '🗂️ Snapshot Cards',
+        text: `Your saved Snapshot Cards – quick references for settings, techniques, and more. <strong>Click any to open in Atlas</strong>.`,
+        attachTo: { element: '#cardsList', on: 'bottom' },
+        buttons: [
+          { text: '← Back', action: tour.back },
+          { text: 'Finish', action: tour.complete }
+        ]
+      });
+
+      tour.on('complete', function() {
+        // Save completion to Firestore
+        if (currentUser) {
+          db.collection('users').doc(currentUser.uid).update({
+            tourCompleted: true
+          }).catch(console.warn);
+        }
+        tourStarted = false;
+        window._currentTour = null;
+      });
+
+      tour.on('cancel', function() {
+        tourStarted = false;
+        window._currentTour = null;
+      });
+
+      window._currentTour = tour;
+      return tour;
+    }
+
+    function startTour() {
+      if (tourStarted) return;
+      const tour = buildTour();
+      if (tour) {
+        tour.start();
+        tourStarted = true;
+      }
+    }
 
     // ============================================================
     // PROTOCOL LIBRARY
@@ -2404,6 +2597,7 @@
     const roleTierBadge = document.getElementById('roleTierBadge');
     const floatingLogout = document.getElementById('floatingLogoutBtn');
     const deleteLink = document.getElementById('deleteAccountLink');
+    const tourButton = document.getElementById('tourButton');
 
     function updateAuthUI(isLoggedIn, roleText = 'Operator', tierText = 'Free') {
       if (sidebarAuthContainer) {
@@ -2412,6 +2606,7 @@
           : '<a href="login.html" class="header-login-btn">Log in</a><a href="signup.html" class="header-login-btn">Sign Up</a>';
       }
       if (floatingLogout) floatingLogout.style.display = isLoggedIn ? 'inline-block' : 'none';
+      if (tourButton) tourButton.style.display = isLoggedIn ? 'inline-block' : 'none';
       if (roleTierBadge) {
         if (isLoggedIn) {
           roleTierBadge.innerHTML = `<span class="glow-role">${roleText}</span> · <span class="tier-text">${tierText}</span>`;
@@ -2683,7 +2878,6 @@
       const progress = totalNodes > 0 ? (completed / totalNodes) * 100 : 0;
       document.getElementById('snapProgressFill').style.width = progress + '%';
 
-      // Next badge
       const earnedBadges = userJourney.badgesEarned || [];
       let nextBadge = null;
       if (journeyData.nodes) {
@@ -2722,7 +2916,6 @@
       const streak = userJourney.dailyChallengeStreak || 0;
       streakEl.textContent = streak;
 
-      // Show last 7 days
       const today = new Date();
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       let html = '';
@@ -2837,7 +3030,6 @@
             }
           });
         }
-        // Also update challenge log
         updateChallengeLog(userJourneyData);
       }).catch(err => {
         console.error('Error completing challenge:', err);
@@ -2930,11 +3122,14 @@
     // ============================================================
     // AUTH LISTENER
     // ============================================================
+    let currentUser = null;
+
     auth.onAuthStateChanged(user => {
       if (!user) {
         window.location.href = 'login.html';
         return;
       }
+      currentUser = user;
       userDocRef = db.collection('users').doc(user.uid);
       userJourneyRef = db.collection('userJourney').doc(user.uid);
       localStorage.setItem('cameras_decoded_uid', user.uid);
@@ -2949,7 +3144,10 @@
       document.getElementById('statCardsLink').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
       document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${user.uid}`;
 
-      // Load journey definition
+      // --- Tour button handler ---
+      tourButton.addEventListener('click', startTour);
+
+      // --- Load journey definition ---
       db.collection('journeys').doc('beginner').get().then(doc => {
         if (doc.exists) {
           journeyDocRef = doc.data();
@@ -2963,10 +3161,10 @@
         }
       }).catch(console.warn);
 
-      // Load daily challenge
+      // --- Load daily challenge ---
       loadDailyChallenge();
 
-      // Profile listener
+      // --- Profile listener ---
       userDocRef.onSnapshot(doc => {
         if (!doc.exists) {
           userDocRef.set({
@@ -2974,7 +3172,8 @@
             subscription: { tier: 'monthly', status: 'active' },
             name: '', username: '', email: user.email || '', tier: 'free', billingInterval: 'monthly',
             preferences: { brands: [], lenses: [], interests: [] }, confidence: 0,
-            referralCode: '', totalReferrals: 0, totalCommissionEarned: 0, ambassadorTier: 'signal'
+            referralCode: '', totalReferrals: 0, totalCommissionEarned: 0, ambassadorTier: 'signal',
+            tourCompleted: false
           });
           return;
         }
@@ -3002,6 +3201,11 @@
         const aiUsage = data.aiUsage || { total: 0 };
         updateAIWidget(aiUsage, data.tier || 'free');
 
+        // --- Trigger tour if not completed ---
+        if (!data.tourCompleted) {
+          setTimeout(startTour, 800); // wait for page to settle
+        }
+
         setTimeout(() => {
           document.querySelectorAll('.profile-section .profile-item .value, .learning-journey-section .profile-item .value')
             .forEach(el => {
@@ -3015,7 +3219,7 @@
         }, 150);
       });
 
-      // User journey listener
+      // --- User journey listener ---
       userJourneyRef.onSnapshot(doc => {
         if (doc.exists) {
           userJourneyData = doc.data();
@@ -3040,14 +3244,14 @@
         updateChallengeLog(userJourneyData);
       });
 
-      // Commission history
+      // --- Commission history ---
       userDocRef.collection('commissions').onSnapshot(snapshot => {
         const commissions = [];
         snapshot.forEach(doc => { commissions.push({ id: doc.id, ...doc.data() }); });
         renderCommissionHistory(commissions);
       });
 
-      // Filter tabs
+      // --- Filter tabs ---
       document.querySelectorAll('.filter-tab').forEach(tab => {
         tab.addEventListener('click', function() {
           document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
@@ -3060,7 +3264,7 @@
         });
       });
 
-      // Feed
+      // --- Feed ---
       renderDashboardFeed(user);
     });
 
