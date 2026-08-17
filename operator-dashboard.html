@@ -3375,8 +3375,8 @@
         let currentUser = null;
         let userDocRef = null;
         let userJourneyRef = null;
-        let journeyData = null; // journey template data (nodes, etc.)
-        let userJourneyData = null; // user's progress
+        let journeyData = null;
+        let userJourneyData = null;
         let badgesMap = {};
         let tourStarted = false;
         let streakDays = 0;
@@ -3552,11 +3552,9 @@
             document.getElementById('streakFire').textContent = emojiData.emoji;
             document.getElementById('streakFire').className = `fire-icon ${emojiData.class}`;
 
-            // Progress to next tier
             if (nextTier.multiplier) {
                 document.getElementById('daysToNextTier').textContent = nextTier.daysNeeded;
                 document.getElementById('nextTierLabel').textContent = `×${nextTier.multiplier.toFixed(1)}`;
-                // progress = (days passed in current tier) / (total days in current tier)
                 let progress = 0;
                 if (days < 3) progress = days / 3;
                 else if (days < 5) progress = (days - 3) / 2;
@@ -3569,7 +3567,6 @@
                 document.getElementById('multiplierProgressFill').style.width = '100%';
             }
 
-            // Bonus points
             document.getElementById('totalBonusPoints').textContent = totalBonusPoints || 0;
             document.getElementById('bonusPointsDisplay').textContent = totalBonusPoints || 0;
         }
@@ -4320,6 +4317,9 @@
             document.getElementById('streakNum2').textContent = streak;
         }
 
+        // ============================================================
+        // START CHALLENGE – WITH BONUS POINTS FIX
+        // ============================================================
         window.startChallenge = function() {
             if (!userJourneyData || !userJourneyRef) {
                 cdToast('Please log in to start a challenge.');
@@ -4356,12 +4356,22 @@
                 updateData.dailyChallengeStreak = 1;
             }
 
-            userJourneyRef.update({
+            // Use a batch write to update both documents atomically
+            const batch = db.batch();
+            batch.update(userJourneyRef, {
                 ...updateData,
                 totalPoints: firebase.firestore.FieldValue.increment(totalPointsEarned)
-            }).then(() => {
+            });
+            batch.update(userDocRef, {
+                totalBonusPoints: firebase.firestore.FieldValue.increment(bonusPointsEarned)
+            });
+
+            batch.commit().then(() => {
                 cdToast(`✅ Challenge completed! +${totalPointsEarned} points (${multiplier.toFixed(1)}× multiplier) – bonus: +${bonusPointsEarned}`);
-                // The snapshot will update the UI
+                // Update local variable for immediate UI feedback
+                totalBonusPoints += bonusPointsEarned;
+                updateStreakUI();
+                // The snapshot will update the rest
             }).catch(err => {
                 console.error('Error completing challenge:', err);
                 cdToast('Error: ' + err.message);
