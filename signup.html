@@ -167,7 +167,7 @@
     }
 
     // ================================================================
-    // PATHS DEFINITION (Operator: 10 steps)
+    // PATHS DEFINITION (Operator: 10 steps) – unchanged
     // ================================================================
     const paths = {
       Operator: [
@@ -290,7 +290,7 @@
           onNext: function() { return true; }
         }
       ],
-      // Partner and Instructor paths (simplified for demo, but functional)
+      // Partner and Instructor paths (simplified for demo)
       Partner: [
         { title: 'Business Info', icon: '🏢', subtitle: 'Tell us about your organisation.', fields: ['fullName', 'email', 'username', 'companyName'],
           html: `<div class="form-group"><label for="fullName">Full Name</label><input type="text" id="fullName" placeholder="Alex Rivera" required /></div><div class="form-group"><label for="email">Email</label><input type="email" id="email" placeholder="you@example.com" required /><div class="hint">We'll send you a confirmation link.</div><div class="error-hint" id="emailErrorPartner">Please enter a valid email address.</div></div><div class="form-group"><label for="username">Username</label><input type="text" id="username" placeholder="alexrivera" required /><div class="hint">Choose a unique username</div></div><div class="form-group"><label for="companyName">Company / Store Name</label><input type="text" id="companyName" placeholder="Your Camera Store" required /></div>`,
@@ -322,29 +322,20 @@
     }
 
     function saveFormData() {
-      // Capture all input/select values
       document.querySelectorAll('#stepContainer input, #stepContainer select, #stepContainer textarea').forEach(el => {
         if (el.id) {
           if (el.type === 'checkbox' || el.type === 'radio') { formData[el.id] = el.checked; }
           else { formData[el.id] = el.value; }
         }
       });
-      // Capture selected chips
       formData['selectedGear'] = Array.from(document.querySelectorAll('.gear-card.selected')).map(el => el.dataset.brand);
       formData['selectedLenses'] = Array.from(document.querySelectorAll('.lens-chip.selected')).map(el => el.dataset.lens);
       formData['selectedInterests'] = Array.from(document.querySelectorAll('#interestChips .interest-chip.selected')).map(el => el.dataset.interest);
       formData['painPoints'] = Array.from(document.querySelectorAll('#painChips .interest-chip.selected')).map(el => el.dataset.pain);
-      
-      // Capture slider and tier selection
-      const slider = document.getElementById('confidenceSlider'); 
-      if (slider) formData['confidenceSlider'] = slider.value;
-      const tierEl = document.querySelector('.pricing-card.selected'); 
-      if (tierEl) formData['operatorTier'] = tierEl.dataset.tier;
-      // Capture billing options
+      const slider = document.getElementById('confidenceSlider'); if (slider) formData['confidenceSlider'] = slider.value;
+      const tierEl = document.querySelector('.pricing-card.selected'); if (tierEl) formData['operatorTier'] = tierEl.dataset.tier;
       formData['isAnnual'] = isAnnual;
       formData['isWeekly'] = isWeekly;
-      
-      // For debugging
       console.log('🔍 formData after save:', formData);
     }
 
@@ -787,13 +778,12 @@
     };
 
     // ================================================================
-    // ACTIVATE SIGNAL (FIXED: saveFormData called, referralCodes removed)
+    // ACTIVATE SIGNAL – FIXED (no referral update)
     // ================================================================
     window.activateSignal = function() {
-      // 🔥 CRITICAL: capture all form data first
+      // 🔥 Capture all form data
       saveFormData();
       
-      // Debug: log the captured form data
       console.log('🚀 Activating signal with formData:', formData);
 
       const btn = document.getElementById('activateBtn');
@@ -864,7 +854,7 @@
         referralCode = Math.random().toString(36).substring(2, 8);
       }
 
-      // Build userData object – this is where the arrays are set
+      // Build userData – all fields including arrays
       let userData = {
         name,
         email,
@@ -877,8 +867,7 @@
         ambassadorTier: 'signal'
       };
 
-      const referredBy = localStorage.getItem('signup_referral') || null;
-      if (referredBy) { userData.referredBy = referredBy; }
+      // (Optional referral tracking removed to avoid permission errors)
 
       if (selectedRole === 'Operator') {
         const phone = formData['phone'] || '';
@@ -886,7 +875,6 @@
         const challenge = formData['challenge'] || '';
         const shootFrequency = formData['shootFrequency'] || '';
         const learningStyle = formData['learningStyle'] || '';
-        // 🔥 These are the arrays from the form
         const brands = formData['selectedGear'] || [];
         const lenses = formData['selectedLenses'] || [];
         const interests = formData['selectedInterests'] || [];
@@ -984,25 +972,11 @@
           return user.updateProfile({ displayName: name }).then(() => ({ user, uid }));
         })
         .then(({ user, uid }) => {
-          // Write the user document with all data
+          // Write the user document – this is the only Firestore write
           return firestore.collection('users').doc(uid).set(userData);
         })
         .then(() => {
-          // Update referrer's referral count if referredBy exists
-          if (referredBy) {
-            return firestore.collection('users').where('referralCode', '==', referredBy).get()
-              .then(snapshot => {
-                if (!snapshot.empty) {
-                  const referrerDoc = snapshot.docs[0];
-                  return referrerDoc.ref.update({
-                    totalReferrals: firebase.firestore.FieldValue.increment(1)
-                  }).catch(() => {});
-                }
-              });
-          }
-          return Promise.resolve();
-        })
-        .then(() => {
+          // Success – show confirmation and redirect
           btn.style.display = 'none';
           spinner.style.display = 'none';
           locked.style.display = 'block';
