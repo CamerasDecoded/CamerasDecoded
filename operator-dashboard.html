@@ -93,7 +93,47 @@
         }
 
         /* ============================================================
-           SIDEBAR (REORGANIZED)
+           CHASING BORDER (reusable)
+           ============================================================ */
+        @property --angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+        .chasing-border {
+            position: relative;
+            border-color: transparent !important;
+            background-clip: padding-box;
+            overflow: visible;
+        }
+        .chasing-border::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            padding: 1px;
+            background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
+            -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+            -webkit-mask-composite: xor;
+            mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+            mask-composite: exclude;
+            animation: spinBorder 4s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+            will-change: transform;
+        }
+        .chasing-border>* {
+            position: relative;
+            z-index: 1;
+        }
+        @keyframes spinBorder {
+            to {
+                --angle: 360deg;
+            }
+        }
+
+        /* ============================================================
+           SIDEBAR
            ============================================================ */
         .sidebar {
             width: 240px;
@@ -378,6 +418,7 @@
             flex: 1 1 auto;
             padding: 0 12px;
             min-width: 0;
+            gap: 8px;
         }
         .role-tier-badge {
             background: rgba(10, 10, 10, 0.9);
@@ -470,7 +511,7 @@
         }
 
         /* ============================================================
-           CYNETIS-7 WIDGET (in header)
+           CYNETIS-7 WIDGET
            ============================================================ */
         .cynetis-widget {
             display: flex;
@@ -557,7 +598,7 @@
         }
 
         /* ============================================================
-           SUCCESS TOAST
+           SUCCESS TOAST (internal)
            ============================================================ */
         .success-toast {
             position: fixed;
@@ -2541,9 +2582,21 @@
             background: var(--green);
             color: #000;
         }
+
+        /* ===== TYPEWRITER REVEAL ===== */
+        .value[data-typed="false"] {
+            opacity: 0;
+            transform: translateY(6px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .value[data-typed="true"] {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
+
     <!-- ===== BINARY RAIN ===== -->
     <canvas id="binary-rain"></canvas>
     <div id="rain-fade"></div>
@@ -2647,6 +2700,7 @@
 
     <!-- ===== MAIN CONTENT ===== -->
     <main class="main-content">
+
         <div class="dash-header">
             <img src="custom-site-titles/operator-dashboard.png" alt="Operator Dashboard" class="dash-title-img">
             <div class="greeting" id="greeting">
@@ -3226,7 +3280,7 @@
         updateCartUI();
 
         // ============================================================
-        // AUTH HANDLERS (use cdToast/cdConfirm from cd-ui.js)
+        // AUTH HANDLERS (use shared cdToast/cdConfirm)
         // ============================================================
         window.handleLogout = function() {
             if (unsubscribeUser) { unsubscribeUser();
@@ -3536,7 +3590,7 @@
         }
 
         // ============================================================
-        // SUCCESS TOAST
+        // SUCCESS TOAST (internal)
         // ============================================================
         function showSuccessToast(points, bonus, multiplier, actionName) {
             const toast = document.getElementById('successToast');
@@ -3814,11 +3868,11 @@
             else if (plan === 'pro') plan = 'Pro';
             document.getElementById('profilePlan').textContent = plan;
             const prefs = data.preferences || {};
-            document.getElementById('profileCamera').textContent = prefs.camera || (prefs.brands && prefs.brands.length > 0 ?
-                prefs.brands.join(', ') : '—');
-            document.getElementById('profileLenses').textContent = (prefs.lenses && prefs.lenses.length > 0) ? prefs.lenses
-                .join(', ') : '—';
-            document.getElementById('profileInterests').textContent = (prefs.interests && prefs.interests.length > 0) ?
+            document.getElementById('profileCamera').textContent = prefs.brands && prefs.brands.length > 0 ?
+                prefs.brands.join(', ') : '—';
+            document.getElementById('profileLenses').textContent = prefs.lenses && prefs.lenses.length > 0 ?
+                prefs.lenses.join(', ') : '—';
+            document.getElementById('profileInterests').textContent = prefs.interests && prefs.interests.length > 0 ?
                 prefs.interests.join(', ') : '—';
             document.getElementById('profileConfidence').textContent = data.confidence ? data.confidence + '/10' : '—';
             document.getElementById('profileReferral').textContent = data.referralCode || '—';
@@ -4453,6 +4507,33 @@
         }
 
         // ============================================================
+        // TYPEWRITER REVEAL HELPER
+        // ============================================================
+        function applyTypewriterEffect() {
+            document.querySelectorAll(
+                '.profile-section .profile-item .value, .learning-journey-section .profile-item .value'
+            ).forEach(el => {
+                const text = el.textContent.trim();
+                if (text && text !== '—') {
+                    el.dataset.originalText = text;
+                    el.dataset.typed = 'false';
+                    // Force a small delay so the observer can trigger
+                    setTimeout(() => {
+                        const observer = new IntersectionObserver((entries) => {
+                            entries.forEach(entry => {
+                                if (entry.isIntersecting) {
+                                    el.dataset.typed = 'true';
+                                    observer.unobserve(el);
+                                }
+                            });
+                        }, { threshold: 0.3 });
+                        observer.observe(el);
+                    }, 100);
+                }
+            });
+        }
+
+        // ============================================================
         // AUTH LISTENER
         // ============================================================
         auth.onAuthStateChanged(user => {
@@ -4522,6 +4603,7 @@
             if (unsubscribeUser) unsubscribeUser();
             unsubscribeUser = userDocRef.onSnapshot(doc => {
                 if (!doc.exists) {
+                    // Create document with default structure
                     userDocRef.set({
                         savedProtocols: [],
                         savedCards: [],
@@ -4544,12 +4626,27 @@
                         tourCompleted: false,
                         streakDays: 0,
                         lastActiveDate: null,
-                        totalBonusPoints: 0
-                    });
+                        totalBonusPoints: 0,
+                        learningJourney: {
+                            experience: '',
+                            primaryGoal: '',
+                            ambition: '',
+                            contentFormat: '',
+                            deliveryChannel: '',
+                            painPoints: [],
+                            sixMonthGoal: '',
+                            dreamProject: '',
+                            challenge: '',
+                            shootFrequency: '',
+                            learningStyle: '',
+                            confidence: 0
+                        }
+                    }).catch(console.warn);
                     return;
                 }
                 const data = doc.data();
 
+                // Streak evaluation
                 const today = new Date();
                 const todayStr = today.toISOString().split('T')[0];
                 const lastActive = data.lastActiveDate ? new Date(data.lastActiveDate.toDate?.() || data.lastActiveDate) :
@@ -4609,29 +4706,8 @@
                     setTimeout(startTour, 800);
                 }
 
-                setTimeout(() => {
-                    const observer = new IntersectionObserver((entries) => {
-                        entries.forEach(entry => {
-                            if (entry.isIntersecting) {
-                                const el = entry.target;
-                                if (el.dataset.typed === 'true' || !el.dataset.originalText) return;
-                                el.dataset.typed = 'true';
-                                el.textContent = el.dataset.originalText;
-                            }
-                        });
-                    }, { threshold: 0.3 });
-                    document.querySelectorAll(
-                            '.profile-section .profile-item .value, .learning-journey-section .profile-item .value'
-                            )
-                        .forEach(el => {
-                            const text = el.textContent;
-                            if (text && text !== '—' && text !== '') {
-                                el.dataset.originalText = text;
-                                el.dataset.typed = 'false';
-                                observer.observe(el);
-                            }
-                        });
-                }, 150);
+                // Trigger typewriter effect after data is loaded
+                setTimeout(applyTypewriterEffect, 300);
             });
 
             if (unsubscribeCommissions) unsubscribeCommissions();
@@ -4755,7 +4831,7 @@
         })();
 
         // ============================================================
-        // UPDATE AUTH UI (logout button visibility)
+        // UPDATE AUTH UI
         // ============================================================
         function updateAuthUI(isLoggedIn, roleText = 'Operator', tierText = 'Free') {
             const logoutBtn = document.getElementById('floatingLogoutBtn');
@@ -4777,5 +4853,6 @@
             if (deleteLink) deleteLink.style.display = isLoggedIn ? 'inline-block' : 'none';
         }
     </script>
+
 </body>
 </html>
