@@ -835,11 +835,11 @@
                 }
                 return;
               }
-              // FIXED: orphan recovery - old docs had wrong uid but same email
+              // FIXED: orphan recovery - find doc by email
               return db.collection('users').where('email','==', email).limit(1).get().then(snap => {
                 if (!snap.empty) {
                   const data = snap.docs[0].data();
-                  const userData = { uid, ...data, email: email, uid: uid };
+                  const userData = { uid, ...data, email: email, uid: uid, emailLower: email };
                   storeUserData(userData);
                   return db.collection('users').doc(uid).set(userData, {merge:true}).then(() => {
                     let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
@@ -849,8 +849,7 @@
                     else { showRoleSelection(); populateRoleCards(roles, uid); }
                   });
                 } else {
-                  // No doc at all - create minimal so login succeeds
-                  const minimal = { uid: uid, email: email, role: 'Operator', tier: 'free', createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+                  const minimal = { uid: uid, email: email, emailLower: email, role: 'Operator', tier: 'free', createdAt: firebase.firestore.FieldValue.serverTimestamp() };
                   return db.collection('users').doc(uid).set(minimal, {merge:true}).then(() => {
                     storeUserData(minimal);
                     window.isCamerasDecodedSignupFlight = false;

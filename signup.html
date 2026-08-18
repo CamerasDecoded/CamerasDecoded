@@ -460,6 +460,7 @@
           if (btn) {
             btn.style.display = 'block';
             btn.removeEventListener('click', window.activateSignal);
+            btn.removeEventListener('click', window.activateSignal);
             btn.addEventListener('click', window.activateSignal);
           }
           setTimeout(initSlider, 150);
@@ -807,6 +808,8 @@
     // ACTIVATE SIGNAL – with flight flag, redirect with uid
     // ================================================================
     window.activateSignal = function() {
+      if (window._isSubmitting) { console.warn('double submit blocked'); return; }
+      window._isSubmitting = true;
       // 🔥 Set the flight flag to suppress background reads
       window.isCamerasDecodedSignupFlight = true;
       
@@ -995,6 +998,7 @@
           btn.style.display = 'block';
           spinner.style.display = 'none';
           window.isCamerasDecodedSignupFlight = false;
+          window._isSubmitting = false;
           return;
         }
         createPromise = Promise.resolve(user);
@@ -1026,9 +1030,11 @@
           if (linkEl) { linkEl.textContent = `camerasdecoded.com/ref/${referralCode}`; }
           localStorage.removeItem('signup_referral');
           socialUserData = null;
+          window._isSubmitting = false;
+          window.isCamerasDecodedSignupFlight = false;
           
           // Redirect using the helper that appends uid
-          redirectToDashboard(selectedRole, uid); // FIXED: use uid from closure, auth.currentUser can be null
+          redirectToDashboard(selectedRole, uid);
         })
         .catch(err => {
           console.error('Signup error:', err);
@@ -1053,8 +1059,9 @@
           btn.style.display = 'block';
           spinner.style.display = 'none';
           window.isCamerasDecodedSignupFlight = false;
+          window._isSubmitting = false;
           // Clean up partial Auth account if created
-          // FIXED: keep Auth user to prevent duplicate email bug - do not delete
+          // FIXED: do not delete Auth user
           // if (userAuth.currentUser && !isSocialUser) { userAuth.currentUser.delete().catch(() => {}); }
         });
     };
