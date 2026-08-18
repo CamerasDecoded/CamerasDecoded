@@ -9,6 +9,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
+  <!-- Shared Firebase init (defines auth, db) -->
+  <script src="https://camerasdecoded.com/firebase-init.js"></script>
+  <!-- Shared UI (toast, confirm) -->
+  <script src="https://camerasdecoded.com/cd-ui.js"></script>
+
   <style>
     /* ============================================================
        ROOT & RESET
@@ -279,6 +284,25 @@
       background: rgba(255, 255, 255, 0.05);
     }
 
+    .form-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      margin-bottom: 20px;
+    }
+    .forgot-link {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-family: 'Space Mono', monospace;
+      text-decoration: none;
+      transition: color 0.2s;
+      cursor: pointer;
+    }
+    .forgot-link:hover {
+      color: var(--green);
+    }
+
     .btn-login {
       width: 100%;
       padding: 14px;
@@ -443,42 +467,81 @@
       margin-right: 6px;
     }
 
+    /* ===== PASSWORD RESET OVERLAY ===== */
+    #resetOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+    }
+    #resetOverlay.show {
+      display: flex;
+    }
+    .reset-modal {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      max-width: 380px;
+      width: 90%;
+      position: relative;
+    }
+    .reset-modal h3 {
+      font-family: 'Space Mono', monospace;
+      color: var(--green);
+      font-size: 18px;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .reset-modal p {
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: center;
+      margin-bottom: 18px;
+    }
+    .reset-modal .form-group {
+      margin-bottom: 14px;
+    }
+    .reset-modal .btn-reset {
+      width: 100%;
+      padding: 12px;
+      background: var(--green);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #000;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .reset-modal .btn-reset:hover {
+      background: #a0f520;
+    }
+    .reset-modal .btn-close-reset {
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .reset-modal .btn-close-reset:hover {
+      color: #fff;
+    }
+
     @media (max-width: 480px) {
       .login-card { padding: 32px 20px 28px; }
       .login-header h1 { font-size: 20px; }
       .role-grid { grid-template-columns: 1fr; }
       .login-header .logo-image { max-height: 80px; }
     }
-
-    #cd-toast-container {
-      position: fixed;
-      top: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      align-items: center;
-      pointer-events: none;
-    }
-    .cd-toast {
-      background: rgba(10, 10, 10, 0.92);
-      border: 1px solid rgba(141, 235, 0, 0.15);
-      color: var(--text-primary);
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      padding: 10px 22px;
-      border-radius: 8px;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.4);
-      opacity: 0;
-      transform: translateY(-8px);
-      transition: all 0.3s ease;
-      pointer-events: auto;
-      text-align: center;
-    }
-    .cd-toast.show { opacity: 1; transform: translateY(0); }
-    .cd-toast.error { border-color: rgba(255, 74, 74, 0.3); }
   </style>
 </head>
 <body>
@@ -524,6 +587,10 @@
           <label for="password">Password</label>
           <input type="password" id="password" placeholder="Enter your password" required />
         </div>
+        <div class="form-row">
+          <span></span>
+          <span class="forgot-link" onclick="showResetOverlay()">Forgot password?</span>
+        </div>
         <button type="submit" class="btn-login">Access Dashboard</button>
         <div id="errorMsg" class="error-msg">Invalid email or password.</div>
       </form>
@@ -550,160 +617,215 @@
     </div>
   </div>
 
-  <div id="cd-toast-container"></div>
+  <!-- PASSWORD RESET OVERLAY -->
+  <div id="resetOverlay">
+    <div class="reset-modal">
+      <button class="btn-close-reset" onclick="hideResetOverlay()">&times;</button>
+      <h3>Reset Password</h3>
+      <p>Enter your email address and we'll send you a link to reset your password.</p>
+      <div class="form-group">
+        <input type="email" id="resetEmail" placeholder="you@example.com" />
+      </div>
+      <button class="btn-reset" onclick="sendPasswordReset()">Send Reset Link</button>
+    </div>
+  </div>
 
   <script>
-    function cdToast(message, type) {
-      const container = document.getElementById('cd-toast-container');
-      const toast = document.createElement('div');
-      toast.className = 'cd-toast' + (type === 'error' ? ' error' : '');
-      toast.textContent = message;
-      container.appendChild(toast);
-      requestAnimationFrame(() => { toast.classList.add('show'); });
-      setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-      }, 3500);
+    // ================================================================
+    // GLOBALS – auth and db are already defined by firebase-init.js
+    // ================================================================
+    const userAuth = auth;
+    const firestore = db;
+
+    // ================================================================
+    // UI HELPERS
+    // ================================================================
+    function showLoginForm() {
+      document.getElementById('loginFormContainer').style.display = 'block';
+      document.getElementById('roleSelection').style.display = 'none';
     }
-  </script>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    function showRoleSelection() {
+      document.getElementById('loginFormContainer').style.display = 'none';
+      document.getElementById('roleSelection').style.display = 'block';
+    }
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    function storeUserData(data) {
+      localStorage.setItem('cameras_decoded_user', JSON.stringify(data));
+    }
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-        authDomain: "cameras-decoded.firebaseapp.com",
-        projectId: "cameras-decoded",
-        storageBucket: "cameras-decoded.firebasestorage.app",
-        messagingSenderId: "1088920052790",
-        appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-        measurementId: "G-YN3M01WW0B"
+    // ================================================================
+    // REDIRECT
+    // ================================================================
+    function redirectToDashboard(role, uid) {
+      const map = {
+        'Operator': 'operator-dashboard.html',
+        'Instructor': 'instructor-dashboard.html',
+        'Partner': 'partner-dashboard.html',
+        'admin': 'admin-dashboard.html',
+        'Admin': 'admin-dashboard.html'
       };
-      firebase.initializeApp(firebaseConfig);
+      let url = map[role] || 'operator-dashboard.html';
 
-      const auth = firebase.auth();
-      const db = firebase.firestore();
-
-      const loginForm = document.getElementById('loginForm');
-      const loginContainer = document.getElementById('loginFormContainer');
-      const roleSelection = document.getElementById('roleSelection');
-      const roleGrid = document.getElementById('roleGrid');
-      const errorMsg = document.getElementById('errorMsg');
-
-      window.showLoginForm = function() {
-        loginContainer.style.display = 'block';
-        roleSelection.style.display = 'none';
-      };
-
-      function showRoleSelection() {
-        loginContainer.style.display = 'none';
-        roleSelection.style.display = 'block';
-      }
-
-      function storeUserData(data) {
-        localStorage.setItem('cameras_decoded_user', JSON.stringify(data));
-      }
-
-      // ============================================================
-      // ★ FIXED: Redirect function with admin support
-      // ============================================================
-      function redirectToDashboard(role, uid) {
-        const map = {
-          'Operator': 'operator-dashboard.html',
-          'Instructor': 'instructor-dashboard.html',
-          'Partner': 'partner-dashboard.html',
-          'admin': 'admin-dashboard.html',
-          'Admin': 'admin-dashboard.html'
-        };
-        let url = map[role] || 'operator-dashboard.html';
-
-        const params = new URLSearchParams(window.location.search);
-        const redirect = params.get('redirect');
-        if (redirect) {
-          try {
-            const dest = new URL(decodeURIComponent(redirect));
-            dest.searchParams.set('opToken', uid);
-            window.location.href = dest.toString();
-            return;
-          } catch (_) {
-            window.location.href = decodeURIComponent(redirect);
-            return;
-          }
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get('redirect');
+      if (redirect) {
+        try {
+          const dest = new URL(decodeURIComponent(redirect));
+          dest.searchParams.set('opToken', uid);
+          window.location.href = dest.toString();
+          return;
+        } catch (_) {
+          window.location.href = decodeURIComponent(redirect);
+          return;
         }
-        window.location.href = url;
+      }
+      window.location.href = url;
+    }
+
+    // ================================================================
+    // SOCIAL LOGIN
+    // ================================================================
+    window.signInWithGoogle = function() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      userAuth.signInWithPopup(provider)
+        .then(result => handleSocialLogin(result.user))
+        .catch(err => {
+          console.error('Google error:', err);
+          cdToast(err.message, 'error');
+        });
+    };
+
+    window.signInWithFacebook = function() {
+      const provider = new firebase.auth.FacebookAuthProvider();
+      provider.addScope('email');
+      provider.addScope('public_profile');
+      userAuth.signInWithPopup(provider)
+        .then(result => handleSocialLogin(result.user))
+        .catch(err => {
+          console.error('Facebook error:', err);
+          cdToast(err.message, 'error');
+        });
+    };
+
+    function handleSocialLogin(user) {
+      const uid = user.uid;
+      const email = user.email || '';
+      const name = user.displayName || '';
+      const photoURL = user.photoURL || '';
+
+      firestore.collection('users').doc(uid).get()
+        .then(doc => {
+          if (!doc.exists) {
+            const username = email ? email.split('@')[0] : 'user' + Math.random().toString(36).substring(2, 6);
+            const data = {
+              name: name || '',
+              email: email || '',
+              username: username,
+              role: 'Operator',
+              tier: 'free',
+              billingInterval: 'monthly',
+              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+              referralCode: username,
+              totalReferrals: 0,
+              totalCommissionEarned: 0,
+              ambassadorTier: 'signal',
+              savedCards: [],
+              savedBlogs: [],
+              savedPodcasts: [],
+              savedCommunityPosts: [],
+              preferences: { brands: [], lenses: [], interests: [] },
+              learningJourney: {},
+              photoURL: photoURL
+            };
+            return firestore.collection('users').doc(uid).set(data)
+              .then(() => firestore.collection('referralCodes').doc(username).set({
+                uid: uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+              }).catch(() => {}))
+              .then(() => firestore.collection('users').doc(uid).get());
+          }
+          return doc;
+        })
+        .then(doc => {
+          const data = doc.data();
+          const userData = { uid, ...data };
+          storeUserData(userData);
+
+          let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
+          roles = [...new Set(roles)];
+
+          if (roles.length === 1) {
+            redirectToDashboard(roles[0], uid);
+          } else {
+            showRoleSelection();
+            populateRoleCards(roles, uid);
+          }
+        })
+        .catch(err => {
+          console.error('Social login error:', err);
+          cdToast(err.message || 'Something went wrong.', 'error');
+        });
+    }
+
+    // ================================================================
+    // ROLE CARDS
+    // ================================================================
+    function populateRoleCards(roles, uid) {
+      const grid = document.getElementById('roleGrid');
+      grid.innerHTML = '';
+      const icons = {
+        'Operator': 'fa-camera',
+        'Partner': 'fa-store',
+        'Instructor': 'fa-chalkboard-teacher',
+        'admin': 'fa-shield-alt',
+        'Admin': 'fa-shield-alt'
+      };
+      const desc = {
+        'Operator': 'For photographers & videographers',
+        'Partner': 'For stores & training programs',
+        'Instructor': 'For working photographers who teach',
+        'admin': 'System administrator (internal)',
+        'Admin': 'System administrator (internal)'
+      };
+      roles.forEach(role => {
+        const card = document.createElement('div');
+        card.className = 'role-card' + (role === 'Operator' ? ' operator-highlight' : '');
+        card.innerHTML = `
+          <i class="fas ${icons[role] || 'fa-user'}"></i>
+          <h4>${role}</h4>
+          <p>${desc[role] || ''}</p>
+        `;
+        card.addEventListener('click', () => {
+          const data = JSON.parse(localStorage.getItem('cameras_decoded_user') || '{}');
+          data.selectedRole = role;
+          storeUserData(data);
+          redirectToDashboard(role, uid);
+        });
+        grid.appendChild(card);
+      });
+    }
+
+    // ================================================================
+    // EMAIL/PASSWORD LOGIN
+    // ================================================================
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const errorMsg = document.getElementById('errorMsg');
+      errorMsg.style.display = 'none';
+
+      if (!email || !password) {
+        cdToast('Please enter both email and password.', 'error');
+        return;
       }
 
-      // ============================================================
-      // SOCIAL LOGIN (unchanged)
-      // ============================================================
-      window.signInWithGoogle = function() {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithPopup(provider)
-          .then(result => handleSocialLogin(result.user))
-          .catch(err => {
-            console.error('Google error:', err);
-            errorMsg.textContent = err.message;
-            errorMsg.style.display = 'block';
-          });
-      };
-
-      window.signInWithFacebook = function() {
-        const provider = new firebase.auth.FacebookAuthProvider();
-        provider.addScope('email');
-        provider.addScope('public_profile');
-        auth.signInWithPopup(provider)
-          .then(result => handleSocialLogin(result.user))
-          .catch(err => {
-            console.error('Facebook error:', err);
-            errorMsg.textContent = err.message;
-            errorMsg.style.display = 'block';
-          });
-      };
-
-      function handleSocialLogin(user) {
-        const uid = user.uid;
-        const email = user.email || '';
-        const name = user.displayName || '';
-        const photoURL = user.photoURL || '';
-
-        db.collection('users').doc(uid).get()
-          .then(doc => {
-            if (!doc.exists) {
-              const username = email ? email.split('@')[0] : 'user' + Math.random().toString(36).substring(2, 6);
-              const data = {
-                name: name || '',
-                email: email || '',
-                username: username,
-                role: 'Operator',
-                tier: 'free',
-                billingInterval: 'monthly',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                referralCode: username,
-                totalReferrals: 0,
-                totalCommissionEarned: 0,
-                ambassadorTier: 'signal',
-                savedCards: [],
-                savedBlogs: [],
-                savedPodcasts: [],
-                savedCommunityPosts: [],
-                preferences: { brands: [], lenses: [], interests: [] },
-                learningJourney: {},
-                photoURL: photoURL
-              };
-              return db.collection('users').doc(uid).set(data)
-                .then(() => db.collection('referralCodes').doc(username).set({
-                  uid: uid,
-                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                }).catch(() => {}))
-                .then(() => db.collection('users').doc(uid).get());
-            }
-            return doc;
-          })
-          .then(doc => {
+      userAuth.signInWithEmailAndPassword(email, password)
+        .then(cred => {
+          const uid = cred.user.uid;
+          return firestore.collection('users').doc(uid).get().then(doc => {
+            if (!doc.exists) throw new Error('User data not found.');
             const data = doc.data();
             const userData = { uid, ...data };
             storeUserData(userData);
@@ -717,136 +839,162 @@
               showRoleSelection();
               populateRoleCards(roles, uid);
             }
-          })
-          .catch(err => {
-            console.error('Social login error:', err);
-            errorMsg.textContent = err.message || 'Something went wrong.';
-            errorMsg.style.display = 'block';
           });
-      }
-
-      // ============================================================
-      // ROLE CARDS (unchanged)
-      // ============================================================
-      function populateRoleCards(roles, uid) {
-        roleGrid.innerHTML = '';
-        const icons = {
-          'Operator': 'fa-camera',
-          'Partner': 'fa-store',
-          'Instructor': 'fa-chalkboard-teacher',
-          'admin': 'fa-shield-alt',
-          'Admin': 'fa-shield-alt'
-        };
-        const desc = {
-          'Operator': 'For photographers & videographers',
-          'Partner': 'For stores & training programs',
-          'Instructor': 'For working photographers who teach',
-          'admin': 'System administrator (internal)',
-          'Admin': 'System administrator (internal)'
-        };
-        roles.forEach(role => {
-          const card = document.createElement('div');
-          card.className = 'role-card' + (role === 'Operator' ? ' operator-highlight' : '');
-          card.innerHTML = `
-            <i class="fas ${icons[role] || 'fa-user'}"></i>
-            <h4>${role}</h4>
-            <p>${desc[role] || ''}</p>
-          `;
-          card.addEventListener('click', () => {
-            const data = JSON.parse(localStorage.getItem('cameras_decoded_user') || '{}');
-            data.selectedRole = role;
-            storeUserData(data);
-            redirectToDashboard(role, uid);
-          });
-          roleGrid.appendChild(card);
+        })
+        .catch(err => {
+          console.error('Login error:', err);
+          let msg = err.message;
+          if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+            msg = 'Invalid email or password. Please try again.';
+          } else if (err.code === 'auth/too-many-requests') {
+            msg = 'Too many failed attempts. Please try again later.';
+          } else if (err.code === 'auth/network-request-failed') {
+            msg = 'Network error. Please check your connection.';
+          }
+          cdToast('❌ ' + msg, 'error');
+          errorMsg.textContent = msg;
+          errorMsg.style.display = 'block';
         });
+    });
+
+    // ================================================================
+    // PASSWORD RESET
+    // ================================================================
+    function showResetOverlay() {
+      document.getElementById('resetOverlay').classList.add('show');
+      document.getElementById('resetEmail').value = document.getElementById('email').value || '';
+    }
+
+    function hideResetOverlay() {
+      document.getElementById('resetOverlay').classList.remove('show');
+    }
+
+    window.sendPasswordReset = function() {
+      const email = document.getElementById('resetEmail').value.trim();
+      if (!email) {
+        cdToast('Please enter your email address.', 'error');
+        return;
       }
+      userAuth.sendPasswordResetEmail(email)
+        .then(() => {
+          cdToast('✅ Password reset link sent to ' + email);
+          hideResetOverlay();
+        })
+        .catch(err => {
+          console.error('Reset error:', err);
+          let msg = err.message;
+          if (err.code === 'auth/user-not-found') {
+            msg = 'No account found with that email address.';
+          } else if (err.code === 'auth/network-request-failed') {
+            msg = 'Network error. Please check your connection.';
+          }
+          cdToast('❌ ' + msg, 'error');
+        });
+    };
 
-      // ============================================================
-      // EMAIL LOGIN (unchanged)
-      // ============================================================
-      loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        errorMsg.style.display = 'none';
-
-        auth.signInWithEmailAndPassword(email, password)
-          .then(cred => {
-            const uid = cred.user.uid;
-            return db.collection('users').doc(uid).get().then(doc => {
-              if (!doc.exists) throw new Error('User data not found.');
-              const data = doc.data();
-              const userData = { uid, ...data };
-              storeUserData(userData);
-
+    // ================================================================
+    // AUTH STATE LISTENER – redirect if already logged in
+    // ================================================================
+    userAuth.onAuthStateChanged((user) => {
+      if (user) {
+        // Only redirect if on login page
+        const path = window.location.pathname;
+        if (path.includes('login.html') || path.endsWith('/login') || path === '/') {
+          // Check if we have a stored user data to avoid extra reads
+          const stored = localStorage.getItem('cameras_decoded_user');
+          if (stored) {
+            try {
+              const data = JSON.parse(stored);
+              const uid = user.uid;
+              // If we have the user data, use it to redirect
               let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
               roles = [...new Set(roles)];
-
               if (roles.length === 1) {
                 redirectToDashboard(roles[0], uid);
+                return;
               } else {
+                // Show role selection
                 showRoleSelection();
                 populateRoleCards(roles, uid);
+                return;
               }
-            });
-          })
-          .catch(err => {
-            errorMsg.textContent = err.message;
-            errorMsg.style.display = 'block';
-          });
-      });
-
-      // ============================================================
-      // PARTICLES (unchanged)
-      // ============================================================
-      (function() {
-        const canvas = document.getElementById('particles');
-        const ctx = canvas.getContext('2d');
-        let w, h;
-        const particles = [];
-        const count = 80;
-
-        function resize() {
-          w = canvas.width = window.innerWidth;
-          h = canvas.height = window.innerHeight;
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        class Particle {
-          constructor() {
-            this.x = Math.random() * w;
-            this.y = Math.random() * h;
-            this.size = Math.random() * 2 + 0.5;
-            this.speedX = (Math.random() - 0.5) * 0.3;
-            this.speedY = (Math.random() - 0.5) * 0.3;
-            this.opacity = Math.random() * 0.3 + 0.05;
+            } catch (_) {}
           }
-          update() {
-            this.x += this.speedX;
-            this.y += this.speedY;
-            if (this.x < 0 || this.x > w) this.speedX *= -1;
-            if (this.y < 0 || this.y > h) this.speedY *= -1;
-          }
-          draw() {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(141,235,0,${this.opacity})`;
-            ctx.fill();
-          }
+          // Fallback: read from Firestore
+          firestore.collection('users').doc(user.uid).get()
+            .then(doc => {
+              if (doc.exists) {
+                const data = doc.data();
+                const userData = { uid: user.uid, ...data };
+                storeUserData(userData);
+                let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
+                roles = [...new Set(roles)];
+                if (roles.length === 1) {
+                  redirectToDashboard(roles[0], user.uid);
+                } else {
+                  showRoleSelection();
+                  populateRoleCards(roles, user.uid);
+                }
+              }
+            })
+            .catch(() => {});
         }
+      }
+    });
 
-        for (let i = 0; i < count; i++) particles.push(new Particle());
+    // ================================================================
+    // PARTICLES (unchanged)
+    // ================================================================
+    (function() {
+      const canvas = document.getElementById('particles');
+      const ctx = canvas.getContext('2d');
+      let w, h;
+      const particles = [];
+      const count = 80;
 
-        function animate() {
-          ctx.clearRect(0, 0, w, h);
-          particles.forEach(p => { p.update(); p.draw(); });
-          requestAnimationFrame(animate);
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      class Particle {
+        constructor() {
+          this.x = Math.random() * w;
+          this.y = Math.random() * h;
+          this.size = Math.random() * 2 + 0.5;
+          this.speedX = (Math.random() - 0.5) * 0.3;
+          this.speedY = (Math.random() - 0.5) * 0.3;
+          this.opacity = Math.random() * 0.3 + 0.05;
         }
-        animate();
-      })();
+        update() {
+          this.x += this.speedX;
+          this.y += this.speedY;
+          if (this.x < 0 || this.x > w) this.speedX *= -1;
+          if (this.y < 0 || this.y > h) this.speedY *= -1;
+        }
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(141,235,0,${this.opacity})`;
+          ctx.fill();
+        }
+      }
 
+      for (let i = 0; i < count; i++) particles.push(new Particle());
+
+      function animate() {
+        ctx.clearRect(0, 0, w, h);
+        particles.forEach(p => { p.update(); p.draw(); });
+        requestAnimationFrame(animate);
+      }
+      animate();
+    })();
+
+    // Close reset overlay on ESC key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideResetOverlay();
     });
   </script>
 </body>
