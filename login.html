@@ -799,7 +799,7 @@
       // ================================================================
       document.getElementById('loginForm').addEventListener('submit', (e) => {
         e.preventDefault();
-        const email = document.getElementById('email').value.trim();
+        const email = document.getElementById('email').value.trim().toLowerCase();
         const password = document.getElementById('password').value.trim();
         const errorMsg = document.getElementById('errorMsg');
         const loginBtn = document.getElementById('loginBtn');
@@ -819,24 +819,53 @@
         auth.signInWithEmailAndPassword(email, password)
           .then(cred => {
             const uid = cred.user.uid;
+            const authEmail = (cred.user.email || email || '').toLowerCase();
             return db.collection('users').doc(uid).get().then(doc => {
-              if (!doc.exists) throw new Error('User data not found.');
-              const data = doc.data();
-              const userData = { uid, ...data };
-              storeUserData(userData);
-
-              let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
-              roles = [...new Set(roles)];
-
-              // Flight complete
-              window.isCamerasDecodedSignupFlight = false;
-
-              if (roles.length === 1) {
-                redirectToDashboard(roles[0], uid);
-              } else {
-                showRoleSelection();
-                populateRoleCards(roles, uid);
+              if (doc.exists) {
+                const data = doc.data();
+                const userData = { uid, ...data };
+                storeUserData(userData);
+                let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
+                roles = [...new Set(roles)];
+                window.isCamerasDecodedSignupFlight = false;
+                if (roles.length === 1) {
+                  redirectToDashboard(roles[0], uid);
+                } else {
+                  showRoleSelection();
+                  populateRoleCards(roles, uid);
+                }
+                return;
               }
+              // FIXED: Orphan recovery – doc(uid) missing but Firestore has old doc with same email (duplicate bug)
+              // Search by email field and migrate it
+              return db.collection('users').where('email','==', authEmail).limit(1).get().then(snap => {
+                if (!snap.empty) {
+                  const oldDoc = snap.docs[0];
+                  const data = oldDoc.data();
+                  const userData = { uid, ...data, email: authEmail, uid: uid };
+                  storeUserData(userData);
+                  // Migrate to correct uid location
+                  return db.collection('users').doc(uid).set(userData, {merge:true}).then(() => {
+                    let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
+                    roles = [...new Set(roles)];
+                    window.isCamerasDecodedSignupFlight = false;
+                    if (roles.length === 1) {
+                      redirectToDashboard(roles[0], uid);
+                    } else {
+                      showRoleSelection();
+                      populateRoleCards(roles, uid);
+                    }
+                  });
+                } else {
+                  // No profile anywhere – create minimal one so login succeeds
+                  const minimal = { uid: uid, email: authEmail, role: 'Operator', tier: 'free', createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+                  return db.collection('users').doc(uid).set(minimal, {merge:true}).then(() => {
+                    storeUserData(minimal);
+                    window.isCamerasDecodedSignupFlight = false;
+                    redirectToDashboard('Operator', uid);
+                  });
+                }
+              });
             });
           })
           .catch(err => {

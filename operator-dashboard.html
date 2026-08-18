@@ -4606,29 +4606,26 @@
             if (unsubscribeUser) unsubscribeUser();
             unsubscribeUser = userDocRef.onSnapshot(doc => {
                 if (!doc.exists) {
+                    // FIXED: Don't overwrite existing orphan. Create minimal doc with merge, preserve role if in localStorage
+                    const stored = localStorage.getItem('cameras_decoded_user');
+                    let fallbackRole = 'Operator';
+                    try { if (stored) fallbackRole = JSON.parse(stored).role || 'Operator'; } catch(_){}
                     userDocRef.set({
                         savedProtocols: [],
                         savedCards: [],
                         savedBlogs: [],
                         savedPodcasts: [],
                         savedCommunityPosts: [],
-                        role: 'Operator',
-                        subscription: { tier: 'monthly', status: 'active' },
-                        name: '',
-                        username: '',
-                        email: user.email || '',
+                        role: fallbackRole,
+                        email: (user.email || '').toLowerCase(),
+                        uid: user.uid,
                         tier: 'free',
                         billingInterval: 'monthly',
-                        preferences: { brands: [], lenses: [], interests: [] },
-                        confidence: 0,
                         referralCode: '',
                         totalReferrals: 0,
                         totalCommissionEarned: 0,
-                        ambassadorTier: 'signal',
-                        tourCompleted: false,
-                        totalBonusPoints: 0,
-                        learningJourney: {}
-                    }).catch(console.warn);
+                        ambassadorTier: 'signal'
+                    }, {merge:true}).catch(console.warn);
                     return;
                 }
                 const data = doc.data();
