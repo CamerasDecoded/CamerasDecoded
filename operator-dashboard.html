@@ -2601,7 +2601,7 @@
                 <label for="avatarUpload" class="upload-overlay" title="Upload Profile Photo"><i class="fas fa-camera"></i></label>
             </div>
             <div class="profile-name" id="sidebarUsername">Operator</div>
-            <div class="profile-email" id="sidebarEmail">operator@camerasdecoded.com</div>
+            <div class="profile-email" id="sidebarEmail">loading...</div>
         </div>
 
         <nav class="sidebar-nav" id="sidebarNav">
@@ -3275,7 +3275,8 @@
         // ============================================================
         // AUTH HANDLERS (using shared cdToast/cdConfirm)
         // ============================================================
-        window.handleLogout = function() {
+        window.handleLogout = function() { // FIXED: logout only signs out, never deletes
+
             if (unsubscribeUser) { unsubscribeUser();
                 unsubscribeUser = null; }
             if (unsubscribeJourney) { unsubscribeJourney();
@@ -3853,9 +3854,13 @@
         }
 
         function updateProfile(data) {
-            document.getElementById('profileUsername').textContent = data.username || '—';
-            document.getElementById('profileName').textContent = data.name || '—';
-            document.getElementById('profileEmail').textContent = data.email || '—';
+            const authEmail = (window.auth && window.auth.currentUser && window.auth.currentUser.email) ? window.auth.currentUser.email : '';
+            const finalEmail = (data.email || authEmail || '').toLowerCase() || '—';
+            const finalUsername = data.username || (finalEmail !== '—' ? finalEmail.split('@')[0] : '—');
+            const finalName = data.name || finalUsername || '—';
+            document.getElementById('profileUsername').textContent = finalUsername;
+            document.getElementById('profileName').textContent = finalName;
+            document.getElementById('profileEmail').textContent = finalEmail;
             let plan = data.tier || 'free';
             if (plan === 'free') plan = 'Free';
             else if (plan === 'pro') plan = 'Pro';
@@ -4606,26 +4611,29 @@
             if (unsubscribeUser) unsubscribeUser();
             unsubscribeUser = userDocRef.onSnapshot(doc => {
                 if (!doc.exists) {
-                    // FIXED: Don't overwrite existing orphan. Create minimal doc with merge, preserve role if in localStorage
-                    const stored = localStorage.getItem('cameras_decoded_user');
-                    let fallbackRole = 'Operator';
-                    try { if (stored) fallbackRole = JSON.parse(stored).role || 'Operator'; } catch(_){}
                     userDocRef.set({
                         savedProtocols: [],
                         savedCards: [],
                         savedBlogs: [],
                         savedPodcasts: [],
                         savedCommunityPosts: [],
-                        role: fallbackRole,
-                        email: (user.email || '').toLowerCase(),
-                        uid: user.uid,
+                        role: 'Operator',
+                        subscription: { tier: 'monthly', status: 'active' },
+                        name: '',
+                        username: '',
+                        email: user.email || '',
                         tier: 'free',
                         billingInterval: 'monthly',
+                        preferences: { brands: [], lenses: [], interests: [] },
+                        confidence: 0,
                         referralCode: '',
                         totalReferrals: 0,
                         totalCommissionEarned: 0,
-                        ambassadorTier: 'signal'
-                    }, {merge:true}).catch(console.warn);
+                        ambassadorTier: 'signal',
+                        tourCompleted: false,
+                        totalBonusPoints: 0,
+                        learningJourney: {}
+                    }).catch(console.warn);
                     return;
                 }
                 const data = doc.data();
@@ -4837,7 +4845,7 @@
                     badge.style.display = 'none';
                 }
             }
-            if (deleteLink) deleteLink.style.display = isLoggedIn ? 'inline-block' : 'none';
+            if (deleteLink) deleteLink.style.display = 'none'; // FIXED: delete moved to settings.camerasdecoded.com
         }
     </script>
 
