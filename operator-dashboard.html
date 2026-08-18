@@ -3275,8 +3275,7 @@
         // ============================================================
         // AUTH HANDLERS (using shared cdToast/cdConfirm)
         // ============================================================
-        window.handleLogout = function() { // FIXED: logout only signs out, never deletes
-
+        window.handleLogout = function() {
             if (unsubscribeUser) { unsubscribeUser();
                 unsubscribeUser = null; }
             if (unsubscribeJourney) { unsubscribeJourney();
@@ -3287,7 +3286,7 @@
             localStorage.removeItem('cameras_decoded_uid');
             localStorage.removeItem('cameras_decoded_user');
 
-            auth.signOut().then(() => {
+            (window.auth || firebase.auth()).signOut().then(() => {
                 window.location.href = 'login.html';
             }).catch(() => {
                 window.location.href = 'login.html';
@@ -3854,13 +3853,11 @@
         }
 
         function updateProfile(data) {
-            const authEmail = (window.auth && window.auth.currentUser && window.auth.currentUser.email) ? window.auth.currentUser.email : '';
-            const finalEmail = (data.email || authEmail || '').toLowerCase() || '—';
-            const finalUsername = data.username || (finalEmail !== '—' ? finalEmail.split('@')[0] : '—');
-            const finalName = data.name || finalUsername || '—';
-            document.getElementById('profileUsername').textContent = finalUsername;
-            document.getElementById('profileName').textContent = finalName;
-            document.getElementById('profileEmail').textContent = finalEmail;
+            document.getElementById('profileUsername').textContent = data.username || '—';
+            document.getElementById('profileName').textContent = data.name || '—';
+            const _authEmail = (window.auth && auth.currentUser && auth.currentUser.email) ? auth.currentUser.email : (firebase.auth().currentUser ? firebase.auth().currentUser.email : '');
+            document.getElementById('profileEmail').textContent = data.email || _authEmail || '—';
+            document.getElementById('sidebarEmail').textContent = data.email || _authEmail || '—';
             let plan = data.tier || 'free';
             if (plan === 'free') plan = 'Free';
             else if (plan === 'pro') plan = 'Pro';
@@ -4845,7 +4842,7 @@
                     badge.style.display = 'none';
                 }
             }
-            if (deleteLink) deleteLink.style.display = 'none'; // FIXED: delete moved to settings.camerasdecoded.com
+            if (deleteLink) deleteLink.style.display = 'none'; // delete moved to settings page
         }
     </script>
 

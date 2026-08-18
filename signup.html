@@ -840,9 +840,7 @@
 
       // ---- Validate fields ----
       const name = formData['fullName'] || '';
-      const email = (formData['email'] || document.getElementById('email')?.value || '').trim().toLowerCase();
-      const rawEmailForLog = formData['email'] || '';
-      console.log('[SIGNUP DEBUG] formData email:', rawEmailForLog, 'final email used:', email);
+      const email = (formData['email'] || '').trim().toLowerCase();
       const username = formData['username'] || '';
       const isSocialUser = socialUserData !== null;
       const password = document.getElementById('password')?.value?.trim() || '';
@@ -895,7 +893,7 @@
       // Build userData
       let userData = {
         name,
-        email: email,  // FIXED: guaranteed lowercased real email
+        email: (email || '').trim().toLowerCase(),
         username,
         role: selectedRole,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1010,19 +1008,14 @@
           const uid = user.uid;
           if (selectedRole === 'Partner') userData.partnerId = 'PART-' + uid.slice(0, 6).toUpperCase();
           else if (selectedRole === 'Instructor') userData.instructorId = 'INSTR-' + uid.slice(0, 6).toUpperCase();
-          return user.updateProfile({ displayName: name }).catch(()=>{ console.warn('updateProfile failed non-critical'); }).then(() => ({ user, uid }));
+          return user.updateProfile({ displayName: name }).catch(function(e){ console.warn('updateProfile non-critical', e); }).then(() => ({ user, uid }));
         })
         .then(({ user, uid }) => {
           // Write the user document – this is the only Firestore write
           userData.email = (userData.email || email || '').trim().toLowerCase();
           userData.uid = uid;
-          userData.emailLower = userData.email; // for case-insensitive queries
-          console.log('[SIGNUP DEBUG] Writing user doc:', uid, userData.email);
-          return firestore.collection('users').doc(uid).set(userData, {merge:true}).then(() => {
-            // Also create referralCodes doc for unique check
-            const refCode = userData.referralCode || userData.username || uid.slice(0,6);
-            return firestore.collection('referralCodes').doc(refCode.toLowerCase()).set({uid: uid, email: userData.email, createdAt: firebase.firestore.FieldValue.serverTimestamp()}, {merge:true}).catch(e=>{ console.warn('referralCodes write failed non-critical', e); });
-          });
+          userData.emailLower = userData.email;
+          return firestore.collection('users').doc(uid).set(userData, {merge:true});
         })
         .then(() => {
           // Success – show confirmation and redirect with uid
@@ -1035,7 +1028,7 @@
           socialUserData = null;
           
           // Redirect using the helper that appends uid
-          redirectToDashboard(selectedRole, auth.currentUser.uid);
+          redirectToDashboard(selectedRole, uid); // FIXED: use uid from closure, auth.currentUser can be null
         })
         .catch(err => {
           console.error('Signup error:', err);
@@ -1061,8 +1054,8 @@
           spinner.style.display = 'none';
           window.isCamerasDecodedSignupFlight = false;
           // Clean up partial Auth account if created
-          // FIXED: Do NOT delete Auth user – prevents duplicate email orphan bug
-          // console.log('Would have deleted user before fix, now keeping:', userAuth.currentUser?.uid);
+          // FIXED: keep Auth user to prevent duplicate email bug - do not delete
+          // if (userAuth.currentUser && !isSocialUser) { userAuth.currentUser.delete().catch(() => {}); }
         });
     };
 
