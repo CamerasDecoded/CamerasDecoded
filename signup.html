@@ -460,7 +460,6 @@
           if (btn) {
             btn.style.display = 'block';
             btn.removeEventListener('click', window.activateSignal);
-            btn.removeEventListener('click', window.activateSignal);
             btn.addEventListener('click', window.activateSignal);
           }
           setTimeout(initSlider, 150);
@@ -810,6 +809,8 @@
     window.activateSignal = function() {
       if (window._isSubmitting) { console.warn('double submit blocked'); return; }
       window._isSubmitting = true;
+      let _createdUid = '';
+      let _createdReferral = '';
       // 🔥 Set the flight flag to suppress background reads
       window.isCamerasDecodedSignupFlight = true;
       
@@ -998,7 +999,6 @@
           btn.style.display = 'block';
           spinner.style.display = 'none';
           window.isCamerasDecodedSignupFlight = false;
-          window._isSubmitting = false;
           return;
         }
         createPromise = Promise.resolve(user);
@@ -1010,6 +1010,8 @@
         .then(cred => {
           const user = isSocialUser ? cred : cred.user;
           const uid = user.uid;
+          _createdUid = uid;
+          _createdReferral = referralCode;
           if (selectedRole === 'Partner') userData.partnerId = 'PART-' + uid.slice(0, 6).toUpperCase();
           else if (selectedRole === 'Instructor') userData.instructorId = 'INSTR-' + uid.slice(0, 6).toUpperCase();
           return user.updateProfile({ displayName: name }).catch(function(e){ console.warn('updateProfile non-critical', e); }).then(() => ({ user, uid }));
@@ -1019,6 +1021,7 @@
           userData.email = (userData.email || email || '').trim().toLowerCase();
           userData.uid = uid;
           userData.emailLower = userData.email;
+          console.log('[SIGNUP] Writing user doc:', uid, userData.email);
           return firestore.collection('users').doc(uid).set(userData, {merge:true});
         })
         .then(() => {
@@ -1030,14 +1033,9 @@
           if (linkEl) { linkEl.textContent = `camerasdecoded.com/ref/${referralCode}`; }
           localStorage.removeItem('signup_referral');
           socialUserData = null;
-          window._isSubmitting = false;
-          // Keep flight flag true until redirect to prevent background reads
-          const finalUid = (typeof auth !== 'undefined' && auth.currentUser && auth.currentUser.uid) ? auth.currentUser.uid : (firebase.auth().currentUser ? firebase.auth().currentUser.uid : '');
-          console.log('[SIGNUP] Success, redirecting with uid:', finalUid);
-          setTimeout(() => {
-            window.isCamerasDecodedSignupFlight = false;
-            redirectToDashboard(selectedRole, finalUid);
-          }, 800);
+          
+          // Redirect using the helper that appends uid
+          redirectToDashboard(selectedRole, auth.currentUser.uid);
         })
         .catch(err => {
           console.error('Signup error:', err);
@@ -1061,11 +1059,10 @@
           errorEl.style.display = 'block';
           btn.style.display = 'block';
           spinner.style.display = 'none';
-          window.isCamerasDecodedSignupFlight = false;
           window._isSubmitting = false;
-          // Clean up partial Auth account if created
+          window.isCamerasDecodedSignupFlight = false;
           // FIXED: do not delete Auth user
-          // if (userAuth.currentUser && !isSocialUser) { userAuth.currentUser.delete().catch(() => {}); }
+          // FIXED: do not delete Auth user - prevents duplicate bug
         });
     };
 
