@@ -1022,31 +1022,35 @@
           userData.uid = uid;
           userData.emailLower = userData.email;
           console.log('[SIGNUP] Writing user doc:', uid, userData.email);
-          return firestore.collection('users').doc(uid).set(userData, {merge:true});
+          return firestore.collection('users').doc(uid).set(userData, {merge:true})
+            .then(()=>{ console.log('[SIGNUP] Firestore write OK'); })
+            .catch(e=>{
+              console.warn('[SIGNUP] Firestore write failed but continuing:', e);
+              // Don't block redirect on firestore failure
+            });
         })
         .then(() => {
-          // Success – show confirmation and redirect with uid
-          btn.style.display = 'none';
-          spinner.style.display = 'none';
-          locked.style.display = 'block';
+          // Success – show confirmation and redirect with uid (always)
+          try { btn.style.display = 'none'; } catch(e){}
+          try { spinner.style.display = 'none'; } catch(e){}
+          try { locked.style.display = 'block'; } catch(e){}
           const linkEl = document.getElementById('newReferralLink');
           if (linkEl) { linkEl.textContent = `camerasdecoded.com/ref/${referralCode}`; }
           localStorage.removeItem('signup_referral');
           socialUserData = null;
           
-          localStorage.removeItem('signup_referral');
-          socialUserData = null;
           window._isSubmitting = false;
           const finalUid = _createdUid || (firebase.auth().currentUser ? firebase.auth().currentUser.uid : '');
           console.log('[SIGNUP] Success, redirecting with uid:', finalUid, 'role:', selectedRole);
           setTimeout(() => {
             window.isCamerasDecodedSignupFlight = false;
+            window._isSubmitting = false;
             if (finalUid) {
               redirectToDashboard(selectedRole, finalUid);
             } else {
               window.location.href = 'login.html';
             }
-          }, 800);
+          }, 400);
         })
         .catch(err => {
           console.error('Signup error:', err);
