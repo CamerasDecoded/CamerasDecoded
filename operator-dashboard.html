@@ -93,7 +93,7 @@
         }
 
         /* ============================================================
-           CHASING BORDER (reusable)
+           CHASING BORDER
            ============================================================ */
         @property --angle {
             syntax: '<angle>';
@@ -248,7 +248,6 @@
             margin: 8px 0;
         }
 
-        /* Notification Panel */
         .sidebar-notification {
             margin-top: 16px;
             border-radius: 8px;
@@ -598,7 +597,7 @@
         }
 
         /* ============================================================
-           SUCCESS TOAST (internal)
+           SUCCESS TOAST
            ============================================================ */
         .success-toast {
             position: fixed;
@@ -1283,7 +1282,7 @@
         }
 
         /* ============================================================
-           4-BLOCK GRID (Journey & Challenge)
+           4-BLOCK GRID
            ============================================================ */
         .block-grid {
             display: grid;
@@ -2582,17 +2581,6 @@
             background: var(--green);
             color: #000;
         }
-
-        /* ===== TYPEWRITER REVEAL ===== */
-        .value[data-typed="false"] {
-            opacity: 0;
-            transform: translateY(6px);
-            transition: opacity 0.5s ease, transform 0.5s ease;
-        }
-        .value[data-typed="true"] {
-            opacity: 1;
-            transform: translateY(0);
-        }
     </style>
 </head>
 <body>
@@ -3105,9 +3093,14 @@
     <canvas id="confetti-canvas"></canvas>
 
     <!-- ============================================================
-         SCRIPTS (using shared firebase-init and cd-ui)
-         ============================================================ -->
+         SCRIPTS (full fixed version)
+    ============================================================ -->
     <script>
+        // ============================================================
+        // GLOBAL FLIGHT FLAG – prevents background reads during signup/login
+        // ============================================================
+        window.isCamerasDecodedSignupFlight = false;
+
         // ============================================================
         // BINARY RAIN
         // ============================================================
@@ -3280,7 +3273,7 @@
         updateCartUI();
 
         // ============================================================
-        // AUTH HANDLERS (use shared cdToast/cdConfirm)
+        // AUTH HANDLERS (using shared cdToast/cdConfirm)
         // ============================================================
         window.handleLogout = function() {
             if (unsubscribeUser) { unsubscribeUser();
@@ -3307,6 +3300,7 @@
             if (!user) return;
             try {
                 await db.collection('users').doc(user.uid).delete();
+                await db.collection('userJourney').doc(user.uid).delete();
                 await user.delete();
                 localStorage.clear();
                 window.location.href = 'index.html';
@@ -3476,7 +3470,7 @@
         // ============================================================
         // CYNETIS-7 UI FEEDBACK
         // ============================================================
-        function setCynetisState(state, message = '') {
+        function setCynetisState(state, message) {
             const avatar = document.getElementById('cynetisAvatar');
             const status = document.getElementById('cynetisStatusText');
             const pulse = document.getElementById('cynetisPulse');
@@ -3590,7 +3584,7 @@
         }
 
         // ============================================================
-        // SUCCESS TOAST (internal)
+        // SUCCESS TOAST
         // ============================================================
         function showSuccessToast(points, bonus, multiplier, actionName) {
             const toast = document.getElementById('successToast');
@@ -3675,8 +3669,7 @@
         // ============================================================
         // DISPATCH CYNETIS REWARD
         // ============================================================
-        function dispatchCynetisReward(actionType, pointsEarned, bonusEarned = 0, newBadges = [], levelUp = false,
-            newLevel = 1) {
+        function dispatchCynetisReward(actionType, pointsEarned, bonusEarned, newBadges, levelUp, newLevel) {
             const avatarRect = document.getElementById('cynetisAvatar')?.getBoundingClientRect();
 
             setCynetisState('processing', 'Scanning neural data...');
@@ -3790,7 +3783,7 @@
             }).join('');
         }
 
-        function renderProtocols(savedIds, genreFilter = 'all') {
+        function renderProtocols(savedIds, genreFilter) {
             const grid = document.getElementById('protocolGrid');
             let filtered = PROTOCOL_LIBRARY.filter(p => savedIds.includes(p.id));
             if (genreFilter !== 'all') filtered = filtered.filter(p => p.genre === genreFilter);
@@ -3850,7 +3843,7 @@
         };
 
         // ============================================================
-        // UPDATE FUNCTIONS
+        // UPDATE FUNCTIONS (fixed for nested data)
         // ============================================================
         function updateStats(sp, sc, sb, spc, scom) {
             document.getElementById('statProtocols').textContent = sp.length;
@@ -3867,13 +3860,15 @@
             if (plan === 'free') plan = 'Free';
             else if (plan === 'pro') plan = 'Pro';
             document.getElementById('profilePlan').textContent = plan;
+
             const prefs = data.preferences || {};
-            document.getElementById('profileCamera').textContent = prefs.brands && prefs.brands.length > 0 ?
-                prefs.brands.join(', ') : '—';
-            document.getElementById('profileLenses').textContent = prefs.lenses && prefs.lenses.length > 0 ?
-                prefs.lenses.join(', ') : '—';
-            document.getElementById('profileInterests').textContent = prefs.interests && prefs.interests.length > 0 ?
-                prefs.interests.join(', ') : '—';
+            const brands = Array.isArray(prefs.brands) ? prefs.brands.join(', ') : '—';
+            const lenses = Array.isArray(prefs.lenses) ? prefs.lenses.join(', ') : '—';
+            const interests = Array.isArray(prefs.interests) ? prefs.interests.join(', ') : '—';
+            document.getElementById('profileCamera').textContent = brands;
+            document.getElementById('profileLenses').textContent = lenses;
+            document.getElementById('profileInterests').textContent = interests;
+
             document.getElementById('profileConfidence').textContent = data.confidence ? data.confidence + '/10' : '—';
             document.getElementById('profileReferral').textContent = data.referralCode || '—';
             if (data.username) document.getElementById('sidebarUsername').textContent = data.username;
@@ -3941,8 +3936,9 @@
         }
 
         function updateAIWidget(aiUsage, plan) {
+            const usage = aiUsage || { total: 0 };
             const dailyLimit = plan === 'pro' ? Infinity : 5;
-            const used = aiUsage.total || 0;
+            const used = usage.total || 0;
             const limitDisplay = plan === 'pro' ? '∞' : dailyLimit;
             document.getElementById('aiWidgetUsed').textContent = used;
             document.getElementById('aiWidgetLimit').textContent = limitDisplay;
@@ -3952,7 +3948,7 @@
             document.getElementById('aiWidgetBadge').textContent = plan === 'pro' ? 'Pro' : 'Free';
             const toolMap = { prompt: 'prompt', snapshot: 'snapshot', ideas: 'ideas', critique: 'critique' };
             Object.keys(toolMap).forEach(key => {
-                const count = aiUsage[key] || 0;
+                const count = usage[key] || 0;
                 const el = document.getElementById('aiCount' + key.charAt(0).toUpperCase() + key.slice(1));
                 if (el) el.textContent = count;
             });
@@ -4118,7 +4114,7 @@
         }
 
         // ============================================================
-        // JOURNEY & CHALLENGE UI
+        // JOURNEY & CHALLENGE UI (fixed to use userJourneyRef)
         // ============================================================
         function renderJourneyUI() {
             if (!journeyData || !userJourneyData) return;
@@ -4285,11 +4281,14 @@
                 updateData.dailyChallengeStreak = 1;
             }
 
+            // ★ FIXED: update userJourneyRef (separate collection) for points and streak
             const batch = db.batch();
             batch.update(userJourneyRef, {
                 ...updateData,
                 totalPoints: firebase.firestore.FieldValue.increment(totalPointsEarned)
             });
+            // Bonus points are stored in user document (or we can keep it in userJourney)
+            // We'll keep totalBonusPoints in the user doc for now.
             batch.update(userDocRef, {
                 totalBonusPoints: firebase.firestore.FieldValue.increment(bonusPointsEarned)
             });
@@ -4325,8 +4324,7 @@
                     return { totalPointsEarned, bonusPointsEarned, newBadges, levelUp, newLevel };
                 });
             }).then(({ totalPointsEarned, bonusPointsEarned, newBadges, levelUp, newLevel }) => {
-                dispatchCynetisReward('challenge', totalPointsEarned, bonusPointsEarned, newBadges, levelUp,
-                    newLevel);
+                dispatchCynetisReward('challenge', totalPointsEarned, bonusPointsEarned, newBadges, levelUp, newLevel);
                 totalBonusPoints += bonusPointsEarned;
                 updateStreakUI();
             }).catch(err => {
@@ -4336,7 +4334,7 @@
         };
 
         // ============================================================
-        // TAGGING ENGINE
+        // TAGGING ENGINE (fixed for missing aiUsage)
         // ============================================================
         (function() {
             window.getUserTags = function(userData) {
@@ -4404,14 +4402,14 @@
                 return score;
             };
 
-            window.getRecommendedContent = async function(collectionName, userTags, limit = 10, extraFilters = {}) {
-                if (!window.db) {
+            window.getRecommendedContent = async function(collectionName, userTags, limit, extraFilters) {
+                if (!db) {
                     console.error('Firestore not initialized');
                     return [];
                 }
                 try {
-                    let query = window.db.collection(collectionName).limit(50);
-                    if (extraFilters.active !== undefined) {
+                    let query = db.collection(collectionName).limit(50);
+                    if (extraFilters && extraFilters.active !== undefined) {
                         query = query.where('active', '==', extraFilters.active);
                     }
                     const snapshot = await query.get();
@@ -4432,7 +4430,7 @@
         })();
 
         // ============================================================
-        // SIGNAL FEED
+        // SIGNAL FEED (unchanged)
         // ============================================================
         function renderDashboardFeed(user) {
             const section = document.getElementById('dashboard-feed');
@@ -4444,7 +4442,7 @@
             }
             section.style.display = 'block';
 
-            function setFeedMessage(msg, isError = false) {
+            function setFeedMessage(msg, isError) {
                 container.innerHTML =
                     `<p class="grey-text" style="grid-column:1/-1;text-align:center;padding:20px;${isError ? 'color:#ff6b6b;' : ''}">${msg}</p>`;
             }
@@ -4507,36 +4505,36 @@
         }
 
         // ============================================================
-        // TYPEWRITER REVEAL HELPER
+        // DATA-DRIVEN TYPEWRITER REVEAL
         // ============================================================
-        function applyTypewriterEffect() {
-            document.querySelectorAll(
-                '.profile-section .profile-item .value, .learning-journey-section .profile-item .value'
-            ).forEach(el => {
-                const text = el.textContent.trim();
-                if (text && text !== '—') {
-                    el.dataset.originalText = text;
-                    el.dataset.typed = 'false';
-                    // Force a small delay so the observer can trigger
-                    setTimeout(() => {
-                        const observer = new IntersectionObserver((entries) => {
-                            entries.forEach(entry => {
-                                if (entry.isIntersecting) {
-                                    el.dataset.typed = 'true';
-                                    observer.unobserve(el);
-                                }
-                            });
-                        }, { threshold: 0.3 });
-                        observer.observe(el);
-                    }, 100);
+        function loadAndAnimateTextReveal(elementId, normalizedString) {
+            const targetNode = document.getElementById(elementId);
+            if (!targetNode) return;
+            targetNode.dataset.typed = 'false';
+            targetNode.textContent = '';
+            let idx = 0;
+            function type() {
+                if (idx < normalizedString.length) {
+                    targetNode.textContent += normalizedString.charAt(idx);
+                    idx++;
+                    setTimeout(type, 15);
+                } else {
+                    targetNode.dataset.typed = 'true';
                 }
-            });
+            }
+            type();
         }
 
         // ============================================================
-        // AUTH LISTENER
+        // AUTH LISTENER (with flight flag)
         // ============================================================
         auth.onAuthStateChanged(user => {
+            // 🛡️ If a signup/login flight is active, suppress all background reads
+            if (window.isCamerasDecodedSignupFlight) {
+                console.log('Flight active: suppressing background reads.');
+                return;
+            }
+
             if (!user) {
                 window.location.href = 'login.html';
                 return;
@@ -4546,9 +4544,9 @@
             userJourneyRef = db.collection('userJourney').doc(user.uid);
             localStorage.setItem('cameras_decoded_uid', user.uid);
 
+            // Update settings links
             document.querySelectorAll('a[href*="settings.camerasdecoded.com"]').forEach(link => {
-                if (!link.href.includes('opToken=') && !link.href.includes('?uid=') && !link.href.includes(
-                        '&uid=')) {
+                if (!link.href.includes('opToken=') && !link.href.includes('?uid=') && !link.href.includes('&uid=')) {
                     const sep = link.href.includes('?') ? '&' : '?';
                     link.href = link.href + sep + 'opToken=' + user.uid;
                 }
@@ -4563,6 +4561,7 @@
             const tourButton = document.getElementById('tourButton');
             if (tourButton) tourButton.addEventListener('click', startTour);
 
+            // Load journey template
             db.collection('journeys').doc('beginner').onSnapshot(doc => {
                 if (doc.exists) {
                     journeyData = doc.data();
@@ -4575,6 +4574,7 @@
                 }
             }, console.warn);
 
+            // Subscribe to user journey
             if (unsubscribeJourney) unsubscribeJourney();
             unsubscribeJourney = userJourneyRef.onSnapshot(doc => {
                 if (doc.exists) {
@@ -4598,12 +4598,14 @@
                 }
                 updateChallengeButton();
                 updateChallengeLog(userJourneyData);
+                streakDays = userJourneyData.dailyChallengeStreak || 0;
+                updateStreakUI();
             });
 
+            // Subscribe to user profile
             if (unsubscribeUser) unsubscribeUser();
             unsubscribeUser = userDocRef.onSnapshot(doc => {
                 if (!doc.exists) {
-                    // Create document with default structure
                     userDocRef.set({
                         savedProtocols: [],
                         savedCards: [],
@@ -4624,64 +4626,17 @@
                         totalCommissionEarned: 0,
                         ambassadorTier: 'signal',
                         tourCompleted: false,
-                        streakDays: 0,
-                        lastActiveDate: null,
                         totalBonusPoints: 0,
-                        learningJourney: {
-                            experience: '',
-                            primaryGoal: '',
-                            ambition: '',
-                            contentFormat: '',
-                            deliveryChannel: '',
-                            painPoints: [],
-                            sixMonthGoal: '',
-                            dreamProject: '',
-                            challenge: '',
-                            shootFrequency: '',
-                            learningStyle: '',
-                            confidence: 0
-                        }
+                        learningJourney: {}
                     }).catch(console.warn);
                     return;
                 }
                 const data = doc.data();
 
-                // Streak evaluation
-                const today = new Date();
-                const todayStr = today.toISOString().split('T')[0];
-                const lastActive = data.lastActiveDate ? new Date(data.lastActiveDate.toDate?.() || data.lastActiveDate) :
-                    null;
-                let newStreak = data.streakDays || 0;
-                let newBonus = data.totalBonusPoints || 0;
-                if (lastActive) {
-                    const lastStr = lastActive.toISOString().split('T')[0];
-                    const yesterday = new Date(today);
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    const yesterdayStr = yesterday.toISOString().split('T')[0];
-                    if (lastStr === todayStr) {
-                        // already active today
-                    } else if (lastStr === yesterdayStr) {
-                        newStreak += 1;
-                    } else {
-                        newStreak = 0;
-                    }
-                } else {
-                    newStreak = 1;
-                }
-                if (data.streakDays !== newStreak || !lastActive || lastActive.toISOString().split('T')[0] !== todayStr) {
-                    userDocRef.update({
-                        streakDays: newStreak,
-                        lastActiveDate: new Date(),
-                        totalBonusPoints: newBonus
-                    }).catch(console.warn);
-                }
-                streakDays = newStreak;
-                totalBonusPoints = newBonus;
-                updateStreakUI();
-
                 updateProfile(data);
                 updateLearningJourney(data);
                 updateReferralSection(data);
+
                 const savedProtocols = data.savedProtocols || [];
                 const savedCards = data.savedCards || [];
                 const savedBlogs = data.savedBlogs || [];
@@ -4706,10 +4661,44 @@
                     setTimeout(startTour, 800);
                 }
 
-                // Trigger typewriter effect after data is loaded
-                setTimeout(applyTypewriterEffect, 300);
+                // ★ Apply typewriter effect with the actual data strings
+                // We'll animate the profile and learning journey fields
+                const profileFields = {
+                    'profileUsername': data.username || '—',
+                    'profileName': data.name || '—',
+                    'profileEmail': data.email || '—',
+                    'profilePlan': (data.tier === 'pro' ? 'Pro' : 'Free'),
+                    'profileCamera': (Array.isArray(data.preferences?.brands) ? data.preferences.brands.join(', ') : '—'),
+                    'profileLenses': (Array.isArray(data.preferences?.lenses) ? data.preferences.lenses.join(', ') : '—'),
+                    'profileInterests': (Array.isArray(data.preferences?.interests) ? data.preferences.interests.join(', ') : '—'),
+                    'profileConfidence': data.confidence ? data.confidence + '/10' : '—',
+                    'profileReferral': data.referralCode || '—'
+                };
+                Object.entries(profileFields).forEach(([id, text]) => {
+                    loadAndAnimateTextReveal(id, text);
+                });
+
+                const lj = data.learningJourney || {};
+                const ljFields = {
+                    'ljExperience': lj.experience || '—',
+                    'ljPrimaryGoal': lj.primaryGoal || '—',
+                    'ljAmbition': lj.ambition || '—',
+                    'ljContentFormat': lj.contentFormat || '—',
+                    'ljDeliveryChannel': lj.deliveryChannel || '—',
+                    'ljPainPoints': (lj.painPoints || []).join(', ') || '—',
+                    'ljSixMonthGoal': lj.sixMonthGoal || '—',
+                    'ljDreamProject': lj.dreamProject || '—'
+                };
+                Object.entries(ljFields).forEach(([id, text]) => {
+                    loadAndAnimateTextReveal(id, text);
+                });
+
+                // Also update sidebar
+                if (data.username) document.getElementById('sidebarUsername').textContent = data.username;
+                if (data.email) document.getElementById('sidebarEmail').textContent = data.email;
             });
 
+            // Commissions
             if (unsubscribeCommissions) unsubscribeCommissions();
             unsubscribeCommissions = userDocRef.collection('commissions').onSnapshot(snapshot => {
                 const commissions = [];
@@ -4717,6 +4706,7 @@
                 renderCommissionHistory(commissions);
             });
 
+            // Filter tabs
             document.querySelectorAll('.filter-tab').forEach(tab => {
                 tab.addEventListener('click', function() {
                     document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
@@ -4735,7 +4725,7 @@
         });
 
         // ============================================================
-        // SUBSTACK TEASER
+        // SUBSTACK TEASER (unchanged)
         // ============================================================
         (function() {
             const CACHE_KEY = 'substack_teaser_cache';
@@ -4782,7 +4772,7 @@
         })();
 
         // ============================================================
-        // QUIZ
+        // QUIZ (unchanged)
         // ============================================================
         (function() {
             const streak = parseInt(localStorage.getItem('quizStreak') || '0');
@@ -4833,7 +4823,7 @@
         // ============================================================
         // UPDATE AUTH UI
         // ============================================================
-        function updateAuthUI(isLoggedIn, roleText = 'Operator', tierText = 'Free') {
+        function updateAuthUI(isLoggedIn, roleText, tierText) {
             const logoutBtn = document.getElementById('floatingLogoutBtn');
             const tourBtn = document.getElementById('tourButton');
             const badge = document.getElementById('roleTierBadge');
