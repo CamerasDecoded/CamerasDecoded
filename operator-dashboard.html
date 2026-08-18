@@ -3286,11 +3286,9 @@
             localStorage.removeItem('cameras_decoded_uid');
             localStorage.removeItem('cameras_decoded_user');
 
-            (window.auth || firebase.auth()).signOut().then(() => {
-                localStorage.clear();
+            auth.signOut().then(() => {
                 window.location.href = 'login.html';
             }).catch(() => {
-                localStorage.clear();
                 window.location.href = 'login.html';
             });
         };
@@ -3857,9 +3855,7 @@
         function updateProfile(data) {
             document.getElementById('profileUsername').textContent = data.username || '—';
             document.getElementById('profileName').textContent = data.name || '—';
-            const _authEmail = (firebase.auth().currentUser && firebase.auth().currentUser.email) || (currentUser && currentUser.email) || '';
-            document.getElementById('profileEmail').textContent = data.email || _authEmail || '—';
-            const se = document.getElementById('sidebarEmail'); if(se) se.textContent = data.email || _authEmail || '—';
+            document.getElementById('profileEmail').textContent = data.email || '—';
             let plan = data.tier || 'free';
             if (plan === 'free') plan = 'Free';
             else if (plan === 'pro') plan = 'Pro';
@@ -3876,7 +3872,7 @@
             document.getElementById('profileConfidence').textContent = data.confidence ? data.confidence + '/10' : '—';
             document.getElementById('profileReferral').textContent = data.referralCode || '—';
             if (data.username) document.getElementById('sidebarUsername').textContent = data.username;
-            if (data.email) document.getElementById('sidebarEmail').textContent = data.email;
+            if (data.email) { document.getElementById('sidebarEmail').textContent = data.email; document.getElementById('profileEmail').textContent = data.email; }
         }
 
         function updateLearningJourney(data) {
@@ -3919,7 +3915,7 @@
         }
 
         function updateReferralSection(data) {
-            document.getElementById('referralLink').textContent = `camerasdecoded.com/ref/${data.referralCode || ''}`;
+            document.getElementById('referralLink').textContent = `camerasdecoded.com/ref/${data.referralCode || data.username || (data.email ? data.email.split('@')[0] : 'operator')}`;
             document.getElementById('totalReferrals').textContent = data.totalReferrals || 0;
             document.getElementById('totalCommission').textContent = '$' + (data.totalCommissionEarned || 0);
             const referrals = data.totalReferrals || 0;
@@ -4625,7 +4621,7 @@
                         billingInterval: 'monthly',
                         preferences: { brands: [], lenses: [], interests: [] },
                         confidence: 0,
-                        referralCode: '',
+                        referralCode: (user.email ? user.email.split('@')[0].toLowerCase() : 'operator') + Math.floor(Math.random()*100),
                         totalReferrals: 0,
                         totalCommissionEarned: 0,
                         ambassadorTier: 'signal',
@@ -4699,7 +4695,7 @@
 
                 // Also update sidebar
                 if (data.username) document.getElementById('sidebarUsername').textContent = data.username;
-                if (data.email) document.getElementById('sidebarEmail').textContent = data.email;
+                if (data.email) { document.getElementById('sidebarEmail').textContent = data.email; document.getElementById('profileEmail').textContent = data.email; }
             });
 
             // Commissions
