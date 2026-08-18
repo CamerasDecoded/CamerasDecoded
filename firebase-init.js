@@ -1,6 +1,6 @@
 // firebase-init.js - CLEAN, NO SYNTAX ERRORS
 const firebaseConfig = {
-  apiKey: "AIzaSyC-REAL-KEY-REPLACE-ME",
+  apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
   authDomain: "camerasdecoded.firebaseapp.com",
   projectId: "camerasdecoded",
   storageBucket: "camerasdecoded.appspot.com",
