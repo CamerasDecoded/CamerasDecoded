@@ -9,9 +9,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <!-- Shared Firebase init (defines auth, db) -->
+  <!-- ===== FIREBASE SDKs (must be loaded BEFORE firebase-init.js) ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== SHARED SCRIPTS (define auth, db and UI helpers) ===== -->
   <script src="https://camerasdecoded.com/firebase-init.js"></script>
-  <!-- Shared UI (toast, confirm) -->
   <script src="https://camerasdecoded.com/cd-ui.js"></script>
 
   <style>
@@ -632,10 +636,9 @@
 
   <script>
     // ================================================================
-    // GLOBALS – auth and db are already defined by firebase-init.js
+    // GLOBALS – auth and db are now defined by firebase-init.js
     // ================================================================
-    const userAuth = auth;
-    const firestore = db;
+    // Note: auth and db are global variables from firebase-init.js
 
     // ================================================================
     // UI HELPERS
@@ -688,7 +691,7 @@
     // ================================================================
     window.signInWithGoogle = function() {
       const provider = new firebase.auth.GoogleAuthProvider();
-      userAuth.signInWithPopup(provider)
+      auth.signInWithPopup(provider)
         .then(result => handleSocialLogin(result.user))
         .catch(err => {
           console.error('Google error:', err);
@@ -700,7 +703,7 @@
       const provider = new firebase.auth.FacebookAuthProvider();
       provider.addScope('email');
       provider.addScope('public_profile');
-      userAuth.signInWithPopup(provider)
+      auth.signInWithPopup(provider)
         .then(result => handleSocialLogin(result.user))
         .catch(err => {
           console.error('Facebook error:', err);
@@ -714,7 +717,7 @@
       const name = user.displayName || '';
       const photoURL = user.photoURL || '';
 
-      firestore.collection('users').doc(uid).get()
+      db.collection('users').doc(uid).get()
         .then(doc => {
           if (!doc.exists) {
             const username = email ? email.split('@')[0] : 'user' + Math.random().toString(36).substring(2, 6);
@@ -738,12 +741,12 @@
               learningJourney: {},
               photoURL: photoURL
             };
-            return firestore.collection('users').doc(uid).set(data)
-              .then(() => firestore.collection('referralCodes').doc(username).set({
+            return db.collection('users').doc(uid).set(data)
+              .then(() => db.collection('referralCodes').doc(username).set({
                 uid: uid,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
               }).catch(() => {}))
-              .then(() => firestore.collection('users').doc(uid).get());
+              .then(() => db.collection('users').doc(uid).get());
           }
           return doc;
         })
@@ -821,10 +824,10 @@
         return;
       }
 
-      userAuth.signInWithEmailAndPassword(email, password)
+      auth.signInWithEmailAndPassword(email, password)
         .then(cred => {
           const uid = cred.user.uid;
-          return firestore.collection('users').doc(uid).get().then(doc => {
+          return db.collection('users').doc(uid).get().then(doc => {
             if (!doc.exists) throw new Error('User data not found.');
             const data = doc.data();
             const userData = { uid, ...data };
@@ -875,7 +878,7 @@
         cdToast('Please enter your email address.', 'error');
         return;
       }
-      userAuth.sendPasswordResetEmail(email)
+      auth.sendPasswordResetEmail(email)
         .then(() => {
           cdToast('✅ Password reset link sent to ' + email);
           hideResetOverlay();
@@ -895,25 +898,23 @@
     // ================================================================
     // AUTH STATE LISTENER – redirect if already logged in
     // ================================================================
-    userAuth.onAuthStateChanged((user) => {
+    auth.onAuthStateChanged((user) => {
       if (user) {
         // Only redirect if on login page
         const path = window.location.pathname;
         if (path.includes('login.html') || path.endsWith('/login') || path === '/') {
-          // Check if we have a stored user data to avoid extra reads
+          // Check if we have stored user data to avoid extra reads
           const stored = localStorage.getItem('cameras_decoded_user');
           if (stored) {
             try {
               const data = JSON.parse(stored);
               const uid = user.uid;
-              // If we have the user data, use it to redirect
               let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
               roles = [...new Set(roles)];
               if (roles.length === 1) {
                 redirectToDashboard(roles[0], uid);
                 return;
               } else {
-                // Show role selection
                 showRoleSelection();
                 populateRoleCards(roles, uid);
                 return;
@@ -921,7 +922,7 @@
             } catch (_) {}
           }
           // Fallback: read from Firestore
-          firestore.collection('users').doc(user.uid).get()
+          db.collection('users').doc(user.uid).get()
             .then(doc => {
               if (doc.exists) {
                 const data = doc.data();
