@@ -84,10 +84,61 @@
     .flex.space-between { justify-content: space-between; }
     .mt-20 { margin-top: 20px; }
 
+    /* Avatar Upload */
+    .avatar-section {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      padding: 12px 0;
+    }
+    .avatar-preview {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background-size: cover;
+      background-position: center;
+      border: 3px solid var(--green);
+      flex-shrink: 0;
+      background-color: #1a1a1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      color: #555;
+      position: relative;
+    }
+    .avatar-preview img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .avatar-upload-btn {
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      color: var(--green);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .avatar-upload-btn:hover { background: rgba(141, 235, 0, 0.1); }
+    .avatar-upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .upload-status {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .upload-status.success { color: var(--green); }
+    .upload-status.error { color: #ff4a4a; }
+
     @media (max-width: 600px) {
       .grid { grid-template-columns: 1fr; }
       .container { margin: 20px auto; }
       .card { padding: 16px 18px; }
+      .avatar-section { flex-direction: column; align-items: center; }
     }
 
     #toast-container {
@@ -127,6 +178,25 @@
     </div>
 
     <div id="profileContent" style="display:none;">
+
+      <!-- Avatar Section -->
+      <div class="card" id="avatarCard">
+        <h2><i class="fas fa-image"></i> Profile Photo</h2>
+        <div class="avatar-section">
+          <div class="avatar-preview" id="avatarPreview">
+            <i class="fas fa-user" id="avatarPlaceholder"></i>
+          </div>
+          <div>
+            <input type="file" id="avatarInput" accept="image/*" style="display:none;" />
+            <button class="avatar-upload-btn" id="uploadBtn"><i class="fas fa-upload"></i> Upload Photo</button>
+            <button class="avatar-upload-btn" id="removeBtn" style="border-color:#ff4a4a;color:#ff4a4a;display:none;" onclick="removeAvatar()">
+              <i class="fas fa-trash"></i> Remove
+            </button>
+            <div class="upload-status" id="uploadStatus"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Basic Info -->
       <div class="card" id="basicInfo">
         <h2><i class="fas fa-id-card"></i> Basic Information</h2>
@@ -157,6 +227,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
   <script>
     // ---- Firebase ----
@@ -172,6 +243,17 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+    const storage = firebase.storage();
+
+    // ---- DOM refs ----
+    const avatarPreview = document.getElementById('avatarPreview');
+    const avatarInput = document.getElementById('avatarInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const removeBtn = document.getElementById('removeBtn');
+    const uploadStatus = document.getElementById('uploadStatus');
+
+    let currentUserData = null;
+    let currentFile = null;
 
     // ---- Toast ----
     function cdToast(message, type) {
@@ -185,10 +267,153 @@
       setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
     }
 
+    // ---- Avatar Upload ----
+    uploadBtn.addEventListener('click', () => avatarInput.click());
+
+    avatarInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        cdToast('Please select an image file.', 'error');
+        return;
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        cdToast('Image must be under 5MB.', 'error');
+        return;
+      }
+
+      currentFile = file;
+
+      // Preview
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        avatarPreview.innerHTML = `<img src="${event.target.result}" alt="Avatar" />`;
+      };
+      reader.readAsDataURL(file);
+
+      uploadStatus.textContent = 'Uploading...';
+      uploadStatus.className = 'upload-status';
+      uploadBtn.disabled = true;
+
+      // Upload to Firebase Storage
+      const user = auth.currentUser;
+      if (!user) { cdToast('Please log in.', 'error'); return; }
+
+      const storageRef = storage.ref(`avatars/${user.uid}`);
+      const uploadTask = storageRef.put(file);
+
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          uploadStatus.textContent = `Uploading... ${Math.round(progress)}%`;
+        },
+        (error) => {
+          console.error('Upload error:', error);
+          uploadStatus.textContent = '❌ Upload failed.';
+          uploadStatus.className = 'upload-status error';
+          uploadBtn.disabled = false;
+          cdToast('Upload failed: ' + error.message, 'error');
+        },
+        async () => {
+          // Upload complete - get download URL
+          try {
+            const downloadURL = await storageRef.getDownloadURL();
+            // Save to Firestore
+            await db.collection('users').doc(user.uid).update({
+              photoURL: downloadURL
+            });
+            // Update local state
+            currentUserData.photoURL = downloadURL;
+            uploadStatus.textContent = '✅ Upload complete!';
+            uploadStatus.className = 'upload-status success';
+            uploadBtn.disabled = false;
+            removeBtn.style.display = 'inline-block';
+            cdToast('Profile photo updated!');
+
+            // Also update sidebar avatar if open
+            try {
+              const sidebarAvatar = document.querySelector('.profile-avatar');
+              if (sidebarAvatar) {
+                sidebarAvatar.style.backgroundImage = `url(${downloadURL})`;
+                sidebarAvatar.innerHTML = '';
+              }
+            } catch (e) {}
+
+            // Store in localStorage for quick display
+            localStorage.setItem('profilePhoto', downloadURL);
+
+          } catch (err) {
+            console.error('Error getting download URL:', err);
+            uploadStatus.textContent = '❌ Error saving photo.';
+            uploadStatus.className = 'upload-status error';
+            uploadBtn.disabled = false;
+            cdToast('Error saving photo: ' + err.message, 'error');
+          }
+        }
+      );
+    });
+
+    // ---- Remove Avatar ----
+    window.removeAvatar = async function() {
+      const user = auth.currentUser;
+      if (!user) { cdToast('Please log in.', 'error'); return; }
+
+      const confirmed = confirm('Remove your profile photo?');
+      if (!confirmed) return;
+
+      try {
+        // Delete from Storage
+        const storageRef = storage.ref(`avatars/${user.uid}`);
+        await storageRef.delete().catch(() => { /* file might not exist */ });
+
+        // Remove from Firestore
+        await db.collection('users').doc(user.uid).update({
+          photoURL: firebase.firestore.FieldValue.delete()
+        });
+
+        currentUserData.photoURL = null;
+        avatarPreview.innerHTML = '<i class="fas fa-user" id="avatarPlaceholder"></i>';
+        removeBtn.style.display = 'none';
+        uploadStatus.textContent = 'Photo removed.';
+        uploadStatus.className = 'upload-status';
+        cdToast('Profile photo removed.');
+
+        // Update sidebar
+        try {
+          const sidebarAvatar = document.querySelector('.profile-avatar');
+          if (sidebarAvatar) {
+            sidebarAvatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
+            sidebarAvatar.innerHTML = '';
+          }
+        } catch (e) {}
+
+        localStorage.removeItem('profilePhoto');
+
+      } catch (err) {
+        console.error('Remove error:', err);
+        cdToast('Error removing photo: ' + err.message, 'error');
+      }
+    };
+
     // ---- Render Profile ----
     function renderProfile(userData) {
+      currentUserData = userData;
       const loading = document.getElementById('loadingState');
       const content = document.getElementById('profileContent');
+
+      // Avatar
+      if (userData.photoURL) {
+        avatarPreview.innerHTML = `<img src="${userData.photoURL}" alt="Avatar" />`;
+        removeBtn.style.display = 'inline-block';
+        // Store in localStorage for quick display
+        localStorage.setItem('profilePhoto', userData.photoURL);
+      } else {
+        avatarPreview.innerHTML = '<i class="fas fa-user" id="avatarPlaceholder"></i>';
+        removeBtn.style.display = 'none';
+      }
 
       // Basic Info
       const basicGrid = document.getElementById('basicGrid');
@@ -211,7 +436,7 @@
         <div class="item"><div class="label">Confidence</div><div class="value">${userData.learningJourney?.confidence || '—'}/10</div></div>
       `;
 
-      // Learning Journey
+      // Learning Journey (same as before)
       const lj = userData.learningJourney || {};
       const goalMap = {
         'master-manual':'Master manual mode',
