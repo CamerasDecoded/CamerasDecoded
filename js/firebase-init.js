@@ -9,7 +9,7 @@ const firebaseConfig = {
   measurementId: "G-YN3M01WW0B"
 };
 
-// Initialize using the global firebase object
+// ✅ Use the global firebase object (already loaded in HTML)
 firebase.initializeApp(firebaseConfig);
 
 export const auth = firebase.auth();
