@@ -1,30 +1,18 @@
-// firebase-init.js - CLEAN, NO SYNTAX ERRORS
+// js/firebase-init.js
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js';
+import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js';
+
 const firebaseConfig = {
   apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-  authDomain: "camerasdecoded.firebaseapp.com",
-  projectId: "camerasdecoded",
-  storageBucket: "camerasdecoded.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abc123def456",
-  measurementId: "G-ABC123XYZ"
+  authDomain: "cameras-decoded.firebaseapp.com",
+  projectId: "cameras-decoded",
+  storageBucket: "cameras-decoded.firebasestorage.app",
+  messagingSenderId: "1088920052790",
+  appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+  measurementId: "G-YN3M01WW0B"
 };
 
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-try {
-  db.settings({
-    ignoreUndefinedProperties: true,
-    merge: true
-  });
-} catch (e) {
-  console.log("Firestore settings already set");
-}
-
-window.auth = auth;
-window.db = db;
-window.firebase = firebase;
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
