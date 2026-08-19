@@ -56,57 +56,50 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    async function goToDashboard(user) {
+    function createUserDoc(user) {
       const uid = user.uid;
-      // Check if doc exists, create if missing (recovery)
-      const doc = await db.collection('users').doc(uid).get();
-      if (!doc.exists) {
-        // Create minimal doc
-        const email = user.email || '';
-        const username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
-        const data = {
-          uid,
-          email,
-          displayName: user.displayName || '',
-          username,
-          role: 'Operator',
-          tier: 'free',
-          billingInterval: 'monthly',
-          preferences: { brands: [], lenses: [], interests: [] },
-          learningJourney: {},
-          totalPoints: 0,
-          level: 1,
-          badgesEarned: [],
-          dailyChallengeStreak: 0,
-          lastChallengeDate: null,
-          dailyChallengesCompleted: [],
-          savedProtocols: [],
-          savedCards: [],
-          savedBlogs: [],
-          savedPodcasts: [],
-          savedCommunityPosts: [],
-          referralCode: username,
-          totalReferrals: 0,
-          totalCommissionEarned: 0,
-          ambassadorTier: 'signal',
-          aiUsage: { total: 0, prompt: 0, snapshot: 0, ideas: 0, critique: 0 },
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          tourCompleted: false
-        };
-        await db.collection('users').doc(uid).set(data);
-        try {
-          await db.collection('referralCodes').doc(username).set({ uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-        } catch (e) {}
-      }
-      window.location.href = 'operator-dashboard.html?uid=' + uid;
+      const email = user.email || '';
+      const username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
+      const data = {
+        uid, email,
+        displayName: user.displayName || '',
+        username,
+        role: 'Operator',
+        tier: 'free',
+        billingInterval: 'monthly',
+        preferences: { brands: [], lenses: [], interests: [] },
+        learningJourney: {},
+        totalPoints: 0, level: 1, badgesEarned: [],
+        dailyChallengeStreak: 0, lastChallengeDate: null, dailyChallengesCompleted: [],
+        savedProtocols: [], savedCards: [], savedBlogs: [], savedPodcasts: [], savedCommunityPosts: [],
+        referralCode: username,
+        totalReferrals: 0, totalCommissionEarned: 0, ambassadorTier: 'signal',
+        aiUsage: { total: 0, prompt: 0, snapshot: 0, ideas: 0, critique: 0 },
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        tourCompleted: false
+      };
+      return db.collection('users').doc(uid).set(data).then(() => {
+        return db.collection('referralCodes').doc(username).set({ uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+      });
     }
 
-    // Social login
+    function goToDashboard() {
+      window.location.href = 'operator-dashboard.html';
+    }
+
+    async function handleLogin(user) {
+      const doc = await db.collection('users').doc(user.uid).get();
+      if (!doc.exists) {
+        await createUserDoc(user);
+      }
+      goToDashboard();
+    }
+
     async function socialLogin(provider) {
       try {
         const result = await auth.signInWithPopup(provider);
-        await goToDashboard(result.user);
+        await handleLogin(result.user);
       } catch (err) {
         document.getElementById('error').textContent = err.message;
         document.getElementById('error').style.display = 'block';
@@ -116,12 +109,10 @@
     document.getElementById('googleBtn').onclick = () => socialLogin(new firebase.auth.GoogleAuthProvider());
     document.getElementById('facebookBtn').onclick = () => {
       const p = new firebase.auth.FacebookAuthProvider();
-      p.addScope('email');
-      p.addScope('public_profile');
+      p.addScope('email'); p.addScope('public_profile');
       socialLogin(p);
     };
 
-    // Email login
     document.getElementById('loginForm').onsubmit = async (e) => {
       e.preventDefault();
       const email = document.getElementById('email').value.trim();
@@ -129,41 +120,32 @@
       const errorEl = document.getElementById('error');
       errorEl.style.display = 'none';
       if (!email || !password) {
-        errorEl.textContent = 'Please enter email and password.';
+        errorEl.textContent = 'Enter email and password.';
         errorEl.style.display = 'block';
         return;
       }
       const btn = document.getElementById('loginBtn');
-      btn.disabled = true;
-      btn.textContent = 'Logging in...';
+      btn.disabled = true; btn.textContent = 'Logging in...';
       try {
         const cred = await auth.signInWithEmailAndPassword(email, password);
-        await goToDashboard(cred.user);
+        await handleLogin(cred.user);
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
-        btn.disabled = false;
-        btn.textContent = 'Access Dashboard';
+        btn.disabled = false; btn.textContent = 'Access Dashboard';
       }
     };
 
-    // Forgot password
     document.getElementById('forgotPass').onclick = () => {
       const email = document.getElementById('email').value.trim();
-      if (!email) {
-        document.getElementById('error').textContent = 'Enter your email address first.';
-        document.getElementById('error').style.display = 'block';
-        return;
-      }
-      auth.sendPasswordResetEmail(email)
-        .then(() => alert('Reset link sent to ' + email))
-        .catch(err => alert(err.message));
+      if (!email) { document.getElementById('error').textContent = 'Enter your email first.'; document.getElementById('error').style.display = 'block'; return; }
+      auth.sendPasswordResetEmail(email).then(() => alert('Reset link sent')).catch(err => alert(err.message));
     };
 
-    // Auto-redirect if already logged in
+    // If already logged in and on login page, go to dashboard
     auth.onAuthStateChanged((user) => {
       if (user && window.location.pathname.includes('login.html')) {
-        goToDashboard(user);
+        handleLogin(user);
       }
     });
   </script>

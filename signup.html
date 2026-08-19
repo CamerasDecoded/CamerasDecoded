@@ -46,7 +46,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <script>
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
       authDomain: "cameras-decoded.firebaseapp.com",
@@ -60,13 +59,11 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // Helper: create user doc
-    async function createUserDoc(user, displayName, username) {
+    function createUserDoc(user, displayName, username) {
       const uid = user.uid;
       const email = user.email || '';
       const data = {
-        uid,
-        email,
+        uid, email,
         displayName: displayName || user.displayName || '',
         username: username || (email ? email.split('@')[0] : 'user' + uid.slice(0,6)),
         role: 'Operator',
@@ -74,52 +71,34 @@
         billingInterval: 'monthly',
         preferences: { brands: [], lenses: [], interests: [] },
         learningJourney: {},
-        totalPoints: 0,
-        level: 1,
-        badgesEarned: [],
-        dailyChallengeStreak: 0,
-        lastChallengeDate: null,
-        dailyChallengesCompleted: [],
-        savedProtocols: [],
-        savedCards: [],
-        savedBlogs: [],
-        savedPodcasts: [],
-        savedCommunityPosts: [],
+        totalPoints: 0, level: 1, badgesEarned: [],
+        dailyChallengeStreak: 0, lastChallengeDate: null, dailyChallengesCompleted: [],
+        savedProtocols: [], savedCards: [], savedBlogs: [], savedPodcasts: [], savedCommunityPosts: [],
         referralCode: username,
-        totalReferrals: 0,
-        totalCommissionEarned: 0,
-        ambassadorTier: 'signal',
+        totalReferrals: 0, totalCommissionEarned: 0, ambassadorTier: 'signal',
         aiUsage: { total: 0, prompt: 0, snapshot: 0, ideas: 0, critique: 0 },
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         tourCompleted: false
       };
-      await db.collection('users').doc(uid).set(data);
-      // Optional referral code
-      try {
-        await db.collection('referralCodes').doc(username).set({ uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-      } catch (e) {}
-      return data;
+      return db.collection('users').doc(uid).set(data).then(() => {
+        return db.collection('referralCodes').doc(username).set({ uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+      });
     }
 
-    // Redirect
-    function goToDashboard(uid) {
-      window.location.href = 'operator-dashboard.html?uid=' + uid;
+    function goToDashboard() {
+      window.location.href = 'operator-dashboard.html';
     }
 
-    // Social signup
     async function socialSignup(provider) {
       try {
         const result = await auth.signInWithPopup(provider);
         const user = result.user;
         const doc = await db.collection('users').doc(user.uid).get();
-        if (doc.exists) {
-          goToDashboard(user.uid);
-          return;
-        }
+        if (doc.exists) { goToDashboard(); return; }
         const username = user.displayName ? user.displayName.toLowerCase().replace(/\s/g,'') : (user.email ? user.email.split('@')[0] : 'user' + Math.random().toString(36).substring(2,6));
         await createUserDoc(user, user.displayName || '', username);
-        goToDashboard(user.uid);
+        goToDashboard();
       } catch (err) {
         document.getElementById('error').textContent = err.message;
         document.getElementById('error').style.display = 'block';
@@ -129,12 +108,10 @@
     document.getElementById('googleBtn').onclick = () => socialSignup(new firebase.auth.GoogleAuthProvider());
     document.getElementById('facebookBtn').onclick = () => {
       const p = new firebase.auth.FacebookAuthProvider();
-      p.addScope('email');
-      p.addScope('public_profile');
+      p.addScope('email'); p.addScope('public_profile');
       socialSignup(p);
     };
 
-    // Email signup
     document.getElementById('signupForm').onsubmit = async (e) => {
       e.preventDefault();
       const displayName = document.getElementById('displayName').value.trim();
@@ -149,30 +126,20 @@
         errorEl.style.display = 'block';
         return;
       }
-      if (password.length < 6) {
-        errorEl.textContent = 'Password must be at least 6 characters.';
-        errorEl.style.display = 'block';
-        return;
-      }
-      if (password !== confirm) {
-        errorEl.textContent = 'Passwords do not match.';
-        errorEl.style.display = 'block';
-        return;
-      }
+      if (password.length < 6) { errorEl.textContent = 'Password min 6 chars.'; errorEl.style.display = 'block'; return; }
+      if (password !== confirm) { errorEl.textContent = 'Passwords do not match.'; errorEl.style.display = 'block'; return; }
       const btn = document.getElementById('signupBtn');
-      btn.disabled = true;
-      btn.textContent = 'Creating...';
+      btn.disabled = true; btn.textContent = 'Creating...';
       try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         const user = cred.user;
         await user.updateProfile({ displayName });
         await createUserDoc(user, displayName, username);
-        goToDashboard(user.uid);
+        goToDashboard();
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
-        btn.disabled = false;
-        btn.textContent = 'Activate Signal';
+        btn.disabled = false; btn.textContent = 'Activate Signal';
       }
     };
   </script>
