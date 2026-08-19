@@ -4,73 +4,177 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sign Up — Cameras Decoded</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    body { font-family: sans-serif; background: #0a0a0a; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+    .card { background: #1a1a1a; padding: 30px; border-radius: 12px; width: 360px; }
+    input { width: 100%; padding: 10px; margin: 6px 0 14px; background: #2a2a2a; border: none; border-radius: 6px; color: #fff; }
+    button { width: 100%; padding: 12px; background: #8deb00; border: none; border-radius: 6px; color: #000; font-weight: bold; cursor: pointer; }
+    button:hover { background: #a0f520; }
+    .error { color: #ff4a4a; margin-top: 10px; display: none; }
+    .social-btn { background: transparent; border: 1px solid #444; color: #fff; margin-top: 6px; }
+    .social-btn:hover { border-color: #8deb00; }
+    .divider { text-align: center; color: #666; margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2 style="color:#8deb00;">📡 Sign Up</h2>
+    <div id="socialButtons">
+      <button class="social-btn" id="googleBtn">Sign up with Google</button>
+      <button class="social-btn" id="facebookBtn">Sign up with Facebook</button>
+    </div>
+    <div class="divider">── or ──</div>
+    <form id="signupForm">
+      <label>Full Name</label>
+      <input type="text" id="displayName" placeholder="Alex Rivera" required />
+      <label>Email</label>
+      <input type="email" id="email" placeholder="you@example.com" required />
+      <label>Username</label>
+      <input type="text" id="username" placeholder="alexrivera" required />
+      <label>Password (min 6)</label>
+      <input type="password" id="password" placeholder="••••••••" required />
+      <label>Confirm Password</label>
+      <input type="password" id="confirm" placeholder="••••••••" required />
+      <button type="submit" id="signupBtn">Activate Signal</button>
+      <div id="error" class="error"></div>
+    </form>
+    <p style="margin-top:16px; text-align:center; color:#888;">Already have an account? <a href="login.html" style="color:#8deb00;">Log in</a></p>
+  </div>
+
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-</head>
-<body>
-  <div id="toast-container"></div>
 
-  <div class="onboarding-wrapper" style="max-width:600px;margin:auto;background:var(--card-bg);border-radius:var(--radius);padding:32px 28px;border:1px solid var(--border);position:relative;z-index:1;">
-    <!-- Progress -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-      <span style="font-family:'Space Mono',monospace;font-size:12px;color:var(--green);">STEP <span id="stepIndicator">1</span>/6</span>
-      <div style="display:flex;gap:6px;" id="stepDots"></div>
-    </div>
-    <div id="stepContainer"></div>
-  </div>
-
-  <script type="module">
-    import { initParticles } from './js/ui-helpers.js';
-    import { initOnboarding } from './js/onboarding.js';
-    import { auth, db } from './js/firebase-init.js';
-
-    // Background particles
-    initParticles();
-
-    // Get role from URL or default to Operator
-    const urlParams = new URLSearchParams(window.location.search);
-    const role = urlParams.get('role') || 'Operator';
-
-    // Init onboarding
-    initOnboarding(role);
-
-    // Update step dots
-    const dotsContainer = document.getElementById('stepDots');
-    const stepIndicator = document.getElementById('stepIndicator');
-    const totalSteps = 6;
-
-    // Override renderStep to update dots
-    const originalRender = window.renderStep || (() => {});
-    const newRender = () => {
-      // We'll just observe the DOM changes via a simple interval or mutation
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
     };
-    // Simple poll to update dots
-    setInterval(() => {
-      const container = document.getElementById('stepContainer');
-      if (!container) return;
-      const step = window._currentStep || 0; // We'll set this globally
-      if (stepIndicator) stepIndicator.textContent = step + 1;
-      if (dotsContainer) {
-        dotsContainer.innerHTML = '';
-        for (let i = 0; i < totalSteps; i++) {
-          const dot = document.createElement('span');
-          dot.style.cssText = `width:12px;height:12px;border-radius:50%;background:${i <= step ? 'var(--green)' : '#2A2A2A'};transition:0.3s;`;
-          if (i === step) dot.style.boxShadow = '0 0 16px var(--green-glow)';
-          dotsContainer.appendChild(dot);
-        }
-      }
-    }, 500);
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-    // Expose step to global for the poll
-    window._currentStep = 0;
-    const origRender = window.renderStep;
-    // We'll just manually patch the state in onboarding.js by exposing the state.
-    // Since we can't easily patch the module, we'll just let the user know the dots work.
-    console.log('Signup page loaded with role:', role);
+    // Helper: create user doc
+    async function createUserDoc(user, displayName, username) {
+      const uid = user.uid;
+      const email = user.email || '';
+      const data = {
+        uid,
+        email,
+        displayName: displayName || user.displayName || '',
+        username: username || (email ? email.split('@')[0] : 'user' + uid.slice(0,6)),
+        role: 'Operator',
+        tier: 'free',
+        billingInterval: 'monthly',
+        preferences: { brands: [], lenses: [], interests: [] },
+        learningJourney: {},
+        totalPoints: 0,
+        level: 1,
+        badgesEarned: [],
+        dailyChallengeStreak: 0,
+        lastChallengeDate: null,
+        dailyChallengesCompleted: [],
+        savedProtocols: [],
+        savedCards: [],
+        savedBlogs: [],
+        savedPodcasts: [],
+        savedCommunityPosts: [],
+        referralCode: username,
+        totalReferrals: 0,
+        totalCommissionEarned: 0,
+        ambassadorTier: 'signal',
+        aiUsage: { total: 0, prompt: 0, snapshot: 0, ideas: 0, critique: 0 },
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        tourCompleted: false
+      };
+      await db.collection('users').doc(uid).set(data);
+      // Optional referral code
+      try {
+        await db.collection('referralCodes').doc(username).set({ uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      } catch (e) {}
+      return data;
+    }
+
+    // Redirect
+    function goToDashboard(uid) {
+      window.location.href = 'operator-dashboard.html?uid=' + uid;
+    }
+
+    // Social signup
+    async function socialSignup(provider) {
+      try {
+        const result = await auth.signInWithPopup(provider);
+        const user = result.user;
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          goToDashboard(user.uid);
+          return;
+        }
+        const username = user.displayName ? user.displayName.toLowerCase().replace(/\s/g,'') : (user.email ? user.email.split('@')[0] : 'user' + Math.random().toString(36).substring(2,6));
+        await createUserDoc(user, user.displayName || '', username);
+        goToDashboard(user.uid);
+      } catch (err) {
+        document.getElementById('error').textContent = err.message;
+        document.getElementById('error').style.display = 'block';
+      }
+    }
+
+    document.getElementById('googleBtn').onclick = () => socialSignup(new firebase.auth.GoogleAuthProvider());
+    document.getElementById('facebookBtn').onclick = () => {
+      const p = new firebase.auth.FacebookAuthProvider();
+      p.addScope('email');
+      p.addScope('public_profile');
+      socialSignup(p);
+    };
+
+    // Email signup
+    document.getElementById('signupForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const displayName = document.getElementById('displayName').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const confirm = document.getElementById('confirm').value;
+      const errorEl = document.getElementById('error');
+      errorEl.style.display = 'none';
+      if (!displayName || !email || !username || !password) {
+        errorEl.textContent = 'All fields required.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      if (password.length < 6) {
+        errorEl.textContent = 'Password must be at least 6 characters.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      if (password !== confirm) {
+        errorEl.textContent = 'Passwords do not match.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      const btn = document.getElementById('signupBtn');
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        const user = cred.user;
+        await user.updateProfile({ displayName });
+        await createUserDoc(user, displayName, username);
+        goToDashboard(user.uid);
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Activate Signal';
+      }
+    };
   </script>
 </body>
 </html>
