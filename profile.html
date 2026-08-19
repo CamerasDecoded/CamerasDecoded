@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
+    /* ===== SAME STYLES AS BEFORE (keep your existing) ===== */
     :root {
       --green: #8deb00;
       --green-dim: rgba(141, 235, 0, 0.12);
@@ -83,6 +84,7 @@
     .flex { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
     .flex.space-between { justify-content: space-between; }
 
+    /* Avatar */
     .avatar-section {
       display: flex;
       align-items: center;
@@ -134,6 +136,58 @@
     }
     .upload-status.success { color: var(--green); }
     .upload-status.error { color: #ff4a4a; }
+
+    /* Chips (editable) */
+    .chip-grid { display:flex; flex-wrap:wrap; gap:8px; margin:4px 0; }
+    .chip {
+      padding:6px 16px; background:#0F0F0F; border:1px solid var(--border-dim);
+      border-radius:20px; font-size:13px; color:var(--text-muted);
+      cursor:pointer; transition:0.2s; user-select:none;
+    }
+    .chip:hover { border-color:#555; }
+    .chip.selected { border-color:var(--green); background:var(--green-dim); color:#fff; }
+
+    /* Form elements */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .form-group select, .form-group input {
+      width: 100%;
+      padding: 10px 14px;
+      background: #0F0F0F;
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: 0.3s;
+    }
+    .form-group select:focus, .form-group input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 20px rgba(141,235,0,0.06);
+    }
+    .save-btn {
+      padding: 10px 24px;
+      background: var(--green);
+      border: none;
+      border-radius: 8px;
+      color: #000;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .save-btn:hover { background: #a0f520; box-shadow: 0 0 30px var(--green-glow); }
+    .save-btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .interest-counter { font-size:12px; color:var(--text-muted); margin-top:6px; font-family:'Space Mono',monospace; }
+    .interest-counter .count { color:var(--green); font-weight:700; }
 
     @media (max-width: 600px) {
       .grid { grid-template-columns: 1fr; }
@@ -212,25 +266,35 @@
         </div>
       </div>
 
-      <!-- Basic Info -->
+      <!-- Basic Info (read-only) -->
       <div class="card" id="basicInfo">
         <h2><i class="fas fa-id-card"></i> Basic Information</h2>
         <div class="grid" id="basicGrid"></div>
       </div>
 
-      <!-- Preferences -->
+      <!-- Gear & Preferences (editable) -->
       <div class="card" id="preferencesCard">
         <h2><i class="fas fa-camera"></i> Gear & Preferences</h2>
-        <div class="grid" id="preferencesGrid"></div>
+        <div id="preferencesEdit">
+          <!-- dynamically rendered -->
+        </div>
+        <div style="margin-top:12px;">
+          <button class="save-btn" id="savePrefsBtn"><i class="fas fa-save"></i> Save Preferences</button>
+        </div>
       </div>
 
-      <!-- Learning Journey -->
+      <!-- Learning Journey (editable) -->
       <div class="card" id="learningCard">
         <h2><i class="fas fa-compass"></i> Learning Journey</h2>
-        <div class="grid" id="learningGrid"></div>
+        <div id="learningEdit">
+          <!-- dynamically rendered -->
+        </div>
+        <div style="margin-top:12px;">
+          <button class="save-btn" id="saveLearningBtn"><i class="fas fa-save"></i> Save Learning Journey</button>
+        </div>
       </div>
 
-      <!-- Referral & Stats -->
+      <!-- Referral & Stats (read-only) -->
       <div class="card" id="referralCard">
         <h2><i class="fas fa-satellite-dish"></i> Referral & Stats</h2>
         <div class="grid" id="referralGrid"></div>
@@ -283,7 +347,7 @@
       setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
     }
 
-    // ---- Upload to ImgBB ----
+    // ---- Avatar Upload (same as before) ----
     async function uploadToImgBB(file) {
       const formData = new FormData();
       formData.append('image', file);
@@ -299,13 +363,11 @@
       }
     }
 
-    // ---- Avatar Upload ----
     uploadBtn.addEventListener('click', () => avatarInput.click());
 
     avatarInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
       if (!file.type.startsWith('image/')) {
         cdToast('Please select an image file.', 'error');
         return;
@@ -314,7 +376,6 @@
         cdToast('Image must be under 5MB.', 'error');
         return;
       }
-
       const reader = new FileReader();
       reader.onload = (event) => {
         avatarPreview.innerHTML = `<img src="${event.target.result}" alt="Avatar" />`;
@@ -328,20 +389,15 @@
       try {
         const user = auth.currentUser;
         if (!user) throw new Error('Not authenticated');
-
         const imageUrl = await uploadToImgBB(file);
         await db.collection('users').doc(user.uid).update({ photoURL: imageUrl });
-
         currentUserData.photoURL = imageUrl;
         localStorage.setItem('profilePhoto', imageUrl);
-
         uploadStatus.textContent = '✅ Upload complete!';
         uploadStatus.className = 'upload-status success';
         uploadBtn.disabled = false;
         removeBtn.style.display = 'inline-block';
         cdToast('Profile photo updated!');
-
-        // Update sidebar if open
         try {
           const sidebarAvatar = document.querySelector('.profile-avatar');
           if (sidebarAvatar) {
@@ -349,7 +405,6 @@
             sidebarAvatar.innerHTML = '';
           }
         } catch (e) {}
-
       } catch (err) {
         console.error(err);
         uploadStatus.textContent = '❌ ' + err.message;
@@ -359,28 +414,22 @@
       }
     });
 
-    // ---- Remove Avatar ----
     window.removeAvatar = async function() {
       const user = auth.currentUser;
       if (!user) { cdToast('Please log in.', 'error'); return; }
-
       const confirmed = confirm('Remove your profile photo?');
       if (!confirmed) return;
-
       try {
         await db.collection('users').doc(user.uid).update({
           photoURL: firebase.firestore.FieldValue.delete()
         });
-
         currentUserData.photoURL = null;
         avatarPreview.innerHTML = '<i class="fas fa-user" id="avatarPlaceholder"></i>';
         removeBtn.style.display = 'none';
         uploadStatus.textContent = 'Photo removed.';
         uploadStatus.className = 'upload-status';
         cdToast('Profile photo removed.');
-
         localStorage.removeItem('profilePhoto');
-
         try {
           const sidebarAvatar = document.querySelector('.profile-avatar');
           if (sidebarAvatar) {
@@ -388,130 +437,290 @@
             sidebarAvatar.innerHTML = '';
           }
         } catch (e) {}
-
       } catch (err) {
         console.error(err);
         cdToast('Error removing photo: ' + err.message, 'error');
       }
     };
 
-    // ---- RENDER PROFILE ----
-    function renderProfile(userData) {
-      currentUserData = userData;
-      console.log('Rendering profile with data:', userData); // DEBUG
+    // ================================================================
+    // EDITABLE PREFERENCES & LEARNING JOURNEY
+    // ================================================================
 
-      const loading = document.getElementById('loadingState');
-      const content = document.getElementById('profileContent');
+    // ---- Data for chip selections ----
+    const BRAND_OPTIONS = ['Sony', 'Canon', 'Nikon', 'Fuji', 'Panasonic', 'Blackmagic'];
+    const LENS_OPTIONS = [
+      '24-70mm f/2.8', '85mm f/1.4', '70-200mm f/2.8', '35mm f/1.4',
+      '50mm f/1.8', '16-35mm f/2.8', '24-105mm f/4', 'Macro',
+      '24-70mm f/4', '50mm f/1.2', '85mm f/1.8', '70-200mm f/4',
+      '14-24mm f/2.8', '24mm f/1.4'
+    ];
+    const INTEREST_OPTIONS = [
+      'Portraits', 'Events/Weddings', 'Landscape', 'Street',
+      'Sports/Action', 'Real Estate', 'Product', 'Wildlife',
+      'Astro', 'Food', 'Videography/Film', 'Documentary',
+      'Music Videos', 'Corporate/Commercial', 'Content Creation'
+    ];
+    const PAIN_OPTIONS = [
+      'Technical confusion', 'Creative block', 'Editing/post-processing',
+      'Color grading', 'Business/marketing', 'Building portfolio',
+      'Attracting clients', 'Lack of inspiration', 'Understanding camera',
+      'Audio/Sound', 'Lighting for video'
+    ];
 
-      // Avatar
-      if (userData.photoURL) {
-        avatarPreview.innerHTML = `<img src="${userData.photoURL}" alt="Avatar" />`;
-        removeBtn.style.display = 'inline-block';
-        localStorage.setItem('profilePhoto', userData.photoURL);
-      } else {
-        avatarPreview.innerHTML = '<i class="fas fa-user" id="avatarPlaceholder"></i>';
-        removeBtn.style.display = 'none';
+    // ---- Render chip grid ----
+    function renderChipGrid(containerId, options, selectedArray, groupName, max = Infinity) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = '';
+      options.forEach(opt => {
+        const chip = document.createElement('span');
+        chip.className = 'chip' + (selectedArray.includes(opt) ? ' selected' : '');
+        chip.textContent = opt;
+        chip.dataset.value = opt;
+        chip.addEventListener('click', function() {
+          const val = this.dataset.value;
+          const isSelected = this.classList.contains('selected');
+          const currentSelected = container.querySelectorAll('.chip.selected');
+          if (isSelected) {
+            this.classList.remove('selected');
+          } else {
+            if (currentSelected.length >= max) {
+              cdToast(`Max ${max} selections.`, 'error');
+              return;
+            }
+            this.classList.add('selected');
+          }
+          // Update hidden input or just store in data attribute
+          const hidden = document.getElementById(groupName + '_hidden');
+          if (hidden) {
+            const selectedVals = Array.from(container.querySelectorAll('.chip.selected')).map(c => c.dataset.value);
+            hidden.value = JSON.stringify(selectedVals);
+          }
+        });
+        container.appendChild(chip);
+      });
+      // Update counter if max < Infinity
+      if (max < Infinity) {
+        const counter = document.getElementById(groupName + '_count');
+        if (counter) {
+          counter.textContent = selectedArray.length;
+        }
       }
+    }
 
+    // ---- Render edit forms ----
+    function renderEditForms(data) {
+      const prefs = data.preferences || { brands: [], lenses: [], interests: [] };
+      const lj = data.learningJourney || {};
+
+      // ---- Preferences ----
+      const prefsContainer = document.getElementById('preferencesEdit');
+      prefsContainer.innerHTML = `
+        <div class="form-group">
+          <label>Camera Brands</label>
+          <div class="chip-grid" id="brandsGrid"></div>
+          <input type="hidden" id="brands_hidden" value='${JSON.stringify(prefs.brands || [])}' />
+        </div>
+        <div class="form-group">
+          <label>Lenses</label>
+          <div class="chip-grid" id="lensesGrid"></div>
+          <input type="hidden" id="lenses_hidden" value='${JSON.stringify(prefs.lenses || [])}' />
+        </div>
+        <div class="form-group">
+          <label>Interests <span style="color:#666;">(max 3)</span></label>
+          <div class="chip-grid" id="interestsGrid"></div>
+          <div class="interest-counter">Selected: <span class="count" id="interests_count">${(prefs.interests || []).length}</span> / 3</div>
+          <input type="hidden" id="interests_hidden" value='${JSON.stringify(prefs.interests || [])}' />
+        </div>
+      `;
+      renderChipGrid('brandsGrid', BRAND_OPTIONS, prefs.brands || [], 'brands');
+      renderChipGrid('lensesGrid', LENS_OPTIONS, prefs.lenses || [], 'lenses');
+      renderChipGrid('interestsGrid', INTEREST_OPTIONS, prefs.interests || [], 'interests', 3);
+
+      // ---- Learning Journey ----
+      const ljContainer = document.getElementById('learningEdit');
+      const expOptions = ['<6','6-12','1-2','3-5','5+'];
+      const goalOptions = ['master-manual','start-business','improve-social','family-travel','professional-event','filmmaker'];
+      const ambitionOptions = ['hobbyist','semi-pro','professional'];
+      const formatOptions = ['video','written','interactive','mixed'];
+      const channelOptions = ['email','push','sms'];
+      const freqOptions = ['daily','weekly','monthly','rarely'];
+      const challengeOptions = ['low-light','composition','posing','manual','autofocus','editing','color-grading','confidence','gear','business'];
+      const sixMonthOptions = ['exposure','composition','lighting','editing','color','business','gear'];
+      const dreamOptions = ['portrait-series','short-film','documentary','music-video','commercial','wedding-film','social-content','photobook'];
+
+      function sel(opt, current) { return current === opt ? 'selected' : ''; }
+
+      ljContainer.innerHTML = `
+        <div class="form-group">
+          <label>Experience</label>
+          <select id="lj_experience">
+            ${expOptions.map(o => `<option value="${o}" ${sel(o, lj.experience)}>${o === '<6' ? 'Less than 6 months' : o === '6-12' ? '6–12 months' : o === '1-2' ? '1–2 years' : o === '3-5' ? '3–5 years' : '5+ years'}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Primary Goal</label>
+          <select id="lj_primaryGoal">
+            ${goalOptions.map(o => `<option value="${o}" ${sel(o, lj.primaryGoal)}>${o === 'master-manual' ? 'Master manual mode' : o === 'start-business' ? 'Start a photography/video business' : o === 'improve-social' ? 'Improve social media content' : o === 'family-travel' ? 'Capture family/travel memories' : o === 'professional-event' ? 'Become a professional event/wedding photographer' : 'Become a filmmaker/videographer'}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Ambition</label>
+          <select id="lj_ambition">
+            ${ambitionOptions.map(o => `<option value="${o}" ${sel(o, lj.ambition)}>${o === 'hobbyist' ? 'Hobbyist – I create for fun' : o === 'semi-pro' ? 'Semi‑professional – I earn some income' : 'Professional – this is my primary income'}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Confidence (1–10)</label>
+          <input type="range" id="lj_confidence" min="1" max="10" step="1" value="${lj.confidence || 5}" style="width:100%;" />
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-top:2px;">
+            <span>1 — New Signal</span>
+            <span id="lj_confidenceDisplay">${lj.confidence || 5}</span>
+            <span>10 — Locked</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Pain Points <span style="color:#666;">(max 3)</span></label>
+          <div class="chip-grid" id="painPointsGrid"></div>
+          <div class="interest-counter">Selected: <span class="count" id="painPoints_count">${(lj.painPoints || []).length}</span> / 3</div>
+          <input type="hidden" id="painPoints_hidden" value='${JSON.stringify(lj.painPoints || [])}' />
+        </div>
+        <div class="form-group">
+          <label>Content Format</label>
+          <select id="lj_contentFormat">
+            ${formatOptions.map(o => `<option value="${o}" ${sel(o, lj.contentFormat)}>${o === 'video' ? 'Video tutorials' : o === 'written' ? 'Written guides' : o === 'interactive' ? 'Interactive exercises' : 'A mix of everything'}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Delivery Channel</label>
+          <select id="lj_deliveryChannel">
+            ${channelOptions.map(o => `<option value="${o}" ${sel(o, lj.deliveryChannel)}>${o === 'email' ? 'Email' : o === 'push' ? 'Push notifications' : 'SMS'}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Shoot Frequency</label>
+          <select id="lj_shootFrequency">
+            ${freqOptions.map(o => `<option value="${o}" ${sel(o, lj.shootFrequency)}>${o.charAt(0).toUpperCase() + o.slice(1)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Biggest Challenge</label>
+          <select id="lj_biggestChallenge">
+            <option value="">Select one…</option>
+            ${challengeOptions.map(o => `<option value="${o}" ${sel(o, lj.biggestChallenge)}>${o === 'low-light' ? 'Low light performance' : o === 'composition' ? 'Composition & framing' : o === 'posing' ? 'Posing subjects / directing talent' : o === 'manual' ? 'Manual settings confusion' : o === 'autofocus' ? 'Autofocus struggles' : o === 'editing' ? 'Post‑processing / editing' : o === 'color-grading' ? 'Color grading' : o === 'confidence' ? 'Confidence / imposter syndrome' : o === 'gear' ? 'Understanding my gear' : 'Building my business'}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>6-Month Skill Goal</label>
+          <select id="lj_sixMonthGoal">
+            ${sixMonthOptions.map(o => `<option value="${o}" ${sel(o, lj.sixMonthGoal)}>${o === 'exposure' ? 'Exposure triangle (manual mode)' : o === 'composition' ? 'Composition & storytelling' : o === 'lighting' ? 'Lighting (photo & video)' : o === 'editing' ? 'Editing/post-production' : o === 'color' ? 'Color grading' : o === 'business' ? 'Business & client management' : 'Mastering my specific gear'}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Dream Project</label>
+          <select id="lj_dreamProject">
+            ${dreamOptions.map(o => `<option value="${o}" ${sel(o, lj.dreamProject)}>${o === 'portrait-series' ? 'A portrait series' : o === 'short-film' ? 'A short film' : o === 'documentary' ? 'A documentary' : o === 'music-video' ? 'A music video' : o === 'commercial' ? 'A commercial/corporate video' : o === 'wedding-film' ? 'A wedding film' : o === 'social-content' ? 'Social media content (Reels/TikTok)' : 'A photo book / portfolio'}</option>`).join('')}
+          </select>
+        </div>
+      `;
+
+      // Render pain points chips
+      renderChipGrid('painPointsGrid', PAIN_OPTIONS, lj.painPoints || [], 'painPoints', 3);
+
+      // Confidence slider display
+      const confSlider = document.getElementById('lj_confidence');
+      const confDisplay = document.getElementById('lj_confidenceDisplay');
+      if (confSlider && confDisplay) {
+        confSlider.addEventListener('input', () => {
+          confDisplay.textContent = confSlider.value;
+        });
+      }
+    }
+
+    // ---- Save Preferences ----
+    document.getElementById('savePrefsBtn').addEventListener('click', async () => {
+      const user = auth.currentUser;
+      if (!user) { cdToast('Please log in.', 'error'); return; }
+
+      // Gather data from hidden inputs
+      const brands = JSON.parse(document.getElementById('brands_hidden').value || '[]');
+      const lenses = JSON.parse(document.getElementById('lenses_hidden').value || '[]');
+      const interests = JSON.parse(document.getElementById('interests_hidden').value || '[]');
+
+      try {
+        await db.collection('users').doc(user.uid).update({
+          'preferences.brands': brands,
+          'preferences.lenses': lenses,
+          'preferences.interests': interests
+        });
+        cdToast('✅ Preferences saved!');
+        // Refresh profile data
+        loadProfile(user);
+      } catch (err) {
+        cdToast('Error: ' + err.message, 'error');
+      }
+    });
+
+    // ---- Save Learning Journey ----
+    document.getElementById('saveLearningBtn').addEventListener('click', async () => {
+      const user = auth.currentUser;
+      if (!user) { cdToast('Please log in.', 'error'); return; }
+
+      const painPoints = JSON.parse(document.getElementById('painPoints_hidden').value || '[]');
+      const ljData = {
+        experience: document.getElementById('lj_experience').value,
+        primaryGoal: document.getElementById('lj_primaryGoal').value,
+        ambition: document.getElementById('lj_ambition').value,
+        confidence: parseInt(document.getElementById('lj_confidence').value) || 5,
+        painPoints: painPoints,
+        contentFormat: document.getElementById('lj_contentFormat').value,
+        deliveryChannel: document.getElementById('lj_deliveryChannel').value,
+        shootFrequency: document.getElementById('lj_shootFrequency').value,
+        biggestChallenge: document.getElementById('lj_biggestChallenge').value || '',
+        sixMonthGoal: document.getElementById('lj_sixMonthGoal').value,
+        dreamProject: document.getElementById('lj_dreamProject').value
+      };
+
+      try {
+        await db.collection('users').doc(user.uid).update({
+          learningJourney: ljData
+        });
+        cdToast('✅ Learning journey saved!');
+        loadProfile(user);
+      } catch (err) {
+        cdToast('Error: ' + err.message, 'error');
+      }
+    });
+
+    // ---- Render read-only sections ----
+    function renderReadOnly(data) {
       // Basic Info
       const basicGrid = document.getElementById('basicGrid');
       basicGrid.innerHTML = `
-        <div class="item"><div class="label">Full Name</div><div class="value">${userData.displayName || '—'}</div></div>
-        <div class="item"><div class="label">Username</div><div class="value">${userData.username || '—'}</div></div>
-        <div class="item"><div class="label">Email</div><div class="value">${userData.email || '—'}</div></div>
-        <div class="item"><div class="label">Plan</div><div class="value green">${userData.tier === 'pro' ? 'Pro' : 'Free'}</div></div>
-        <div class="item"><div class="label">Billing</div><div class="value">${userData.billingInterval || 'monthly'}</div></div>
-        <div class="item"><div class="label">Role</div><div class="value">${userData.role || 'Operator'}</div></div>
-      `;
-
-      // Preferences
-      const prefs = userData.preferences || {};
-      const prefGrid = document.getElementById('preferencesGrid');
-      prefGrid.innerHTML = `
-        <div class="item"><div class="label">Camera Brands</div><div class="value">${(prefs.brands || []).join(', ') || '—'}</div></div>
-        <div class="item"><div class="label">Lenses</div><div class="value">${(prefs.lenses || []).join(', ') || '—'}</div></div>
-        <div class="item"><div class="label">Interests</div><div class="value">${(prefs.interests || []).join(', ') || '—'}</div></div>
-        <div class="item"><div class="label">Confidence</div><div class="value">${userData.learningJourney?.confidence || '—'}/10</div></div>
-      `;
-
-      // Learning Journey
-      const lj = userData.learningJourney || {};
-      const goalMap = {
-        'master-manual':'Master manual mode',
-        'start-business':'Start a photography/video business',
-        'improve-social':'Improve social media content',
-        'family-travel':'Capture family/travel memories',
-        'professional-event':'Become a professional event/wedding photographer',
-        'filmmaker':'Become a filmmaker/videographer'
-      };
-      const ambitionMap = { 'hobbyist':'Hobbyist', 'semi-pro':'Semi‑professional', 'professional':'Professional' };
-      const expMap = { '<6':'Less than 6 months', '6-12':'6–12 months', '1-2':'1–2 years', '3-5':'3–5 years', '5+':'5+ years' };
-      const formatMap = { 'video':'Video', 'written':'Written guides', 'interactive':'Interactive exercises', 'mixed':'Mix of everything' };
-      const channelMap = { 'email':'Email', 'push':'Push notifications', 'sms':'SMS' };
-      const sixMap = {
-        'exposure':'Exposure triangle (manual mode)',
-        'composition':'Composition & storytelling',
-        'lighting':'Lighting (photo & video)',
-        'editing':'Editing/post-production',
-        'color':'Color grading',
-        'business':'Business & client management',
-        'gear':'Mastering my specific gear'
-      };
-      const dreamMap = {
-        'portrait-series':'A portrait series',
-        'short-film':'A short film',
-        'documentary':'A documentary',
-        'music-video':'A music video',
-        'commercial':'A commercial/corporate video',
-        'wedding-film':'A wedding film',
-        'social-content':'Social media content (Reels/TikTok)',
-        'photobook':'A photo book / portfolio'
-      };
-      const challengeMap = {
-        'low-light':'Low light performance',
-        'composition':'Composition & framing',
-        'posing':'Posing subjects / directing talent',
-        'manual':'Manual settings confusion',
-        'autofocus':'Autofocus struggles',
-        'editing':'Post‑processing / editing',
-        'color-grading':'Color grading',
-        'confidence':'Confidence / imposter syndrome',
-        'gear':'Understanding my gear',
-        'business':'Building my business'
-      };
-
-      const learnGrid = document.getElementById('learningGrid');
-      learnGrid.innerHTML = `
-        <div class="item"><div class="label">Experience</div><div class="value">${expMap[lj.experience] || lj.experience || '—'}</div></div>
-        <div class="item"><div class="label">Primary Goal</div><div class="value">${goalMap[lj.primaryGoal] || lj.primaryGoal || '—'}</div></div>
-        <div class="item"><div class="label">Ambition</div><div class="value">${ambitionMap[lj.ambition] || lj.ambition || '—'}</div></div>
-        <div class="item"><div class="label">Content Format</div><div class="value">${formatMap[lj.contentFormat] || lj.contentFormat || '—'}</div></div>
-        <div class="item"><div class="label">Delivery Channel</div><div class="value">${channelMap[lj.deliveryChannel] || lj.deliveryChannel || '—'}</div></div>
-        <div class="item"><div class="label">Shoot Frequency</div><div class="value">${lj.shootFrequency || '—'}</div></div>
-        <div class="item"><div class="label">Biggest Challenge</div><div class="value">${challengeMap[lj.biggestChallenge] || lj.biggestChallenge || '—'}</div></div>
-        <div class="item"><div class="label">Pain Points</div><div class="value">${(lj.painPoints || []).join(', ') || '—'}</div></div>
-        <div class="item"><div class="label">6-Month Goal</div><div class="value">${sixMap[lj.sixMonthGoal] || lj.sixMonthGoal || '—'}</div></div>
-        <div class="item"><div class="label">Dream Project</div><div class="value">${dreamMap[lj.dreamProject] || lj.dreamProject || '—'}</div></div>
+        <div class="item"><div class="label">Full Name</div><div class="value">${data.displayName || '—'}</div></div>
+        <div class="item"><div class="label">Username</div><div class="value">${data.username || '—'}</div></div>
+        <div class="item"><div class="label">Email</div><div class="value">${data.email || '—'}</div></div>
+        <div class="item"><div class="label">Plan</div><div class="value green">${data.tier === 'pro' ? 'Pro' : 'Free'}</div></div>
+        <div class="item"><div class="label">Billing</div><div class="value">${data.billingInterval || 'monthly'}</div></div>
+        <div class="item"><div class="label">Role</div><div class="value">${data.role || 'Operator'}</div></div>
       `;
 
       // Referral & Stats
       const refGrid = document.getElementById('referralGrid');
       refGrid.innerHTML = `
-        <div class="item"><div class="label">Referral Code</div><div class="value green">${userData.referralCode || '—'}</div></div>
-        <div class="item"><div class="label">Total Referrals</div><div class="value">${userData.totalReferrals || 0}</div></div>
-        <div class="item"><div class="label">Commission Earned</div><div class="value">$${(userData.totalCommissionEarned || 0).toFixed(2)}</div></div>
-        <div class="item"><div class="label">Ambassador Tier</div><div class="value green">${userData.ambassadorTier || 'signal'}</div></div>
-        <div class="item"><div class="label">Total Points</div><div class="value">${userData.totalPoints || 0}</div></div>
-        <div class="item"><div class="label">Level</div><div class="value">${userData.level || 1}</div></div>
-        <div class="item"><div class="label">Daily Streak</div><div class="value">🔥 ${userData.dailyChallengeStreak || 0} days</div></div>
-        <div class="item"><div class="label">Badges Earned</div><div class="value">${(userData.badgesEarned || []).join(', ') || 'None yet'}</div></div>
+        <div class="item"><div class="label">Referral Code</div><div class="value green">${data.referralCode || '—'}</div></div>
+        <div class="item"><div class="label">Total Referrals</div><div class="value">${data.totalReferrals || 0}</div></div>
+        <div class="item"><div class="label">Commission Earned</div><div class="value">$${(data.totalCommissionEarned || 0).toFixed(2)}</div></div>
+        <div class="item"><div class="label">Ambassador Tier</div><div class="value green">${data.ambassadorTier || 'signal'}</div></div>
+        <div class="item"><div class="label">Total Points</div><div class="value">${data.totalPoints || 0}</div></div>
+        <div class="item"><div class="label">Level</div><div class="value">${data.level || 1}</div></div>
+        <div class="item"><div class="label">Daily Streak</div><div class="value">🔥 ${data.dailyChallengeStreak || 0} days</div></div>
+        <div class="item"><div class="label">Badges Earned</div><div class="value">${(data.badgesEarned || []).join(', ') || 'None yet'}</div></div>
       `;
-
-      loading.style.display = 'none';
-      content.style.display = 'block';
     }
 
-    // ---- LOAD PROFILE ----
+    // ---- Main load ----
     async function loadProfile(user) {
       if (!user) {
         document.getElementById('loadingState').innerHTML = '<p>Not authenticated. <a href="login.html">Login</a></p>';
@@ -525,8 +734,24 @@
           return;
         }
         const data = doc.data();
+        currentUserData = data;
         console.log('Fetched user data:', data);
-        renderProfile(data);
+
+        // Avatar
+        if (data.photoURL) {
+          avatarPreview.innerHTML = `<img src="${data.photoURL}" alt="Avatar" />`;
+          removeBtn.style.display = 'inline-block';
+          localStorage.setItem('profilePhoto', data.photoURL);
+        } else {
+          avatarPreview.innerHTML = '<i class="fas fa-user" id="avatarPlaceholder"></i>';
+          removeBtn.style.display = 'none';
+        }
+
+        renderReadOnly(data);
+        renderEditForms(data);
+
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('profileContent').style.display = 'block';
       } catch (err) {
         console.error(err);
         document.getElementById('loadingState').innerHTML = `<p class="error">Error: ${err.message}</p>`;
