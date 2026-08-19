@@ -16,6 +16,7 @@
     .divider { text-align: center; color: #666; margin: 16px 0; }
     .forgot { text-align: right; font-size: 12px; color: #666; cursor: pointer; margin-top: -8px; margin-bottom: 12px; }
     .forgot:hover { color: #8deb00; }
+    #log { background: #111; color: #8deb00; padding: 8px; font-size: 11px; border-radius: 4px; margin-top: 10px; max-height: 100px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; display: none; }
   </style>
 </head>
 <body>
@@ -36,6 +37,7 @@
       <div id="error" class="error"></div>
     </form>
     <p style="margin-top:16px; text-align:center; color:#888;">No account? <a href="signup.html" style="color:#8deb00;">Sign up</a></p>
+    <div id="log"></div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -43,81 +45,137 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-      authDomain: "cameras-decoded.firebaseapp.com",
-      projectId: "cameras-decoded",
-      storageBucket: "cameras-decoded.firebasestorage.app",
-      messagingSenderId: "1088920052790",
-      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-      measurementId: "G-YN3M01WW0B"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-
-    function cdToast(msg) { alert(msg); } // fallback
-
-    function goToDashboard() {
-      window.location.href = 'operator-dashboard.html';
-    }
-
-    // Social login
-    document.getElementById('googleBtn').onclick = () => {
-      auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
-        .then(() => goToDashboard())
-        .catch(err => { document.getElementById('error').textContent = err.message; document.getElementById('error').style.display = 'block'; });
-    };
-    document.getElementById('facebookBtn').onclick = () => {
-      const p = new firebase.auth.FacebookAuthProvider();
-      p.addScope('email');
-      p.addScope('public_profile');
-      auth.signInWithPopup(p)
-        .then(() => goToDashboard())
-        .catch(err => { document.getElementById('error').textContent = err.message; document.getElementById('error').style.display = 'block'; });
-    };
-
-    // Email login
-    document.getElementById('loginForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value.trim();
-      const errorEl = document.getElementById('error');
-      errorEl.style.display = 'none';
-      if (!email || !password) {
-        errorEl.textContent = 'Please enter both.';
-        errorEl.style.display = 'block';
-        return;
+    (function() {
+      const log = document.getElementById('log');
+      function logMsg(msg) {
+        log.style.display = 'block';
+        log.textContent += msg + '\n';
+        console.log(msg);
       }
-      const btn = document.getElementById('loginBtn');
-      btn.disabled = true;
-      btn.textContent = 'Logging in...';
-      try {
-        await auth.signInWithEmailAndPassword(email, password);
-        goToDashboard();
-      } catch (err) {
-        errorEl.textContent = err.message;
-        errorEl.style.display = 'block';
-        btn.disabled = false;
-        btn.textContent = 'Access Dashboard';
-      }
-    };
 
-    // Forgot password
-    document.getElementById('forgotPass').onclick = () => {
-      const email = document.getElementById('email').value.trim();
-      if (!email) { alert('Enter your email first.'); return; }
-      auth.sendPasswordResetEmail(email)
-        .then(() => alert('Reset link sent to ' + email))
-        .catch(err => alert(err.message));
-    };
+      logMsg('Firebase SDKs loaded.');
 
-    // Auto-redirect if already logged in
-    auth.onAuthStateChanged((user) => {
-      if (user && window.location.pathname.includes('login.html')) {
-        goToDashboard();
+      const firebaseConfig = {
+        apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+        authDomain: "cameras-decoded.firebaseapp.com",
+        projectId: "cameras-decoded",
+        storageBucket: "cameras-decoded.firebasestorage.app",
+        messagingSenderId: "1088920052790",
+        appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+        measurementId: "G-YN3M01WW0B"
+      };
+
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+        logMsg('Firebase initialized.');
+      } else {
+        logMsg('Firebase already initialized.');
       }
-    });
+
+      const auth = firebase.auth();
+      const db = firebase.firestore();
+
+      function goToDashboard() {
+        logMsg('Redirecting to dashboard...');
+        window.location.href = 'operator-dashboard.html';
+      }
+
+      // Social login
+      document.getElementById('googleBtn').onclick = () => {
+        logMsg('Google sign-in clicked.');
+        auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+          .then((result) => {
+            logMsg('Google success: ' + result.user.uid);
+            goToDashboard();
+          })
+          .catch((err) => {
+            logMsg('Google error: ' + err.message);
+            document.getElementById('error').textContent = err.message;
+            document.getElementById('error').style.display = 'block';
+          });
+      };
+
+      document.getElementById('facebookBtn').onclick = () => {
+        logMsg('Facebook sign-in clicked.');
+        const p = new firebase.auth.FacebookAuthProvider();
+        p.addScope('email');
+        p.addScope('public_profile');
+        auth.signInWithPopup(p)
+          .then((result) => {
+            logMsg('Facebook success: ' + result.user.uid);
+            goToDashboard();
+          })
+          .catch((err) => {
+            logMsg('Facebook error: ' + err.message);
+            document.getElementById('error').textContent = err.message;
+            document.getElementById('error').style.display = 'block';
+          });
+      };
+
+      // Email login
+      document.getElementById('loginForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const errorEl = document.getElementById('error');
+        errorEl.style.display = 'none';
+        const btn = document.getElementById('loginBtn');
+
+        if (!email || !password) {
+          errorEl.textContent = 'Please enter both.';
+          errorEl.style.display = 'block';
+          logMsg('Empty email or password.');
+          return;
+        }
+
+        logMsg('Attempting login with email: ' + email);
+        btn.disabled = true;
+        btn.textContent = 'Logging in...';
+
+        try {
+          const userCredential = await auth.signInWithEmailAndPassword(email, password);
+          logMsg('Login success: ' + userCredential.user.uid);
+          goToDashboard();
+        } catch (err) {
+          logMsg('Login error: ' + err.message + ' (code: ' + err.code + ')');
+          errorEl.textContent = err.message;
+          errorEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Access Dashboard';
+        }
+      };
+
+      // Forgot password
+      document.getElementById('forgotPass').onclick = () => {
+        const email = document.getElementById('email').value.trim();
+        if (!email) { alert('Enter your email first.'); return; }
+        logMsg('Sending password reset to ' + email);
+        auth.sendPasswordResetEmail(email)
+          .then(() => {
+            alert('Reset link sent to ' + email);
+            logMsg('Reset email sent.');
+          })
+          .catch((err) => {
+            alert(err.message);
+            logMsg('Reset error: ' + err.message);
+          });
+      };
+
+      // Auth state listener
+      auth.onAuthStateChanged((user) => {
+        if (user) {
+          logMsg('Auth state changed: user logged in: ' + user.uid);
+          if (window.location.pathname.includes('login.html')) {
+            logMsg('Already logged in, redirecting.');
+            goToDashboard();
+          }
+        } else {
+          logMsg('Auth state changed: no user.');
+        }
+      });
+
+      logMsg('Login page ready.');
+    })();
   </script>
 </body>
 </html>
