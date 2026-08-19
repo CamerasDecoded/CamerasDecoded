@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile — Cameras Decoded</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    :root {
+      --green: #8deb00;
+      --green-dim: rgba(141, 235, 0, 0.12);
+      --green-glow: rgba(141, 235, 0, 0.25);
+      --text-muted: #b4b4b4;
+      --bg-panel: #0A0A0A;
+      --border-dim: #1A1A1A;
+      --card-bg: rgba(10, 10, 10, 0.6);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: #050705;
+      background-image: radial-gradient(circle at 20% 30%, rgba(141, 235, 0, 0.12) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 70%, rgba(141, 235, 0, 0.08) 0%, transparent 45%),
+                        linear-gradient(rgba(141, 235, 0, 0.04) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(141, 235, 0, 0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+      background-attachment: fixed;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 800px; margin: 40px auto; }
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 20px;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: rgba(141, 235, 0, 0.2); }
+    .card h2 {
+      font-family: 'Space Mono', monospace;
+      font-size: 18px;
+      color: var(--green);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+    .item .label { font-size: 10px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+    .item .value { font-size: 14px; color: #fff; margin-top: 2px; }
+    .item .value.green { color: var(--green); }
+    .btn-back {
+      display: inline-block;
+      padding: 10px 24px;
+      background: transparent;
+      border: 1px solid var(--green);
+      border-radius: 8px;
+      color: var(--green);
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s;
+      text-decoration: none;
+    }
+    .btn-back:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 20px rgba(141, 235, 0, 0.2); }
+    .btn-logout {
+      padding: 10px 24px;
+      background: transparent;
+      border: 1px solid #ff4a4a;
+      border-radius: 8px;
+      color: #ff4a4a;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .btn-logout:hover { background: rgba(255, 74, 74, 0.1); }
+    .flex { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .flex.space-between { justify-content: space-between; }
+    .mt-20 { margin-top: 20px; }
+
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      .container { margin: 20px auto; }
+      .card { padding: 16px 18px; }
+    }
+
+    #toast-container {
+      position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:9999;
+      display:flex; flex-direction:column; gap:10px; align-items:center; pointer-events:none;
+    }
+    .toast {
+      background:#0A0A0A; border:1px solid var(--green); color:#fff;
+      font-family:'Space Mono',monospace; font-size:13px; padding:12px 24px;
+      border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.6);
+      opacity:0; transform:translateY(-10px); transition:all 0.3s ease; pointer-events:auto; text-align:center;
+    }
+    .toast.show { opacity:1; transform:translateY(0); }
+    .toast.error { border-color:#ff4a4a; }
+
+    .loading { text-align:center; padding:60px 0; color:var(--text-muted); }
+    .loading i { font-size:32px; color:var(--green); display:block; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <div class="container">
+    <div class="flex space-between" style="margin-bottom:20px;">
+      <h1 style="font-family:'Space Mono',monospace;color:var(--green);font-size:24px;">
+        <i class="fas fa-user"></i> Profile
+      </h1>
+      <div class="flex">
+        <a href="operator-dashboard.html" class="btn-back"><i class="fas fa-arrow-left"></i> Dashboard</a>
+        <button class="btn-logout" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </div>
+
+    <div id="loadingState" class="loading">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Loading your profile...</p>
+    </div>
+
+    <div id="profileContent" style="display:none;">
+      <!-- Basic Info -->
+      <div class="card" id="basicInfo">
+        <h2><i class="fas fa-id-card"></i> Basic Information</h2>
+        <div class="grid" id="basicGrid"></div>
+      </div>
+
+      <!-- Preferences -->
+      <div class="card" id="preferencesCard">
+        <h2><i class="fas fa-camera"></i> Gear & Preferences</h2>
+        <div class="grid" id="preferencesGrid"></div>
+      </div>
+
+      <!-- Learning Journey -->
+      <div class="card" id="learningCard">
+        <h2><i class="fas fa-compass"></i> Learning Journey</h2>
+        <div class="grid" id="learningGrid"></div>
+      </div>
+
+      <!-- Referral & Stats -->
+      <div class="card" id="referralCard">
+        <h2><i class="fas fa-satellite-dish"></i> Referral & Stats</h2>
+        <div class="grid" id="referralGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // ---- Firebase ----
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ---- Toast ----
+    function cdToast(message, type) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'toast' + (type === 'error' ? ' error' : '');
+      toast.textContent = message;
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add('show'));
+      setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
+    }
+
+    // ---- Render Profile ----
+    function renderProfile(userData) {
+      const loading = document.getElementById('loadingState');
+      const content = document.getElementById('profileContent');
+
+      // Basic Info
+      const basicGrid = document.getElementById('basicGrid');
+      basicGrid.innerHTML = `
+        <div class="item"><div class="label">Full Name</div><div class="value">${userData.displayName || '—'}</div></div>
+        <div class="item"><div class="label">Username</div><div class="value">${userData.username || '—'}</div></div>
+        <div class="item"><div class="label">Email</div><div class="value">${userData.email || '—'}</div></div>
+        <div class="item"><div class="label">Plan</div><div class="value green">${userData.tier === 'pro' ? 'Pro' : 'Free'}</div></div>
+        <div class="item"><div class="label">Billing</div><div class="value">${userData.billingInterval || 'monthly'}</div></div>
+        <div class="item"><div class="label">Role</div><div class="value">${userData.role || 'Operator'}</div></div>
+      `;
+
+      // Preferences
+      const prefs = userData.preferences || {};
+      const prefGrid = document.getElementById('preferencesGrid');
+      prefGrid.innerHTML = `
+        <div class="item"><div class="label">Camera Brands</div><div class="value">${(prefs.brands || []).join(', ') || '—'}</div></div>
+        <div class="item"><div class="label">Lenses</div><div class="value">${(prefs.lenses || []).join(', ') || '—'}</div></div>
+        <div class="item"><div class="label">Interests</div><div class="value">${(prefs.interests || []).join(', ') || '—'}</div></div>
+        <div class="item"><div class="label">Confidence</div><div class="value">${userData.learningJourney?.confidence || '—'}/10</div></div>
+      `;
+
+      // Learning Journey
+      const lj = userData.learningJourney || {};
+      const goalMap = {
+        'master-manual':'Master manual mode',
+        'start-business':'Start a photography/video business',
+        'improve-social':'Improve social media content',
+        'family-travel':'Capture family/travel memories',
+        'professional-event':'Become a professional event/wedding photographer',
+        'filmmaker':'Become a filmmaker/videographer'
+      };
+      const ambitionMap = { 'hobbyist':'Hobbyist', 'semi-pro':'Semi‑professional', 'professional':'Professional' };
+      const expMap = { '<6':'Less than 6 months', '6-12':'6–12 months', '1-2':'1–2 years', '3-5':'3–5 years', '5+':'5+ years' };
+      const formatMap = { 'video':'Video', 'written':'Written guides', 'interactive':'Interactive exercises', 'mixed':'Mix of everything' };
+      const channelMap = { 'email':'Email', 'push':'Push notifications', 'sms':'SMS' };
+      const sixMap = {
+        'exposure':'Exposure triangle (manual mode)',
+        'composition':'Composition & storytelling',
+        'lighting':'Lighting (photo & video)',
+        'editing':'Editing/post-production',
+        'color':'Color grading',
+        'business':'Business & client management',
+        'gear':'Mastering my specific gear'
+      };
+      const dreamMap = {
+        'portrait-series':'A portrait series',
+        'short-film':'A short film',
+        'documentary':'A documentary',
+        'music-video':'A music video',
+        'commercial':'A commercial/corporate video',
+        'wedding-film':'A wedding film',
+        'social-content':'Social media content (Reels/TikTok)',
+        'photobook':'A photo book / portfolio'
+      };
+      const challengeMap = {
+        'low-light':'Low light performance',
+        'composition':'Composition & framing',
+        'posing':'Posing subjects / directing talent',
+        'manual':'Manual settings confusion',
+        'autofocus':'Autofocus struggles',
+        'editing':'Post‑processing / editing',
+        'color-grading':'Color grading',
+        'confidence':'Confidence / imposter syndrome',
+        'gear':'Understanding my gear',
+        'business':'Building my business'
+      };
+
+      const learnGrid = document.getElementById('learningGrid');
+      learnGrid.innerHTML = `
+        <div class="item"><div class="label">Experience</div><div class="value">${expMap[lj.experience] || lj.experience || '—'}</div></div>
+        <div class="item"><div class="label">Primary Goal</div><div class="value">${goalMap[lj.primaryGoal] || lj.primaryGoal || '—'}</div></div>
+        <div class="item"><div class="label">Ambition</div><div class="value">${ambitionMap[lj.ambition] || lj.ambition || '—'}</div></div>
+        <div class="item"><div class="label">Content Format</div><div class="value">${formatMap[lj.contentFormat] || lj.contentFormat || '—'}</div></div>
+        <div class="item"><div class="label">Delivery Channel</div><div class="value">${channelMap[lj.deliveryChannel] || lj.deliveryChannel || '—'}</div></div>
+        <div class="item"><div class="label">Shoot Frequency</div><div class="value">${lj.shootFrequency || '—'}</div></div>
+        <div class="item"><div class="label">Biggest Challenge</div><div class="value">${challengeMap[lj.biggestChallenge] || lj.biggestChallenge || '—'}</div></div>
+        <div class="item"><div class="label">Pain Points</div><div class="value">${(lj.painPoints || []).join(', ') || '—'}</div></div>
+        <div class="item"><div class="label">6-Month Goal</div><div class="value">${sixMap[lj.sixMonthGoal] || lj.sixMonthGoal || '—'}</div></div>
+        <div class="item"><div class="label">Dream Project</div><div class="value">${dreamMap[lj.dreamProject] || lj.dreamProject || '—'}</div></div>
+      `;
+
+      // Referral & Stats
+      const refGrid = document.getElementById('referralGrid');
+      refGrid.innerHTML = `
+        <div class="item"><div class="label">Referral Code</div><div class="value green">${userData.referralCode || '—'}</div></div>
+        <div class="item"><div class="label">Total Referrals</div><div class="value">${userData.totalReferrals || 0}</div></div>
+        <div class="item"><div class="label">Commission Earned</div><div class="value">$${(userData.totalCommissionEarned || 0).toFixed(2)}</div></div>
+        <div class="item"><div class="label">Ambassador Tier</div><div class="value green">${userData.ambassadorTier || 'signal'}</div></div>
+        <div class="item"><div class="label">Total Points</div><div class="value">${userData.totalPoints || 0}</div></div>
+        <div class="item"><div class="label">Level</div><div class="value">${userData.level || 1}</div></div>
+        <div class="item"><div class="label">Daily Streak</div><div class="value">🔥 ${userData.dailyChallengeStreak || 0} days</div></div>
+        <div class="item"><div class="label">Badges Earned</div><div class="value">${(userData.badgesEarned || []).join(', ') || 'None yet'}</div></div>
+      `;
+
+      loading.style.display = 'none';
+      content.style.display = 'block';
+    }
+
+    // ---- Load Profile ----
+    async function loadProfile(user) {
+      if (!user) {
+        document.getElementById('loadingState').innerHTML = '<p>Not authenticated. <a href="login.html">Login</a></p>';
+        return;
+      }
+      try {
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (!doc.exists) {
+          cdToast('User data not found.', 'error');
+          return;
+        }
+        renderProfile(doc.data());
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loadingState').innerHTML = `<p class="error">Error: ${err.message}</p>`;
+      }
+    }
+
+    // ---- Logout ----
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await auth.signOut();
+      window.location.href = 'login.html';
+    });
+
+    // ---- Auth Listener ----
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadProfile(user);
+      } else {
+        window.location.href = 'login.html';
+      }
+    });
+  </script>
+</body>
+</html>
