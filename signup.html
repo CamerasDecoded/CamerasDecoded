@@ -335,12 +335,20 @@
           else { formData[el.id] = el.value; }
         }
       });
-      formData['selectedGear'] = Array.from(document.querySelectorAll('.gear-card.selected')).map(el => el.dataset.brand);
-      formData['selectedLenses'] = Array.from(document.querySelectorAll('.lens-chip.selected')).map(el => el.dataset.lens);
-      formData['selectedInterests'] = Array.from(document.querySelectorAll('#interestChips .interest-chip.selected')).map(el => el.dataset.interest);
-      formData['painPoints'] = Array.from(document.querySelectorAll('#painChips .interest-chip.selected')).map(el => el.dataset.pain);
-      const slider = document.getElementById('confidenceSlider'); if (slider) formData['confidenceSlider'] = slider.value;
-      const tierEl = document.querySelector('.pricing-card.selected'); if (tierEl) formData['operatorTier'] = tierEl.dataset.tier;
+      // For arrays, only update if the elements exist on this step (otherwise keep previous values)
+      const gearChips = document.querySelectorAll('.gear-card.selected');
+      if (gearChips.length > 0) formData['selectedGear'] = Array.from(gearChips).map(el => el.dataset.brand);
+      const lensChips = document.querySelectorAll('.lens-chip.selected');
+      if (lensChips.length > 0) formData['selectedLenses'] = Array.from(lensChips).map(el => el.dataset.lens);
+      const interestChips = document.querySelectorAll('#interestChips .interest-chip.selected');
+      if (interestChips.length > 0) formData['selectedInterests'] = Array.from(interestChips).map(el => el.dataset.interest);
+      const painChips = document.querySelectorAll('#painChips .interest-chip.selected');
+      if (painChips.length > 0) formData['painPoints'] = Array.from(painChips).map(el => el.dataset.pain);
+      const slider = document.getElementById('confidenceSlider');
+      if (slider) formData['confidenceSlider'] = slider.value;
+      const tierEl = document.querySelector('.pricing-card.selected');
+      if (tierEl) formData['operatorTier'] = tierEl.dataset.tier;
+      // billing options are global
       formData['isAnnual'] = isAnnual;
       formData['isWeekly'] = isWeekly;
       // console.log('🔍 formData after save:', formData);
@@ -788,13 +796,6 @@
     // REDIRECT (appends uid as query parameter)
     // ================================================================
     function redirectToDashboard(role, uid) {
-      console.log('REDIRECT CALLED', role, uid);
-      try { window.isCamerasDecodedSignupFlight = false; window._isSubmitting = false; } catch(e){}
-      const targetUrl = 'operator-dashboard.html?uid=' + uid;
-      console.log('Navigating to', targetUrl);
-      window.location.href = targetUrl;
-      return;
-
       const map = {
         'Operator': 'operator-dashboard.html',
         'Instructor': 'instructor-dashboard.html',
@@ -814,15 +815,19 @@
     // ACTIVATE SIGNAL – with flight flag, redirect with uid
     // ================================================================
     window.activateSignal = function() {
-      if (window._isSubmitting) { console.warn('double submit blocked'); return; }
-      window._isSubmitting = true;
-      let _createdUid = '';
-      let _createdReferral = '';
       // 🔥 Set the flight flag to suppress background reads
       window.isCamerasDecodedSignupFlight = true;
       
-      // Capture all form data
-      saveFormData();
+      // DO NOT call saveFormData() here – it would overwrite arrays with empty values.
+      // Instead, we rely on the already accumulated formData.
+      // But we still need to capture the password and phone from the final step.
+      // We'll read them directly from the DOM.
+      const password = document.getElementById('password')?.value?.trim() || '';
+      const confirmPassword = document.getElementById('confirmPassword')?.value?.trim() || '';
+      const phone = document.getElementById('phone')?.value?.trim() || '';
+      
+      // Also capture any changes to the slider/tier from the final step (though they should already be in formData)
+      // But we can capture them if needed.
       
       console.log('🚀 Activating signal with formData:', formData);
 
@@ -854,8 +859,6 @@
       const email = (formData['email'] || '').trim().toLowerCase();
       const username = formData['username'] || '';
       const isSocialUser = socialUserData !== null;
-      const password = document.getElementById('password')?.value?.trim() || '';
-      const confirmPassword = document.getElementById('confirmPassword')?.value?.trim() || '';
 
       if (!name || !email || !username) {
         errorEl.textContent = '⚠️ Please fill in all required fields.';
@@ -901,10 +904,10 @@
         referralCode = Math.random().toString(36).substring(2, 8);
       }
 
-      // Build userData
+      // Build userData – now using the complete formData
       let userData = {
         name,
-        email: (email || '').trim().toLowerCase(),
+        email: email,
         username,
         role: selectedRole,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -914,14 +917,14 @@
         ambassadorTier: 'signal'
       };
 
-      // Store referrer if any (but do NOT increment their count)
+      // Store referrer if any
       const referredBy = localStorage.getItem('signup_referral') || null;
       if (referredBy) {
         userData.referredBy = referredBy;
       }
 
       if (selectedRole === 'Operator') {
-        const phone = formData['phone'] || '';
+        const phoneVal = phone || formData['phone'] || '';
         const confidence = parseInt(formData['confidenceSlider']) || 0;
         const challenge = formData['challenge'] || '';
         const shootFrequency = formData['shootFrequency'] || '';
@@ -950,7 +953,7 @@
 
         userData = {
           ...userData,
-          phone: selectedTier === 'pro' ? phone : null,
+          phone: selectedTier === 'pro' ? phoneVal : null,
           tier: selectedTier,
           billingInterval,
           confidence,
@@ -1017,49 +1020,32 @@
         .then(cred => {
           const user = isSocialUser ? cred : cred.user;
           const uid = user.uid;
-          _createdUid = uid;
-          _createdReferral = referralCode;
           if (selectedRole === 'Partner') userData.partnerId = 'PART-' + uid.slice(0, 6).toUpperCase();
           else if (selectedRole === 'Instructor') userData.instructorId = 'INSTR-' + uid.slice(0, 6).toUpperCase();
-          return user.updateProfile({ displayName: name }).catch(function(e){ console.warn('updateProfile non-critical', e); }).then(() => ({ user, uid }));
+          return user.updateProfile({ displayName: name }).catch(e => console.warn('updateProfile non-critical', e)).then(() => ({ user, uid }));
         })
         .then(({ user, uid }) => {
-          // Write the user document – FIRE AND FORGET, don't wait
-          userData.email = (userData.email || email || '').trim().toLowerCase();
-          userData.uid = uid;
-          userData.emailLower = userData.email;
-          console.log('[SIGNUP] Writing user doc (fire-and-forget):', uid, userData.email);
-          firestore.collection('users').doc(uid).set(userData, {merge:true})
-            .then(()=> console.log('[SIGNUP] Firestore write OK (async)'))
-            .catch(e=> console.warn('[SIGNUP] Firestore write failed async (ignored):', e));
-          // Return immediately, don't wait for firestore
-          return {user, uid};
+          // Write the user document with all data
+          console.log('[SIGNUP] Writing full userData to Firestore:', userData);
+          return firestore.collection('users').doc(uid).set(userData, { merge: true });
         })
-        .then(({uid}) => {
-          // Success – show confirmation and redirect with uid (always)
-          try { btn.style.display = 'none'; } catch(e){}
-          try { spinner.style.display = 'none'; } catch(e){}
-          try { locked.style.display = 'block'; } catch(e){}
+        .then(() => {
+          // Success – show confirmation and redirect with uid
+          btn.style.display = 'none';
+          spinner.style.display = 'none';
+          locked.style.display = 'block';
           const linkEl = document.getElementById('newReferralLink');
           if (linkEl) { linkEl.textContent = `camerasdecoded.com/ref/${referralCode}`; }
           localStorage.removeItem('signup_referral');
           socialUserData = null;
           
-          window._isSubmitting = false;
-          const finalUid = uid || _createdUid || (firebase.auth().currentUser ? firebase.auth().currentUser.uid : '');
-          console.log('[SIGNUP] Success, redirecting with uid:', finalUid, 'role:', selectedRole);
-          setTimeout(() => {
-            console.log('TIMEOUT FIRED, finalUid:', finalUid);
-            window.isCamerasDecodedSignupFlight = false;
-            window._isSubmitting = false;
-            if (finalUid) {
-              console.log('Calling redirect');
-              redirectToDashboard(selectedRole, finalUid);
-            } else {
-              console.log('No uid, going to login');
-              window.location.href = 'login.html';
-            }
-          }, 400);
+          const uid = firebase.auth().currentUser?.uid;
+          if (!uid) {
+            console.warn('No uid found after signup, redirecting to login');
+            window.location.href = 'login.html';
+            return;
+          }
+          redirectToDashboard(selectedRole, uid);
         })
         .catch(err => {
           console.error('Signup error:', err);
@@ -1083,10 +1069,7 @@
           errorEl.style.display = 'block';
           btn.style.display = 'block';
           spinner.style.display = 'none';
-          window._isSubmitting = false;
           window.isCamerasDecodedSignupFlight = false;
-          // FIXED: do not delete Auth user
-          // FIXED: do not delete Auth user - prevents duplicate bug
         });
     };
 
