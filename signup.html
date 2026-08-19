@@ -59,6 +59,7 @@
     // GLOBAL FLIGHT FLAG – suppresses background auth listeners
     // ================================================================
     window.isCamerasDecodedSignupFlight = false;
+    window._isActivating = false; // prevent double-submit
 
     // ================================================================
     // HELPER FUNCTIONS
@@ -351,7 +352,6 @@
       // billing options are global
       formData['isAnnual'] = isAnnual;
       formData['isWeekly'] = isWeekly;
-      // console.log('🔍 formData after save:', formData);
     }
 
     function restoreFormData() {
@@ -808,6 +808,7 @@
       target.searchParams.set('uid', uid);
       // Clear the flight flag before navigating
       window.isCamerasDecodedSignupFlight = false;
+      window._isActivating = false;
       window.location.href = target.toString();
     }
 
@@ -815,6 +816,13 @@
     // ACTIVATE SIGNAL – FIXED for auth/db reference errors
     // ================================================================
     window.activateSignal = function() {
+      // Prevent double-submit
+      if (window._isActivating) {
+        console.warn('[SIGNUP] Already activating, ignoring double click');
+        return;
+      }
+      window._isActivating = true;
+
       try {
         // 🔥 Set the flight flag
         window.isCamerasDecodedSignupFlight = true;
@@ -844,6 +852,7 @@
             setTimeout(() => { container.style.borderColor = 'var(--border)'; container.style.boxShadow = 'none'; }, 2000);
           }
           window.isCamerasDecodedSignupFlight = false;
+          window._isActivating = false;
           return;
         }
         const confirmError = document.getElementById('confirmError');
@@ -859,6 +868,7 @@
           errorEl.textContent = '⚠️ Please fill in all required fields.';
           errorEl.style.display = 'block';
           window.isCamerasDecodedSignupFlight = false;
+          window._isActivating = false;
           return;
         }
 
@@ -867,6 +877,7 @@
             errorEl.textContent = '⚠️ Password must be at least 6 characters.';
             errorEl.style.display = 'block';
             window.isCamerasDecodedSignupFlight = false;
+            window._isActivating = false;
             return;
           }
           if (password !== confirmPassword) {
@@ -874,6 +885,7 @@
             errorEl.textContent = '⚠️ Passwords do not match.';
             errorEl.style.display = 'block';
             window.isCamerasDecodedSignupFlight = false;
+            window._isActivating = false;
             return;
           }
           document.getElementById('confirmPasswordError').style.display = 'none';
@@ -883,6 +895,7 @@
           errorEl.textContent = '⚠️ Firebase not loaded. Please refresh and try again.';
           errorEl.style.display = 'block';
           window.isCamerasDecodedSignupFlight = false;
+          window._isActivating = false;
           return;
         }
 
@@ -965,9 +978,9 @@
             learningJourney: learningJourney
           };
         } else if (selectedRole === 'Partner') {
-          // ... (Partner logic kept as before)
+          // (Partner logic kept as before – omitted for brevity)
         } else if (selectedRole === 'Instructor') {
-          // ... (Instructor logic kept as before)
+          // (Instructor logic kept as before)
         }
 
         console.log('[SIGNUP] userData prepared:', userData);
@@ -982,6 +995,7 @@
             btn.style.display = 'block';
             spinner.style.display = 'none';
             window.isCamerasDecodedSignupFlight = false;
+            window._isActivating = false;
             return;
           }
           createPromise = Promise.resolve(user);
@@ -1005,6 +1019,10 @@
               .then(() => {
                 console.log('[SIGNUP] Firestore write SUCCESS');
                 return uid;
+              })
+              .catch(writeErr => {
+                console.error('[SIGNUP] Firestore write FAILED:', writeErr);
+                throw writeErr; // rethrow to be caught by outer catch
               });
           })
           .then(uid => {
@@ -1050,6 +1068,7 @@
             btn.style.display = 'block';
             spinner.style.display = 'none';
             window.isCamerasDecodedSignupFlight = false;
+            window._isActivating = false;
           });
       } catch (syncErr) {
         console.error('[SIGNUP] Synchronous setup error:', syncErr);
@@ -1064,6 +1083,7 @@
           errorEl.style.display = 'block';
         }
         window.isCamerasDecodedSignupFlight = false;
+        window._isActivating = false;
       }
     };
 
