@@ -565,6 +565,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
   <script>
     // ===== BINARY RAIN (from original) =====
@@ -737,14 +738,36 @@
 
   // ===== RENDER FUNCTIONS (Dashboard-only) =====
   function renderProfile(u) {
-    document.getElementById('sidebarUsername').textContent = u.username || 'Operator';
-    document.getElementById('sidebarEmail').textContent = u.email || 'loading...';
-    // Update tier badge
-    const badge = document.getElementById('roleTierBadge');
-    if (badge) {
-      badge.innerHTML = `<span class="glow-role">Operator</span> · <span class="tier-text">${u.tier === 'pro' ? 'Pro' : 'Free'}</span>`;
+  document.getElementById('sidebarUsername').textContent = u.username || 'Operator';
+  document.getElementById('sidebarEmail').textContent = u.email || 'loading...';
+
+  // Update avatar
+  const avatar = document.querySelector('.profile-avatar');
+  if (avatar) {
+    if (u.photoURL) {
+      avatar.style.backgroundImage = `url(${u.photoURL})`;
+      avatar.innerHTML = '';
+      // Also store in localStorage for quick display on other pages
+      localStorage.setItem('profilePhoto', u.photoURL);
+    } else {
+      // Check localStorage for cached photo
+      const cachedPhoto = localStorage.getItem('profilePhoto');
+      if (cachedPhoto) {
+        avatar.style.backgroundImage = `url(${cachedPhoto})`;
+        avatar.innerHTML = '';
+      } else {
+        avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
+        avatar.innerHTML = '';
+      }
     }
   }
+
+  // Update tier badge
+  const badge = document.getElementById('roleTierBadge');
+  if (badge) {
+    badge.innerHTML = `<span class="glow-role">Operator</span> · <span class="tier-text">${u.tier === 'pro' ? 'Pro' : 'Free'}</span>`;
+  }
+}
 
   function renderStats(u) {
     const protocols = u.savedProtocols || [];
