@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     /* ============================================================
-       PREMIUM STYLING – UPDATED WITH ALL REQUESTS
+       PREMIUM STYLING – UPDATED WITH SUBTLE BACKGROUND
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -137,19 +137,28 @@
       font-size: 18px;
     }
 
-    /* ---- Profile Photo Card with Background Image ---- */
+    /* ---- Profile Photo Card with Subtle Background ---- */
     #avatarCard {
+      position: relative;
+      overflow: hidden;
+      background: var(--card-bg);
+    }
+    .avatar-bg {
+      position: absolute;
+      inset: 0;
       background-size: cover;
       background-position: center;
-      position: relative;
+      filter: blur(8px);
+      opacity: 0.5;
+      z-index: 0;
+      border-radius: var(--radius);
     }
-    #avatarCard::before {
+    .avatar-bg::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: rgba(10, 10, 10, 0.7); /* tint */
+      background: linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.8) 100%);
       border-radius: var(--radius);
-      z-index: 0;
     }
     #avatarCard > * {
       position: relative;
@@ -553,8 +562,9 @@
 
     <div id="profileContent" style="display:none;">
 
-      <!-- Avatar Section with Background Image -->
+      <!-- Avatar Card with Subtle Background -->
       <div class="card chasing-border" id="avatarCard">
+        <div class="avatar-bg" id="avatarBg"></div>
         <h2><i class="fas fa-image"></i> Profile Photo</h2>
         <div class="avatar-section">
           <div class="avatar-preview" id="avatarPreview">
@@ -611,7 +621,7 @@
 
   <script>
     // ================================================================
-    // JAVASCRIPT – IDENTICAL TO WORKING VERSION, PLUS TYPEWRITER
+    // JAVASCRIPT – IDENTICAL TO WORKING VERSION + BACKGROUND UPDATES
     // ================================================================
 
     // ---- Firebase Init ----
@@ -637,7 +647,7 @@
     const uploadBtn = document.getElementById('uploadBtn');
     const removeBtn = document.getElementById('removeBtn');
     const uploadStatus = document.getElementById('uploadStatus');
-    const avatarCard = document.getElementById('avatarCard');
+    const avatarBg = document.getElementById('avatarBg'); // new background layer
 
     let currentUserData = null;
     let currentUser = null;
@@ -705,9 +715,9 @@
         uploadBtn.disabled = false;
         removeBtn.style.display = 'inline-block';
         cdToast('Profile photo updated!');
-        // Update card background
-        if (avatarCard) {
-          avatarCard.style.backgroundImage = `url(${imageUrl})`;
+        // Update background layer
+        if (avatarBg) {
+          avatarBg.style.backgroundImage = `url(${imageUrl})`;
         }
         // Update sidebar if open
         try {
@@ -742,9 +752,9 @@
         uploadStatus.className = 'upload-status';
         cdToast('Profile photo removed.');
         localStorage.removeItem('profilePhoto');
-        // Reset card background to default
-        if (avatarCard) {
-          avatarCard.style.backgroundImage = "url('cameras-decoded-logo.png')";
+        // Reset background to default
+        if (avatarBg) {
+          avatarBg.style.backgroundImage = "url('cameras-decoded-logo.png')";
         }
         try {
           const sidebarAvatar = document.querySelector('.profile-avatar');
@@ -1017,7 +1027,7 @@
               i++;
               setTimeout(type, speed);
             } else {
-              // Add a cursor blink at the end for a moment (optional)
+              // Add a cursor blink at the end for a moment
               const cursor = document.createElement('span');
               cursor.className = 'typing-cursor';
               el.appendChild(cursor);
@@ -1079,16 +1089,16 @@
           avatarPreview.innerHTML = `<img src="${data.photoURL}" alt="Avatar" />`;
           removeBtn.style.display = 'inline-block';
           localStorage.setItem('profilePhoto', data.photoURL);
-          // Set card background
-          if (avatarCard) {
-            avatarCard.style.backgroundImage = `url(${data.photoURL})`;
+          // Set subtle background layer
+          if (avatarBg) {
+            avatarBg.style.backgroundImage = `url(${data.photoURL})`;
           }
         } else {
           avatarPreview.innerHTML = '<i class="fas fa-user" id="avatarPlaceholder"></i>';
           removeBtn.style.display = 'none';
-          // Fallback background
-          if (avatarCard) {
-            avatarCard.style.backgroundImage = "url('cameras-decoded-logo.png')";
+          // Fallback background (use logo)
+          if (avatarBg) {
+            avatarBg.style.backgroundImage = "url('cameras-decoded-logo.png')";
           }
         }
 
