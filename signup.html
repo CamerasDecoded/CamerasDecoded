@@ -812,125 +812,127 @@
     }
 
     // ================================================================
-    // ACTIVATE SIGNAL – with flight flag, redirect with uid
+    // ACTIVATE SIGNAL – FIXED for auth/db reference errors
     // ================================================================
     window.activateSignal = function() {
-    // 🔥 Set the flight flag
-    window.isCamerasDecodedSignupFlight = true;
+      try {
+        // 🔥 Set the flight flag
+        window.isCamerasDecodedSignupFlight = true;
 
-    // Gather final data (password, phone) from DOM
-    const password = document.getElementById('password')?.value?.trim() || '';
-    const confirmPassword = document.getElementById('confirmPassword')?.value?.trim() || '';
-    const phone = document.getElementById('phone')?.value?.trim() || '';
+        // Gather final data (password, phone) from DOM
+        const password = document.getElementById('password')?.value?.trim() || '';
+        const confirmPassword = document.getElementById('confirmPassword')?.value?.trim() || '';
+        const phone = document.getElementById('phone')?.value?.trim() || '';
 
-    console.log('🚀 Activating signal with formData:', formData);
+        console.log('🚀 Activating signal with formData:', formData);
 
-    const btn = document.getElementById('activateBtn');
-    const spinner = document.getElementById('signupSpinner');
-    const errorEl = document.getElementById('signupError');
-    const locked = document.getElementById('signalLocked');
+        const btn = document.getElementById('activateBtn');
+        const spinner = document.getElementById('signupSpinner');
+        const errorEl = document.getElementById('signupError');
+        const locked = document.getElementById('signalLocked');
 
-    // ---- Validate slider ----
-    if (!sliderConfirmed) {
-        const confirmError = document.getElementById('confirmError');
-        if (confirmError) confirmError.style.display = 'block';
-        errorEl.textContent = '⚠️ Please slide to confirm your agreement.';
-        errorEl.style.display = 'block';
-        const container = document.getElementById('sliderConfirmContainer');
-        if (container) {
+        // ---- Validate slider ----
+        if (!sliderConfirmed) {
+          const confirmError = document.getElementById('confirmError');
+          if (confirmError) confirmError.style.display = 'block';
+          errorEl.textContent = '⚠️ Please slide to confirm your agreement.';
+          errorEl.style.display = 'block';
+          const container = document.getElementById('sliderConfirmContainer');
+          if (container) {
             container.style.borderColor = '#ff4a4a';
             container.style.boxShadow = '0 0 20px rgba(255,74,74,0.2)';
             setTimeout(() => { container.style.borderColor = 'var(--border)'; container.style.boxShadow = 'none'; }, 2000);
+          }
+          window.isCamerasDecodedSignupFlight = false;
+          return;
         }
-        window.isCamerasDecodedSignupFlight = false;
-        return;
-    }
-    const confirmError = document.getElementById('confirmError');
-    if (confirmError) confirmError.style.display = 'none';
+        const confirmError = document.getElementById('confirmError');
+        if (confirmError) confirmError.style.display = 'none';
 
-    // ---- Validate fields ----
-    const name = formData['fullName'] || '';
-    const email = (formData['email'] || '').trim().toLowerCase();
-    const username = formData['username'] || '';
-    const isSocialUser = socialUserData !== null;
+        // ---- Validate fields ----
+        const name = formData['fullName'] || '';
+        const email = (formData['email'] || '').trim().toLowerCase();
+        const username = formData['username'] || '';
+        const isSocialUser = socialUserData !== null;
 
-    if (!name || !email || !username) {
-        errorEl.textContent = '⚠️ Please fill in all required fields.';
-        errorEl.style.display = 'block';
-        window.isCamerasDecodedSignupFlight = false;
-        return;
-    }
+        if (!name || !email || !username) {
+          errorEl.textContent = '⚠️ Please fill in all required fields.';
+          errorEl.style.display = 'block';
+          window.isCamerasDecodedSignupFlight = false;
+          return;
+        }
 
-    if (!isSocialUser) {
-        if (!password || password.length < 6) {
+        if (!isSocialUser) {
+          if (!password || password.length < 6) {
             errorEl.textContent = '⚠️ Password must be at least 6 characters.';
             errorEl.style.display = 'block';
             window.isCamerasDecodedSignupFlight = false;
             return;
-        }
-        if (password !== confirmPassword) {
+          }
+          if (password !== confirmPassword) {
             document.getElementById('confirmPasswordError').style.display = 'block';
             errorEl.textContent = '⚠️ Passwords do not match.';
             errorEl.style.display = 'block';
             window.isCamerasDecodedSignupFlight = false;
             return;
+          }
+          document.getElementById('confirmPasswordError').style.display = 'none';
         }
-        document.getElementById('confirmPasswordError').style.display = 'none';
-    }
 
-    if (typeof firebase === 'undefined' || !firebase.auth) {
-        errorEl.textContent = '⚠️ Firebase not loaded. Please refresh and try again.';
-        errorEl.style.display = 'block';
-        window.isCamerasDecodedSignupFlight = false;
-        return;
-    }
+        if (typeof firebase === 'undefined' || !firebase.auth) {
+          errorEl.textContent = '⚠️ Firebase not loaded. Please refresh and try again.';
+          errorEl.style.display = 'block';
+          window.isCamerasDecodedSignupFlight = false;
+          return;
+        }
 
-    btn.style.display = 'none';
-    spinner.style.display = 'block';
-    errorEl.style.display = 'none';
+        btn.style.display = 'none';
+        spinner.style.display = 'block';
+        errorEl.style.display = 'none';
 
-    const userAuth = auth;
-    const firestore = db;
+        // ✅ Use firebase.auth() and firebase.firestore() directly (safe)
+        const userAuth = firebase.auth();
+        const firestore = firebase.firestore();
 
-    // 🔥 Auto-generate referral code
-    let referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (!referralCode || referralCode.length < 3) {
-        referralCode = Math.random().toString(36).substring(2, 8);
-    }
+        // 🔥 Auto-generate referral code
+        let referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!referralCode || referralCode.length < 3) {
+          referralCode = Math.random().toString(36).substring(2, 8);
+        }
 
-    // Build userData
-    let userData = {
-        name,
-        email: email,
-        username,
-        role: selectedRole,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        referralCode: referralCode,
-        totalReferrals: 0,
-        totalCommissionEarned: 0,
-        ambassadorTier: 'signal'
-    };
+        // Build userData
+        let userData = {
+          name,
+          email: email,
+          username,
+          role: selectedRole,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          referralCode: referralCode,
+          totalReferrals: 0,
+          totalCommissionEarned: 0,
+          ambassadorTier: 'signal'
+        };
 
-    // Store referrer if any
-    const referredBy = localStorage.getItem('signup_referral') || null;
-    if (referredBy) {
-        userData.referredBy = referredBy;
-    }
+        // Store referrer if any
+        const referredBy = localStorage.getItem('signup_referral') || null;
+        if (referredBy) {
+          userData.referredBy = referredBy;
+        }
 
-    if (selectedRole === 'Operator') {
-        const phoneVal = phone || formData['phone'] || '';
-        const confidence = parseInt(formData['confidenceSlider']) || 0;
-        const challenge = formData['challenge'] || '';
-        const shootFrequency = formData['shootFrequency'] || '';
-        const learningStyle = formData['learningStyle'] || '';
-        const brands = formData['selectedGear'] || [];
-        const lenses = formData['selectedLenses'] || [];
-        const interests = formData['selectedInterests'] || [];
-        let billingInterval = 'monthly';
-        if (isWeekly) billingInterval = 'weekly';
-        else if (isAnnual) billingInterval = 'annual';
+        if (selectedRole === 'Operator') {
+          const phoneVal = phone || formData['phone'] || '';
+          const confidence = parseInt(formData['confidenceSlider']) || 0;
+          const challenge = formData['challenge'] || '';
+          const shootFrequency = formData['shootFrequency'] || '';
+          const learningStyle = formData['learningStyle'] || '';
+          const brands = formData['selectedGear'] || [];
+          const lenses = formData['selectedLenses'] || [];
+          const interests = formData['selectedInterests'] || [];
+          let billingInterval = 'monthly';
+          if (isWeekly) billingInterval = 'weekly';
+          else if (isAnnual) billingInterval = 'annual';
 
-        const learningJourney = {
+          const learningJourney = {
             experience: formData['experience'] || '',
             primaryGoal: formData['primaryGoal'] || '',
             ambition: formData['ambition'] || '',
@@ -943,9 +945,9 @@
             shootFrequency: shootFrequency,
             learningStyle: learningStyle,
             confidence: confidence
-        };
+          };
 
-        userData = {
+          userData = {
             ...userData,
             phone: selectedTier === 'pro' ? phoneVal : null,
             tier: selectedTier,
@@ -961,51 +963,51 @@
             savedCommunityPosts: [],
             savedProtocols: [],
             learningJourney: learningJourney
-        };
-    } else if (selectedRole === 'Partner') {
-        // ... same as before (omitted for brevity)
-    } else if (selectedRole === 'Instructor') {
-        // ... same as before
-    }
+          };
+        } else if (selectedRole === 'Partner') {
+          // ... (Partner logic kept as before)
+        } else if (selectedRole === 'Instructor') {
+          // ... (Instructor logic kept as before)
+        }
 
-    console.log('[SIGNUP] userData prepared:', userData);
+        console.log('[SIGNUP] userData prepared:', userData);
 
-    // ---- Start the authentication and Firestore write ----
-    let createPromise;
-    if (isSocialUser) {
-        const user = userAuth.currentUser;
-        if (!user || user.uid !== socialUserData.uid) {
+        // ---- Start the authentication and Firestore write ----
+        let createPromise;
+        if (isSocialUser) {
+          const user = userAuth.currentUser;
+          if (!user || user.uid !== socialUserData.uid) {
             errorEl.textContent = '⚠️ Social login session expired. Please try again.';
             errorEl.style.display = 'block';
             btn.style.display = 'block';
             spinner.style.display = 'none';
             window.isCamerasDecodedSignupFlight = false;
             return;
+          }
+          createPromise = Promise.resolve(user);
+        } else {
+          createPromise = userAuth.createUserWithEmailAndPassword(email, password);
         }
-        createPromise = Promise.resolve(user);
-    } else {
-        createPromise = userAuth.createUserWithEmailAndPassword(email, password);
-    }
 
-    createPromise
-        .then(cred => {
+        createPromise
+          .then(cred => {
             const user = isSocialUser ? cred : cred.user;
             const uid = user.uid;
             console.log('[SIGNUP] Auth user created, UID:', uid);
             if (selectedRole === 'Partner') userData.partnerId = 'PART-' + uid.slice(0, 6).toUpperCase();
             else if (selectedRole === 'Instructor') userData.instructorId = 'INSTR-' + uid.slice(0, 6).toUpperCase();
             return user.updateProfile({ displayName: name }).catch(e => console.warn('updateProfile non-critical', e)).then(() => ({ user, uid }));
-        })
-        .then(({ user, uid }) => {
+          })
+          .then(({ user, uid }) => {
             console.log('[SIGNUP] About to write to Firestore for UID:', uid);
             // Write the user document – use set with merge: true
             return firestore.collection('users').doc(uid).set(userData, { merge: true })
-                .then(() => {
-                    console.log('[SIGNUP] Firestore write SUCCESS');
-                    return uid;
-                });
-        })
-        .then(uid => {
+              .then(() => {
+                console.log('[SIGNUP] Firestore write SUCCESS');
+                return uid;
+              });
+          })
+          .then(uid => {
             console.log('[SIGNUP] Success block reached, uid:', uid);
             // Success – show confirmation and redirect
             btn.style.display = 'none';
@@ -1019,37 +1021,51 @@
             // Ensure we have the uid
             const finalUid = uid || firebase.auth().currentUser?.uid;
             if (!finalUid) {
-                console.warn('[SIGNUP] No uid found, redirecting to login');
-                window.location.href = 'login.html';
-                return;
+              console.warn('[SIGNUP] No uid found, redirecting to login');
+              window.location.href = 'login.html';
+              return;
             }
             redirectToDashboard(selectedRole, finalUid);
-        })
-        .catch(err => {
+          })
+          .catch(err => {
             console.error('[SIGNUP] Error caught in catch block:', err);
             let errorMessage = err.message || 'Something went wrong.';
             if (err.code === 'auth/email-already-in-use') {
-                errorMessage = '❌ This email is already registered. Please <a href="login.html" style="color:#8deb00; text-decoration:underline;">log in</a> instead.';
+              errorMessage = '❌ This email is already registered. Please <a href="login.html" style="color:#8deb00; text-decoration:underline;">log in</a> instead.';
             } else if (err.code === 'auth/weak-password') {
-                errorMessage = '❌ Password is too weak. Please use at least 6 characters.';
+              errorMessage = '❌ Password is too weak. Please use at least 6 characters.';
             } else if (err.code === 'auth/invalid-email') {
-                errorMessage = '❌ Invalid email address.';
+              errorMessage = '❌ Invalid email address.';
             } else if (err.code === 'auth/network-request-failed') {
-                errorMessage = '❌ Network error. Please check your connection.';
+              errorMessage = '❌ Network error. Please check your connection.';
             } else if (err.code === 'auth/too-many-requests') {
-                errorMessage = '❌ Too many attempts. Please try again later.';
+              errorMessage = '❌ Too many attempts. Please try again later.';
             } else if (err.code === 'auth/invalid-credential') {
-                errorMessage = '❌ Invalid credentials. Please ensure your email and password are correct.';
+              errorMessage = '❌ Invalid credentials. Please ensure your email and password are correct.';
             } else {
-                errorMessage = '❌ ' + errorMessage;
+              errorMessage = '❌ ' + errorMessage;
             }
             errorEl.innerHTML = errorMessage;
             errorEl.style.display = 'block';
             btn.style.display = 'block';
             spinner.style.display = 'none';
             window.isCamerasDecodedSignupFlight = false;
-        });
-};
+          });
+      } catch (syncErr) {
+        console.error('[SIGNUP] Synchronous setup error:', syncErr);
+        // If something goes wrong in the synchronous part, show the spinner hide and error
+        const btn = document.getElementById('activateBtn');
+        const spinner = document.getElementById('signupSpinner');
+        const errorEl = document.getElementById('signupError');
+        if (btn) btn.style.display = 'block';
+        if (spinner) spinner.style.display = 'none';
+        if (errorEl) {
+          errorEl.textContent = '⚠️ An error occurred while setting up your account. Please try again.';
+          errorEl.style.display = 'block';
+        }
+        window.isCamerasDecodedSignupFlight = false;
+      }
+    };
 
     // ================================================================
     // AUTH STATE LISTENER – with flight guard
