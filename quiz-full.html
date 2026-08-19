@@ -88,7 +88,7 @@
     .quiz-header .back-link:hover { color: var(--green); }
     .quiz-header .back-link i { margin-right: 6px; }
 
-    /* ----- SIGNAL METER (from your snippet) ----- */
+    /* ----- SIGNAL METER ----- */
     .signal-meter {
       background: rgba(255,255,255,0.02);
       border-radius: 8px;
@@ -366,9 +366,30 @@
     </div>
   </div>
 
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <script>
     // ============================================================
-    // 1.  PARTICLES BACKGROUND (optimised)
+    // 0.  FIREBASE INIT
+    // ============================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ============================================================
+    // 1.  PARTICLES BACKGROUND
     // ============================================================
     (function() {
       const canvas = document.getElementById('particles');
@@ -428,7 +449,7 @@
     })();
 
     // ============================================================
-    // 2.  QUIZ DATA (Beginner / Intermediate / Advanced)
+    // 2.  QUIZ DATA
     // ============================================================
     const questionBank = {
       beginner: [
@@ -470,17 +491,18 @@
     };
 
     // ============================================================
-    // 3.  QUIZ ENGINE
+    // 3.  QUIZ ENGINE – WITH FIRESTORE SYNC
     // ============================================================
     let currentLevel = 'beginner';
     let questions = [];
     let currentQ = 0;
     let score = 0;
     let answered = false;
-    let streak = parseInt(localStorage.getItem('quizStreak') || '0');
+    let streak = 0;
+    let currentUser = null;
 
     const letters = ['A', 'B', 'C', 'D'];
-    const totalQuestionsPerLevel = 10; // we use 10 per level, but can be dynamic
+    const totalQuestionsPerLevel = 10;
 
     // DOM refs
     const qText = document.getElementById('qText');
@@ -498,8 +520,63 @@
     const signalPercent = document.getElementById('signalPercent');
     const stepLabel = document.getElementById('stepLabel');
     const waveDots = document.querySelectorAll('.wave-dot');
+    const streakDisplay = document.querySelector('.streak-display');
 
-    // Difficulty buttons
+    // ---- Load quiz data from Firestore ----
+    async function loadQuizData() {
+      const user = auth.currentUser;
+      if (!user) return;
+      currentUser = user;
+      try {
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          const data = doc.data();
+          if (data.quizStreak !== undefined) {
+            streak = data.quizStreak || 0;
+          } else {
+            // Fallback to localStorage then default to 0
+            streak = parseInt(localStorage.getItem('quizStreak') || '0');
+          }
+          // Update UI
+          document.getElementById('streakNum2').textContent = streak;
+          localStorage.setItem('quizStreak', streak.toString());
+          // Last score
+          if (data.quizLastScore) {
+            const score = data.quizLastScore;
+            const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
+            const levelIcon = levelNames[score.level] || '';
+            document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${score.score}/${score.total}`;
+            localStorage.setItem('quizLastScore', JSON.stringify(score));
+          }
+        }
+      } catch (err) {
+        console.warn('Error loading quiz data:', err);
+        streak = parseInt(localStorage.getItem('quizStreak') || '0');
+        document.getElementById('streakNum2').textContent = streak;
+      }
+    }
+
+    // ---- Save quiz data to Firestore ----
+    async function saveQuizData(scoreData) {
+      const user = auth.currentUser;
+      if (!user) return;
+      try {
+        await db.collection('users').doc(user.uid).update({
+          quizStreak: streak,
+          quizLastScore: scoreData
+        });
+        // Also update localStorage for quick access
+        localStorage.setItem('quizStreak', streak.toString());
+        localStorage.setItem('quizLastScore', JSON.stringify(scoreData));
+      } catch (err) {
+        console.warn('Error saving quiz data:', err);
+        // Fallback to localStorage only
+        localStorage.setItem('quizStreak', streak.toString());
+        localStorage.setItem('quizLastScore', JSON.stringify(scoreData));
+      }
+    }
+
+    // ---- Difficulty buttons ----
     document.querySelectorAll('.diff-btn').forEach(btn => {
       btn.addEventListener('click', function() {
         document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
@@ -511,8 +588,6 @@
 
     function loadQuestions(level) {
       questions = questionBank[level] || questionBank.beginner;
-      // Shuffle for variety (optional) – we'll keep order fixed for consistency
-      // but you could shuffle: questions = questions.sort(() => Math.random() - 0.5);
       return questions;
     }
 
@@ -526,7 +601,6 @@
       document.getElementById('questionArea').style.display = 'block';
       feedbackBox.style.display = 'none';
       nextBtn.style.display = 'none';
-      // Update step wave and meter
       updateWaveAndMeter(0);
       stepLabel.textContent = `⚡ ${level.charAt(0).toUpperCase()+level.slice(1)} · Question 1 of ${questions.length}`;
       renderQuestion();
@@ -551,7 +625,6 @@
       feedbackBox.style.display = 'none';
       nextBtn.style.display = 'none';
       answered = false;
-      // Update step label
       stepLabel.textContent = `⚡ ${currentLevel.charAt(0).toUpperCase()+currentLevel.slice(1)} · Question ${currentQ+1} of ${questions.length}`;
       updateWaveAndMeter(currentQ);
     }
@@ -562,6 +635,8 @@
       const q = questions[currentQ];
       const isCorrect = selected === q.c;
       if (isCorrect) { score++; streak++; } else { streak = 0; }
+      // Update UI streak
+      document.getElementById('streakNum2').textContent = streak;
       localStorage.setItem('quizStreak', streak.toString());
 
       const btns = document.querySelectorAll('.answer-btn');
@@ -571,12 +646,10 @@
         if (idx === selected && !isCorrect) btn.classList.add('wrong');
       });
 
-      // Update signal meter based on score so far
       const progress = (score / questions.length) * 100;
       signalFill.style.width = progress + '%';
       signalPercent.textContent = Math.round(progress) + '%';
 
-      // Show feedback
       feedbackBox.style.display = 'block';
       feedbackBox.style.borderLeftColor = isCorrect ? 'var(--green)' : '#ff4a4a';
       fbTitle.innerHTML = isCorrect ? '✅ Correct!' : '❌ Not quite.';
@@ -585,12 +658,10 @@
 
       nextBtn.style.display = 'block';
       nextBtn.textContent = (currentQ === questions.length - 1) ? 'See Results 🏆' : 'Next Question →';
-      // Update wave dot to completed
       waveDots.forEach((dot, i) => {
         if (i <= currentQ) dot.classList.add('completed');
         else dot.classList.remove('completed');
       });
-      // Highlight current dot as active
       waveDots.forEach((dot, i) => {
         dot.classList.toggle('active', i === currentQ + 1);
       });
@@ -601,20 +672,23 @@
       renderQuestion();
     }
 
-    function showResults() {
-// Save score for dashboard
-localStorage.setItem('quizLastScore', JSON.stringify({ 
-  score: score, 
-  total: questions.length, 
-  level: currentLevel 
-}));
+    async function showResults() {
+      const scoreData = {
+        score: score,
+        total: questions.length,
+        level: currentLevel
+      };
+
+      // Save to Firestore (syncs across devices)
+      await saveQuizData(scoreData);
+
       document.getElementById('questionArea').style.display = 'none';
       feedbackBox.style.display = 'none';
       nextBtn.style.display = 'none';
       resultsBox.style.display = 'block';
       finalScore.textContent = score;
       totalQSpan.textContent = questions.length;
-      // Emoji and message
+
       let emoji, msg;
       if (score === questions.length) { emoji = '🌟'; msg = 'Perfect! You are a true Decoder Master!'; }
       else if (score >= questions.length - 1) { emoji = '🔥'; msg = 'Almost perfect! You\'re on fire!'; }
@@ -622,14 +696,18 @@ localStorage.setItem('quizLastScore', JSON.stringify({
       else { emoji = '📚'; msg = 'Keep studying the signal! Try again.'; }
       resultEmoji.textContent = emoji;
       resultMsg.textContent = msg;
-      // Set signal to final score
+
       const finalPct = (score / questions.length) * 100;
       signalFill.style.width = finalPct + '%';
       signalPercent.textContent = Math.round(finalPct) + '%';
       stepLabel.textContent = '🎯 Quiz Complete!';
-      // Update wave dots all completed
       waveDots.forEach(d => d.classList.add('completed'));
-      // Confetti if perfect
+
+      // Update dashboard display (last score)
+      const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
+      const levelIcon = levelNames[currentLevel] || '';
+      document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${score}/${questions.length}`;
+
       if (score === questions.length) launchConfetti();
     }
 
@@ -638,7 +716,6 @@ localStorage.setItem('quizLastScore', JSON.stringify({
     }
 
     function resetDifficulty() {
-      // Show difficulty selector again, hide results, reset UI
       resultsBox.style.display = 'none';
       document.getElementById('questionArea').style.display = 'block';
       qText.textContent = 'Select a difficulty to begin.';
@@ -650,38 +727,32 @@ localStorage.setItem('quizLastScore', JSON.stringify({
       stepLabel.textContent = '⚡ Step 1: Choose difficulty';
       waveDots.forEach(d => { d.classList.remove('active', 'completed'); });
       waveDots[0].classList.add('active');
-      // Reset score display
       finalScore.textContent = '0';
       totalQSpan.textContent = '0';
     }
 
     function updateWaveAndMeter(qIndex) {
-      // Update wave dots: active at current, completed before
       waveDots.forEach((dot, i) => {
         if (i < qIndex) dot.classList.add('completed');
         else dot.classList.remove('completed');
         dot.classList.toggle('active', i === qIndex);
       });
-      // Signal meter based on progress (questions answered)
       const progress = qIndex / (questions.length || 1) * 100;
       signalFill.style.width = progress + '%';
       signalPercent.textContent = Math.round(progress) + '%';
     }
 
-    // ============================================================
-    // 4.  CONFETTI (simple canvas burst)
-    // ============================================================
+    // ---- Confetti ----
     function launchConfetti() {
       const colors = ['#8deb00', '#00e5ff', '#ffdd00', '#ff4a4a', '#a0f520'];
-      const container = document.querySelector('.quiz-container');
       for (let i = 0; i < 60; i++) {
         const el = document.createElement('div');
         el.style.cssText = `
-          position: fixed; 
-          width: ${Math.random()*8+4}px; 
-          height: ${Math.random()*8+4}px; 
+          position: fixed;
+          width: ${Math.random()*8+4}px;
+          height: ${Math.random()*8+4}px;
           background: ${colors[Math.floor(Math.random()*colors.length)]};
-          left: ${Math.random()*100}vw; 
+          left: ${Math.random()*100}vw;
           top: -10px;
           border-radius: ${Math.random()>0.5 ? '50%' : '2px'};
           pointer-events: none;
@@ -693,7 +764,6 @@ localStorage.setItem('quizLastScore', JSON.stringify({
         document.body.appendChild(el);
         setTimeout(() => el.remove(), 4000);
       }
-      // Inject keyframes if not present
       if (!document.getElementById('confettiStyle')) {
         const style = document.createElement('style');
         style.id = 'confettiStyle';
@@ -708,9 +778,22 @@ localStorage.setItem('quizLastScore', JSON.stringify({
     }
 
     // ============================================================
-    // 5.  INIT – read URL param ?level=... and auto‑start
+    // 4.  INIT – load data then start
     // ============================================================
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Wait for auth to be ready
+      if (auth.currentUser) {
+        await loadQuizData();
+      } else {
+        // Listen for auth
+        auth.onAuthStateChanged(async (user) => {
+          if (user) {
+            currentUser = user;
+            await loadQuizData();
+          }
+        });
+      }
+
       const params = new URLSearchParams(window.location.search);
       const levelParam = params.get('level');
       if (levelParam && ['beginner','intermediate','advanced'].includes(levelParam)) {
@@ -720,8 +803,18 @@ localStorage.setItem('quizLastScore', JSON.stringify({
         });
         startQuiz();
       } else {
-        // Show default state: difficulty selected, but not started
         resetDifficulty();
+      }
+    });
+
+    // ---- Auth listener for real-time updates ----
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        currentUser = user;
+        // If quiz hasn't started yet, load data
+        if (document.querySelector('.diff-btn.active')) {
+          loadQuizData();
+        }
       }
     });
   </script>
