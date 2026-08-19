@@ -788,6 +788,13 @@
     // REDIRECT (appends uid as query parameter)
     // ================================================================
     function redirectToDashboard(role, uid) {
+      console.log('REDIRECT CALLED', role, uid);
+      try { window.isCamerasDecodedSignupFlight = false; window._isSubmitting = false; } catch(e){}
+      const targetUrl = 'operator-dashboard.html?uid=' + uid;
+      console.log('Navigating to', targetUrl);
+      window.location.href = targetUrl;
+      return;
+
       const map = {
         'Operator': 'operator-dashboard.html',
         'Instructor': 'instructor-dashboard.html',
@@ -1017,19 +1024,18 @@
           return user.updateProfile({ displayName: name }).catch(function(e){ console.warn('updateProfile non-critical', e); }).then(() => ({ user, uid }));
         })
         .then(({ user, uid }) => {
-          // Write the user document – this is the only Firestore write
+          // Write the user document – FIRE AND FORGET, don't wait
           userData.email = (userData.email || email || '').trim().toLowerCase();
           userData.uid = uid;
           userData.emailLower = userData.email;
-          console.log('[SIGNUP] Writing user doc:', uid, userData.email);
-          return firestore.collection('users').doc(uid).set(userData, {merge:true})
-            .then(()=>{ console.log('[SIGNUP] Firestore write OK'); })
-            .catch(e=>{
-              console.warn('[SIGNUP] Firestore write failed but continuing:', e);
-              // Don't block redirect on firestore failure
-            });
+          console.log('[SIGNUP] Writing user doc (fire-and-forget):', uid, userData.email);
+          firestore.collection('users').doc(uid).set(userData, {merge:true})
+            .then(()=> console.log('[SIGNUP] Firestore write OK (async)'))
+            .catch(e=> console.warn('[SIGNUP] Firestore write failed async (ignored):', e));
+          // Return immediately, don't wait for firestore
+          return {user, uid};
         })
-        .then(() => {
+        .then(({uid}) => {
           // Success – show confirmation and redirect with uid (always)
           try { btn.style.display = 'none'; } catch(e){}
           try { spinner.style.display = 'none'; } catch(e){}
@@ -1040,14 +1046,17 @@
           socialUserData = null;
           
           window._isSubmitting = false;
-          const finalUid = _createdUid || (firebase.auth().currentUser ? firebase.auth().currentUser.uid : '');
+          const finalUid = uid || _createdUid || (firebase.auth().currentUser ? firebase.auth().currentUser.uid : '');
           console.log('[SIGNUP] Success, redirecting with uid:', finalUid, 'role:', selectedRole);
           setTimeout(() => {
+            console.log('TIMEOUT FIRED, finalUid:', finalUid);
             window.isCamerasDecodedSignupFlight = false;
             window._isSubmitting = false;
             if (finalUid) {
+              console.log('Calling redirect');
               redirectToDashboard(selectedRole, finalUid);
             } else {
+              console.log('No uid, going to login');
               window.location.href = 'login.html';
             }
           }, 400);
