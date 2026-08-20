@@ -66,10 +66,6 @@
       0%,100% { transform: scale(1); }
       50% { transform: scale(1.04); }
     }
-    @keyframes ringPulse {
-      0%,100% { filter: drop-shadow(0 0 6px rgba(141,235,0,0.1)); }
-      50% { filter: drop-shadow(0 0 20px rgba(141,235,0,0.2)); }
-    }
 
     /* ============================================================
        APPLE ACTIVITY CARD – 3 RINGS
@@ -147,12 +143,10 @@
       stroke-linecap: round;
       transition: stroke-dashoffset 1s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    /* Ring colours */
     .ring-fill.streak-ring { stroke: #ff6b35; }
     .ring-fill.points-ring { stroke: #8deb00; }
     .ring-fill.multiplier-ring { stroke: #e0b12d; }
 
-    /* Ring centre content */
     .ring-center {
       position: absolute;
       top: 50%;
@@ -226,11 +220,11 @@
       height: 100%;
       background: linear-gradient(90deg, #1db31b 0%, #c9e265 100%);
       border-radius: 4px;
-      transition: width 0.8s var(--transition-smooth);
+      transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
       width: 0%;
     }
 
-    /* ---- Bonus Points (bottom) ---- */
+    /* ---- Bonus Points ---- */
     .bonus-row {
       display: flex;
       justify-content: flex-end;
@@ -252,63 +246,51 @@
       letter-spacing: 0.5px;
     }
 
+    /* ---- Signal Mini ---- */
+    .signal-mini {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      margin-top: 12px;
+      justify-content: flex-end;
+    }
+    .signal-mini .bar {
+      display: block;
+      width: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      transition: background 0.3s, height 0.3s;
+    }
+    .signal-mini .bar:nth-child(1) { height: 8px; }
+    .signal-mini .bar:nth-child(2) { height: 12px; }
+    .signal-mini .bar:nth-child(3) { height: 16px; }
+    .signal-mini .bar:nth-child(4) { height: 20px; }
+    .signal-mini .bar:nth-child(5) { height: 24px; }
+    .signal-mini .bar.active {
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(141, 235, 0, 0.2);
+    }
+
     /* ---- Responsive ---- */
     @media (max-width: 768px) {
-      .activity-card {
-        padding: 18px 16px 16px;
-      }
-      :root {
-        --ring-size: 72px;
-        --ring-stroke: 5px;
-      }
-      .ring-value {
-        font-size: 15px;
-      }
-      .ring-icon {
-        font-size: 15px;
-      }
-      .rings-row {
-        gap: 8px;
-      }
-      .ring-item {
-        min-width: 60px;
-        max-width: 100px;
-      }
-      .tier-header {
-        font-size: 10px;
-      }
+      .activity-card { padding: 18px 16px 16px; }
+      :root { --ring-size: 72px; --ring-stroke: 5px; }
+      .ring-value { font-size: 15px; }
+      .ring-icon { font-size: 15px; }
+      .rings-row { gap: 8px; }
+      .ring-item { min-width: 60px; max-width: 100px; }
+      .tier-header { font-size: 10px; }
     }
     @media (max-width: 480px) {
-      .activity-card {
-        padding: 14px 12px 12px;
-        border-radius: 16px;
-      }
-      :root {
-        --ring-size: 60px;
-        --ring-stroke: 4px;
-      }
-      .ring-value {
-        font-size: 13px;
-      }
-      .ring-icon {
-        font-size: 12px;
-      }
-      .ring-label {
-        font-size: 7px;
-      }
-      .rings-row {
-        gap: 4px;
-      }
-      .ring-item {
-        min-width: 50px;
-        max-width: 80px;
-      }
-      .tier-header {
-        font-size: 9px;
-      }
-      .bonus-row {
-        font-size: 11px;
-      }
+      .activity-card { padding: 14px 12px 12px; border-radius: 16px; }
+      :root { --ring-size: 60px; --ring-stroke: 4px; }
+      .ring-value { font-size: 13px; }
+      .ring-icon { font-size: 12px; }
+      .ring-label { font-size: 7px; }
+      .rings-row { gap: 4px; }
+      .ring-item { min-width: 50px; max-width: 80px; }
+      .tier-header { font-size: 9px; }
+      .bonus-row { font-size: 11px; }
     }
 
     /* ============================================================
@@ -862,7 +844,7 @@
 
         </div>
 
-        <!-- Bonus Points (no ring) -->
+        <!-- Bonus Points -->
         <div class="bonus-row">
           <span>
             <span class="bonus-label">Bonus points</span>
@@ -881,8 +863,8 @@
           </div>
         </div>
 
-        <!-- Signal bars (subtle) -->
-        <div class="signal-mini" id="signalBars" style="display:flex; align-items:flex-end; gap:3px; margin-top:12px; justify-content:flex-end;">
+        <!-- Signal bars -->
+        <div class="signal-mini" id="signalBars">
           <span class="bar" id="bar1"></span>
           <span class="bar" id="bar2"></span>
           <span class="bar" id="bar3"></span>
@@ -1295,17 +1277,8 @@
     }
 
     // ================================================================
-    // RING HELPER FUNCTIONS
+    // RING HELPERS
     // ================================================================
-    function updateRing(elementId, progress) {
-      const ring = document.getElementById(elementId);
-      if (!ring) return;
-      const circumference = 326.7; // 2 * PI * 52
-      const clamped = Math.max(0, Math.min(progress, 1));
-      const offset = circumference * (1 - clamped);
-      ring.style.strokeDashoffset = offset;
-    }
-
     function getMultiplier(streak) {
       if (streak >= 7) return 3.0;
       if (streak >= 3) return 2.0;
@@ -1336,48 +1309,101 @@
       return 0;
     }
 
-    function updateProgressOverview(userData) {
-      const streak = userData.dailyChallengeStreak || 0;
-      const points = userData.totalPoints || 0;
-      const multiplier = getMultiplier(streak);
-      const bonusPoints = userData.bonusPoints || 0;
+    // ================================================================
+    // RING CONTROLS
+    // ================================================================
+    function setRingTransition(ringId, enabled) {
+      const ring = document.getElementById(ringId);
+      if (ring) {
+        ring.style.transition = enabled
+          ? 'stroke-dashoffset 1s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          : 'none';
+      }
+    }
 
-      // 1. Streak ring: 1–100 days
+    function setRingValue(ringId, progress) {
+      const ring = document.getElementById(ringId);
+      if (!ring) return;
+      const circumference = 326.7;
+      const clamped = Math.max(0, Math.min(progress, 1));
+      ring.style.strokeDashoffset = circumference * (1 - clamped);
+    }
+
+    // ================================================================
+    // UPDATE PROGRESS OVERVIEW
+    // ================================================================
+    function updateProgressOverview(userData, animate = true) {
+      const isHundredPercent = userData === null;
+
+      const streak = isHundredPercent ? 100 : (userData?.dailyChallengeStreak || 0);
+      const points = isHundredPercent ? 10000 : (userData?.totalPoints || 0);
+      const multiplier = isHundredPercent ? 3.0 : getMultiplier(streak);
+      const tierProgress = isHundredPercent ? 1 : getTierProgress(streak, multiplier);
+      const bonusPoints = isHundredPercent ? 0 : (userData?.bonusPoints || 0);
+
+      // ---- Rings ----
+      const rings = ['streakRingFill', 'pointsRingFill', 'multiplierRingFill'];
+      rings.forEach(id => setRingTransition(id, animate));
+
       const streakProgress = Math.min(streak / 100, 1);
-      updateRing('streakRingFill', streakProgress);
-      animateNumber(document.getElementById('streakDays'), streak);
+      setRingValue('streakRingFill', streakProgress);
 
-      // 2. Points ring: 10–10,000 points
       const pointsProgress = Math.min((points - 10) / (10000 - 10), 1);
-      updateRing('pointsRingFill', pointsProgress >= 0 ? pointsProgress : 0);
-      animateNumber(document.getElementById('totalPoints'), points);
+      setRingValue('pointsRingFill', pointsProgress >= 0 ? pointsProgress : 0);
 
-      // 3. Multiplier ring: ×1.0 → ×3.0
       const multProgress = (multiplier - 1.0) / 2.0;
-      updateRing('multiplierRingFill', multProgress);
-      const multLabel = multiplier === 1.0 ? '×1.0' :
-                        multiplier === 1.5 ? '×1.5' :
-                        multiplier === 2.0 ? '×2.0' : '×3.0';
-      document.getElementById('multiplierBadge').textContent = multLabel;
+      setRingValue('multiplierRingFill', multProgress);
 
-      // 4. Bonus points
-      document.getElementById('bonusPointsDisplay').textContent = bonusPoints;
+      // ---- Progress Bar ----
+      const fill = document.getElementById('multiplierProgressFill');
+      if (fill) {
+        fill.style.transition = animate
+          ? 'width 1s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          : 'none';
+        fill.style.width = (tierProgress * 100) + '%';
+      }
 
-      // 5. Next tier progress bar
-      const daysToNext = getDaysToNextTier(streak, multiplier);
-      const tierProgress = getTierProgress(streak, multiplier);
-      document.getElementById('daysToNextTier').textContent = daysToNext;
-      document.getElementById('nextTierLabel').textContent = getNextTierLabel(multiplier);
-      document.getElementById('multiplierProgressFill').style.width = (tierProgress * 100) + '%';
+      // ---- Numbers (only when showing actual data) ----
+      if (!isHundredPercent && userData) {
+        animateNumber(document.getElementById('streakDays'), streak);
+        animateNumber(document.getElementById('totalPoints'), points);
 
-      // 6. Signal bars
-      const signalLevel = Math.min(Math.floor(streak / 2), 5);
-      for (let i = 1; i <= 5; i++) {
-        const bar = document.getElementById('bar' + i);
-        if (bar) {
-          bar.classList.toggle('active', i <= signalLevel);
+        const multLabel = multiplier === 1.0 ? '×1.0' :
+                          multiplier === 1.5 ? '×1.5' :
+                          multiplier === 2.0 ? '×2.0' : '×3.0';
+        document.getElementById('multiplierBadge').textContent = multLabel;
+
+        document.getElementById('bonusPointsDisplay').textContent = bonusPoints;
+        document.getElementById('daysToNextTier').textContent = getDaysToNextTier(streak, multiplier);
+        document.getElementById('nextTierLabel').textContent = getNextTierLabel(multiplier);
+
+        // Signal bars
+        const signalLevel = Math.min(Math.floor(streak / 2), 5);
+        for (let i = 1; i <= 5; i++) {
+          const bar = document.getElementById('bar' + i);
+          if (bar) {
+            bar.classList.toggle('active', i <= signalLevel);
+          }
         }
       }
+    }
+
+    // ================================================================
+    // ANIMATE RINGS ON LOAD – 0% → 100% → ACTUAL
+    // ================================================================
+    function animateRingsOnLoad(userData) {
+      // Step 1: Set to 0% (no transition)
+      updateProgressOverview({ dailyChallengeStreak: 0, totalPoints: 10, bonusPoints: 0 }, false);
+
+      // Step 2: Animate to 100% (with transition)
+      setTimeout(() => {
+        updateProgressOverview(null, true);
+      }, 200);
+
+      // Step 3: Animate down to actual values
+      setTimeout(() => {
+        updateProgressOverview(userData, true);
+      }, 1400);
     }
 
     // ---- Render functions ----
@@ -1803,8 +1829,8 @@
         renderProtocols(userData);
         renderReferral(userData);
 
-        // ---- Update Activity Card ----
-        updateProgressOverview(userData);
+        // ---- Animate rings on load ----
+        animateRingsOnLoad(userData);
 
         // ---- Quiz ----
         if (userData.quizStreak !== undefined) {
@@ -1911,28 +1937,6 @@
     });
 
     if (auth.currentUser) { loadDashboard(auth.currentUser); }
-
-    // ---- Signal bar styles (added via JS for consistency) ----
-    const style = document.createElement('style');
-    style.textContent = `
-      .signal-mini .bar {
-        display: block;
-        width: 4px;
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 2px;
-        transition: background 0.3s, height 0.3s;
-      }
-      .signal-mini .bar:nth-child(1) { height: 8px; }
-      .signal-mini .bar:nth-child(2) { height: 12px; }
-      .signal-mini .bar:nth-child(3) { height: 16px; }
-      .signal-mini .bar:nth-child(4) { height: 20px; }
-      .signal-mini .bar:nth-child(5) { height: 24px; }
-      .signal-mini .bar.active {
-        background: var(--green);
-        box-shadow: 0 0 8px rgba(141, 235, 0, 0.2);
-      }
-    `;
-    document.head.appendChild(style);
   </script>
 </body>
 </html>
