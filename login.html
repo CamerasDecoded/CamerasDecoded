@@ -552,10 +552,36 @@
 
   <div id="cd-toast-container"></div>
 
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <script>
-    // ============================================================
-    // TOAST (same as signup)
-    // ============================================================
+    // ================================================================
+    // FIREBASE INIT – FIXED
+    // ================================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+
+    // Initialize only once
+    if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ================================================================
+    // TOAST
+    // ================================================================
     function cdToast(message, type) {
       const container = document.getElementById('cd-toast-container');
       const toast = document.createElement('div');
@@ -569,126 +595,210 @@
       }, 3500);
     }
 
-    // ============================================================
-    // FIREBASE SDK (loaded via CDN)
-    // ============================================================
-    // Firebase config – same as signup
-    const firebaseConfig = {
-      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-      authDomain: "cameras-decoded.firebaseapp.com",
-      projectId: "cameras-decoded",
-      storageBucket: "cameras-decoded.firebasestorage.app",
-      messagingSenderId: "1088920052790",
-      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-      measurementId: "G-YN3M01WW0B"
+    // ================================================================
+    // DOM REFS
+    // ================================================================
+    const loginContainer = document.getElementById('loginFormContainer');
+    const roleSelection = document.getElementById('roleSelection');
+    const roleGrid = document.getElementById('roleGrid');
+    const errorMsg = document.getElementById('errorMsg');
+
+    // ================================================================
+    // HELPERS
+    // ================================================================
+    window.showLoginForm = function() {
+      loginContainer.style.display = 'block';
+      roleSelection.style.display = 'none';
     };
-    // Wait for Firebase to load
-    document.addEventListener('DOMContentLoaded', function() {
-      if (typeof firebase !== 'undefined' && !firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-      }
-      // Continue after Firebase init
-      initLogin();
-    });
 
-    function initLogin() {
-      const auth = firebase.auth();
-      const db = firebase.firestore();
+    function showRoleSelection() {
+      loginContainer.style.display = 'none';
+      roleSelection.style.display = 'block';
+    }
 
-      const loginForm = document.getElementById('loginForm');
-      const loginContainer = document.getElementById('loginFormContainer');
-      const roleSelection = document.getElementById('roleSelection');
-      const roleGrid = document.getElementById('roleGrid');
-      const errorMsg = document.getElementById('errorMsg');
+    function storeUserData(data) {
+      localStorage.setItem('cameras_decoded_user', JSON.stringify(data));
+    }
 
-      // ---- Helper functions ----
-      window.showLoginForm = function() {
-        loginContainer.style.display = 'block';
-        roleSelection.style.display = 'none';
+    function redirectToDashboard(role, uid) {
+      const map = {
+        'Operator': 'operator-dashboard.html',
+        'Instructor': 'instructor-dashboard.html',
+        'Partner': 'partner-dashboard.html',
+        'admin': 'admin-dashboard.html',
+        'Admin': 'admin-dashboard.html'
       };
+      let url = map[role] || 'operator-dashboard.html';
 
-      function showRoleSelection() {
-        loginContainer.style.display = 'none';
-        roleSelection.style.display = 'block';
-      }
-
-      function storeUserData(data) {
-        localStorage.setItem('cameras_decoded_user', JSON.stringify(data));
-      }
-
-      // ---- Redirect (with admin and redirect param support) ----
-      function redirectToDashboard(role, uid) {
-        const map = {
-          'Operator': 'operator-dashboard.html',
-          'Instructor': 'instructor-dashboard.html',
-          'Partner': 'partner-dashboard.html',
-          'admin': 'admin-dashboard.html',
-          'Admin': 'admin-dashboard.html'
-        };
-        let url = map[role] || 'operator-dashboard.html';
-
-        // Check for redirect param from URL (e.g., from admin-dashboard.html)
-        const params = new URLSearchParams(window.location.search);
-        const redirect = params.get('redirect');
-        if (redirect) {
-          try {
-            const dest = new URL(decodeURIComponent(redirect));
-            dest.searchParams.set('opToken', uid);
-            window.location.href = dest.toString();
-            return;
-          } catch (_) {
-            window.location.href = decodeURIComponent(redirect);
-            return;
-          }
+      // Check for redirect param
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get('redirect');
+      if (redirect) {
+        try {
+          const dest = new URL(decodeURIComponent(redirect));
+          dest.searchParams.set('opToken', uid);
+          window.location.href = dest.toString();
+          return;
+        } catch (_) {
+          window.location.href = decodeURIComponent(redirect);
+          return;
         }
-        window.location.href = url;
       }
+      window.location.href = url;
+    }
 
-      // ---- Social login ----
-      window.signInWithGoogle = function() {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithPopup(provider)
-          .then(result => handleSocialLogin(result.user))
-          .catch(err => {
-            console.error('Google error:', err);
-            errorMsg.textContent = err.message;
-            errorMsg.style.display = 'block';
-          });
+    // ================================================================
+    // SOCIAL LOGIN
+    // ================================================================
+    window.signInWithGoogle = function() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .then(result => handleSocialLogin(result.user))
+        .catch(err => {
+          console.error('Google error:', err);
+          errorMsg.textContent = err.message;
+          errorMsg.style.display = 'block';
+        });
+    };
+
+    window.signInWithFacebook = function() {
+      const provider = new firebase.auth.FacebookAuthProvider();
+      provider.addScope('email');
+      provider.addScope('public_profile');
+      auth.signInWithPopup(provider)
+        .then(result => handleSocialLogin(result.user))
+        .catch(err => {
+          console.error('Facebook error:', err);
+          errorMsg.textContent = err.message;
+          errorMsg.style.display = 'block';
+        });
+    };
+
+    function handleSocialLogin(user) {
+      const uid = user.uid;
+      const email = user.email || '';
+      const name = user.displayName || '';
+      const photoURL = user.photoURL || '';
+
+      db.collection('users').doc(uid).get()
+        .then(doc => {
+          if (!doc.exists) {
+            const username = email ? email.split('@')[0] : 'user' + Math.random().toString(36).substring(2, 6);
+            const data = {
+              name: name || '',
+              email: email || '',
+              username: username,
+              role: 'Operator',
+              tier: 'free',
+              billingInterval: 'monthly',
+              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+              referralCode: username,
+              totalReferrals: 0,
+              totalCommissionEarned: 0,
+              ambassadorTier: 'signal',
+              savedCards: [],
+              savedBlogs: [],
+              savedPodcasts: [],
+              savedCommunityPosts: [],
+              preferences: { brands: [], lenses: [], interests: [] },
+              learningJourney: {},
+              photoURL: photoURL
+            };
+            return db.collection('users').doc(uid).set(data)
+              .then(() => db.collection('referralCodes').doc(username).set({
+                uid: uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+              }).catch(() => {}))
+              .then(() => db.collection('users').doc(uid).get());
+          }
+          return doc;
+        })
+        .then(doc => {
+          const data = doc.data();
+          const userData = { uid, ...data };
+          storeUserData(userData);
+
+          let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
+          roles = [...new Set(roles)];
+
+          if (roles.length === 1) {
+            redirectToDashboard(roles[0], uid);
+          } else {
+            showRoleSelection();
+            populateRoleCards(roles, uid);
+          }
+        })
+        .catch(err => {
+          console.error('Social login error:', err);
+          errorMsg.textContent = err.message || 'Something went wrong.';
+          errorMsg.style.display = 'block';
+        });
+    }
+
+    // ================================================================
+    // ROLE CARDS
+    // ================================================================
+    function populateRoleCards(roles, uid) {
+      roleGrid.innerHTML = '';
+      const icons = {
+        'Operator': 'fa-camera',
+        'Partner': 'fa-store',
+        'Instructor': 'fa-chalkboard-teacher',
+        'admin': 'fa-shield-alt',
+        'Admin': 'fa-shield-alt'
       };
-
-      window.signInWithFacebook = function() {
-        const provider = new firebase.auth.FacebookAuthProvider();
-        provider.addScope('email');
-        provider.addScope('public_profile');
-        auth.signInWithPopup(provider)
-          .then(result => handleSocialLogin(result.user))
-          .catch(err => {
-            console.error('Facebook error:', err);
-            errorMsg.textContent = err.message;
-            errorMsg.style.display = 'block';
-          });
+      const desc = {
+        'Operator': 'For photographers & videographers',
+        'Partner': 'For stores & training programs',
+        'Instructor': 'For working photographers who teach',
+        'admin': 'System administrator (internal)',
+        'Admin': 'System administrator (internal)'
       };
+      roles.forEach(role => {
+        const card = document.createElement('div');
+        card.className = 'role-card' + (role === 'Operator' ? ' operator-highlight' : '');
+        card.innerHTML = `
+          <i class="fas ${icons[role] || 'fa-user'}"></i>
+          <h4>${role}</h4>
+          <p>${desc[role] || ''}</p>
+        `;
+        card.addEventListener('click', () => {
+          const data = JSON.parse(localStorage.getItem('cameras_decoded_user') || '{}');
+          data.selectedRole = role;
+          storeUserData(data);
+          redirectToDashboard(role, uid);
+        });
+        roleGrid.appendChild(card);
+      });
+    }
 
-      function handleSocialLogin(user) {
-        const uid = user.uid;
-        const email = user.email || '';
-        const name = user.displayName || '';
-        const photoURL = user.photoURL || '';
+    // ================================================================
+    // EMAIL/PASSWORD LOGIN
+    // ================================================================
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      errorMsg.style.display = 'none';
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true;
+      btn.textContent = 'Logging in...';
 
-        db.collection('users').doc(uid).get()
-          .then(doc => {
+      auth.signInWithEmailAndPassword(email, password)
+        .then(cred => {
+          const uid = cred.user.uid;
+          return db.collection('users').doc(uid).get().then(doc => {
             if (!doc.exists) {
-              // Create minimal user doc (like signup)
-              const username = email ? email.split('@')[0] : 'user' + Math.random().toString(36).substring(2, 6);
+              // Minimal recovery – create doc if missing
               const data = {
-                name: name || '',
+                name: cred.user.displayName || '',
                 email: email || '',
-                username: username,
+                username: email ? email.split('@')[0] : 'user' + uid.slice(0,6),
                 role: 'Operator',
                 tier: 'free',
                 billingInterval: 'monthly',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                referralCode: username,
+                referralCode: email ? email.split('@')[0] : 'user' + uid.slice(0,6),
                 totalReferrals: 0,
                 totalCommissionEarned: 0,
                 ambassadorTier: 'signal',
@@ -698,219 +808,112 @@
                 savedCommunityPosts: [],
                 preferences: { brands: [], lenses: [], interests: [] },
                 learningJourney: {},
-                photoURL: photoURL
+                photoURL: cred.user.photoURL || ''
               };
               return db.collection('users').doc(uid).set(data)
-                .then(() => db.collection('referralCodes').doc(username).set({
+                .then(() => db.collection('referralCodes').doc(data.referralCode).set({
                   uid: uid,
                   createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 }).catch(() => {}))
                 .then(() => db.collection('users').doc(uid).get());
             }
             return doc;
-          })
-          .then(doc => {
-            const data = doc.data();
-            const userData = { uid, ...data };
-            storeUserData(userData);
+          });
+        })
+        .then(doc => {
+          const data = doc.data();
+          const userData = { uid: doc.id, ...data };
+          storeUserData(userData);
 
+          let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
+          roles = [...new Set(roles)];
+
+          if (roles.length === 1) {
+            redirectToDashboard(roles[0], doc.id);
+          } else {
+            showRoleSelection();
+            populateRoleCards(roles, doc.id);
+          }
+        })
+        .catch(err => {
+          errorMsg.textContent = err.message;
+          errorMsg.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Access Dashboard';
+        });
+    });
+
+    // ================================================================
+    // AUTO-REDIRECT if already logged in
+    // ================================================================
+    auth.onAuthStateChanged((user) => {
+      if (user && window.location.pathname.includes('login.html')) {
+        const uid = user.uid;
+        db.collection('users').doc(uid).get().then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
             let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
             roles = [...new Set(roles)];
-
             if (roles.length === 1) {
               redirectToDashboard(roles[0], uid);
             } else {
               showRoleSelection();
               populateRoleCards(roles, uid);
             }
-          })
-          .catch(err => {
-            console.error('Social login error:', err);
-            errorMsg.textContent = err.message || 'Something went wrong.';
-            errorMsg.style.display = 'block';
-          });
+          }
+        }).catch(() => {});
+      }
+    });
+
+    // ================================================================
+    // PARTICLES (unchanged)
+    // ================================================================
+    (function() {
+      const canvas = document.getElementById('particles');
+      const ctx = canvas.getContext('2d');
+      let w, h;
+      const particles = [];
+      const count = 80;
+
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      class Particle {
+        constructor() {
+          this.x = Math.random() * w;
+          this.y = Math.random() * h;
+          this.size = Math.random() * 2 + 0.5;
+          this.speedX = (Math.random() - 0.5) * 0.3;
+          this.speedY = (Math.random() - 0.5) * 0.3;
+          this.opacity = Math.random() * 0.3 + 0.05;
+        }
+        update() {
+          this.x += this.speedX;
+          this.y += this.speedY;
+          if (this.x < 0 || this.x > w) this.speedX *= -1;
+          if (this.y < 0 || this.y > h) this.speedY *= -1;
+        }
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(141,235,0,${this.opacity})`;
+          ctx.fill();
+        }
       }
 
-      // ---- Role cards ----
-      function populateRoleCards(roles, uid) {
-        roleGrid.innerHTML = '';
-        const icons = {
-          'Operator': 'fa-camera',
-          'Partner': 'fa-store',
-          'Instructor': 'fa-chalkboard-teacher',
-          'admin': 'fa-shield-alt',
-          'Admin': 'fa-shield-alt'
-        };
-        const desc = {
-          'Operator': 'For photographers & videographers',
-          'Partner': 'For stores & training programs',
-          'Instructor': 'For working photographers who teach',
-          'admin': 'System administrator (internal)',
-          'Admin': 'System administrator (internal)'
-        };
-        roles.forEach(role => {
-          const card = document.createElement('div');
-          card.className = 'role-card' + (role === 'Operator' ? ' operator-highlight' : '');
-          card.innerHTML = `
-            <i class="fas ${icons[role] || 'fa-user'}"></i>
-            <h4>${role}</h4>
-            <p>${desc[role] || ''}</p>
-          `;
-          card.addEventListener('click', () => {
-            const data = JSON.parse(localStorage.getItem('cameras_decoded_user') || '{}');
-            data.selectedRole = role;
-            storeUserData(data);
-            redirectToDashboard(role, uid);
-          });
-          roleGrid.appendChild(card);
-        });
+      for (let i = 0; i < count; i++) particles.push(new Particle());
+
+      function animate() {
+        ctx.clearRect(0, 0, w, h);
+        particles.forEach(p => { p.update(); p.draw(); });
+        requestAnimationFrame(animate);
       }
-
-      // ---- Email/Password login ----
-      loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value.trim();
-        errorMsg.style.display = 'none';
-        const btn = document.getElementById('loginBtn');
-        btn.disabled = true;
-        btn.textContent = 'Logging in...';
-
-        auth.signInWithEmailAndPassword(email, password)
-          .then(cred => {
-            const uid = cred.user.uid;
-            return db.collection('users').doc(uid).get().then(doc => {
-              if (!doc.exists) {
-                // Minimal recovery – create doc if missing
-                const data = {
-                  name: cred.user.displayName || '',
-                  email: email || '',
-                  username: email ? email.split('@')[0] : 'user' + uid.slice(0,6),
-                  role: 'Operator',
-                  tier: 'free',
-                  billingInterval: 'monthly',
-                  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                  referralCode: email ? email.split('@')[0] : 'user' + uid.slice(0,6),
-                  totalReferrals: 0,
-                  totalCommissionEarned: 0,
-                  ambassadorTier: 'signal',
-                  savedCards: [],
-                  savedBlogs: [],
-                  savedPodcasts: [],
-                  savedCommunityPosts: [],
-                  preferences: { brands: [], lenses: [], interests: [] },
-                  learningJourney: {},
-                  photoURL: cred.user.photoURL || ''
-                };
-                return db.collection('users').doc(uid).set(data)
-                  .then(() => db.collection('referralCodes').doc(data.referralCode).set({
-                    uid: uid,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                  }).catch(() => {}))
-                  .then(() => db.collection('users').doc(uid).get());
-              }
-              return doc;
-            });
-          })
-          .then(doc => {
-            const data = doc.data();
-            const userData = { uid: doc.id, ...data };
-            storeUserData(userData);
-
-            let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
-            roles = [...new Set(roles)];
-
-            if (roles.length === 1) {
-              redirectToDashboard(roles[0], doc.id);
-            } else {
-              showRoleSelection();
-              populateRoleCards(roles, doc.id);
-            }
-          })
-          .catch(err => {
-            errorMsg.textContent = err.message;
-            errorMsg.style.display = 'block';
-            btn.disabled = false;
-            btn.textContent = 'Access Dashboard';
-          });
-      });
-
-      // ============================================================
-      // AUTO-REDIRECT if already logged in
-      // ============================================================
-      auth.onAuthStateChanged((user) => {
-        if (user && window.location.pathname.includes('login.html')) {
-          const uid = user.uid;
-          db.collection('users').doc(uid).get().then(doc => {
-            if (doc.exists) {
-              const data = doc.data();
-              let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
-              roles = [...new Set(roles)];
-              if (roles.length === 1) {
-                redirectToDashboard(roles[0], uid);
-              } else {
-                showRoleSelection();
-                populateRoleCards(roles, uid);
-              }
-            }
-          }).catch(() => {});
-        }
-      });
-
-      // ============================================================
-      // PARTICLES (unchanged)
-      // ============================================================
-      (function() {
-        const canvas = document.getElementById('particles');
-        const ctx = canvas.getContext('2d');
-        let w, h;
-        const particles = [];
-        const count = 80;
-
-        function resize() {
-          w = canvas.width = window.innerWidth;
-          h = canvas.height = window.innerHeight;
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        class Particle {
-          constructor() {
-            this.x = Math.random() * w;
-            this.y = Math.random() * h;
-            this.size = Math.random() * 2 + 0.5;
-            this.speedX = (Math.random() - 0.5) * 0.3;
-            this.speedY = (Math.random() - 0.5) * 0.3;
-            this.opacity = Math.random() * 0.3 + 0.05;
-          }
-          update() {
-            this.x += this.speedX;
-            this.y += this.speedY;
-            if (this.x < 0 || this.x > w) this.speedX *= -1;
-            if (this.y < 0 || this.y > h) this.speedY *= -1;
-          }
-          draw() {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(141,235,0,${this.opacity})`;
-            ctx.fill();
-          }
-        }
-
-        for (let i = 0; i < count; i++) particles.push(new Particle());
-
-        function animate() {
-          ctx.clearRect(0, 0, w, h);
-          particles.forEach(p => { p.update(); p.draw(); });
-          requestAnimationFrame(animate);
-        }
-        animate();
-      })();
-    } // end initLogin
+      animate();
+    })();
   </script>
-
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </body>
 </html>
