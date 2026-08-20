@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     /* ============================================================
-       COMPLETE DASHBOARD – WITH SPRING‑BASED SPOTLIGHT CARDS
+       COMPLETE DASHBOARD – WITH SPOTLIGHT CARDS (SPRING PHYSICS)
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -69,7 +69,7 @@
     }
 
     /* ============================================================
-       SPOTLIGHT CARDS – no old shine, only spring physics
+       SPOTLIGHT CARDS – spring physics, no old shine
        ============================================================ */
     .dash-stats {
       perspective: 900px;
@@ -88,7 +88,7 @@
       overflow: hidden;
       isolation: isolate;
       transform-style: preserve-3d;
-      /* No transform transition – we control it with JS springs */
+      /* No transition on transform – controlled by JS spring */
       transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
                   border-color 0.3s ease,
                   box-shadow 0.3s ease;
@@ -207,6 +207,11 @@
     }
     a.stat-card {
       cursor: pointer;
+    }
+
+    /* Remove old shine (stat-card::after) – we use spotlight instead */
+    .stat-card::after {
+      display: none !important;
     }
 
     /* ===== ANIMATED STREAK ===== */
@@ -1331,7 +1336,7 @@
     }
 
     // ================================================================
-    // SPOTLIGHT CARDS – with stable spring physics and double‑tap navigation
+    // SPOTLIGHT CARDS – with spring physics, auto‑nod on mobile, double‑tap navigation
     // ================================================================
     function initSpotlightCards() {
       const container = document.getElementById('statsContainer');
@@ -1340,8 +1345,8 @@
       const cards = container.querySelectorAll('.stat-card');
       if (cards.length === 0) return;
 
-      // --- Spring factory with proper delta time ---
-      function createSpring(initial, stiffness = 180, damping = 26) {
+      // --- Spring factory ---
+      function createSpring(initial, stiffness = 180, damping = 24) {
         return {
           current: initial,
           target: initial,
@@ -1357,31 +1362,29 @@
             if (this.current < -50) this.current = -50;
             return this.current;
           },
-          setTarget(val) {
-            this.target = val;
-          },
-          reset(val) {
-            this.current = val;
-            this.target = val;
-            this.velocity = 0;
-          }
+          setTarget(val) { this.target = val; },
+          reset(val) { this.current = val; this.target = val; this.velocity = 0; }
         };
       }
 
       const colorMap = ['#8deb00', '#e0b12d', '#00e5ff', '#a78bfa'];
       const labelMap = ['protocols', 'snapshots', 'other', 'community'];
 
+      // Shared state for double‑tap
       let lastTapTime = 0;
       let lastTappedCard = null;
       let animationId = null;
       let prevTime = 0;
+
+      // Store all card data for the animation loop
+      if (!window._spotlightCardsData) window._spotlightCardsData = [];
 
       cards.forEach((card, index) => {
         const color = colorMap[index % colorMap.length];
         const label = labelMap[index % labelMap.length];
         card.dataset.spotlight = label;
 
-        // ---- Build DOM layers ----
+        // --- Build spotlight DOM layers ---
         const glow = document.createElement('div');
         glow.className = 'spotlight-glow';
         glow.style.background = `radial-gradient(ellipse at 20% 20%, ${color}40, transparent 65%)`;
@@ -1395,38 +1398,31 @@
         line.className = 'spotlight-line';
         card.appendChild(line);
 
-        // ---- Springs ----
-        const springX = createSpring(0, 300, 28);
-        const springY = createSpring(0, 300, 28);
+        // --- Springs ---
+        const springX = createSpring(0, 200, 24);
+        const springY = createSpring(0, 200, 24);
 
+        // --- State ---
         let isHovering = false;
         let isDragging = false;
         let touchMoved = false;
-        let touchStartX = 0, touchStartY = 0;
 
-        // ---- Shared animation loop (one per card? we use one global loop) ----
-        // We'll actually use a single loop for all cards to reduce overhead.
-        // But we need to store springs per card. We'll store them in an array and loop.
-
-        // We'll collect all springs in an array and run them in a single rAF.
-        // For simplicity, we'll just attach a per‑card update function that gets called globally.
-
-        // We'll create a global array to hold all active card data.
-        if (!window._spotlightCards) window._spotlightCards = [];
+        // --- Store for animation loop ---
         const cardData = {
           element: card,
           springX,
           springY,
-          isHovering: false
+          isHovering: false,
         };
-        window._spotlightCards.push(cardData);
+        window._spotlightCardsData.push(cardData);
 
-        // ---- Mouse events ----
+        // --- Desktop events ---
         card.addEventListener('mouseenter', () => {
           cardData.isHovering = true;
           card.classList.add('hovered');
           cards.forEach(c => { if (c !== card) c.classList.add('dimmed'); });
         });
+
         card.addEventListener('mouseleave', () => {
           cardData.isHovering = false;
           card.classList.remove('hovered');
@@ -1434,6 +1430,7 @@
           springX.setTarget(0);
           springY.setTarget(0);
         });
+
         card.addEventListener('mousemove', (e) => {
           if (!cardData.isHovering) return;
           const rect = card.getBoundingClientRect();
@@ -1444,16 +1441,15 @@
           springY.setTarget((x - 0.5) * tiltMax);
         });
 
-        // ---- Touch events ----
+        // --- Mobile touch events ---
         card.addEventListener('touchstart', (e) => {
           const touch = e.touches[0];
-          touchStartX = touch.clientX;
-          touchStartY = touch.clientY;
           touchMoved = false;
           isDragging = false;
           const now = Date.now();
+
+          // Double‑tap check
           if (now - lastTapTime < 300 && lastTappedCard === card) {
-            // Double tap → navigate
             e.preventDefault();
             const href = card.getAttribute('data-href') || card.getAttribute('href');
             if (href && href !== '#') {
@@ -1462,13 +1458,18 @@
             lastTapTime = 0;
             return;
           }
+
           // Single tap – activate hover
           cardData.isHovering = true;
           card.classList.add('hovered');
           cards.forEach(c => { if (c !== card) c.classList.add('dimmed'); });
-          // Auto‑nod after a short delay if no movement
-          setTimeout(() => {
+          lastTapTime = now;
+          lastTappedCard = card;
+
+          // Set a timeout to trigger auto‑nod if no movement
+          const autoNodTimeout = setTimeout(() => {
             if (!touchMoved && cardData.isHovering) {
+              // Auto‑nod: tilt down‑left → up‑right → neutral
               springX.setTarget(-4);
               springY.setTarget(-4);
               setTimeout(() => {
@@ -1481,39 +1482,70 @@
               }, 300);
             }
           }, 200);
-          // Store tap for double‑tap detection
-          lastTapTime = now;
-          lastTappedCard = card;
+
+          // Store timeout on card so we can clear it later
+          card._autoNodTimeout = autoNodTimeout;
         }, { passive: true });
 
         card.addEventListener('touchmove', (e) => {
           const touch = e.touches[0];
-          const dx = touch.clientX - touchStartX;
-          const dy = touch.clientY - touchStartY;
-          if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-            touchMoved = true;
-            isDragging = true;
-            const rect = card.getBoundingClientRect();
-            const x = (touch.clientX - rect.left) / rect.width;
-            const y = (touch.clientY - rect.top) / rect.height;
+          // Check if finger moved enough to cancel auto‑nod
+          const rect = card.getBoundingClientRect();
+          const x = (touch.clientX - rect.left) / rect.width;
+          const y = (touch.clientY - rect.top) / rect.height;
+
+          // If we haven't moved yet, check movement threshold
+          if (!touchMoved) {
+            const dx = touch.clientX - touchStartX;
+            const dy = touch.clientY - touchStartY;
+            if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+              touchMoved = true;
+              isDragging = true;
+              // Cancel auto‑nod
+              if (card._autoNodTimeout) {
+                clearTimeout(card._autoNodTimeout);
+                card._autoNodTimeout = null;
+              }
+              // Reset springs to neutral before following finger
+              springX.setTarget(0);
+              springY.setTarget(0);
+            }
+          }
+
+          // If dragging, follow finger
+          if (isDragging && cardData.isHovering) {
             const tiltMax = 8;
             springX.setTarget((y - 0.5) * -tiltMax);
             springY.setTarget((x - 0.5) * tiltMax);
           }
         }, { passive: true });
 
+        // Store touch start position for movement detection
+        let touchStartX = 0, touchStartY = 0;
+        card.addEventListener('touchstart', (e) => {
+          const touch = e.touches[0];
+          touchStartX = touch.clientX;
+          touchStartY = touch.clientY;
+        }, { passive: true });
+
         card.addEventListener('touchend', () => {
-          if (touchMoved && isDragging) {
-            // drag ended – release
+          // Cancel any pending auto‑nod
+          if (card._autoNodTimeout) {
+            clearTimeout(card._autoNodTimeout);
+            card._autoNodTimeout = null;
+          }
+
+          if (isDragging) {
+            // Drag ended – release
             springX.setTarget(0);
             springY.setTarget(0);
             cardData.isHovering = false;
             card.classList.remove('hovered');
             cards.forEach(c => c.classList.remove('dimmed'));
           } else {
-            // single tap – keep hover for a moment then fade
+            // Single tap – keep hover for a moment, then fade
             setTimeout(() => {
-              if (!touchMoved) {
+              if (!isDragging) {
                 cardData.isHovering = false;
                 card.classList.remove('hovered');
                 cards.forEach(c => c.classList.remove('dimmed'));
@@ -1522,18 +1554,17 @@
               }
             }, 800);
           }
-          touchMoved = false;
           isDragging = false;
+          touchMoved = false;
         }, { passive: true });
-
       });
 
-      // ---- Global animation loop ----
+      // --- Global animation loop ---
       function animate(timestamp) {
         const dt = prevTime ? Math.min((timestamp - prevTime) / 1000, 0.05) : 0.016;
         prevTime = timestamp;
-        if (window._spotlightCards) {
-          window._spotlightCards.forEach(data => {
+        if (window._spotlightCardsData) {
+          window._spotlightCardsData.forEach(data => {
             const x = data.springX.update(dt);
             const y = data.springY.update(dt);
             data.element.style.transform = `rotateX(${x}deg) rotateY(${y}deg)`;
@@ -1542,7 +1573,7 @@
         animationId = requestAnimationFrame(animate);
       }
 
-      // Start the loop if not already started
+      // Start loop if not already running
       if (!window._spotlightAnimId) {
         window._spotlightAnimId = requestAnimationFrame(animate);
       }
