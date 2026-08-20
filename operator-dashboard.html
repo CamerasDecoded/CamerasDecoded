@@ -71,7 +71,8 @@
       0%,100% { transform: scale(1); }
       50% { transform: scale(1.04); }
     }
-    /* ===== SHINE EFFECT (for stat cards) ===== */
+
+    /* ===== ORIGINAL SHINE EFFECT (preserved, z-index lowered) ===== */
     @keyframes shineSlide {
       0% { transform: translateX(-200%) skewX(-15deg); }
       10% { transform: translateX(200%) skewX(-15deg); }
@@ -98,12 +99,112 @@
       transform: translateX(-200%) skewX(-15deg);
       animation: shineSlide 10s ease-in-out infinite;
       pointer-events: none;
-      z-index: 2;
       border-radius: var(--radius);
+      /* 🔑 lowered to z-index:0 so spotlight layers can sit above */
+      z-index: 0 !important;
     }
     .stat-card:nth-child(2)::after { animation-delay: 2.5s; }
     .stat-card:nth-child(3)::after { animation-delay: 5s; }
     .stat-card:nth-child(4)::after { animation-delay: 7.5s; }
+
+    /* ===== SPOTLIGHT CARDS OVERRIDE (keeps old shine) ===== */
+    .dash-stats {
+      perspective: 900px;
+      transform-style: preserve-3d;
+    }
+
+    .stat-card {
+      transform-style: preserve-3d;
+      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  border-color 0.3s ease,
+                  box-shadow 0.3s ease;
+      will-change: transform, opacity;
+    }
+
+    /* Dimmed siblings */
+    .stat-card.dimmed {
+      opacity: 0.4;
+      transform: scale(0.94) rotateX(0deg) rotateY(0deg) !important;
+      pointer-events: none;
+      filter: saturate(0.6);
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                  filter 0.4s ease;
+    }
+
+    /* Hovered card – elevated */
+    .stat-card.hovered {
+      z-index: 10;
+      border-color: var(--green);
+      box-shadow: 0 12px 50px rgba(0, 0, 0, 0.6), 0 0 40px var(--green-glow);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    /* Glow layer (aurora) */
+    .stat-card .spotlight-glow {
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius);
+      pointer-events: none;
+      z-index: 0; /* sits with the original shine, but we'll layer it */
+      opacity: 0;
+      transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .stat-card.hovered .spotlight-glow {
+      opacity: 1;
+    }
+
+    /* Shimmer sweep (new) */
+    .stat-card .spotlight-shimmer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1; /* above glow & old shine, below text (z-index:2) */
+      width: 55%;
+      height: 100%;
+      left: 0;
+      top: 0;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,0.06), transparent);
+      transform: translateX(-100%) skewX(-12deg);
+      transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: var(--radius);
+    }
+
+    .stat-card.hovered .spotlight-shimmer {
+      transform: translateX(280%) skewX(-12deg);
+    }
+
+    /* Ensure number/label are above everything */
+    .stat-card .number,
+    .stat-card .label,
+    .stat-card > * {
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Accent bottom line */
+    .stat-card .spotlight-line {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2px;
+      width: 0%;
+      border-radius: 2px;
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .stat-card.hovered .spotlight-line {
+      width: 100%;
+    }
+
+    .stat-card[data-spotlight="protocols"] .spotlight-line { background: linear-gradient(to right, #8deb00, #a0f520); }
+    .stat-card[data-spotlight="snapshots"] .spotlight-line { background: linear-gradient(to right, #e0b12d, #f5c842); }
+    .stat-card[data-spotlight="other"] .spotlight-line { background: linear-gradient(to right, #00e5ff, #66f0ff); }
+    .stat-card[data-spotlight="community"] .spotlight-line { background: linear-gradient(to right, #a78bfa, #c4b5fd); }
 
     /* ===== ANIMATED STREAK ===== */
     .streak-compact .fire-icon {
@@ -889,7 +990,7 @@
 
   <script>
     // ================================================================
-    // DASHBOARD JAVASCRIPT – WITH VISUAL POLISH
+    // DASHBOARD JAVASCRIPT – WITH VISUAL POLISH + SPOTLIGHT CARDS
     // ================================================================
 
     // ---- Toast ----
@@ -1224,6 +1325,78 @@
       }
     }
 
+    // ============================================================
+    // SPOTLIGHT CARDS – fully integrated
+    // ============================================================
+    function initSpotlightCards() {
+      const container = document.getElementById('statsContainer');
+      if (!container) return;
+
+      const cards = container.querySelectorAll('.stat-card');
+      if (cards.length === 0) return;
+
+      const colorMap = ['#8deb00', '#e0b12d', '#00e5ff', '#a78bfa'];
+      const labelMap = ['protocols', 'snapshots', 'other', 'community'];
+
+      cards.forEach((card, index) => {
+        const color = colorMap[index % colorMap.length];
+        const label = labelMap[index % labelMap.length];
+        card.dataset.spotlight = label;
+
+        // 1. Glow element
+        const glow = document.createElement('div');
+        glow.className = 'spotlight-glow';
+        glow.style.background = `radial-gradient(ellipse at 20% 20%, ${color}40, transparent 65%)`;
+        card.prepend(glow);
+
+        // 2. Shimmer element
+        const shimmer = document.createElement('div');
+        shimmer.className = 'spotlight-shimmer';
+        card.prepend(shimmer);
+
+        // 3. Accent line
+        const line = document.createElement('div');
+        line.className = 'spotlight-line';
+        card.appendChild(line);
+
+        // 4. Mouse events
+        let isHovering = false;
+
+        card.addEventListener('mouseenter', () => {
+          isHovering = true;
+          cards.forEach(c => {
+            if (c !== card) {
+              c.classList.add('dimmed');
+            }
+          });
+          card.classList.add('hovered');
+          card.style.transition = 'transform 0.08s ease-out';
+        });
+
+        card.addEventListener('mouseleave', () => {
+          isHovering = false;
+          cards.forEach(c => {
+            c.classList.remove('dimmed', 'hovered');
+            c.style.transform = 'rotateX(0deg) rotateY(0deg)';
+            c.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+          });
+        });
+
+        card.addEventListener('mousemove', (e) => {
+          if (!isHovering) return;
+          const rect = card.getBoundingClientRect();
+          const x = (e.clientX - rect.left) / rect.width;
+          const y = (e.clientY - rect.top) / rect.height;
+
+          const tiltMax = 8;
+          const rotateX = (y - 0.5) * -tiltMax;
+          const rotateY = (x - 0.5) * tiltMax;
+
+          card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        });
+      });
+    }
+
     // ---- Main load ----
     const loadingEl = document.getElementById('loadingState');
     const contentEl = document.getElementById('dashboardContent');
@@ -1335,6 +1508,9 @@
 
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
+
+        // 🔥 INIT SPOTLIGHT CARDS
+        initSpotlightCards();
 
         // ===== UPDATE BOTTOM NAV BADGES =====
         if (window.BottomNav) {
