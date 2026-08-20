@@ -34,7 +34,7 @@
       color: #ffffff;
       font-family: 'Montserrat', sans-serif;
       min-height: 100vh;
-      padding: 20px 20px 100px 20px; /* extra bottom padding for floating dock */
+      padding: 20px 20px 100px 20px; /* bottom padding for nav */
     }
 
     /* ===== CHASING BORDER (shared) ===== */
@@ -221,37 +221,39 @@
     .loading i { font-size:32px; color:var(--green); display:block; margin-bottom:12px; }
 
     /* ============================================================
-       BOTTOM NAV – FAB DOCK (mobile only)
+       BOTTOM NAV – FULL WIDTH with CURVED ENDS (mobile only)
        ============================================================ */
     .bottom-nav {
       position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: auto;
-      max-width: 94%;
-      background: rgba(10, 10, 10, 0.88);
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(10, 10, 10, 0.90);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
-      border-radius: 36px;
-      /* Brighter base border so the rounded shape is visible */
+      /* curved ends – top corners are rounded, bottom is flush */
+      border-radius: 30px 30px 0 0;
+      /* Brighter base border so the curve is visible */
       border: 1px solid rgba(255, 255, 255, 0.18);
-      padding: 6px 8px;
+      border-bottom: none; /* so the bottom edge is clean */
+      padding: 6px 12px;
       padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8);
+      box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.7);
       z-index: 1000;
-      display: none; /* hidden by default, shown via media query */
+      display: none; /* hidden on desktop, shown on mobile */
       justify-content: space-around;
       align-items: center;
       gap: 2px;
       min-height: 68px;
       transition: border-color 0.2s;
     }
-    /* Make the chasing border inherit the same corner radius */
+    /* Chasing border – matches the curved top corners */
     .bottom-nav.chasing-border::before {
-      border-radius: 36px !important;
+      border-radius: 30px 30px 0 0 !important;
       inset: -1.5px !important;
       padding: 1.5px !important;
+      border-bottom: none; /* avoid showing the border on the bottom edge */
+      /* to hide the bottom edge of the pseudo, we can mask it out or just let it be */
     }
 
     .bottom-nav a {
@@ -361,7 +363,7 @@
     @media (max-width: 768px) {
       .bottom-nav { display: flex; }
       body {
-        padding: 16px 16px 100px 16px;
+        padding: 16px 16px 90px 16px;
       }
       .container {
         margin: 16px auto 20px auto;
@@ -376,14 +378,14 @@
 
     @media (max-width: 480px) {
       .bottom-nav {
-        border-radius: 30px;
-        padding: 4px 4px;
+        border-radius: 24px 24px 0 0;
+        padding: 4px 8px;
         padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
         min-height: 60px;
         gap: 0px;
       }
       .bottom-nav.chasing-border::before {
-        border-radius: 30px !important;
+        border-radius: 24px 24px 0 0 !important;
       }
       .bottom-nav a {
         padding: 4px 6px;
@@ -472,7 +474,7 @@
   </div>
 
   <!-- ============================================================
-       BOTTOM NAV – FAB DOCK with CHASING BORDER
+       BOTTOM NAV – FULL WIDTH with CHASING BORDER
        ============================================================ -->
   <nav class="bottom-nav chasing-border" id="bottomNav" role="navigation" aria-label="Main Navigation">
     <!-- Home -->
@@ -834,22 +836,22 @@
 
     async function updateNotificationBadges() {
       try {
-        // Home: check admin announcement
+        // Home – admin announcement
         const annDoc = await db.collection('admin').doc('announcement').get();
         const hasAnnouncement = annDoc.exists && annDoc.data().active === true;
         document.querySelector('.bottom-nav a[href="index.html"]')?.classList.toggle('show-badge', hasAnnouncement);
 
-        // Dashboard, Journey, Profile: "alerts"
+        // Dashboard, Journey, Profile – alerts
         if (currentUserData) {
-          const hasAlerts = !currentUserData.tourCompleted || 
-                            !currentUserData.learningJourney?.primaryGoal || 
+          const hasAlerts = !currentUserData.tourCompleted ||
+                            !currentUserData.learningJourney?.primaryGoal ||
                             (currentUserData.totalPoints || 0) < 10;
           document.querySelector('.bottom-nav a[href="operator-dashboard.html"]')?.classList.toggle('show-badge', hasAlerts);
           document.querySelector('.bottom-nav a[href="journey.html"]')?.classList.toggle('show-badge', hasAlerts);
           document.querySelector('.bottom-nav a[href="profile.html"]')?.classList.toggle('show-badge', hasAlerts);
         }
 
-        // Cynetis-7: new features
+        // Cynetis-7 – new features
         const hasNewFeatures = !localStorage.getItem('cynetis_visited');
         document.querySelector('.bottom-nav a[href="cynetis-7.html"]')?.classList.toggle('show-badge', hasNewFeatures);
 
