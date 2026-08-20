@@ -34,18 +34,18 @@
       color: #ffffff;
       font-family: 'Montserrat', sans-serif;
       min-height: 100vh;
-      padding: 20px 20px 80px 20px; /* extra bottom padding for nav */
+      padding: 20px 20px 100px 20px; /* extra bottom padding for floating dock */
     }
 
-    /* ===== CHASING BORDER ===== */
+    /* ===== CHASING BORDER (shared) ===== */
     @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
     .chasing-border { position:relative; border-color:transparent !important; background-clip:padding-box; overflow:visible; }
     .chasing-border::before {
       content: '';
       position: absolute;
-      inset: -1px;
+      inset: -1.5px;
       border-radius: inherit;
-      padding: 1px;
+      padding: 1.5px;
       background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
       -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
       -webkit-mask-composite: xor;
@@ -221,24 +221,37 @@
     .loading i { font-size:32px; color:var(--green); display:block; margin-bottom:12px; }
 
     /* ============================================================
-       BOTTOM NAVIGATION (mobile only)
+       BOTTOM NAV – FAB DOCK (mobile only)
        ============================================================ */
     .bottom-nav {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: rgba(10, 10, 10, 0.94);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border-top: 1px solid var(--border);
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: auto;
+      max-width: 94%;
+      background: rgba(10, 10, 10, 0.88);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-radius: 36px;
+      /* Brighter base border so the rounded shape is visible */
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 6px 8px;
+      padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8);
+      z-index: 1000;
       display: none; /* hidden by default, shown via media query */
       justify-content: space-around;
       align-items: center;
-      padding: 6px 0 env(safe-area-inset-bottom, 0) 0;
-      z-index: 1000;
-      height: 68px;
-      box-shadow: 0 -4px 30px rgba(0,0,0,0.6);
+      gap: 2px;
+      min-height: 68px;
+      transition: border-color 0.2s;
+    }
+    /* Make the chasing border inherit the same corner radius */
+    .bottom-nav.chasing-border::before {
+      border-radius: 36px !important;
+      inset: -1.5px !important;
+      padding: 1.5px !important;
     }
 
     .bottom-nav a {
@@ -247,7 +260,7 @@
       align-items: center;
       justify-content: center;
       text-decoration: none;
-      color: #666;
+      color: #888;
       font-family: 'Montserrat', sans-serif;
       font-size: 12px;
       font-weight: 500;
@@ -257,7 +270,7 @@
       min-width: 44px;
       transition: all 0.25s ease;
       position: relative;
-      border-radius: 8px;
+      border-radius: 20px;
       background: transparent;
       -webkit-tap-highlight-color: transparent;
     }
@@ -287,7 +300,7 @@
     .bottom-nav .badge-dot {
       position: absolute;
       top: 2px;
-      right: 6px;
+      right: 4px;
       width: 9px;
       height: 9px;
       background: #ff3b3b;
@@ -348,7 +361,7 @@
     @media (max-width: 768px) {
       .bottom-nav { display: flex; }
       body {
-        padding: 16px 16px 80px 16px;
+        padding: 16px 16px 100px 16px;
       }
       .container {
         margin: 16px auto 20px auto;
@@ -362,10 +375,23 @@
     }
 
     @media (max-width: 480px) {
-      .bottom-nav a { padding: 4px 6px; min-width: 40px; font-size: 10px; }
+      .bottom-nav {
+        border-radius: 30px;
+        padding: 4px 4px;
+        padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+        min-height: 60px;
+        gap: 0px;
+      }
+      .bottom-nav.chasing-border::before {
+        border-radius: 30px !important;
+      }
+      .bottom-nav a {
+        padding: 4px 6px;
+        min-width: 38px;
+        font-size: 10px;
+      }
       .bottom-nav a i { font-size: 20px; }
-      .bottom-nav { height: 62px; }
-      .bottom-nav .badge-dot { width: 7px; height: 7px; top: 2px; right: 4px; }
+      .bottom-nav .badge-dot { width: 7px; height: 7px; top: 2px; right: 2px; }
     }
   </style>
 </head>
@@ -427,7 +453,7 @@
         <div class="grid" id="referralGrid"></div>
       </div>
 
-      <!-- ===== FOOTER (added) ===== -->
+      <!-- ===== FOOTER ===== -->
       <footer class="profile-footer">
         <div class="footer-links">
           <a href="https://settings.camerasdecoded.com/decoder-atlas" target="_blank">Decoder Atlas</a>
@@ -446,9 +472,9 @@
   </div>
 
   <!-- ============================================================
-       BOTTOM NAVIGATION (visible only on mobile)
+       BOTTOM NAV – FAB DOCK with CHASING BORDER
        ============================================================ -->
-  <nav class="bottom-nav" id="bottomNav" role="navigation" aria-label="Main Navigation">
+  <nav class="bottom-nav chasing-border" id="bottomNav" role="navigation" aria-label="Main Navigation">
     <!-- Home -->
     <a href="index.html" data-page="index.html">
       <i class="fas fa-home"></i>
@@ -634,7 +660,6 @@
             const vals = Array.from(container.querySelectorAll('.chip.selected')).map(c => c.dataset.value);
             hidden.value = JSON.stringify(vals);
           }
-          // update counter
           const counter = document.getElementById(group + '_count');
           if (counter) counter.textContent = container.querySelectorAll('.chip.selected').length;
         });
@@ -814,8 +839,7 @@
         const hasAnnouncement = annDoc.exists && annDoc.data().active === true;
         document.querySelector('.bottom-nav a[href="index.html"]')?.classList.toggle('show-badge', hasAnnouncement);
 
-        // Dashboard, Journey, Profile: "alerts" (for now, check if learning journey is incomplete or points pending)
-        // We'll use a simple flag: if user has completed onboarding (tourCompleted) but has zero points or no preferences, show alert.
+        // Dashboard, Journey, Profile: "alerts"
         if (currentUserData) {
           const hasAlerts = !currentUserData.tourCompleted || 
                             !currentUserData.learningJourney?.primaryGoal || 
@@ -825,8 +849,7 @@
           document.querySelector('.bottom-nav a[href="profile.html"]')?.classList.toggle('show-badge', hasAlerts);
         }
 
-        // Cynetis-7: new features (we'll simulate by checking a future features flag, or just a static toggle)
-        // For demo, we'll check if user has saved any cynetis protocols or just show a dot if they haven't visited.
+        // Cynetis-7: new features
         const hasNewFeatures = !localStorage.getItem('cynetis_visited');
         document.querySelector('.bottom-nav a[href="cynetis-7.html"]')?.classList.toggle('show-badge', hasNewFeatures);
 
@@ -835,7 +858,6 @@
       }
     }
 
-    // Mark Cynetis as visited when user clicks it (optional)
     document.querySelector('.bottom-nav a[href="cynetis-7.html"]')?.addEventListener('click', () => {
       localStorage.setItem('cynetis_visited', 'true');
     });
@@ -872,7 +894,6 @@
         document.getElementById('loadingState').style.display = 'none';
         document.getElementById('profileContent').style.display = 'block';
 
-        // Update nav badges now that we have user data
         await updateNotificationBadges();
 
       } catch (err) {
@@ -900,14 +921,12 @@
     auth.onAuthStateChanged((user) => {
       if (user) {
         loadProfile(user);
-        // Set active nav after page loads
         setTimeout(setActiveNav, 100);
       } else {
         window.location.href = 'login.html';
       }
     });
 
-    // Also set active nav on page load if already authenticated
     document.addEventListener('DOMContentLoaded', setActiveNav);
   </script>
 </body>
