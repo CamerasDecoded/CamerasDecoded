@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     /* ============================================================
-       COMPLETE DASHBOARD – WITH APPLE ACTIVITY CARD
+       COMPLETE DASHBOARD – APPLE ACTIVITY CARD WITH 3 RINGS
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -25,6 +25,9 @@
       --card-bg: rgba(10,10,10,0.6);
       --radius: 12px;
       --transition-smooth: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ring-size: 88px;
+      --ring-stroke: 6px;
+      --ring-gap: 12px;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
 
@@ -53,10 +56,6 @@
 
     /* ===== ANIMATIONS ===== */
     @keyframes fadeInUp { 0% { opacity:0; transform:translateY(20px); } 100% { opacity:1; transform:translateY(0); } }
-    @keyframes pulseGlow {
-      0%,100% { text-shadow:0 0 8px var(--green-glow), 0 0 20px rgba(141,235,0,0.1); }
-      50% { text-shadow:0 0 20px var(--green-glow), 0 0 40px rgba(141,235,0,0.3), 0 0 60px rgba(141,235,0,0.1); }
-    }
     @keyframes fireFlicker {
       0%,100% { transform: scale(1) rotate(-2deg); opacity:1; }
       25% { transform: scale(1.1) rotate(2deg); opacity:0.9; }
@@ -67,9 +66,13 @@
       0%,100% { transform: scale(1); }
       50% { transform: scale(1.04); }
     }
+    @keyframes ringPulse {
+      0%,100% { filter: drop-shadow(0 0 6px rgba(141,235,0,0.1)); }
+      50% { filter: drop-shadow(0 0 20px rgba(141,235,0,0.2)); }
+    }
 
     /* ============================================================
-       APPLE ACTIVITY CARD – PROGRESS OVERVIEW
+       APPLE ACTIVITY CARD – 3 RINGS
        ============================================================ */
     .activity-card {
       background: rgba(10, 10, 10, 0.6);
@@ -88,108 +91,113 @@
       box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
     }
 
-    .activity-top {
+    .activity-title {
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
-      gap: 32px;
+      gap: 10px;
+    }
+    .activity-title i {
+      color: var(--green);
+      font-size: 16px;
     }
 
-    /* ---- Streak Ring ---- */
-    .streak-ring {
+    /* ---- Rings Row ---- */
+    .rings-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-around;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .ring-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      min-width: 80px;
+      max-width: 130px;
+    }
+
+    .ring-wrapper {
       position: relative;
-      width: 100px;
-      height: 100px;
+      width: var(--ring-size);
+      height: var(--ring-size);
       flex-shrink: 0;
     }
     .ring-svg {
       width: 100%;
       height: 100%;
       transform: rotate(-90deg);
+      display: block;
     }
     .ring-bg {
       fill: none;
       stroke: rgba(255, 255, 255, 0.06);
-      stroke-width: 6;
+      stroke-width: var(--ring-stroke);
     }
     .ring-fill {
       fill: none;
-      stroke: #8deb00;
-      stroke-width: 6;
+      stroke-width: var(--ring-stroke);
       stroke-linecap: round;
       transition: stroke-dashoffset 1s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    .ring-content {
+    /* Ring colours */
+    .ring-fill.streak-ring { stroke: #ff6b35; }
+    .ring-fill.points-ring { stroke: #8deb00; }
+    .ring-fill.multiplier-ring { stroke: #e0b12d; }
+
+    /* Ring centre content */
+    .ring-center {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       text-align: center;
-    }
-    .ring-fire {
-      font-size: 22px;
-      display: block;
-      animation: fireFlicker 1.2s ease-in-out infinite;
-      transform-origin: center;
-      margin-bottom: -2px;
-    }
-    .ring-number {
-      font-family: 'Space Mono', monospace;
-      font-size: 26px;
-      font-weight: 700;
-      color: #fff;
-      display: block;
       line-height: 1;
     }
-    .ring-label {
-      font-size: 9px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
+    .ring-icon {
+      font-size: 18px;
+      display: block;
+      margin-bottom: 1px;
     }
-
-    /* ---- Metrics Grid ---- */
-    .metrics-grid {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      flex: 1;
-      flex-wrap: wrap;
+    .ring-icon.fire-icon {
+      animation: fireFlicker 1.2s ease-in-out infinite;
+      transform-origin: center;
     }
-    .metric-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .metric-value {
+    .ring-value {
       font-family: 'Space Mono', monospace;
-      font-size: 28px;
+      font-size: 18px;
       font-weight: 700;
       color: #fff;
-      line-height: 1.1;
+      display: block;
+      transition: all 0.3s ease;
     }
-    .metric-value.bonus-value {
-      color: #ffaa44;
+    .ring-value.animate {
+      animation: numberPulse 0.6s var(--transition-smooth) 2;
     }
-    .metric-label {
-      font-size: 10px;
+    .ring-label {
+      font-size: 8px;
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-top: 2px;
-    }
-    .metric-divider {
-      width: 1px;
-      height: 32px;
-      background: rgba(255, 255, 255, 0.06);
+      letter-spacing: 0.6px;
+      margin-top: 1px;
+      display: block;
     }
 
-    /* ---- Activity Bottom ---- */
+    /* ---- Progress Tier (below rings) ---- */
     .activity-bottom {
       margin-top: 18px;
       padding-top: 16px;
       border-top: 1px solid rgba(255, 255, 255, 0.04);
     }
-    .progress-header {
+
+    .tier-header {
       display: flex;
       justify-content: space-between;
       font-size: 12px;
@@ -197,22 +205,24 @@
       font-family: 'Space Mono', monospace;
       margin-bottom: 6px;
     }
-    .progress-header strong {
+    .tier-header strong {
       color: #fff;
       font-weight: 700;
     }
-    .progress-target {
+    .tier-target {
       color: var(--green);
       font-weight: 700;
     }
-    .progress-track {
+
+    .tier-track {
       width: 100%;
       height: 4px;
       background: rgba(255, 255, 255, 0.06);
       border-radius: 4px;
       overflow: hidden;
+      position: relative;
     }
-    .progress-fill {
+    .tier-fill {
       height: 100%;
       background: linear-gradient(90deg, #1db31b 0%, #c9e265 100%);
       border-radius: 4px;
@@ -220,63 +230,52 @@
       width: 0%;
     }
 
-    /* ---- Signal Mini ---- */
-    .signal-mini {
+    /* ---- Bonus Points (bottom) ---- */
+    .bonus-row {
       display: flex;
-      align-items: flex-end;
-      gap: 3px;
-      margin-top: 10px;
       justify-content: flex-end;
+      margin-top: 10px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: #ffaa44;
     }
-    .signal-mini .bar {
-      display: block;
-      width: 4px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 2px;
-      transition: background 0.3s, height 0.3s;
+    .bonus-row span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
-    .signal-mini .bar:nth-child(1) { height: 8px; }
-    .signal-mini .bar:nth-child(2) { height: 12px; }
-    .signal-mini .bar:nth-child(3) { height: 16px; }
-    .signal-mini .bar:nth-child(4) { height: 20px; }
-    .signal-mini .bar:nth-child(5) { height: 24px; }
-    .signal-mini .bar.active {
-      background: var(--green);
-      box-shadow: 0 0 8px rgba(141, 235, 0, 0.2);
+    .bonus-row .bonus-label {
+      color: var(--text-muted);
+      font-size: 10px;
+      font-family: 'Montserrat', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
+    /* ---- Responsive ---- */
     @media (max-width: 768px) {
       .activity-card {
         padding: 18px 16px 16px;
       }
-      .activity-top {
-        flex-direction: column;
-        gap: 16px;
-        align-items: stretch;
+      :root {
+        --ring-size: 72px;
+        --ring-stroke: 5px;
       }
-      .streak-ring {
-        width: 80px;
-        height: 80px;
-        align-self: center;
+      .ring-value {
+        font-size: 15px;
       }
-      .ring-number {
-        font-size: 20px;
+      .ring-icon {
+        font-size: 15px;
       }
-      .ring-fire {
-        font-size: 18px;
+      .rings-row {
+        gap: 8px;
       }
-      .metrics-grid {
-        justify-content: center;
-        gap: 12px;
+      .ring-item {
+        min-width: 60px;
+        max-width: 100px;
       }
-      .metric-value {
-        font-size: 22px;
-      }
-      .metric-divider {
-        height: 24px;
-      }
-      .signal-mini {
-        justify-content: center;
+      .tier-header {
+        font-size: 10px;
       }
     }
     @media (max-width: 480px) {
@@ -284,41 +283,41 @@
         padding: 14px 12px 12px;
         border-radius: 16px;
       }
-      .streak-ring {
-        width: 64px;
-        height: 64px;
+      :root {
+        --ring-size: 60px;
+        --ring-stroke: 4px;
       }
-      .ring-number {
-        font-size: 16px;
+      .ring-value {
+        font-size: 13px;
       }
-      .ring-fire {
-        font-size: 14px;
+      .ring-icon {
+        font-size: 12px;
       }
       .ring-label {
         font-size: 7px;
       }
-      .metrics-grid {
-        gap: 8px;
+      .rings-row {
+        gap: 4px;
       }
-      .metric-value {
-        font-size: 18px;
+      .ring-item {
+        min-width: 50px;
+        max-width: 80px;
       }
-      .metric-label {
-        font-size: 8px;
+      .tier-header {
+        font-size: 9px;
       }
-      .metric-divider {
-        height: 18px;
+      .bonus-row {
+        font-size: 11px;
       }
     }
 
     /* ============================================================
-       SPOTLIGHT CARDS – spring physics, no old shine
+       SPOTLIGHT CARDS – (unchanged)
        ============================================================ */
     .dash-stats {
       perspective: 900px;
       transform-style: preserve-3d;
     }
-
     .stat-card {
       position: relative;
       background-size: cover;
@@ -354,7 +353,6 @@
       position: relative;
       z-index: 2;
     }
-
     .stat-card.dimmed {
       opacity: 0.4;
       transform: scale(0.94) rotateX(0deg) rotateY(0deg) !important;
@@ -364,14 +362,12 @@
                   transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
                   filter 0.4s ease;
     }
-
     .stat-card.hovered {
       z-index: 10;
       border-color: var(--green);
       box-shadow: 0 12px 50px rgba(0, 0, 0, 0.6), 0 0 40px var(--green-glow);
       transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
-
     .stat-card .spotlight-glow {
       position: absolute;
       inset: 0;
@@ -381,10 +377,7 @@
       opacity: 0;
       transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .stat-card.hovered .spotlight-glow {
-      opacity: 1;
-    }
-
+    .stat-card.hovered .spotlight-glow { opacity: 1; }
     .stat-card .spotlight-shimmer {
       position: absolute;
       inset: 0;
@@ -399,10 +392,7 @@
       transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
       border-radius: var(--radius);
     }
-    .stat-card.hovered .spotlight-shimmer {
-      transform: translateX(280%) skewX(-12deg);
-    }
-
+    .stat-card.hovered .spotlight-shimmer { transform: translateX(280%) skewX(-12deg); }
     .stat-card .spotlight-line {
       position: absolute;
       bottom: 0;
@@ -414,15 +404,11 @@
       z-index: 2;
       pointer-events: none;
     }
-    .stat-card.hovered .spotlight-line {
-      width: 100%;
-    }
-
+    .stat-card.hovered .spotlight-line { width: 100%; }
     .stat-card[data-spotlight="protocols"] .spotlight-line { background: linear-gradient(to right, #8deb00, #a0f520); }
     .stat-card[data-spotlight="snapshots"] .spotlight-line { background: linear-gradient(to right, #e0b12d, #f5c842); }
     .stat-card[data-spotlight="other"] .spotlight-line { background: linear-gradient(to right, #00e5ff, #66f0ff); }
     .stat-card[data-spotlight="community"] .spotlight-line { background: linear-gradient(to right, #a78bfa, #c4b5fd); }
-
     .stat-card .number {
       font-size: 30px;
       font-weight: 700;
@@ -430,9 +416,7 @@
       text-shadow: 0 0 20px rgba(141,235,0,0.15);
       transition: text-shadow 0.3s ease;
     }
-    .stat-card:hover .number {
-      text-shadow: 0 0 40px rgba(141,235,0,0.3);
-    }
+    .stat-card:hover .number { text-shadow: 0 0 40px rgba(141,235,0,0.3); }
     .stat-card .label {
       font-size: 12px;
       color: var(--text-muted);
@@ -441,19 +425,7 @@
       letter-spacing: 0.5px;
     }
     a.stat-card { cursor: pointer; }
-
-    .stat-card::after {
-      display: none !important;
-    }
-
-    /* ===== ANIMATED STREAK ===== */
-    .ring-number.animate {
-      animation: numberPulse 0.6s var(--transition-smooth) 2;
-      color: var(--green);
-    }
-    .metric-value.animate {
-      animation: numberPulse 0.6s var(--transition-smooth) 2;
-    }
+    .stat-card::after { display: none !important; }
 
     /* ===== CHASING BORDER (ONLY CART) ===== */
     @property --angle { syntax:'<angle>'; initial-value:0deg; inherits:false; }
@@ -518,10 +490,7 @@
       letter-spacing: 0.5px;
       margin-bottom: 4px;
     }
-    .sidebar-notification .notif-header i {
-      color: var(--green);
-      font-size: 12px;
-    }
+    .sidebar-notification .notif-header i { color: var(--green); font-size: 12px; }
     .sidebar-notification .notif-message {
       font-size: 12px;
       color: #fff;
@@ -566,16 +535,10 @@
       cursor:pointer;
       font-family:'Space Mono',monospace;
       font-size:10px;
-      transition: all 0.25s var(--transition-smooth),
-                  box-shadow 0.3s ease;
-      min-height:22px;
-      line-height:1.2;
+      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease;
+      min-height:22px; line-height:1.2;
     }
-    .logout-btn:hover {
-      background:rgba(141,235,0,0.1);
-      box-shadow:0 0 20px rgba(141,235,0,0.2);
-      transform: scale(1.02);
-    }
+    .logout-btn:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform: scale(1.02); }
     .logout-btn:active { transform: scale(0.95); }
     .role-tier-badge { background:rgba(10,10,10,0.9); border:1px solid rgba(141,235,0,0.3); border-radius:14px; padding:2px 12px; font-size:10px; color:var(--green); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; transition:border-color 0.3s ease; }
     .role-tier-badge:hover { border-color:var(--green); box-shadow:0 0 20px rgba(141,235,0,0.1); }
@@ -588,17 +551,11 @@
       color:var(--green);
       font-family:'Space Mono',monospace;
       font-size:10px;
-      transition: all 0.25s var(--transition-smooth),
-                  box-shadow 0.3s ease;
+      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease;
       text-decoration:none;
-      min-height:22px;
-      line-height:1.2;
+      min-height:22px; line-height:1.2;
     }
-    .cart-header-link:hover {
-      background:rgba(141,235,0,0.1);
-      box-shadow:0 0 20px rgba(141,235,0,0.2);
-      transform: scale(1.02);
-    }
+    .cart-header-link:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform: scale(1.02); }
     .cart-count-badge { background:var(--green); color:#000; border-radius:50%; padding:0 4px; font-size:8px; font-weight:700; display:inline-block; min-width:14px; text-align:center; line-height:14px; }
 
     .dash-header { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:24px; border-bottom:1px solid var(--border-dim); padding-bottom:16px; animation:fadeInUp 0.6s var(--transition-smooth) forwards; opacity:0; }
@@ -627,9 +584,7 @@
       text-align:center;
       color:#fff;
       text-decoration:none;
-      transition: all 0.25s var(--transition-smooth),
-                  box-shadow 0.3s ease,
-                  border-color 0.3s ease;
+      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease, border-color 0.3s ease;
       display:block;
       position:relative;
       overflow:hidden;
@@ -846,73 +801,98 @@
     <!-- DASHBOARD CONTENT -->
     <div id="dashboardContent" style="display:none;">
 
-      <!-- ===== APPLE ACTIVITY CARD – PROGRESS OVERVIEW ===== -->
+      <!-- ===== APPLE ACTIVITY CARD – 3 RINGS ===== -->
       <div class="activity-card" id="progressOverview">
 
-        <!-- Top row: Streak ring + metrics -->
-        <div class="activity-top">
+        <!-- Title -->
+        <div class="activity-title">
+          <i class="fas fa-chart-simple"></i> Your Activity
+        </div>
 
-          <!-- Streak Ring -->
-          <div class="streak-ring" id="streakRing">
-            <svg viewBox="0 0 120 120" class="ring-svg">
-              <circle class="ring-bg" cx="60" cy="60" r="52" />
-              <circle class="ring-fill" id="streakRingFill" cx="60" cy="60" r="52"
-                stroke-dasharray="326.7" stroke-dashoffset="326.7" />
-            </svg>
-            <div class="ring-content">
-              <span class="ring-fire" id="streakFire">🔥</span>
-              <span class="ring-number" id="streakDays">0</span>
-              <span class="ring-label">day streak</span>
+        <!-- Three Rings -->
+        <div class="rings-row">
+
+          <!-- Ring 1: Streak -->
+          <div class="ring-item">
+            <div class="ring-wrapper">
+              <svg viewBox="0 0 120 120" class="ring-svg">
+                <circle class="ring-bg" cx="60" cy="60" r="52" />
+                <circle class="ring-fill streak-ring" id="streakRingFill" cx="60" cy="60" r="52"
+                  stroke-dasharray="326.7" stroke-dashoffset="326.7" />
+              </svg>
+              <div class="ring-center">
+                <span class="ring-icon fire-icon" id="streakFire">🔥</span>
+                <span class="ring-value" id="streakDays">0</span>
+                <span class="ring-label">days</span>
+              </div>
             </div>
           </div>
 
-          <!-- Metrics -->
-          <div class="metrics-grid">
-            <div class="metric-item">
-              <span class="metric-value" id="levelNumber">1</span>
-              <span class="metric-label">Level</span>
+          <!-- Ring 2: Points -->
+          <div class="ring-item">
+            <div class="ring-wrapper">
+              <svg viewBox="0 0 120 120" class="ring-svg">
+                <circle class="ring-bg" cx="60" cy="60" r="52" />
+                <circle class="ring-fill points-ring" id="pointsRingFill" cx="60" cy="60" r="52"
+                  stroke-dasharray="326.7" stroke-dashoffset="326.7" />
+              </svg>
+              <div class="ring-center">
+                <span class="ring-icon">⭐</span>
+                <span class="ring-value" id="totalPoints">0</span>
+                <span class="ring-label">points</span>
+              </div>
             </div>
-            <div class="metric-divider"></div>
-            <div class="metric-item">
-              <span class="metric-value" id="totalPoints">0</span>
-              <span class="metric-label">Points</span>
-            </div>
-            <div class="metric-divider"></div>
-            <div class="metric-item">
-              <span class="metric-value" id="multiplierBadge">×1.0</span>
-              <span class="metric-label">Bonus</span>
-            </div>
-            <div class="metric-divider"></div>
-            <div class="metric-item">
-              <span class="metric-value bonus-value" id="bonusPointsDisplay">0</span>
-              <span class="metric-label">Bonus pts</span>
+          </div>
+
+          <!-- Ring 3: Multiplier -->
+          <div class="ring-item">
+            <div class="ring-wrapper">
+              <svg viewBox="0 0 120 120" class="ring-svg">
+                <circle class="ring-bg" cx="60" cy="60" r="52" />
+                <circle class="ring-fill multiplier-ring" id="multiplierRingFill" cx="60" cy="60" r="52"
+                  stroke-dasharray="326.7" stroke-dashoffset="326.7" />
+              </svg>
+              <div class="ring-center">
+                <span class="ring-icon">🚀</span>
+                <span class="ring-value" id="multiplierBadge">×1.0</span>
+                <span class="ring-label">bonus</span>
+              </div>
             </div>
           </div>
 
         </div>
 
-        <!-- Bottom: Progress to next tier -->
+        <!-- Bonus Points (no ring) -->
+        <div class="bonus-row">
+          <span>
+            <span class="bonus-label">Bonus points</span>
+            +<span id="bonusPointsDisplay">0</span>
+          </span>
+        </div>
+
+        <!-- Bottom: Next Tier Progress Bar -->
         <div class="activity-bottom">
-          <div class="progress-header">
-            <span class="progress-label">Next tier in <strong id="daysToNextTier">0</strong> days</span>
-            <span class="progress-target" id="nextTierLabel">×1.5</span>
+          <div class="tier-header">
+            <span class="tier-label">Next tier in <strong id="daysToNextTier">0</strong> days</span>
+            <span class="tier-target" id="nextTierLabel">×1.5</span>
           </div>
-          <div class="progress-track">
-            <div class="progress-fill" id="multiplierProgressFill" style="width:0%;"></div>
+          <div class="tier-track">
+            <div class="tier-fill" id="multiplierProgressFill" style="width:0%;"></div>
           </div>
-          <!-- Signal bars (subtle) -->
-          <div class="signal-mini" id="signalBars">
-            <span class="bar" id="bar1"></span>
-            <span class="bar" id="bar2"></span>
-            <span class="bar" id="bar3"></span>
-            <span class="bar" id="bar4"></span>
-            <span class="bar" id="bar5"></span>
-          </div>
+        </div>
+
+        <!-- Signal bars (subtle) -->
+        <div class="signal-mini" id="signalBars" style="display:flex; align-items:flex-end; gap:3px; margin-top:12px; justify-content:flex-end;">
+          <span class="bar" id="bar1"></span>
+          <span class="bar" id="bar2"></span>
+          <span class="bar" id="bar3"></span>
+          <span class="bar" id="bar4"></span>
+          <span class="bar" id="bar5"></span>
         </div>
 
       </div>
 
-      <!-- STATS -->
+      <!-- STATS (unchanged) -->
       <div class="dash-stats" id="statsContainer">
         <div class="stat-card animate-fade-up stagger-1" style="background-image:url('images/stats/stat-protocols.jpg');" data-href="/protocols">
           <div class="number" id="statProtocols">0</div>
@@ -1314,6 +1294,93 @@
       requestAnimationFrame(update);
     }
 
+    // ================================================================
+    // RING HELPER FUNCTIONS
+    // ================================================================
+    function updateRing(elementId, progress) {
+      const ring = document.getElementById(elementId);
+      if (!ring) return;
+      const circumference = 326.7; // 2 * PI * 52
+      const clamped = Math.max(0, Math.min(progress, 1));
+      const offset = circumference * (1 - clamped);
+      ring.style.strokeDashoffset = offset;
+    }
+
+    function getMultiplier(streak) {
+      if (streak >= 7) return 3.0;
+      if (streak >= 3) return 2.0;
+      if (streak >= 1) return 1.5;
+      return 1.0;
+    }
+
+    function getNextTierLabel(multiplier) {
+      if (multiplier < 1.5) return '×1.5';
+      if (multiplier < 2.0) return '×2.0';
+      if (multiplier < 3.0) return '×3.0';
+      return '×3.0 (max)';
+    }
+
+    function getDaysToNextTier(streak, multiplier) {
+      if (multiplier >= 3.0) return 0;
+      if (multiplier < 1.5) return 1 - streak;
+      if (multiplier < 2.0) return 3 - streak;
+      if (multiplier < 3.0) return 7 - streak;
+      return 0;
+    }
+
+    function getTierProgress(streak, multiplier) {
+      if (multiplier >= 3.0) return 1;
+      if (multiplier < 1.5) return streak / 1;
+      if (multiplier < 2.0) return (streak - 1) / (3 - 1);
+      if (multiplier < 3.0) return (streak - 3) / (7 - 3);
+      return 0;
+    }
+
+    function updateProgressOverview(userData) {
+      const streak = userData.dailyChallengeStreak || 0;
+      const points = userData.totalPoints || 0;
+      const multiplier = getMultiplier(streak);
+      const bonusPoints = userData.bonusPoints || 0;
+
+      // 1. Streak ring: 1–100 days
+      const streakProgress = Math.min(streak / 100, 1);
+      updateRing('streakRingFill', streakProgress);
+      animateNumber(document.getElementById('streakDays'), streak);
+
+      // 2. Points ring: 10–10,000 points
+      const pointsProgress = Math.min((points - 10) / (10000 - 10), 1);
+      updateRing('pointsRingFill', pointsProgress >= 0 ? pointsProgress : 0);
+      animateNumber(document.getElementById('totalPoints'), points);
+
+      // 3. Multiplier ring: ×1.0 → ×3.0
+      const multProgress = (multiplier - 1.0) / 2.0;
+      updateRing('multiplierRingFill', multProgress);
+      const multLabel = multiplier === 1.0 ? '×1.0' :
+                        multiplier === 1.5 ? '×1.5' :
+                        multiplier === 2.0 ? '×2.0' : '×3.0';
+      document.getElementById('multiplierBadge').textContent = multLabel;
+
+      // 4. Bonus points
+      document.getElementById('bonusPointsDisplay').textContent = bonusPoints;
+
+      // 5. Next tier progress bar
+      const daysToNext = getDaysToNextTier(streak, multiplier);
+      const tierProgress = getTierProgress(streak, multiplier);
+      document.getElementById('daysToNextTier').textContent = daysToNext;
+      document.getElementById('nextTierLabel').textContent = getNextTierLabel(multiplier);
+      document.getElementById('multiplierProgressFill').style.width = (tierProgress * 100) + '%';
+
+      // 6. Signal bars
+      const signalLevel = Math.min(Math.floor(streak / 2), 5);
+      for (let i = 1; i <= 5; i++) {
+        const bar = document.getElementById('bar' + i);
+        if (bar) {
+          bar.classList.toggle('active', i <= signalLevel);
+        }
+      }
+    }
+
+    // ---- Render functions ----
     function renderProfile(u) {
       document.getElementById('sidebarUsername').textContent = u.username || 'Operator';
       document.getElementById('sidebarEmail').textContent = u.email || 'loading...';
@@ -1412,7 +1479,7 @@
       if (completed.includes(today)) { cdToast('Already completed today!'); return; }
       const basePoints = 10;
       const streak = u.dailyChallengeStreak || 0;
-      const multiplier = streak >= 7 ? 3 : streak >= 5 ? 2 : streak >= 3 ? 1.5 : 1;
+      const multiplier = getMultiplier(streak);
       const totalPts = Math.round(basePoints * multiplier);
       try {
         const updateData = {
@@ -1422,8 +1489,11 @@
         };
         const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
         const lastDate = u.lastChallengeDate?.toDate?.() || null;
-        if (lastDate && lastDate.toDateString() === yesterday.toDateString()) { updateData.dailyChallengeStreak = firebase.firestore.FieldValue.increment(1); }
-        else { updateData.dailyChallengeStreak = 1; }
+        if (lastDate && lastDate.toDateString() === yesterday.toDateString()) {
+          updateData.dailyChallengeStreak = firebase.firestore.FieldValue.increment(1);
+        } else {
+          updateData.dailyChallengeStreak = 1;
+        }
         await db.collection('users').doc(u.uid).update(updateData);
         cdToast(`+${totalPts} points!`);
         setTimeout(() => window.location.reload(), 1200);
@@ -1504,143 +1574,7 @@
     }
 
     // ================================================================
-    // UPDATE STREAK RING
-    // ================================================================
-    function updateStreakRing(streak) {
-      const ring = document.getElementById('streakRingFill');
-      if (!ring) return;
-      const circumference = 326.7; // 2 * PI * 52
-      const maxStreak = 30; // cap at 30 days for the ring
-      const clamped = Math.min(streak, maxStreak);
-      const progress = clamped / maxStreak;
-      const offset = circumference * (1 - progress);
-      ring.style.strokeDashoffset = offset;
-    }
-
-    // ---- Main load ----
-    const loadingEl = document.getElementById('loadingState');
-    const contentEl = document.getElementById('dashboardContent');
-
-    async function loadDashboard(user) {
-      if (!user) { loadingEl.innerHTML = '<p class="error">Not authenticated. <a href="login.html">Login</a></p>'; return; }
-      try {
-        const userData = await ensureUserDoc(user);
-        renderProfile(userData);
-        renderStats(userData);
-        renderAIWidget(userData);
-        renderJourney(userData);
-        renderChallenge(userData);
-        renderProtocols(userData);
-        renderReferral(userData);
-
-        // ---- Update Activity Card ----
-        animateNumber(document.getElementById('totalPoints'), userData.totalPoints || 0);
-        animateNumber(document.getElementById('levelNumber'), userData.level || 1);
-        animateNumber(document.getElementById('streakDays'), userData.dailyChallengeStreak || 0);
-        // Update the ring
-        updateStreakRing(userData.dailyChallengeStreak || 0);
-
-        // ---- Quiz ----
-        if (userData.quizStreak !== undefined) {
-          document.getElementById('streakNum2').textContent = userData.quizStreak;
-          localStorage.setItem('quizStreak', userData.quizStreak);
-        } else {
-          const streak = parseInt(localStorage.getItem('quizStreak') || '0');
-          document.getElementById('streakNum2').textContent = streak;
-        }
-        if (userData.quizLastScore) {
-          const score = userData.quizLastScore;
-          const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
-          const levelIcon = levelNames[score.level] || '';
-          document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${score.score}/${score.total}`;
-          localStorage.setItem('quizLastScore', JSON.stringify(score));
-        } else {
-          const stored = localStorage.getItem('quizLastScore');
-          if (stored) {
-            try {
-              const data = JSON.parse(stored);
-              const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
-              const levelIcon = levelNames[data.level] || '';
-              document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${data.score}/${data.total}`;
-            } catch { document.getElementById('lastScoreDisplay').textContent = '—'; }
-          } else { document.getElementById('lastScoreDisplay').textContent = '—'; }
-        }
-
-        // ---- Quiz launch ----
-        const diffSelect = document.getElementById('diffSelect');
-        const launchBtn = document.getElementById('quizLaunchBtn');
-        function updateLaunchLink() { if (launchBtn && diffSelect) { launchBtn.href = `quiz-full.html?level=${diffSelect.value}`; } }
-        if (diffSelect) diffSelect.addEventListener('change', updateLaunchLink);
-        updateLaunchLink();
-
-        document.getElementById('scoreLaunchBtn').addEventListener('click', function(e) {
-          e.preventDefault();
-          const selectedLevel = diffSelect ? diffSelect.value : 'beginner';
-          window.location.href = `quiz-full.html?level=${selectedLevel}`;
-        });
-
-        document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${userData.uid}`;
-        document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${userData.uid}`;
-
-        await loadNotification();
-
-        (function() {
-          const CACHE_KEY = 'substack_teaser_cache';
-          const CACHE_DURATION = 3 * 60 * 60 * 1000;
-          function showTeaser(title, snippet, link) {
-            document.getElementById('substackTitle').textContent = title;
-            document.getElementById('substackSnippet').textContent = snippet;
-            document.getElementById('substackLink').href = link;
-            document.getElementById('substackTeaser').style.display = 'block';
-          }
-          const cached = localStorage.getItem(CACHE_KEY);
-          if (cached) {
-            const data = JSON.parse(cached);
-            if (Date.now() - data.timestamp < CACHE_DURATION) { showTeaser(data.title, data.snippet, data.link); return; }
-          }
-          fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
-            .then(res => res.json())
-            .then(data => {
-              if (data.status === 'ok' && data.items && data.items.length > 0) {
-                const latest = data.items[0];
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = latest.description;
-                let snippet = tempDiv.textContent || tempDiv.innerText || '';
-                snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
-                if (snippet.length === 140) snippet += '…';
-                localStorage.setItem(CACHE_KEY, JSON.stringify({ title: latest.title, snippet, link: latest.link, timestamp: Date.now() }));
-                showTeaser(latest.title, snippet, latest.link);
-              }
-            })
-            .catch(() => {
-              showTeaser('The White Balance Lie', 'Why your indoor photos look yellow — and the one setting that fixes it.', 'https://camerasdecoded.substack.com');
-            });
-        })();
-
-        (function() {
-          const container = document.getElementById('feed-container');
-          if (!container) return;
-          function setFeedMessage(msg) { container.innerHTML = `<div style="padding:40px 20px;text-align:center;grid-column:1/-1;color:var(--text-muted);">${msg}</div>`; }
-          setFeedMessage('Your personalized feed will appear here as you explore more content.');
-        })();
-
-        loadingEl.style.display = 'none';
-        contentEl.style.display = 'block';
-
-        initSpotlightCards();
-
-        if (window.BottomNav) {
-          window.BottomNav.updateBadges(userData);
-        }
-
-      } catch (err) {
-        console.error(err);
-        loadingEl.innerHTML = `<p class="error">Error: ${err.message}</p>`;
-      }
-    }
-
-    // ================================================================
-    // SPOTLIGHT CARDS – with spring physics
+    // SPOTLIGHT CARDS – (unchanged)
     // ================================================================
     function initSpotlightCards() {
       const container = document.getElementById('statsContainer');
@@ -1853,12 +1787,152 @@
       }
     }
 
+    // ---- Main load ----
+    const loadingEl = document.getElementById('loadingState');
+    const contentEl = document.getElementById('dashboardContent');
+
+    async function loadDashboard(user) {
+      if (!user) { loadingEl.innerHTML = '<p class="error">Not authenticated. <a href="login.html">Login</a></p>'; return; }
+      try {
+        const userData = await ensureUserDoc(user);
+        renderProfile(userData);
+        renderStats(userData);
+        renderAIWidget(userData);
+        renderJourney(userData);
+        renderChallenge(userData);
+        renderProtocols(userData);
+        renderReferral(userData);
+
+        // ---- Update Activity Card ----
+        updateProgressOverview(userData);
+
+        // ---- Quiz ----
+        if (userData.quizStreak !== undefined) {
+          document.getElementById('streakNum2').textContent = userData.quizStreak;
+          localStorage.setItem('quizStreak', userData.quizStreak);
+        } else {
+          const streak = parseInt(localStorage.getItem('quizStreak') || '0');
+          document.getElementById('streakNum2').textContent = streak;
+        }
+        if (userData.quizLastScore) {
+          const score = userData.quizLastScore;
+          const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
+          const levelIcon = levelNames[score.level] || '';
+          document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${score.score}/${score.total}`;
+          localStorage.setItem('quizLastScore', JSON.stringify(score));
+        } else {
+          const stored = localStorage.getItem('quizLastScore');
+          if (stored) {
+            try {
+              const data = JSON.parse(stored);
+              const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
+              const levelIcon = levelNames[data.level] || '';
+              document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${data.score}/${data.total}`;
+            } catch { document.getElementById('lastScoreDisplay').textContent = '—'; }
+          } else { document.getElementById('lastScoreDisplay').textContent = '—'; }
+        }
+
+        // ---- Quiz launch ----
+        const diffSelect = document.getElementById('diffSelect');
+        const launchBtn = document.getElementById('quizLaunchBtn');
+        function updateLaunchLink() { if (launchBtn && diffSelect) { launchBtn.href = `quiz-full.html?level=${diffSelect.value}`; } }
+        if (diffSelect) diffSelect.addEventListener('change', updateLaunchLink);
+        updateLaunchLink();
+
+        document.getElementById('scoreLaunchBtn').addEventListener('click', function(e) {
+          e.preventDefault();
+          const selectedLevel = diffSelect ? diffSelect.value : 'beginner';
+          window.location.href = `quiz-full.html?level=${selectedLevel}`;
+        });
+
+        document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${userData.uid}`;
+        document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${userData.uid}`;
+
+        await loadNotification();
+
+        (function() {
+          const CACHE_KEY = 'substack_teaser_cache';
+          const CACHE_DURATION = 3 * 60 * 60 * 1000;
+          function showTeaser(title, snippet, link) {
+            document.getElementById('substackTitle').textContent = title;
+            document.getElementById('substackSnippet').textContent = snippet;
+            document.getElementById('substackLink').href = link;
+            document.getElementById('substackTeaser').style.display = 'block';
+          }
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (cached) {
+            const data = JSON.parse(cached);
+            if (Date.now() - data.timestamp < CACHE_DURATION) { showTeaser(data.title, data.snippet, data.link); return; }
+          }
+          fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
+            .then(res => res.json())
+            .then(data => {
+              if (data.status === 'ok' && data.items && data.items.length > 0) {
+                const latest = data.items[0];
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = latest.description;
+                let snippet = tempDiv.textContent || tempDiv.innerText || '';
+                snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
+                if (snippet.length === 140) snippet += '…';
+                localStorage.setItem(CACHE_KEY, JSON.stringify({ title: latest.title, snippet, link: latest.link, timestamp: Date.now() }));
+                showTeaser(latest.title, snippet, latest.link);
+              }
+            })
+            .catch(() => {
+              showTeaser('The White Balance Lie', 'Why your indoor photos look yellow — and the one setting that fixes it.', 'https://camerasdecoded.substack.com');
+            });
+        })();
+
+        (function() {
+          const container = document.getElementById('feed-container');
+          if (!container) return;
+          function setFeedMessage(msg) { container.innerHTML = `<div style="padding:40px 20px;text-align:center;grid-column:1/-1;color:var(--text-muted);">${msg}</div>`; }
+          setFeedMessage('Your personalized feed will appear here as you explore more content.');
+        })();
+
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+
+        initSpotlightCards();
+
+        if (window.BottomNav) {
+          window.BottomNav.updateBadges(userData);
+        }
+
+      } catch (err) {
+        console.error(err);
+        loadingEl.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+      }
+    }
+
     auth.onAuthStateChanged((user) => {
       if (user) { loadDashboard(user); }
       else { loadingEl.innerHTML = '<p>You are not logged in. <a href="login.html">Go to Login</a></p>'; }
     });
 
     if (auth.currentUser) { loadDashboard(auth.currentUser); }
+
+    // ---- Signal bar styles (added via JS for consistency) ----
+    const style = document.createElement('style');
+    style.textContent = `
+      .signal-mini .bar {
+        display: block;
+        width: 4px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 2px;
+        transition: background 0.3s, height 0.3s;
+      }
+      .signal-mini .bar:nth-child(1) { height: 8px; }
+      .signal-mini .bar:nth-child(2) { height: 12px; }
+      .signal-mini .bar:nth-child(3) { height: 16px; }
+      .signal-mini .bar:nth-child(4) { height: 20px; }
+      .signal-mini .bar:nth-child(5) { height: 24px; }
+      .signal-mini .bar.active {
+        background: var(--green);
+        box-shadow: 0 0 8px rgba(141, 235, 0, 0.2);
+      }
+    `;
+    document.head.appendChild(style);
   </script>
 </body>
 </html>
