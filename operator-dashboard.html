@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     /* ============================================================
-       COMPLETE DASHBOARD – WITH SPOTLIGHT CARDS (SPRING PHYSICS)
+       COMPLETE DASHBOARD – WITH SPRING‑BASED SPOTLIGHT CARDS
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -88,13 +88,12 @@
       overflow: hidden;
       isolation: isolate;
       transform-style: preserve-3d;
+      /* No transform transition – we control it with JS springs */
       transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-                  transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
                   border-color 0.3s ease,
                   box-shadow 0.3s ease;
       will-change: transform, opacity;
       cursor: default;
-      /* force GPU layer */
       transform: translateZ(0);
       backface-visibility: hidden;
     }
@@ -1332,31 +1331,7 @@
     }
 
     // ================================================================
-    // SPRING PHYSICS ENGINE
-    // ================================================================
-    function createSpring(initial, stiffness = 180, damping = 22) {
-      const state = {
-        current: initial,
-        target: initial,
-        velocity: 0,
-        stiffness,
-        damping
-      };
-      return {
-        setTarget: (val) => { state.target = val; },
-        update: (dt = 1) => {
-          const force = (state.target - state.current) * state.stiffness;
-          state.velocity = (state.velocity + force) * (1 - state.damping / 100);
-          state.current += state.velocity * dt;
-          return state.current;
-        },
-        getCurrent: () => state.current,
-        reset: (val) => { state.current = val; state.target = val; state.velocity = 0; }
-      };
-    }
-
-    // ================================================================
-    // SPOTLIGHT CARDS – with spring physics and mobile double‑tap
+    // SPOTLIGHT CARDS – with stable spring physics and double‑tap navigation
     // ================================================================
     function initSpotlightCards() {
       const container = document.getElementById('statsContainer');
@@ -1365,16 +1340,48 @@
       const cards = container.querySelectorAll('.stat-card');
       if (cards.length === 0) return;
 
+      // --- Spring factory with proper delta time ---
+      function createSpring(initial, stiffness = 180, damping = 26) {
+        return {
+          current: initial,
+          target: initial,
+          velocity: 0,
+          stiffness,
+          damping,
+          update(dt) {
+            const force = (this.target - this.current) * this.stiffness;
+            this.velocity = (this.velocity + force) * (1 - this.damping / 100);
+            this.current += this.velocity * dt;
+            // Clamp to avoid overflow
+            if (this.current > 50) this.current = 50;
+            if (this.current < -50) this.current = -50;
+            return this.current;
+          },
+          setTarget(val) {
+            this.target = val;
+          },
+          reset(val) {
+            this.current = val;
+            this.target = val;
+            this.velocity = 0;
+          }
+        };
+      }
+
       const colorMap = ['#8deb00', '#e0b12d', '#00e5ff', '#a78bfa'];
       const labelMap = ['protocols', 'snapshots', 'other', 'community'];
 
-      // For each card, build spring‑based tilt and glow layers
+      let lastTapTime = 0;
+      let lastTappedCard = null;
+      let animationId = null;
+      let prevTime = 0;
+
       cards.forEach((card, index) => {
         const color = colorMap[index % colorMap.length];
         const label = labelMap[index % labelMap.length];
         card.dataset.spotlight = label;
 
-        // --- DOM elements ---
+        // ---- Build DOM layers ----
         const glow = document.createElement('div');
         glow.className = 'spotlight-glow';
         glow.style.background = `radial-gradient(ellipse at 20% 20%, ${color}40, transparent 65%)`;
@@ -1388,62 +1395,56 @@
         line.className = 'spotlight-line';
         card.appendChild(line);
 
-        // --- Spring state ---
-        const tiltX = createSpring(0, 300, 28); // rotateX (degrees)
-        const tiltY = createSpring(0, 300, 28); // rotateY (degrees)
+        // ---- Springs ----
+        const springX = createSpring(0, 300, 28);
+        const springY = createSpring(0, 300, 28);
+
         let isHovering = false;
         let isDragging = false;
-        let isTap = false;
-        let lastTapTime = 0;
-        let tapTimeout = null;
+        let touchMoved = false;
+        let touchStartX = 0, touchStartY = 0;
 
-        // --- Update loop (rAF) ---
-        let rafId = null;
-        function updateTilt() {
-          const x = tiltX.update();
-          const y = tiltY.update();
-          card.style.transform = `rotateX(${x}deg) rotateY(${y}deg)`;
-          rafId = requestAnimationFrame(updateTilt);
-        }
-        rafId = requestAnimationFrame(updateTilt);
+        // ---- Shared animation loop (one per card? we use one global loop) ----
+        // We'll actually use a single loop for all cards to reduce overhead.
+        // But we need to store springs per card. We'll store them in an array and loop.
 
-        // --- Helper to set hover state ---
-        function setHover(state) {
-          isHovering = state;
-          if (state) {
-            card.classList.add('hovered');
-            cards.forEach(c => { if (c !== card) c.classList.add('dimmed'); });
-          } else {
-            card.classList.remove('hovered');
-            cards.forEach(c => c.classList.remove('dimmed'));
-            // reset spring targets
-            tiltX.setTarget(0);
-            tiltY.setTarget(0);
-          }
-        }
+        // We'll collect all springs in an array and run them in a single rAF.
+        // For simplicity, we'll just attach a per‑card update function that gets called globally.
 
-        // --- Desktop hover ---
+        // We'll create a global array to hold all active card data.
+        if (!window._spotlightCards) window._spotlightCards = [];
+        const cardData = {
+          element: card,
+          springX,
+          springY,
+          isHovering: false
+        };
+        window._spotlightCards.push(cardData);
+
+        // ---- Mouse events ----
         card.addEventListener('mouseenter', () => {
-          setHover(true);
+          cardData.isHovering = true;
+          card.classList.add('hovered');
+          cards.forEach(c => { if (c !== card) c.classList.add('dimmed'); });
         });
         card.addEventListener('mouseleave', () => {
-          setHover(false);
-          isDragging = false;
+          cardData.isHovering = false;
+          card.classList.remove('hovered');
+          cards.forEach(c => c.classList.remove('dimmed'));
+          springX.setTarget(0);
+          springY.setTarget(0);
         });
         card.addEventListener('mousemove', (e) => {
-          if (!isHovering) return;
+          if (!cardData.isHovering) return;
           const rect = card.getBoundingClientRect();
           const x = (e.clientX - rect.left) / rect.width;
           const y = (e.clientY - rect.top) / rect.height;
           const tiltMax = 8;
-          tiltX.setTarget((y - 0.5) * -tiltMax);
-          tiltY.setTarget((x - 0.5) * tiltMax);
+          springX.setTarget((y - 0.5) * -tiltMax);
+          springY.setTarget((x - 0.5) * tiltMax);
         });
 
-        // --- Mobile touch ---
-        let touchStartX = 0, touchStartY = 0;
-        let touchMoved = false;
-
+        // ---- Touch events ----
         card.addEventListener('touchstart', (e) => {
           const touch = e.touches[0];
           touchStartX = touch.clientX;
@@ -1451,9 +1452,8 @@
           touchMoved = false;
           isDragging = false;
           const now = Date.now();
-          // double‑tap detection
-          if (now - lastTapTime < 300 && card === lastTappedCard) {
-            // double‑tap -> navigate
+          if (now - lastTapTime < 300 && lastTappedCard === card) {
+            // Double tap → navigate
             e.preventDefault();
             const href = card.getAttribute('data-href') || card.getAttribute('href');
             if (href && href !== '#') {
@@ -1462,27 +1462,28 @@
             lastTapTime = 0;
             return;
           }
-          // else single tap potential – we'll handle in touchend
-          isTap = true;
-          setHover(true);
-          // also start a timer for auto‑nod if no movement
-          clearTimeout(tapTimeout);
-          tapTimeout = setTimeout(() => {
-            // If still touching and no movement, trigger auto‑nod
-            if (isTap && !touchMoved) {
-              // auto‑nod: tilt down‑left then up‑right then back
-              tiltX.setTarget(-4);
-              tiltY.setTarget(-4);
+          // Single tap – activate hover
+          cardData.isHovering = true;
+          card.classList.add('hovered');
+          cards.forEach(c => { if (c !== card) c.classList.add('dimmed'); });
+          // Auto‑nod after a short delay if no movement
+          setTimeout(() => {
+            if (!touchMoved && cardData.isHovering) {
+              springX.setTarget(-4);
+              springY.setTarget(-4);
               setTimeout(() => {
-                tiltX.setTarget(4);
-                tiltY.setTarget(4);
+                springX.setTarget(4);
+                springY.setTarget(4);
                 setTimeout(() => {
-                  tiltX.setTarget(0);
-                  tiltY.setTarget(0);
+                  springX.setTarget(0);
+                  springY.setTarget(0);
                 }, 300);
               }, 300);
             }
           }, 200);
+          // Store tap for double‑tap detection
+          lastTapTime = now;
+          lastTappedCard = card;
         }, { passive: true });
 
         card.addEventListener('touchmove', (e) => {
@@ -1492,86 +1493,60 @@
           if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
             touchMoved = true;
             isDragging = true;
-            isTap = false;
-            clearTimeout(tapTimeout);
-            // follow finger
             const rect = card.getBoundingClientRect();
             const x = (touch.clientX - rect.left) / rect.width;
             const y = (touch.clientY - rect.top) / rect.height;
             const tiltMax = 8;
-            tiltX.setTarget((y - 0.5) * -tiltMax);
-            tiltY.setTarget((x - 0.5) * tiltMax);
+            springX.setTarget((y - 0.5) * -tiltMax);
+            springY.setTarget((x - 0.5) * tiltMax);
           }
         }, { passive: true });
 
-        card.addEventListener('touchend', (e) => {
-          clearTimeout(tapTimeout);
-          const now = Date.now();
-          if (isTap && !touchMoved) {
-            // single tap – store tap time for double‑tap detection
-            lastTapTime = now;
-            lastTappedCard = card;
-            // keep hover for a moment, then fade
-            setTimeout(() => {
-              setHover(false);
-            }, 800);
-          } else if (isDragging) {
-            // drag ended – release springs
-            tiltX.setTarget(0);
-            tiltY.setTarget(0);
-            setHover(false);
+        card.addEventListener('touchend', () => {
+          if (touchMoved && isDragging) {
+            // drag ended – release
+            springX.setTarget(0);
+            springY.setTarget(0);
+            cardData.isHovering = false;
+            card.classList.remove('hovered');
+            cards.forEach(c => c.classList.remove('dimmed'));
           } else {
-            setHover(false);
+            // single tap – keep hover for a moment then fade
+            setTimeout(() => {
+              if (!touchMoved) {
+                cardData.isHovering = false;
+                card.classList.remove('hovered');
+                cards.forEach(c => c.classList.remove('dimmed'));
+                springX.setTarget(0);
+                springY.setTarget(0);
+              }
+            }, 800);
           }
-          isTap = false;
+          touchMoved = false;
           isDragging = false;
         }, { passive: true });
 
-        // Store last tapped card globally for double‑tap
-        let lastTappedCard = null;
-        // we need to store it per card? Actually we need a global var for all cards.
-        // We'll attach it to the function scope.
-        if (typeof window._lastTappedCard === 'undefined') {
-          window._lastTappedCard = null;
-          window._lastTapTime = 0;
-        }
-        // Override the local references to use the global ones
-        const origTapHandler = (e) => {
-          // ... we already handled tap; but we need to update global vars.
-          // We'll patch it by storing the card and time in window.
-          // But since we used `lastTapTime` and `lastTappedCard` inside the closure,
-          // they are local to each card. We need to share them across cards.
-          // Let's refactor: use window._lastTapTime and window._lastTappedCard.
-        };
-        // To keep it simple, we'll move the double‑tap logic to use window shared.
-        // Since we already have the logic inside touchstart, we'll modify it.
-        // Actually the touchstart code uses `lastTapTime` and `lastTappedCard` which are
-        // local per card – that's wrong for double‑tap across cards. We need shared.
-        // Let's override them: we'll replace the local variables with window ones.
-        // For simplicity, we'll rewrite the touchstart logic using window shared.
-        // Since we can't easily replace the closures, we'll just add a new listener
-        // that overrides the behavior. Better to just rebuild the touch handling.
-        // We'll clean up and re‑implement touch handling in the loop below.
-        // We'll just remove the old listeners and add new ones.
-        // We'll do it in a second pass.
-
       });
 
-      // Second pass – fix touch handling (we'll replace the touch listeners)
-      // We'll remove the previous ones and attach fresh ones with shared double‑tap.
-      // But to avoid complexity, we can just keep the above but fix the double‑tap variable scope.
-      // Actually the easiest is to store lastTapTime and lastTappedCard on the window.
-      // We'll modify the touchstart and touchend to use window._lastTapTime and window._lastTappedCard.
-      // Since we can't change the closure now, we'll just re‑run the initialisation with corrected code.
-      // For the final file, I'll rewrite the touch logic cleanly.
-      // Given time, I'll provide the final correct version in the code block.
-      // For this response, I'll assume the code above works with the shared window vars.
-      // But to be safe, I'll write the final code with a clean implementation.
-    }
+      // ---- Global animation loop ----
+      function animate(timestamp) {
+        const dt = prevTime ? Math.min((timestamp - prevTime) / 1000, 0.05) : 0.016;
+        prevTime = timestamp;
+        if (window._spotlightCards) {
+          window._spotlightCards.forEach(data => {
+            const x = data.springX.update(dt);
+            const y = data.springY.update(dt);
+            data.element.style.transform = `rotateX(${x}deg) rotateY(${y}deg)`;
+          });
+        }
+        animationId = requestAnimationFrame(animate);
+      }
 
-    // We'll integrate the correct touch handling directly in the final code.
-    // Since we're building the full file, we'll include the correct logic in the script below.
-    // The above is a draft – the final code will have a robust implementation.
+      // Start the loop if not already started
+      if (!window._spotlightAnimId) {
+        window._spotlightAnimId = requestAnimationFrame(animate);
+      }
+    }
 
     // ---- Main load ----
     const loadingEl = document.getElementById('loadingState');
