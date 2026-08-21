@@ -489,7 +489,7 @@
         <div class="progress-bar">
           <div class="progress-fill" id="progressFill"></div>
         </div>
-        <p class="slide-counter">Slide <span id="currentSlide">1</span> of <span id="totalSlides">10</span></p>
+        <p class="slide-counter">Slide <span id="currentSlide">1</span> of <span id="totalSlides">0</span></p>
       </div>
       <div class="header-right">
         <button class="btn-help" id="btnHelp" title="Tips">
@@ -626,16 +626,20 @@
 
       async init() {
         try {
+          console.log('🔍 Initializing module...');
           await this.loadModuleData();
+          console.log('📦 Module data loaded:', this.moduleData);
           await this.loadUserProgress();
+          console.log('📊 User progress loaded:', this.userProgress);
           this.renderModule();
           this.attachListeners();
           this.showSlide(this.currentSlideIndex);
           this.updateProgressBar();
           this.updateNavigation();
           this.updateIndicators();
+          console.log('✅ Module initialized successfully');
         } catch (err) {
-          console.error('Module init error:', err);
+          console.error('❌ Module init error:', err);
           showToast('Failed to load module: ' + err.message, 'error');
         }
       }
@@ -650,6 +654,8 @@
         const slidesSnap = await moduleRef.collection('slides').orderBy('order').get();
         this.slides = slidesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         if (this.slides.length === 0) throw new Error('No slides found');
+
+        console.log('📄 Slides loaded:', this.slides.length);
       }
 
       // ---- Load user progress ----
@@ -681,124 +687,125 @@
 
       // ---- Render ----
       renderModule() {
-  this.titleEl.textContent = this.moduleData.metadata.title || 'Module';
-  this.totalSlidesEl.textContent = this.slides.length;
+        this.titleEl.textContent = this.moduleData.metadata?.title || 'Module';
+        this.totalSlidesEl.textContent = this.slides.length;
 
-  // Build slides with error handling
-  this.slides.forEach((slide, idx) => {
-    try {
-      const slideEl = this.createSlideElement(slide, idx);
-      this.slidesContainer.appendChild(slideEl);
-    } catch (err) {
-      console.error(`Error rendering slide ${idx}:`, err);
-      // Create a fallback slide
-      const fallbackEl = document.createElement('div');
-      fallbackEl.className = 'slide slide-error';
-      fallbackEl.dataset.slideIndex = idx;
-      fallbackEl.innerHTML = `
-        <div class="slide-content">
-          <h2>⚠️ Error Loading Slide</h2>
-          <p style="color: var(--text-muted);">There was a problem loading this slide. Please try again later.</p>
-          <p style="font-size: 12px; color: #888;">Error: ${err.message}</p>
-        </div>
-      `;
-      this.slidesContainer.appendChild(fallbackEl);
-    }
-  });
+        // Build slides with error handling
+        this.slides.forEach((slide, idx) => {
+          try {
+            const slideEl = this.createSlideElement(slide, idx);
+            this.slidesContainer.appendChild(slideEl);
+          } catch (err) {
+            console.error(`Error rendering slide ${idx}:`, err);
+            // Create a fallback slide
+            const fallbackEl = document.createElement('div');
+            fallbackEl.className = 'slide slide-error';
+            fallbackEl.dataset.slideIndex = idx;
+            fallbackEl.innerHTML = `
+              <div class="slide-content">
+                <h2>⚠️ Error Loading Slide</h2>
+                <p style="color: var(--text-muted);">There was a problem loading this slide. Please try again later.</p>
+                <p style="font-size: 12px; color: #888;">Error: ${err.message}</p>
+              </div>
+            `;
+            this.slidesContainer.appendChild(fallbackEl);
+          }
+        });
 
-  // Build indicators
-  this.slides.forEach((_, idx) => {
-    const dot = document.createElement('div');
-    dot.className = 'indicator-dot' + (idx === 0 ? ' active' : '');
-    dot.dataset.index = idx;
-    dot.addEventListener('click', () => this.showSlide(idx));
-    this.indicatorsEl.appendChild(dot);
-  });
-}
+        // Build indicators
+        this.slides.forEach((_, idx) => {
+          const dot = document.createElement('div');
+          dot.className = 'indicator-dot' + (idx === 0 ? ' active' : '');
+          dot.dataset.index = idx;
+          dot.addEventListener('click', () => this.showSlide(idx));
+          this.indicatorsEl.appendChild(dot);
+        });
+      }
 
       createSlideElement(slide, index) {
-  const el = document.createElement('div');
-  el.className = `slide slide-${slide.type}`;
-  el.dataset.slideIndex = index;
-  el.dataset.slideType = slide.type;
+        const el = document.createElement('div');
+        el.className = `slide slide-${slide.type}`;
+        el.dataset.slideIndex = index;
+        el.dataset.slideType = slide.type;
 
-  const content = document.createElement('div');
-  content.className = 'slide-content';
+        const content = document.createElement('div');
+        content.className = 'slide-content';
 
-  try {
-    switch (slide.type) {
-      case 'intro':
-      case 'content':
-        content.innerHTML = `<h2>${slide.title}</h2><p>${slide.content || ''}</p>`;
-        break;
-      case 'image':
-        content.innerHTML = `
-          <h2>${slide.title}</h2>
-          <img src="${slide.imageUrl || ''}" alt="${slide.title}" loading="lazy">
-          <p>${slide.content || ''}</p>
-        `;
-        break;
-      case 'video':
-        content.innerHTML = `
-          <h2>${slide.title}</h2>
-          <iframe src="${slide.videoUrl || ''}" allowfullscreen></iframe>
-          <p>${slide.content || ''}</p>
-        `;
-        break;
-      case 'quiz':
-        content.innerHTML = this.renderQuiz(slide, index);
-        break;
-      case 'capstone':
-        content.innerHTML = this.renderCapstone(slide, index);
-        break;
-      default:
-        content.innerHTML = `<h2>${slide.title}</h2><p>${slide.content || ''}</p>`;
-    }
-  } catch (err) {
-    console.error('Error creating slide element:', err);
-    content.innerHTML = `
-      <h2>⚠️ Error Loading Slide</h2>
-      <p style="color: var(--text-muted);">There was a problem loading this slide.</p>
-      <p style="font-size: 12px; color: #888;">Error: ${err.message}</p>
-    `;
-  }
+        try {
+          switch (slide.type) {
+            case 'intro':
+            case 'content':
+              content.innerHTML = `<h2>${slide.title || ''}</h2><p>${slide.content || ''}</p>`;
+              break;
+            case 'image':
+              content.innerHTML = `
+                <h2>${slide.title || ''}</h2>
+                <img src="${slide.imageUrl || ''}" alt="${slide.title || ''}" loading="lazy">
+                <p>${slide.content || ''}</p>
+              `;
+              break;
+            case 'video':
+              content.innerHTML = `
+                <h2>${slide.title || ''}</h2>
+                <iframe src="${slide.videoUrl || ''}" allowfullscreen></iframe>
+                <p>${slide.content || ''}</p>
+              `;
+              break;
+            case 'quiz':
+              content.innerHTML = this.renderQuiz(slide, index);
+              break;
+            case 'capstone':
+              content.innerHTML = this.renderCapstone(slide, index);
+              break;
+            default:
+              content.innerHTML = `<h2>${slide.title || ''}</h2><p>${slide.content || ''}</p>`;
+          }
+        } catch (err) {
+          console.error('Error creating slide element:', err);
+          content.innerHTML = `
+            <h2>⚠️ Error Loading Slide</h2>
+            <p style="color: var(--text-muted);">There was a problem loading this slide.</p>
+            <p style="font-size: 12px; color: #888;">Error: ${err.message}</p>
+          `;
+        }
 
-  el.appendChild(content);
-  return el;
-}
+        el.appendChild(content);
+        return el;
+      }
 
       renderQuiz(slide, index) {
-  const quiz = slide.quiz || {};
-  const options = Array.isArray(quiz.options) ? quiz.options : [];
+        const quiz = slide.quiz || {};
+        const options = Array.isArray(quiz.options) ? quiz.options : [];
 
-  if (options.length === 0) {
-    return `
-      <h2>${quiz.question || 'Quiz'}</h2>
-      <p style="color: var(--text-muted);">No quiz options available. Please try again later.</p>
-    `;
-  }
+        if (options.length === 0) {
+          return `
+            <h2>${quiz.question || 'Quiz'}</h2>
+            <p style="color: var(--text-muted);">No quiz options available. Please try again later.</p>
+          `;
+        }
 
-  const optionsHtml = options.map(opt => `
-    <button class="quiz-option" data-option-id="${opt.id}" data-slide-index="${index}">
-      ${opt.text}
-    </button>
-  `).join('');
+        const optionsHtml = options.map(opt => `
+          <button class="quiz-option" data-option-id="${opt.id}" data-slide-index="${index}">
+            ${opt.text || ''}
+          </button>
+        `).join('');
 
-  return `
-    <h2>${quiz.question || 'Quiz'}</h2>
-    <div class="quiz-options">
-      ${optionsHtml}
-    </div>
-    <div class="quiz-explanation" id="explanation-${index}">
-      ${quiz.explanation || ''}
-    </div>
-  `;
-}
+        return `
+          <h2>${quiz.question || 'Quiz'}</h2>
+          <div class="quiz-options">
+            ${optionsHtml}
+          </div>
+          <div class="quiz-explanation" id="explanation-${index}">
+            ${quiz.explanation || ''}
+          </div>
+        `;
+      }
 
       renderCapstone(slide, index) {
+        const capstone = slide.capstone || {};
         return `
-          <h2>${slide.title}</h2>
-          <p>${slide.capstone.prompt || ''}</p>
+          <h2>${slide.title || ''}</h2>
+          <p>${capstone.prompt || slide.content || ''}</p>
           <div class="capstone-upload">
             <div class="upload-area" id="uploadArea-${index}">
               <i class="fas fa-cloud-upload-alt"></i>
@@ -834,7 +841,6 @@
 
         // Animate in new
         newEl.style.display = 'flex';
-        // Reset transform for animation
         gsap.set(newEl, {
           opacity: 0,
           x: index > this.currentSlideIndex ? 60 : -60,
@@ -854,12 +860,9 @@
         this.currentSlideIndex = index;
         this.currentSlideEl.textContent = index + 1;
 
-        // Update UI
         this.updateProgressBar();
         this.updateNavigation();
         this.updateIndicators();
-
-        // Attach slide-specific listeners
         this.attachSlideListeners(index);
       }
 
@@ -923,7 +926,7 @@
         this.isCompleting = true;
 
         try {
-          const xpReward = this.moduleData.metadata.xpReward || 500;
+          const xpReward = this.moduleData.metadata?.xpReward || 500;
 
           const progressRef = db.collection('users')
             .doc(this.userId)
@@ -935,13 +938,11 @@
             xpEarned: xpReward
           });
 
-          // Award XP to user
           const userRef = db.collection('users').doc(this.userId);
           await userRef.update({
             totalPoints: firebase.firestore.FieldValue.increment(xpReward)
           });
 
-          // Show celebration
           this.showCompletionModal(xpReward);
         } catch (err) {
           console.error('Completion error:', err);
@@ -1022,23 +1023,20 @@
 
         options.forEach(opt => {
           opt.addEventListener('click', (e) => {
-            // Clear previous selection
-            options.forEach(o => {
-              o.classList.remove('selected', 'correct', 'incorrect');
-            });
-            // Mark selected
-            e.target.classList.add('selected');
-            const optId = e.target.dataset.optionId;
+            const clicked = e.currentTarget;
+            options.forEach(o => o.classList.remove('selected', 'correct', 'incorrect'));
+            clicked.classList.add('selected');
+
+            const optId = clicked.dataset.optionId;
             this.quizAnswers[index] = optId;
 
-            // Check if correct
             const slide = this.slides[index];
             const isCorrect = slide.quiz.options.find(o => o.id === optId)?.correct || false;
+
             if (isCorrect) {
-              e.target.classList.add('correct');
+              clicked.classList.add('correct');
             } else {
-              e.target.classList.add('incorrect');
-              // Highlight correct answer
+              clicked.classList.add('incorrect');
               options.forEach(o => {
                 const id = o.dataset.optionId;
                 if (slide.quiz.options.find(opt => opt.id === id)?.correct) {
@@ -1047,10 +1045,7 @@
               });
             }
 
-            // Show explanation
             if (explanation) explanation.classList.add('show');
-
-            // Save progress
             this.saveProgress();
           });
         });
@@ -1126,12 +1121,11 @@
       showCompletionModal(xpReward) {
         const modal = document.getElementById('completionModal');
         document.getElementById('celebrationText').textContent =
-          `You've mastered "${this.moduleData.metadata.title}"!`;
+          `You've mastered "${this.moduleData.metadata?.title || 'this module'}"!`;
         document.getElementById('xpEarnedAmount').textContent = `+${xpReward}`;
 
-        // Check for badge (if all modules in track complete, etc. – simplified)
         const badgeContainer = document.getElementById('badgesEarned');
-        badgeContainer.innerHTML = ''; // placeholder
+        badgeContainer.innerHTML = '';
 
         modal.classList.add('show');
         gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.3 });
