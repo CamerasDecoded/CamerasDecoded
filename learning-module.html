@@ -681,66 +681,91 @@
 
       // ---- Render ----
       renderModule() {
-        this.titleEl.textContent = this.moduleData.metadata.title || 'Module';
-        this.totalSlidesEl.textContent = this.slides.length;
+  this.titleEl.textContent = this.moduleData.metadata.title || 'Module';
+  this.totalSlidesEl.textContent = this.slides.length;
 
-        // Build slides
-        this.slides.forEach((slide, idx) => {
-          const slideEl = this.createSlideElement(slide, idx);
-          this.slidesContainer.appendChild(slideEl);
-        });
+  // Build slides with error handling
+  this.slides.forEach((slide, idx) => {
+    try {
+      const slideEl = this.createSlideElement(slide, idx);
+      this.slidesContainer.appendChild(slideEl);
+    } catch (err) {
+      console.error(`Error rendering slide ${idx}:`, err);
+      // Create a fallback slide
+      const fallbackEl = document.createElement('div');
+      fallbackEl.className = 'slide slide-error';
+      fallbackEl.dataset.slideIndex = idx;
+      fallbackEl.innerHTML = `
+        <div class="slide-content">
+          <h2>⚠️ Error Loading Slide</h2>
+          <p style="color: var(--text-muted);">There was a problem loading this slide. Please try again later.</p>
+          <p style="font-size: 12px; color: #888;">Error: ${err.message}</p>
+        </div>
+      `;
+      this.slidesContainer.appendChild(fallbackEl);
+    }
+  });
 
-        // Build indicators
-        this.slides.forEach((_, idx) => {
-          const dot = document.createElement('div');
-          dot.className = 'indicator-dot' + (idx === 0 ? ' active' : '');
-          dot.dataset.index = idx;
-          dot.addEventListener('click', () => this.showSlide(idx));
-          this.indicatorsEl.appendChild(dot);
-        });
-      }
+  // Build indicators
+  this.slides.forEach((_, idx) => {
+    const dot = document.createElement('div');
+    dot.className = 'indicator-dot' + (idx === 0 ? ' active' : '');
+    dot.dataset.index = idx;
+    dot.addEventListener('click', () => this.showSlide(idx));
+    this.indicatorsEl.appendChild(dot);
+  });
+}
 
       createSlideElement(slide, index) {
-        const el = document.createElement('div');
-        el.className = `slide slide-${slide.type}`;
-        el.dataset.slideIndex = index;
-        el.dataset.slideType = slide.type;
+  const el = document.createElement('div');
+  el.className = `slide slide-${slide.type}`;
+  el.dataset.slideIndex = index;
+  el.dataset.slideType = slide.type;
 
-        const content = document.createElement('div');
-        content.className = 'slide-content';
+  const content = document.createElement('div');
+  content.className = 'slide-content';
 
-        switch (slide.type) {
-          case 'intro':
-          case 'content':
-            content.innerHTML = `<h2>${slide.title}</h2><p>${slide.content || ''}</p>`;
-            break;
-          case 'image':
-            content.innerHTML = `
-              <h2>${slide.title}</h2>
-              <img src="${slide.imageUrl || ''}" alt="${slide.title}" loading="lazy">
-              <p>${slide.content || ''}</p>
-            `;
-            break;
-          case 'video':
-            content.innerHTML = `
-              <h2>${slide.title}</h2>
-              <iframe src="${slide.videoUrl || ''}" allowfullscreen></iframe>
-              <p>${slide.content || ''}</p>
-            `;
-            break;
-          case 'quiz':
-            content.innerHTML = this.renderQuiz(slide, index);
-            break;
-          case 'capstone':
-            content.innerHTML = this.renderCapstone(slide, index);
-            break;
-          default:
-            content.innerHTML = `<h2>${slide.title}</h2><p>${slide.content || ''}</p>`;
-        }
+  try {
+    switch (slide.type) {
+      case 'intro':
+      case 'content':
+        content.innerHTML = `<h2>${slide.title}</h2><p>${slide.content || ''}</p>`;
+        break;
+      case 'image':
+        content.innerHTML = `
+          <h2>${slide.title}</h2>
+          <img src="${slide.imageUrl || ''}" alt="${slide.title}" loading="lazy">
+          <p>${slide.content || ''}</p>
+        `;
+        break;
+      case 'video':
+        content.innerHTML = `
+          <h2>${slide.title}</h2>
+          <iframe src="${slide.videoUrl || ''}" allowfullscreen></iframe>
+          <p>${slide.content || ''}</p>
+        `;
+        break;
+      case 'quiz':
+        content.innerHTML = this.renderQuiz(slide, index);
+        break;
+      case 'capstone':
+        content.innerHTML = this.renderCapstone(slide, index);
+        break;
+      default:
+        content.innerHTML = `<h2>${slide.title}</h2><p>${slide.content || ''}</p>`;
+    }
+  } catch (err) {
+    console.error('Error creating slide element:', err);
+    content.innerHTML = `
+      <h2>⚠️ Error Loading Slide</h2>
+      <p style="color: var(--text-muted);">There was a problem loading this slide.</p>
+      <p style="font-size: 12px; color: #888;">Error: ${err.message}</p>
+    `;
+  }
 
-        el.appendChild(content);
-        return el;
-      }
+  el.appendChild(content);
+  return el;
+}
 
       renderQuiz(slide, index) {
   const quiz = slide.quiz || {};
