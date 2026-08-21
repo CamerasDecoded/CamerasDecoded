@@ -646,17 +646,36 @@
 
       // ---- Load module data ----
       async loadModuleData() {
-        const moduleRef = db.collection('modules').doc(this.moduleId);
-        const moduleSnap = await moduleRef.get();
-        if (!moduleSnap.exists) throw new Error('Module not found');
-        this.moduleData = moduleSnap.data();
+  try {
+    const moduleRef = db.collection('modules').doc(this.moduleId);
+    const moduleSnap = await moduleRef.get();
+    if (!moduleSnap.exists) throw new Error('Module not found');
 
-        const slidesSnap = await moduleRef.collection('slides').orderBy('order').get();
-        this.slides = slidesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        if (this.slides.length === 0) throw new Error('No slides found');
+    this.moduleData = moduleSnap.data();
 
-        console.log('📄 Slides loaded:', this.slides.length);
-      }
+    // Get ALL slides, don't rely on order field
+    const slidesSnap = await moduleRef.collection('slides').get();
+
+    this.slides = slidesSnap.docs.map(doc => ({
+      id: doc.id,
+     ...doc.data()
+    })).sort((a,b) => {
+      // sort by order if present, otherwise by slide- number
+      if (a.order!= null && b.order!= null) return a.order - b.order;
+      const numA = parseInt(a.id.split('-')[1]) || 0;
+      const numB = parseInt(b.id.split('-')[1]) || 0;
+      return numA - numB;
+    });
+
+    console.log(`Loaded ${this.slides.length} slides:`, this.slides.map(s=>s.id));
+
+    this.renderSlides();
+    this.updateProgress();
+  } catch (err) {
+    console.error('Load error:', err);
+    showToast('Failed to load module: ' + err.message, 'error');
+  }
+}
 
       // ---- Load user progress ----
       async loadUserProgress() {
