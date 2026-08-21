@@ -9,12 +9,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="bottom-nav.css" />
 
-  <!-- GSAP for smooth animations -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
   <style>
     /* ============================================================
-       PREMIUM LEARNING MODULE – GLASS‑MORPHISM
+       PREMIUM LEARNING MODULE – GLASS‑MORPHISM + BINARY RAIN
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -33,22 +32,42 @@
 
     body {
       background: #08080a;
-      background-image:
-        radial-gradient(ellipse at 30% 20%, rgba(141,235,0,0.04) 0%, transparent 60%),
-        radial-gradient(ellipse at 70% 80%, rgba(141,235,0,0.02) 0%, transparent 50%),
-        radial-gradient(rgba(255,255,255,0.015) 1px, transparent 1px);
-      background-size: 100% 100%, 100% 100%, 24px 24px;
-      background-attachment: fixed;
-      color: #ffffff;
-      font-family: 'Montserrat', sans-serif;
       min-height: 100vh;
-      padding: 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+      font-family: 'Montserrat', sans-serif;
+      color: #ffffff;
     }
 
+    /* ===== BINARY RAIN CANVAS ===== */
+    #binary-rain {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.12;
+    }
+
+    #rain-fade {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100vw;
+      height: 45vh;
+      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 60%, #000000 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ===== MODULE WRAPPER ===== */
     .module-wrapper {
       position: relative;
       width: 100%;
@@ -62,6 +81,7 @@
       border: 1px solid var(--border-dim);
       animation: fadeSlide 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      z-index: 1;
     }
 
     @property --angle {
@@ -96,21 +116,28 @@
       100% { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* ===== HEADER ===== */
-    .module-header {
+    /* ===== FLOATING HEADER ===== */
+    .floating-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding-bottom: 16px;
+      padding: 8px 16px 16px 16px;
+      background: rgba(10,10,10,0.4);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border-dim);
-      position: relative;
-      z-index: 1;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      margin: -28px -24px 0 -24px;
+      padding: 12px 20px 12px 20px;
     }
 
-    .header-left { display: flex; align-items: center; gap: 10px; }
-    .header-center { flex: 1; text-align: center; min-width: 0; }
-    .header-right { display: flex; align-items: center; gap: 10px; }
+    .floating-header .header-left { display: flex; align-items: center; gap: 10px; }
+    .floating-header .header-center { flex: 1; text-align: center; min-width: 0; }
+    .floating-header .header-right { display: flex; align-items: center; gap: 10px; }
 
     .btn-exit, .btn-help, .btn-restart {
       background: transparent;
@@ -147,8 +174,54 @@
       background: rgba(224,177,45,0.08);
     }
 
+    /* ---- User Profile Pill ---- */
+    .user-profile-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px 4px 4px;
+      border-radius: 30px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      transition: all 0.3s ease;
+      cursor: default;
+      white-space: nowrap;
+    }
+    .user-profile-pill:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(141,235,0,0.15);
+    }
+    .user-profile-pill .avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-size: cover;
+      background-position: center;
+      border: 1.5px solid var(--green);
+      flex-shrink: 0;
+    }
+    .user-profile-pill .user-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .user-profile-pill .user-xp {
+      font-size: 9px;
+      color: var(--green);
+      font-family: 'Space Mono', monospace;
+      background: rgba(141,235,0,0.1);
+      padding: 0 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(141,235,0,0.08);
+    }
+
     .module-title {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
       color: #fff;
       font-family: 'Space Mono', monospace;
@@ -159,12 +232,12 @@
 
     .progress-bar {
       width: 100%;
-      max-width: 300px;
+      max-width: 280px;
       height: 4px;
       background: rgba(255,255,255,0.06);
       border-radius: 4px;
       overflow: hidden;
-      margin: 6px auto 4px;
+      margin: 4px auto 2px;
     }
     .progress-fill {
       height: 100%;
@@ -673,9 +746,15 @@
     @media (max-width: 768px) {
       body { padding: 12px; }
       .module-wrapper { padding: 20px 16px 16px; border-radius: var(--radius-sm); }
-      .module-header { flex-wrap: wrap; gap: 8px; }
-      .header-center { order: 1; flex-basis: 100%; }
-      .header-left, .header-right { order: 0; }
+      .floating-header {
+        margin: -20px -16px 0 -16px;
+        padding: 10px 14px;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .floating-header .header-center { order: 2; flex-basis: 100%; }
+      .floating-header .header-left { order: 1; }
+      .floating-header .header-right { order: 3; }
       .module-title { font-size: 16px; }
       .slides-container { padding: 24px 10px 10px; min-height: 320px; }
       .slide h2 { font-size: 24px; }
@@ -683,13 +762,16 @@
       .slide-footer { flex-wrap: wrap; gap: 10px; }
       .btn-prev, .btn-next { min-width: 80px; padding: 10px 16px; font-size: 12px; }
       .slide-indicators { order: 0; width: 100%; justify-content: center; }
+      .user-profile-pill .user-name { max-width: 60px; font-size: 11px; }
+      .user-profile-pill .avatar { width: 26px; height: 26px; }
     }
 
     @media (max-width: 480px) {
       .module-wrapper { padding: 14px 12px 12px; }
+      .floating-header { margin: -14px -12px 0 -12px; padding: 8px 10px; }
       .slide h2 { font-size: 20px; }
-      .btn-exit, .btn-help { width: 34px; height: 34px; font-size: 13px; }
-      .btn-restart { font-size: 10px; padding: 0 10px; height: 34px; }
+      .btn-exit, .btn-help { width: 32px; height: 32px; font-size: 12px; }
+      .btn-restart { font-size: 10px; padding: 0 10px; height: 32px; }
       .modal-content { padding: 28px 16px; }
       .celebration-icon { font-size: 48px; }
     }
@@ -699,10 +781,16 @@
       margin-top: 20px;
       width: 100%;
       max-width: 820px;
+      z-index: 1;
+      position: relative;
     }
   </style>
 </head>
 <body>
+
+  <!-- ===== BINARY RAIN ===== -->
+  <canvas id="binary-rain"></canvas>
+  <div id="rain-fade"></div>
 
   <!-- ===== TOAST ===== -->
   <div id="toast-container"></div>
@@ -710,11 +798,14 @@
   <!-- ===== MAIN WRAPPER ===== -->
   <div class="module-wrapper" id="moduleWrapper">
 
-    <!-- ===== HEADER ===== -->
-    <header class="module-header">
+    <!-- ===== FLOATING HEADER ===== -->
+    <header class="floating-header">
       <div class="header-left">
         <button class="btn-exit" id="btnExit" title="Exit module">
           <i class="fas fa-arrow-left"></i>
+        </button>
+        <button class="btn-restart" id="btnRestart">
+          <i class="fas fa-redo"></i>
         </button>
       </div>
       <div class="header-center">
@@ -725,9 +816,12 @@
         <p class="slide-counter">Slide <span id="currentSlide">1</span> of <span id="totalSlides">0</span></p>
       </div>
       <div class="header-right">
-        <button class="btn-restart" id="btnRestart">
-          <i class="fas fa-redo"></i> Restart
-        </button>
+        <!-- User Profile -->
+        <div class="user-profile-pill" id="userProfile">
+          <div class="avatar" id="profileAvatar" style="background-image:url('cameras-decoded-logo.png');"></div>
+          <span class="user-name" id="profileName">Operator</span>
+          <span class="user-xp" id="profileXp">0 XP</span>
+        </div>
         <button class="btn-help" id="btnHelp" title="Tips">
           <i class="fas fa-lightbulb"></i>
         </button>
@@ -796,6 +890,47 @@
   <script src="bottom-nav.js"></script>
 
   <script>
+    // ================================================================
+    // BINARY RAIN (from index.html)
+    // ================================================================
+    (function() {
+      const canvas = document.getElementById('binary-rain');
+      const ctx = canvas.getContext('2d');
+      let width = window.innerWidth, height = window.innerHeight;
+      canvas.width = width; canvas.height = height;
+      const fontSize = 16, columns = Math.floor(width / fontSize);
+      const drops = Array(columns).fill(1);
+      const speed = 0.55;
+      function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = fontSize + 'px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < drops.length; i++) {
+          const char = Math.random() > 0.5 ? '1' : '0';
+          const x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
+          if (char === '1') { ctx.shadowColor = '#8deb00'; ctx.shadowBlur = 8; ctx.fillStyle = '#8deb00'; }
+          else { ctx.shadowColor = '#3a7a1a'; ctx.shadowBlur = 4; ctx.fillStyle = '#4caf50'; }
+          ctx.fillText(char, x, y);
+          if (char === '1' && Math.random() < 0.025) {
+            ctx.shadowBlur = 15; ctx.fillStyle = '#ffffff';
+            ctx.beginPath(); ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+          }
+          if (y > height && Math.random() > 0.97) { drops[i] = 0; }
+          drops[i] += speed;
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+      window.addEventListener('resize', () => {
+        width = window.innerWidth; height = window.innerHeight;
+        canvas.width = width; canvas.height = height;
+        const newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
+        else drops.length = newColumns;
+      });
+    })();
+
     // ================================================================
     // TOAST
     // ================================================================
@@ -868,6 +1003,7 @@
         try {
           await this.loadModuleData();
           await this.loadUserProgress();
+          await this.loadUserProfile();
           this.renderModule();
           this.attachListeners();
           this.showSlide(this.currentSlideIndex);
@@ -919,12 +1055,36 @@
         }
       }
 
+      // ---- Load user profile ----
+      async loadUserProfile() {
+        try {
+          const userRef = db.collection('users').doc(this.userId);
+          const userSnap = await userRef.get();
+          if (userSnap.exists) {
+            const data = userSnap.data();
+            const avatar = document.getElementById('profileAvatar');
+            const name = document.getElementById('profileName');
+            const xp = document.getElementById('profileXp');
+
+            if (data.photoURL) {
+              avatar.style.backgroundImage = `url(${data.photoURL})`;
+            } else {
+              const cached = localStorage.getItem('profilePhoto');
+              if (cached) avatar.style.backgroundImage = `url(${cached})`;
+            }
+            name.textContent = data.username || data.displayName || 'Operator';
+            xp.textContent = (data.totalPoints || 0) + ' XP';
+          }
+        } catch (err) {
+          console.warn('Could not load user profile:', err);
+        }
+      }
+
       // ---- Render ----
       renderModule() {
         this.titleEl.textContent = this.moduleData.metadata?.title || 'Module';
         this.totalSlidesEl.textContent = this.slides.length;
 
-        // Build slides with error handling
         this.slides.forEach((slide, idx) => {
           try {
             const slideEl = this.createSlideElement(slide, idx);
@@ -944,7 +1104,6 @@
           }
         });
 
-        // Build indicators
         this.slides.forEach((_, idx) => {
           const dot = document.createElement('div');
           dot.className = 'indicator-dot' + (idx === 0 ? ' active' : '');
@@ -1007,6 +1166,7 @@
         const quiz = slide.quiz || {};
         const options = Array.isArray(quiz.options) ? quiz.options : [];
 
+        // If no options, show a message
         if (options.length === 0) {
           return `
             <h2>${quiz.question || 'Quiz'}</h2>
@@ -1059,7 +1219,6 @@
         const newEl = this.slidesContainer.querySelector(`.slide[data-slide-index="${index}"]`);
         if (!newEl) return;
 
-        // Animate out current
         if (currentEl) {
           const direction = index > this.currentSlideIndex ? 'exit-left' : 'exit-right';
           currentEl.classList.remove('active');
@@ -1069,7 +1228,6 @@
           }, 400);
         }
 
-        // Animate in new
         newEl.style.display = 'flex';
         gsap.set(newEl, {
           opacity: 0,
@@ -1099,7 +1257,6 @@
       // ---- Navigation ----
       nextSlide() {
         const slide = this.slides[this.currentSlideIndex];
-        // Validate quiz before moving forward
         if (slide.type === 'quiz' && !this.validateQuiz(this.currentSlideIndex)) {
           showToast('Please select an answer', 'error');
           return;
@@ -1173,6 +1330,11 @@
           await userRef.update({
             totalPoints: firebase.firestore.FieldValue.increment(xpReward)
           });
+
+          // Update profile XP
+          const xpEl = document.getElementById('profileXp');
+          const currentXp = parseInt(xpEl.textContent) || 0;
+          xpEl.textContent = (currentXp + xpReward) + ' XP';
 
           this.showCompletionModal(xpReward);
         } catch (err) {
