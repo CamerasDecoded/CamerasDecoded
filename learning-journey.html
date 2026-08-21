@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Learning Journey — Cameras Decoded</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    :root {
+      --green: #8deb00;
+      --green-dim: rgba(141,235,0,0.12);
+      --text-muted: #b4b4b4;
+      --bg-panel: #0A0A0A;
+      --border-dim: #1A1A1A;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #050705;
+      background-image: radial-gradient(circle at 20% 30%, rgba(141,235,0,0.12) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 70%, rgba(141,235,0,0.08) 0%, transparent 45%),
+                        linear-gradient(rgba(141,235,0,0.04) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(141,235,0,0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+      background-attachment: fixed;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .journey-wrapper { max-width: 900px; margin: 0 auto; }
+
+    .journey-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .journey-header h1 {
+      font-family: 'Space Mono', monospace;
+      font-size: 28px;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .journey-header .back-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      transition: 0.2s;
+    }
+    .journey-header .back-link:hover { color: var(--green); }
+
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .module-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .module-card:hover {
+      border-color: var(--green);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+
+    .module-card .difficulty {
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .module-card .difficulty.beginner { color: #4CAF50; }
+    .module-card .difficulty.intermediate { color: #FFC107; }
+    .module-card .difficulty.pro { color: #F44336; }
+
+    .module-card h3 {
+      font-family: 'Space Mono', monospace;
+      font-size: 18px;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .module-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 16px;
+      flex: 1;
+    }
+
+    .module-card .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      margin-bottom: 16px;
+    }
+
+    .module-card .meta .xp {
+      color: var(--green);
+    }
+
+    .module-card .btn-start {
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      border-radius: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      align-self: flex-start;
+    }
+    .module-card .btn-start:hover {
+      background: rgba(141,235,0,0.08);
+      box-shadow: 0 0 20px rgba(141,235,0,0.1);
+    }
+    .module-card .btn-start.locked {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .loading-state {
+      text-align: center;
+      padding: 60px 0;
+      color: var(--text-muted);
+    }
+    .loading-state i {
+      font-size: 32px;
+      color: var(--green);
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 0;
+      color: var(--text-muted);
+      grid-column: 1 / -1;
+    }
+
+    #toast-container {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      pointer-events: none;
+    }
+    .toast {
+      background: #0A0A0A;
+      border: 1px solid var(--green);
+      color: #fff;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      opacity: 0;
+      transform: translateY(-10px) scale(0.95);
+      transition: all 0.3s ease;
+      pointer-events: auto;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateY(0) scale(1); }
+    .toast.error { border-color: #ff4a4a; }
+
+    @media (max-width: 600px) {
+      body { padding: 20px 12px; }
+      .journey-header { flex-direction: column; align-items: stretch; gap: 12px; }
+      .journey-header h1 { font-size: 22px; }
+      .module-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="toast-container"></div>
+
+  <div class="journey-wrapper">
+    <!-- Header -->
+    <header class="journey-header">
+      <h1><i class="fas fa-route"></i> Your Learning Journey</h1>
+      <a href="operator-dashboard.html" class="back-link"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+    </header>
+
+    <!-- Module Grid -->
+    <div class="module-grid" id="moduleGrid">
+      <div class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Loading your modules...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT (CORRECT PATH) ===== -->
+  <script src="js/firebase-init.js"></script>
+
+  <script>
+    // ============================================================
+    // TOAST
+    // ============================================================
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast' + (type === 'error' ? ' error' : '');
+      toast.textContent = message;
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add('show'));
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // ============================================================
+    // FETCH AND RENDER MODULES
+    // ============================================================
+
+    const moduleGrid = document.getElementById('moduleGrid');
+
+    async function fetchModules() {
+      try {
+        // Wait for auth
+        const user = await new Promise((resolve) => {
+          const unsubscribe = firebase.auth().onAuthStateChanged((u) => {
+            unsubscribe();
+            resolve(u);
+          });
+        });
+
+        if (!user) {
+          moduleGrid.innerHTML = `
+            <div class="empty-state">
+              <p style="margin-bottom:12px;">Please log in to view your learning journey.</p>
+              <a href="login.html" class="btn-start" style="display:inline-block; padding:10px 24px; border:1px solid var(--green); color:var(--green); border-radius:8px; font-family:'Space Mono',monospace; text-decoration:none;">Log In</a>
+            </div>
+          `;
+          return;
+        }
+
+        // Fetch modules
+        const modulesSnapshot = await db.collection('modules')
+          .orderBy('metadata.order')
+          .get();
+
+        if (modulesSnapshot.empty) {
+          moduleGrid.innerHTML = `
+            <div class="empty-state">
+              <i class="fas fa-book-open" style="font-size:40px; color:var(--text-muted); margin-bottom:12px; display:block;"></i>
+              <h3 style="color:var(--green); font-family:'Space Mono',monospace;">No modules yet</h3>
+              <p style="color:var(--text-muted);">Check back soon for new lessons.</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Get user's completed modules
+        const progressSnapshot = await db.collection('users')
+          .doc(user.uid)
+          .collection('learningProgress')
+          .where('status', '==', 'completed')
+          .get();
+
+        const completedIds = new Set();
+        progressSnapshot.forEach(doc => completedIds.add(doc.id));
+
+        // Build cards
+        let html = '';
+        modulesSnapshot.forEach(doc => {
+          const data = doc.data();
+          const metadata = data.metadata || {};
+          const moduleId = doc.id;
+          const isCompleted = completedIds.has(moduleId);
+          const difficulty = metadata.difficulty || 'beginner';
+          const xp = metadata.xpReward || 500;
+
+          html += `
+            <div class="module-card">
+              <div class="difficulty ${difficulty}">${difficulty}</div>
+              <h3>${metadata.title || 'Untitled Module'}</h3>
+              <p>${metadata.description || 'No description available.'}</p>
+              <div class="meta">
+                <span class="xp">+${xp} XP</span>
+                <span>${metadata.estimatedTime || '?'} min</span>
+              </div>
+              <a href="learning-module.html?moduleId=${moduleId}" class="btn-start ${isCompleted ? 'locked' : ''}">
+                ${isCompleted ? '✅ Completed' : 'Start Module'}
+              </a>
+            </div>
+          `;
+        });
+
+        moduleGrid.innerHTML = html;
+
+      } catch (err) {
+        console.error('Error fetching modules:', err);
+        moduleGrid.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-exclamation-triangle" style="font-size:40px; color:#ff4a4a; margin-bottom:12px; display:block;"></i>
+            <h3 style="color:#ff4a4a; font-family:'Space Mono',monospace;">Error loading modules</h3>
+            <p style="color:var(--text-muted);">${err.message}</p>
+            <button onclick="location.reload()" class="btn-start" style="display:inline-block; padding:10px 24px; border:1px solid var(--green); color:var(--green); border-radius:8px; font-family:'Space Mono',monospace; margin-top:12px; cursor:pointer;">Retry</button>
+          </div>
+        `;
+        showToast('Failed to load modules', 'error');
+      }
+    }
+
+    // ---- Auth listener ----
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        fetchModules();
+      } else {
+        moduleGrid.innerHTML = `
+          <div class="empty-state">
+            <p style="margin-bottom:12px;">Please log in to view your learning journey.</p>
+            <a href="login.html" class="btn-start" style="display:inline-block; padding:10px 24px; border:1px solid var(--green); color:var(--green); border-radius:8px; font-family:'Space Mono',monospace; text-decoration:none;">Log In</a>
+          </div>
+        `;
+      }
+    });
+  </script>
+</body>
+</html>
