@@ -145,10 +145,27 @@
       background: rgba(141,235,0,0.08);
       box-shadow: 0 0 20px rgba(141,235,0,0.1);
     }
-    .module-card .btn-start.locked {
-      opacity: 0.4;
-      cursor: not-allowed;
-      pointer-events: none;
+
+    .module-card .btn-retake {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid #e0b12d;
+      color: #e0b12d;
+      border-radius: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .module-card .btn-retake:hover {
+      background: rgba(224,177,45,0.08);
+      box-shadow: 0 0 20px rgba(224,177,45,0.1);
+    }
+
+    .module-card .completed-badge {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-left: 6px;
     }
 
     .loading-state {
@@ -233,7 +250,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <!-- ===== FIREBASE INIT (CORRECT PATH) ===== -->
+  <!-- ===== FIREBASE INIT ===== -->
   <script src="js/firebase-init.js"></script>
 
   <script>
@@ -324,14 +341,50 @@
                 <span class="xp">+${xp} XP</span>
                 <span>${metadata.estimatedTime || '?'} min</span>
               </div>
-              <a href="learning-module.html?moduleId=${moduleId}" class="btn-start ${isCompleted ? 'locked' : ''}">
-                ${isCompleted ? '✅ Completed' : 'Start Module'}
-              </a>
+              <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
+                ${isCompleted 
+                  ? `<button class="btn-retake" data-moduleid="${moduleId}">🔄 Retake</button>
+                     <span class="completed-badge">✅ Completed</span>`
+                  : `<a href="learning-module.html?moduleId=${moduleId}" class="btn-start">Start Module</a>`
+                }
+              </div>
             </div>
           `;
         });
 
         moduleGrid.innerHTML = html;
+
+        // Attach retake button listeners
+        document.querySelectorAll('.btn-retake').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const moduleId = btn.dataset.moduleid;
+            if (confirm(`Reset your progress for "${moduleId}"? You'll start from the beginning.`)) {
+              try {
+                const progressRef = db.collection('users')
+                  .doc(user.uid)
+                  .collection('learningProgress')
+                  .doc(moduleId);
+
+                await progressRef.set({
+                  status: 'in-progress',
+                  currentSlideIndex: 0,
+                  startedAt: new Date(),
+                  completedAt: null,
+                  quizAnswers: {},
+                  capstonePhotoUrl: null,
+                  capstonePhotoFeedback: null,
+                  xpEarned: 0
+                }, { merge: true });
+
+                showToast('Module reset – you can retake it now!', 'success');
+                setTimeout(() => location.reload(), 1000);
+              } catch (err) {
+                console.error('Reset error:', err);
+                showToast('Error resetting module', 'error');
+              }
+            }
+          });
+        });
 
       } catch (err) {
         console.error('Error fetching modules:', err);
