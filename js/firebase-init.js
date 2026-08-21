@@ -1,11 +1,4 @@
-// Cameras Decoded — shared Firebase initialization.
-// Include this AFTER the three firebase-*-compat.js SDK scripts, and BEFORE
-// any page-specific script that uses `firebase`, `auth`, or `db`.
-//
-// This replaces copy-pasting the same firebaseConfig object and
-// firebase.initializeApp() call into every page — one file, one source
-// of truth. If the API key or project ever changes, this is the only
-// place that needs updating.
+// js/firebase-init.js
 const firebaseConfig = {
   apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
   authDomain: "cameras-decoded.firebaseapp.com",
@@ -16,14 +9,14 @@ const firebaseConfig = {
   measurementId: "G-YN3M01WW0B"
 };
 
+// Initialize Firebase (global firebase object from SDK)
 firebase.initializeApp(firebaseConfig);
 
-// 🔥 Force Firestore to use HTTP long-polling instead of WebSockets
-// This fixes CORS errors on GitHub Pages and other static hosts
+// Force Firestore to use HTTP long-polling (fixes CORS issues on static hosts)
 firebase.firestore().settings({
   experimentalForceLongPolling: true
 });
 
-// ✅ Expose both auth and db globally so every page can use them directly
+// Expose auth and db globally so every page can use them without re-declaring
 window.auth = firebase.auth();
 window.db = firebase.firestore();
