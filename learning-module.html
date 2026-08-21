@@ -1079,15 +1079,43 @@
         if (!moduleSnap.exists) throw new Error('Module not found');
         this.moduleData = moduleSnap.data();
 
-        const slidesSnap = await moduleRef.collection('slides').orderBy('order').get();
-        this.slides = slidesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // FIX: Don't use orderBy('order') - it excludes docs without order field
+        // Fetch all then sort in JS
+        let slidesSnap;
+        try {
+          slidesSnap = await moduleRef.collection('slides').get();
+        } catch (e) {
+          // fallback if get fails
+          slidesSnap = await moduleRef.collection('slides').orderBy('order').get();
+        }
+        
+        this.slides = slidesSnap.docs.map(doc => {
+          const data = doc.data();
+          // Normalize quiz data - handle both nested and top-level structures
+          let quizData = data.quiz;
+          if (!quizData && (data.question || data.options)) {
+            quizData = { question: data.question, options: data.options, explanation: data.explanation };
+          }
+          // Auto-detect type if missing
+          let type = data.type;
+          if (!type && quizData) type = 'quiz';
+          if (!type) type = 'content';
+          
+          return { 
+            id: doc.id, 
+            ...data,
+            type: type,
+            quiz: quizData,
+            order: data.order ?? parseInt(doc.id.split('-')[1]) ?? 999
+          };
+        }).sort((a,b) => (a.order || 0) - (b.order || 0));
+
         if (this.slides.length === 0) throw new Error('No slides found');
 
-        // Debug: Log slides to check quiz data
-        console.log('📄 Slides loaded:', this.slides.length);
+        console.log('📄 Slides loaded:', this.slides.length, this.slides.map(s => `${s.id}(order:${s.order}, type:${s.type})`));
         this.slides.forEach((slide, i) => {
           if (slide.type === 'quiz') {
-            console.log(`📝 Quiz slide ${i+1}:`, slide.quiz);
+            console.log(`📝 Quiz slide ${i+1} (${slide.id}):`, slide.quiz);
           }
         });
       }
@@ -1228,29 +1256,42 @@
       }
 
       renderQuiz(slide, index) {
-        const quiz = slide.quiz || {};
+        // Robust: support quiz nested OR at root
+        let quiz = slide.quiz;
+        if (!quiz || !quiz.question) {
+          if (slide.question) {
+            quiz = { question: slide.question, options: slide.options, explanation: slide.explanation };
+          }
+        }
+        quiz = quiz || {};
         const options = Array.isArray(quiz.options) ? quiz.options : [];
 
-        // If no options, show a message
+        console.log(`🎯 Rendering quiz ${index} (${slide.id}):`, quiz);
+
         if (options.length === 0) {
           return `
-            <h2>${quiz.question || 'Quiz'}</h2>
-            <p style="color: var(--text-muted);">No quiz options available. Please try again later.</p>
+            <h2>${quiz.question || slide.title || 'Quiz'}</h2>
+            <p style="color: #ff8a8a; background: rgba(255,0,0,0.08); padding:12px; border-radius:8px; margin-top:10px;">
+              Debug: No options found. Raw slide data:<br>
+              <pre style="text-align:left; font-size:10px; white-space:pre-wrap; word-break:break-all;">${JSON.stringify(slide, null, 2).substring(0, 1000)}</pre>
+            </p>
+            <div class="quiz-explanation" id="explanation-${index}">${quiz.explanation || ''}</div>
           `;
         }
 
         const optionsHtml = options.map(opt => `
           <button class="quiz-option" data-option-id="${opt.id}" data-slide-index="${index}">
+            <span style="display:inline-flex; width:22px; height:22px; border:1px solid rgba(255,255,255,0.15); border-radius:50%; align-items:center; justify-content:center; margin-right:8px; font-size:10px;">${(opt.id||'').replace('opt_','').replace('opt-','').toUpperCase().substring(0,2)}</span>
             ${opt.text || ''}
           </button>
         `).join('');
 
         return `
-          <h2>${quiz.question || 'Quiz'}</h2>
-          <div class="quiz-options">
+          <h2>${quiz.question || slide.title || 'Quiz Time'}</h2>
+          <div class="quiz-options" style="margin-top:16px;">
             ${optionsHtml}
           </div>
-          <div class="quiz-explanation" id="explanation-${index}">
+          <div class="quiz-explanation" id="explanation-${index}" style="display:none; margin-top:16px;">
             ${quiz.explanation || ''}
           </div>
         `;
@@ -1516,21 +1557,27 @@
             this.quizAnswers[index] = optId;
 
             const slide = this.slides[index];
-            const isCorrect = slide.quiz.options.find(o => o.id === optId)?.correct || false;
+            const quiz = slide.quiz || { options: slide.options };
+            const isCorrect = quiz.options?.find(o => o.id === optId)?.correct || false;
 
             if (isCorrect) {
               clicked.classList.add('correct');
+              showToast('Correct! You can continue →');
             } else {
               clicked.classList.add('incorrect');
               options.forEach(o => {
                 const id = o.dataset.optionId;
-                if (slide.quiz.options.find(opt => opt.id === id)?.correct) {
+                if (quiz.options?.find(opt => opt.id === id)?.correct) {
                   o.classList.add('correct');
                 }
               });
+              showToast('Check the correct answer highlighted');
             }
 
-            if (explanation) explanation.classList.add('show');
+            if (explanation) {
+              explanation.style.display = 'block';
+              explanation.classList.add('show');
+            }
             this.saveProgress();
           });
         });
@@ -1592,11 +1639,11 @@
             .doc(this.userId)
             .collection('learningProgress')
             .doc(this.moduleId);
-          await progressRef.update({
+          await progressRef.set({
             currentSlideIndex: this.currentSlideIndex,
             quizAnswers: this.quizAnswers,
             updatedAt: new Date()
-          });
+          }, { merge: true });
         } catch (err) {
           console.warn('Save progress error:', err);
         }
