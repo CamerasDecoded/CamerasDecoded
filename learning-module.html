@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Learning Module — Cameras Decoded</title>
+
+  <!-- ===== FONTS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- ===== GSAP ===== -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+  <style>
+    /* ============================================================
+       LEARNING MODULE STYLES
+       ============================================================ */
+    :root {
+      --green: #8deb00;
+      --green-dim: rgba(141,235,0,0.12);
+      --green-glow: rgba(141,235,0,0.25);
+      --text-muted: #b4b4b4;
+      --bg-panel: #0A0A0A;
+      --border-dim: #1A1A1A;
+      --radius: 12px;
+      --transition-smooth: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #050705;
+      background-image: radial-gradient(circle at 20% 30%, rgba(141,235,0,0.12) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 70%, rgba(141,235,0,0.08) 0%, transparent 45%),
+                        linear-gradient(rgba(141,235,0,0.04) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(141,235,0,0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+      background-attachment: fixed;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4 { font-family: 'Space Mono', monospace; }
+
+    /* ===== TOAST ===== */
+    #toast-container {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      pointer-events: none;
+    }
+    .toast {
+      background: #0A0A0A;
+      border: 1px solid var(--green);
+      color: #fff;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      opacity: 0;
+      transform: translateY(-10px) scale(0.95);
+      transition: all 0.3s var(--transition-smooth);
+      pointer-events: auto;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateY(0) scale(1); }
+    .toast.error { border-color: #ff4a4a; }
+
+    /* ===== MODULE WRAPPER ===== */
+    .module-wrapper {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px 20px 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== HEADER ===== */
+    .module-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 0 16px;
+      border-bottom: 1px solid var(--border-dim);
+      flex-wrap: wrap;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-center { flex: 1; text-align: center; min-width: 0; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .btn-exit, .btn-help {
+      background: transparent;
+      border: 1px solid rgba(141,235,0,0.3);
+      color: var(--green);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 16px;
+    }
+    .btn-exit:hover, .btn-help:hover {
+      background: rgba(141,235,0,0.08);
+      border-color: var(--green);
+      box-shadow: 0 0 20px rgba(141,235,0,0.1);
+    }
+
+    .module-title {
+      font-size: 18px;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .progress-bar {
+      width: 100%;
+      max-width: 300px;
+      height: 4px;
+      background: var(--border-dim);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 6px auto 4px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #1db31b 0%, #c9e265 100%);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+    .slide-counter {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    /* ===== SLIDES CONTAINER ===== */
+    .slides-container {
+      flex: 1;
+      position: relative;
+      perspective: 1000px;
+      padding: 40px 20px 20px;
+      min-height: 400px;
+    }
+
+    .slide {
+      display: none;
+      opacity: 0;
+      transform: translateX(100%) rotateY(20deg);
+      transition: none;
+      min-height: 300px;
+      padding: 20px 10px;
+      text-align: center;
+      position: absolute;
+      width: 100%;
+      top: 0;
+      left: 0;
+      right: 0;
+    }
+    .slide.active {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      opacity: 1;
+      transform: translateX(0) rotateY(0);
+      transition: all 0.5s var(--transition-smooth);
+      position: relative;
+    }
+    .slide.exit-left {
+      display: flex;
+      opacity: 0;
+      transform: translateX(-100%) rotateY(-20deg);
+      transition: all 0.4s var(--transition-smooth);
+    }
+    .slide.exit-right {
+      display: flex;
+      opacity: 0;
+      transform: translateX(100%) rotateY(20deg);
+      transition: all 0.4s var(--transition-smooth);
+    }
+
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .slide h2 {
+      font-size: 32px;
+      color: var(--green);
+      line-height: 1.2;
+    }
+    .slide p {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      max-width: 600px;
+    }
+    .slide img {
+      width: 100%;
+      max-width: 600px;
+      max-height: 350px;
+      object-fit: cover;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-dim);
+      margin: 8px auto;
+    }
+    .slide iframe {
+      width: 100%;
+      max-width: 600px;
+      height: 315px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-dim);
+    }
+
+    /* ---- Quiz ---- */
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 600px;
+      margin-top: 12px;
+    }
+    .quiz-option {
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(141,235,0,0.2);
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 14px;
+      font-family: 'Montserrat', sans-serif;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .quiz-option::before {
+      content: '';
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(141,235,0,0.4);
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+    }
+    .quiz-option:hover { background: rgba(141,235,0,0.08); border-color: var(--green); }
+    .quiz-option.selected::before { background: var(--green); border-color: var(--green); box-shadow: 0 0 10px rgba(141,235,0,0.5); }
+    .quiz-option.correct { background: rgba(76,175,80,0.15); border-color: #4CAF50; color: #4CAF50; }
+    .quiz-option.correct::before { border-color: #4CAF50; background: #4CAF50; content: '✓'; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; }
+    .quiz-option.incorrect { background: rgba(244,67,54,0.15); border-color: #F44336; color: #F44336; }
+    .quiz-option.incorrect::before { border-color: #F44336; background: #F44336; content: '✕'; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; }
+
+    .quiz-explanation {
+      margin-top: 16px;
+      padding: 16px;
+      background: rgba(141,235,0,0.06);
+      border: 1px solid rgba(141,235,0,0.15);
+      border-radius: 8px;
+      text-align: left;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      display: none;
+      width: 100%;
+      max-width: 600px;
+    }
+    .quiz-explanation.show { display: block; animation: slideDown 0.3s ease; }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ---- Capstone ---- */
+    .capstone-upload { width: 100%; max-width: 600px; margin-top: 12px; }
+    .upload-area {
+      border: 2px dashed rgba(141,235,0,0.3);
+      border-radius: var(--radius);
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(141,235,0,0.02);
+    }
+    .upload-area:hover { border-color: var(--green); background: rgba(141,235,0,0.06); }
+    .upload-area.dragover { border-color: var(--green); background: rgba(141,235,0,0.12); transform: scale(1.02); }
+    .upload-area i { font-size: 40px; color: var(--green); display: block; margin-bottom: 8px; }
+    .upload-area p { font-size: 14px; color: var(--text-muted); margin: 0; }
+    .file-input-label {
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      display: inline-block;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+    }
+    .file-input-label:hover { background: rgba(141,235,0,0.08); box-shadow: 0 0 20px rgba(141,235,0,0.1); }
+    #photoInput, #fileInput { display: none; }
+    .preview-image {
+      max-width: 200px;
+      max-height: 200px;
+      margin: 12px auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--green);
+      display: none;
+    }
+
+    /* ===== FOOTER ===== */
+    .slide-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 0 20px;
+      border-top: 1px solid var(--border-dim);
+      flex-wrap: wrap;
+    }
+    .footer-spacer { flex: 1; }
+    .slide-indicators {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+    }
+    .indicator-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .indicator-dot.active { background: var(--green); width: 24px; border-radius: 4px; }
+    .indicator-dot:hover { background: rgba(141,235,0,0.5); }
+
+    .btn-prev, .btn-next {
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      transition: all 0.3s ease;
+      min-width: 100px;
+      justify-content: center;
+    }
+    .btn-prev:hover, .btn-next:hover { background: rgba(141,235,0,0.08); box-shadow: 0 0 20px rgba(141,235,0,0.1); transform: scale(1.02); }
+    .btn-prev:active, .btn-next:active { transform: scale(0.96); }
+    .btn-prev:disabled, .btn-next:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-prev { border-color: rgba(255,255,255,0.2); color: var(--text-muted); }
+
+    /* ===== MODALS ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s ease;
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; }
+    .modal-content {
+      background: #0F0F0F;
+      border: 1px solid var(--border-dim);
+      border-radius: 16px;
+      padding: 36px 28px;
+      max-width: 480px;
+      width: 90%;
+      text-align: center;
+      transform: scale(0.9) translateY(20px);
+      transition: all 0.4s var(--transition-smooth);
+    }
+    .modal-overlay.show .modal-content { transform: scale(1) translateY(0); }
+    .modal-celebration { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .celebration-icon { font-size: 56px; animation: bounce 0.8s ease infinite; }
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-16px); }
+    }
+    .modal-content h2 { font-size: 26px; color: var(--green); margin: 0; }
+    .modal-content p { color: var(--text-muted); margin: 0; }
+    .xp-earned {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 16px;
+      background: rgba(141,235,0,0.06);
+      border: 1px solid rgba(141,235,0,0.15);
+      border-radius: 8px;
+      width: 100%;
+    }
+    .xp-earned span:first-child { font-size: 32px; font-weight: 700; color: var(--green); font-family: 'Space Mono', monospace; }
+    .xp-earned span:last-child { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .modal-actions { display: flex; gap: 12px; width: 100%; margin-top: 12px; }
+    .btn-primary, .btn-secondary {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    .btn-primary { background: var(--green); color: #000; }
+    .btn-primary:hover { background: #a0f520; box-shadow: 0 0 30px rgba(141,235,0,0.3); }
+    .btn-secondary { background: transparent; border: 1px solid var(--border-dim); color: var(--text-muted); }
+    .btn-secondary:hover { border-color: var(--green); color: var(--green); }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .module-wrapper { padding: 12px 12px 0; }
+      .module-header { flex-direction: column; align-items: stretch; gap: 8px; }
+      .header-center { order: 1; }
+      .header-left, .header-right { order: 0; display: flex; justify-content: space-between; }
+      .module-title { font-size: 16px; text-align: center; }
+      .slides-container { padding: 20px 10px; min-height: 300px; }
+      .slide h2 { font-size: 24px; }
+      .slide p { font-size: 14px; }
+      .slide-footer { flex-wrap: wrap; gap: 8px; }
+      .btn-prev, .btn-next { min-width: 80px; padding: 8px 14px; font-size: 12px; }
+      .slide-indicators { order: 0; width: 100%; justify-content: center; }
+      .upload-area { padding: 20px; }
+    }
+    @media (max-width: 480px) {
+      .slide h2 { font-size: 20px; }
+      .modal-content { padding: 24px 16px; }
+      .celebration-icon { font-size: 40px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast-container"></div>
+
+  <!-- ===== MAIN WRAPPER ===== -->
+  <div class="module-wrapper" id="moduleWrapper">
+
+    <!-- ===== HEADER ===== -->
+    <header class="module-header">
+      <div class="header-left">
+        <button class="btn-exit" id="btnExit" title="Exit module">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+      </div>
+      <div class="header-center">
+        <h1 class="module-title" id="moduleTitle">Loading...</h1>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p class="slide-counter">Slide <span id="currentSlide">1</span> of <span id="totalSlides">10</span></p>
+      </div>
+      <div class="header-right">
+        <button class="btn-help" id="btnHelp" title="Tips">
+          <i class="fas fa-lightbulb"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- ===== SLIDES ===== -->
+    <div class="slides-container" id="slidesContainer">
+      <!-- Slides injected by JavaScript -->
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="slide-footer">
+      <button class="btn-prev" id="btnPrev" style="display:none;">
+        <i class="fas fa-arrow-left"></i> Back
+      </button>
+      <div class="footer-spacer"></div>
+      <div class="slide-indicators" id="slideIndicators"></div>
+      <div class="footer-spacer"></div>
+      <button class="btn-next" id="btnNext">Next <i class="fas fa-arrow-right"></i></button>
+    </footer>
+  </div>
+
+  <!-- ===== COMPLETION MODAL ===== -->
+  <div class="modal-overlay" id="completionModal">
+    <div class="modal-content modal-celebration">
+      <div class="celebration-icon">🎉</div>
+      <h2>Module Complete!</h2>
+      <p id="celebrationText"></p>
+      <div class="xp-earned">
+        <span id="xpEarnedAmount">+500</span>
+        <span>Mastery XP</span>
+      </div>
+      <div id="badgesEarned" style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:6px 0;"></div>
+      <div class="modal-actions">
+        <button class="btn-primary" id="continueBtn">Continue Learning</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CONFIRM MODAL ===== -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-content modal-confirm">
+      <h3 id="confirmTitle">Exit Module?</h3>
+      <p id="confirmMessage">Your progress will be saved.</p>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="confirmCancel">Cancel</button>
+        <button class="btn-primary" id="confirmOk">Exit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+
+  <!-- ===== YOUR FIREBASE INIT ===== -->
+  <script src="firebase-init.js"></script>
+
+  <!-- ===== MAIN JAVASCRIPT ===== -->
+  <script>
+    // ================================================================
+    // LEARNING MODULE – FULL IMPLEMENTATION
+    // ================================================================
+
+    // ---- Toast ----
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast' + (type === 'error' ? ' error' : '');
+      toast.textContent = message;
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add('show'));
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // ---- Confirm Modal ----
+    function showConfirm(title, message, onConfirm) {
+      const modal = document.getElementById('confirmModal');
+      document.getElementById('confirmTitle').textContent = title;
+      document.getElementById('confirmMessage').textContent = message;
+      modal.classList.add('show');
+      document.getElementById('confirmCancel').onclick = () => modal.classList.remove('show');
+      document.getElementById('confirmOk').onclick = () => {
+        modal.classList.remove('show');
+        onConfirm();
+      };
+    }
+
+    // ================================================================
+    // LEARNING MODULE CLASS
+    // ================================================================
+
+    class LearningModule {
+      constructor(moduleId, userId) {
+        this.moduleId = moduleId;
+        this.userId = userId;
+
+        // State
+        this.slides = [];
+        this.currentSlideIndex = 0;
+        this.moduleData = null;
+        this.userProgress = null;
+        this.quizAnswers = {};
+        this.capstonePhotoFile = null;
+        this.isCompleting = false;
+
+        // DOM
+        this.container = document.getElementById('moduleWrapper');
+        this.slidesContainer = document.getElementById('slidesContainer');
+        this.progressFill = document.getElementById('progressFill');
+        this.currentSlideEl = document.getElementById('currentSlide');
+        this.totalSlidesEl = document.getElementById('totalSlides');
+        this.btnNext = document.getElementById('btnNext');
+        this.btnPrev = document.getElementById('btnPrev');
+        this.indicatorsEl = document.getElementById('slideIndicators');
+        this.titleEl = document.getElementById('moduleTitle');
+
+        // Bind
+        this.nextSlide = this.nextSlide.bind(this);
+        this.prevSlide = this.prevSlide.bind(this);
+        this.showSlide = this.showSlide.bind(this);
+        this.handleKeyDown = this.handleKeyDown.bind(this);
+
+        this.init();
+      }
+
+      async init() {
+        try {
+          await this.loadModuleData();
+          await this.loadUserProgress();
+          this.renderModule();
+          this.attachListeners();
+          this.showSlide(this.currentSlideIndex);
+          this.updateProgressBar();
+          this.updateNavigation();
+          this.updateIndicators();
+        } catch (err) {
+          console.error('Module init error:', err);
+          showToast('Failed to load module: ' + err.message, 'error');
+        }
+      }
+
+      // ---- Load module data ----
+      async loadModuleData() {
+        const moduleRef = db.collection('modules').doc(this.moduleId);
+        const moduleSnap = await moduleRef.get();
+        if (!moduleSnap.exists) throw new Error('Module not found');
+        this.moduleData = moduleSnap.data();
+
+        const slidesSnap = await moduleRef.collection('slides').orderBy('order').get();
+        this.slides = slidesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (this.slides.length === 0) throw new Error('No slides found');
+      }
+
+      // ---- Load user progress ----
+      async loadUserProgress() {
+        const progressRef = db.collection('users')
+          .doc(this.userId)
+          .collection('learningProgress')
+          .doc(this.moduleId);
+        const snap = await progressRef.get();
+
+        if (snap.exists) {
+          this.userProgress = snap.data();
+          this.currentSlideIndex = this.userProgress.currentSlideIndex || 0;
+          this.quizAnswers = this.userProgress.quizAnswers || {};
+        } else {
+          this.userProgress = {
+            status: 'in-progress',
+            currentSlideIndex: 0,
+            startedAt: new Date(),
+            completedAt: null,
+            quizAnswers: {},
+            capstonePhotoUrl: null,
+            capstonePhotoFeedback: null,
+            xpEarned: 0
+          };
+          await progressRef.set(this.userProgress);
+        }
+      }
+
+      // ---- Render ----
+      renderModule() {
+        this.titleEl.textContent = this.moduleData.metadata.title || 'Module';
+        this.totalSlidesEl.textContent = this.slides.length;
+
+        // Build slides
+        this.slides.forEach((slide, idx) => {
+          const slideEl = this.createSlideElement(slide, idx);
+          this.slidesContainer.appendChild(slideEl);
+        });
+
+        // Build indicators
+        this.slides.forEach((_, idx) => {
+          const dot = document.createElement('div');
+          dot.className = 'indicator-dot' + (idx === 0 ? ' active' : '');
+          dot.dataset.index = idx;
+          dot.addEventListener('click', () => this.showSlide(idx));
+          this.indicatorsEl.appendChild(dot);
+        });
+      }
+
+      createSlideElement(slide, index) {
+        const el = document.createElement('div');
+        el.className = `slide slide-${slide.type}`;
+        el.dataset.slideIndex = index;
+        el.dataset.slideType = slide.type;
+
+        const content = document.createElement('div');
+        content.className = 'slide-content';
+
+        switch (slide.type) {
+          case 'intro':
+          case 'content':
+            content.innerHTML = `<h2>${slide.title}</h2><p>${slide.content || ''}</p>`;
+            break;
+          case 'image':
+            content.innerHTML = `
+              <h2>${slide.title}</h2>
+              <img src="${slide.imageUrl || ''}" alt="${slide.title}" loading="lazy">
+              <p>${slide.content || ''}</p>
+            `;
+            break;
+          case 'video':
+            content.innerHTML = `
+              <h2>${slide.title}</h2>
+              <iframe src="${slide.videoUrl || ''}" allowfullscreen></iframe>
+              <p>${slide.content || ''}</p>
+            `;
+            break;
+          case 'quiz':
+            content.innerHTML = this.renderQuiz(slide, index);
+            break;
+          case 'capstone':
+            content.innerHTML = this.renderCapstone(slide, index);
+            break;
+          default:
+            content.innerHTML = `<h2>${slide.title}</h2><p>${slide.content || ''}</p>`;
+        }
+
+        el.appendChild(content);
+        return el;
+      }
+
+      renderQuiz(slide, index) {
+        const optionsHtml = slide.quiz.options.map(opt => `
+          <button class="quiz-option" data-option-id="${opt.id}" data-slide-index="${index}">
+            ${opt.text}
+          </button>
+        `).join('');
+
+        const selected = this.quizAnswers[index] || '';
+
+        return `
+          <h2>${slide.quiz.question}</h2>
+          <div class="quiz-options">
+            ${optionsHtml}
+          </div>
+          <div class="quiz-explanation" id="explanation-${index}">
+            ${slide.quiz.explanation || ''}
+          </div>
+        `;
+      }
+
+      renderCapstone(slide, index) {
+        return `
+          <h2>${slide.title}</h2>
+          <p>${slide.capstone.prompt || ''}</p>
+          <div class="capstone-upload">
+            <div class="upload-area" id="uploadArea-${index}">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <p>Drag and drop your photo here, or click to select</p>
+              <label class="file-input-label">Choose File</label>
+              <input type="file" id="photoInput-${index}" accept="image/*">
+            </div>
+            <img id="preview-${index}" class="preview-image">
+            <button class="btn-next" id="submitCapstone-${index}" style="display:none; margin-top:12px;">
+              Submit Photo
+            </button>
+          </div>
+        `;
+      }
+
+      // ---- Show slide ----
+      showSlide(index) {
+        if (index < 0 || index >= this.slides.length) return;
+
+        const currentEl = this.slidesContainer.querySelector('.slide.active');
+        const newEl = this.slidesContainer.querySelector(`.slide[data-slide-index="${index}"]`);
+        if (!newEl) return;
+
+        // Animate out current
+        if (currentEl) {
+          const direction = index > this.currentSlideIndex ? 'exit-left' : 'exit-right';
+          currentEl.classList.remove('active');
+          currentEl.classList.add(direction);
+          setTimeout(() => {
+            currentEl.style.display = 'none';
+          }, 400);
+        }
+
+        // Animate in new
+        newEl.style.display = 'flex';
+        // Reset transform for animation
+        gsap.set(newEl, {
+          opacity: 0,
+          x: index > this.currentSlideIndex ? 60 : -60,
+          rotationY: index > this.currentSlideIndex ? 15 : -15,
+        });
+        gsap.to(newEl, {
+          opacity: 1,
+          x: 0,
+          rotationY: 0,
+          duration: 0.5,
+          ease: 'power3.out',
+          onStart: () => {
+            newEl.classList.add('active');
+          }
+        });
+
+        this.currentSlideIndex = index;
+        this.currentSlideEl.textContent = index + 1;
+
+        // Update UI
+        this.updateProgressBar();
+        this.updateNavigation();
+        this.updateIndicators();
+
+        // Attach slide-specific listeners
+        this.attachSlideListeners(index);
+      }
+
+      // ---- Navigation ----
+      nextSlide() {
+        const slide = this.slides[this.currentSlideIndex];
+        if (slide.type === 'quiz' && !this.validateQuiz(this.currentSlideIndex)) {
+          showToast('Please select an answer', 'error');
+          return;
+        }
+        if (this.currentSlideIndex < this.slides.length - 1) {
+          this.showSlide(this.currentSlideIndex + 1);
+        } else {
+          this.completeModule();
+        }
+      }
+
+      prevSlide() {
+        if (this.currentSlideIndex > 0) {
+          this.showSlide(this.currentSlideIndex - 1);
+        }
+      }
+
+      // ---- Quiz validation ----
+      validateQuiz(slideIndex) {
+        return this.quizAnswers[slideIndex] !== undefined;
+      }
+
+      // ---- Capstone upload ----
+      async submitCapstone(slideIndex) {
+        if (!this.capstonePhotoFile) {
+          showToast('Please select a photo', 'error');
+          return;
+        }
+        try {
+          const storageRef = firebase.storage()
+            .ref(`capstones/${this.userId}/${this.moduleId}/${Date.now()}_${this.capstonePhotoFile.name}`);
+          const snapshot = await storageRef.put(this.capstonePhotoFile);
+          const photoUrl = await snapshot.ref.getDownloadURL();
+
+          const progressRef = db.collection('users')
+            .doc(this.userId)
+            .collection('learningProgress')
+            .doc(this.moduleId);
+          await progressRef.update({
+            capstonePhotoUrl: photoUrl,
+            capstoneSubmittedAt: new Date()
+          });
+
+          showToast('Photo submitted successfully!');
+          this.nextSlide();
+        } catch (err) {
+          console.error('Capstone upload error:', err);
+          showToast('Upload failed: ' + err.message, 'error');
+        }
+      }
+
+      // ---- Complete module ----
+      async completeModule() {
+        if (this.isCompleting) return;
+        this.isCompleting = true;
+
+        try {
+          const xpReward = this.moduleData.metadata.xpReward || 500;
+
+          const progressRef = db.collection('users')
+            .doc(this.userId)
+            .collection('learningProgress')
+            .doc(this.moduleId);
+          await progressRef.update({
+            status: 'completed',
+            completedAt: new Date(),
+            xpEarned: xpReward
+          });
+
+          // Award XP to user
+          const userRef = db.collection('users').doc(this.userId);
+          await userRef.update({
+            totalPoints: firebase.firestore.FieldValue.increment(xpReward)
+          });
+
+          // Show celebration
+          this.showCompletionModal(xpReward);
+        } catch (err) {
+          console.error('Completion error:', err);
+          showToast('Error completing module: ' + err.message, 'error');
+        } finally {
+          this.isCompleting = false;
+        }
+      }
+
+      // ---- UI updates ----
+      updateProgressBar() {
+        const pct = ((this.currentSlideIndex + 1) / this.slides.length) * 100;
+        gsap.to(this.progressFill, {
+          width: pct + '%',
+          duration: 0.4,
+          ease: 'power2.out'
+        });
+      }
+
+      updateNavigation() {
+        this.btnPrev.style.display = this.currentSlideIndex > 0 ? 'flex' : 'none';
+        const isLast = this.currentSlideIndex === this.slides.length - 1;
+        this.btnNext.innerHTML = isLast
+          ? 'Complete <i class="fas fa-flag-checkered"></i>'
+          : 'Next <i class="fas fa-arrow-right"></i>';
+      }
+
+      updateIndicators() {
+        document.querySelectorAll('.indicator-dot').forEach((dot, idx) => {
+          dot.classList.toggle('active', idx === this.currentSlideIndex);
+        });
+      }
+
+      // ---- Event listeners ----
+      attachListeners() {
+        this.btnNext.addEventListener('click', this.nextSlide);
+        this.btnPrev.addEventListener('click', this.prevSlide);
+        document.addEventListener('keydown', this.handleKeyDown);
+
+        document.getElementById('btnExit').addEventListener('click', () => {
+          showConfirm('Exit Module?', 'Your progress will be saved.', () => {
+            window.location.href = 'learning-journey.html';
+          });
+        });
+
+        document.getElementById('btnHelp').addEventListener('click', () => {
+          showToast('💡 Tap "Next" to continue. Complete all slides to earn XP!');
+        });
+
+        document.getElementById('continueBtn').addEventListener('click', () => {
+          window.location.href = 'learning-journey.html';
+        });
+      }
+
+      handleKeyDown(e) {
+        if (e.key === 'ArrowRight') this.nextSlide();
+        if (e.key === 'ArrowLeft') this.prevSlide();
+        if (e.key === 'Escape') {
+          document.querySelector('.modal-overlay.show')?.classList.remove('show');
+        }
+      }
+
+      attachSlideListeners(index) {
+        const slide = this.slides[index];
+        const slideEl = this.slidesContainer.querySelector(`.slide[data-slide-index="${index}"]`);
+        if (!slideEl) return;
+
+        if (slide.type === 'quiz') {
+          this.attachQuizListeners(index, slideEl);
+        } else if (slide.type === 'capstone') {
+          this.attachCapstoneListeners(index, slideEl);
+        }
+      }
+
+      attachQuizListeners(index, slideEl) {
+        const options = slideEl.querySelectorAll('.quiz-option');
+        const explanation = document.getElementById(`explanation-${index}`);
+
+        options.forEach(opt => {
+          opt.addEventListener('click', (e) => {
+            // Clear previous selection
+            options.forEach(o => {
+              o.classList.remove('selected', 'correct', 'incorrect');
+            });
+            // Mark selected
+            e.target.classList.add('selected');
+            const optId = e.target.dataset.optionId;
+            this.quizAnswers[index] = optId;
+
+            // Check if correct
+            const slide = this.slides[index];
+            const isCorrect = slide.quiz.options.find(o => o.id === optId)?.correct || false;
+            if (isCorrect) {
+              e.target.classList.add('correct');
+            } else {
+              e.target.classList.add('incorrect');
+              // Highlight correct answer
+              options.forEach(o => {
+                const id = o.dataset.optionId;
+                if (slide.quiz.options.find(opt => opt.id === id)?.correct) {
+                  o.classList.add('correct');
+                }
+              });
+            }
+
+            // Show explanation
+            if (explanation) explanation.classList.add('show');
+
+            // Save progress
+            this.saveProgress();
+          });
+        });
+      }
+
+      attachCapstoneListeners(index, slideEl) {
+        const uploadArea = slideEl.querySelector(`#uploadArea-${index}`);
+        const fileInput = slideEl.querySelector(`#photoInput-${index}`);
+        const preview = slideEl.querySelector(`#preview-${index}`);
+        const submitBtn = slideEl.querySelector(`#submitCapstone-${index}`);
+
+        const handleFile = (file) => {
+          if (!file || !file.type.startsWith('image/')) {
+            showToast('Please select an image file', 'error');
+            return;
+          }
+          this.capstonePhotoFile = file;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            submitBtn.style.display = 'block';
+            gsap.fromTo(preview, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+          };
+          reader.readAsDataURL(file);
+        };
+
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files.length) handleFile(e.target.files[0]);
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+          uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+          e.preventDefault();
+          uploadArea.classList.remove('dragover');
+          if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+
+        uploadArea.querySelector('.file-input-label')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          fileInput.click();
+        });
+
+        submitBtn.addEventListener('click', () => {
+          this.submitCapstone(index);
+        });
+      }
+
+      // ---- Save progress ----
+      async saveProgress() {
+        try {
+          const progressRef = db.collection('users')
+            .doc(this.userId)
+            .collection('learningProgress')
+            .doc(this.moduleId);
+          await progressRef.update({
+            currentSlideIndex: this.currentSlideIndex,
+            quizAnswers: this.quizAnswers,
+            updatedAt: new Date()
+          });
+        } catch (err) {
+          console.warn('Save progress error:', err);
+        }
+      }
+
+      // ---- Completion modal ----
+      showCompletionModal(xpReward) {
+        const modal = document.getElementById('completionModal');
+        document.getElementById('celebrationText').textContent =
+          `You've mastered "${this.moduleData.metadata.title}"!`;
+        document.getElementById('xpEarnedAmount').textContent = `+${xpReward}`;
+
+        // Check for badge (if all modules in track complete, etc. – simplified)
+        const badgeContainer = document.getElementById('badgesEarned');
+        badgeContainer.innerHTML = ''; // placeholder
+
+        modal.classList.add('show');
+        gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.3 });
+      }
+    }
+
+    // ================================================================
+    // INITIALIZE
+    // ================================================================
+
+    let learningModule;
+
+    function init() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const moduleId = urlParams.get('moduleId');
+
+      if (!moduleId) {
+        alert('No module specified');
+        window.location.href = 'learning-journey.html';
+        return;
+      }
+
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+          learningModule = new LearningModule(moduleId, user.uid);
+        } else {
+          window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
