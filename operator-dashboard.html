@@ -1089,11 +1089,17 @@
       <!-- MOMENTUM -->
       <div class="ux-section-label"><i class="fas fa-fire"></i> Daily Momentum</div>
       <div class="ux-grid-2">
-        <div><div class="challenge-widget" id="challengeWidget">
+        <div><div class="challenge-widget" id="challengeWidget" style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between; background:rgba(10,10,10,0.6); border:1px solid var(--border-dim); border-radius:12px; padding:18px;">
             <div style="flex:1;min-width:180px;">
               <div style="font-family:'Space Mono',monospace;font-size:14px;color:var(--green);display:flex;align-items:center;gap:8px;margin-bottom:4px;"><i class="fas fa-bolt"></i> Today's Challenge</div>
               <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:2px;" id="challengeTitle">Loading…</div>
               <div style="font-size:13px;color:var(--text-muted);line-height:1.5;" id="challengeDesc">Loading today's challenge…</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:10px;flex-shrink:0;">
+              <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
+                <i class="fas fa-fire" style="color:#ffaa00;"></i> <span class="num" id="streakNum" style="font-size:22px;font-weight:700;color:var(--gold);">0</span> day streak
+              </div>
+              <button class="btn-challenge" id="challengeBtn" style="background:var(--green); color:#000; border:none; padding:10px 18px; border-radius:8px; font-family:'Space Mono',monospace; font-weight:700; cursor:pointer;"><i class="fas fa-play"></i> Start Challenge</button>
             </div></div>
         <div><div class="challenge-log" id="challengeLog">
             <div style="display:flex;align-items:center;gap:8px;font-family:'Space Mono',monospace;font-size:14px;color:var(--gold);margin-bottom:10px;"><i class="fas fa-calendar-check"></i> Challenge Log</div>
@@ -1107,7 +1113,31 @@
       <!-- QUIZ + SUBSTACK -->
       <div class="ux-section-label"><i class="fas fa-brain"></i> Quiz Arena & Transmissions</div>
       <div class="ux-grid-2">
-        <div></div>
+        <div><div class="quiz-widget" id="quizWidget" style="background:rgba(10,10,10,0.6); border:1px solid var(--border-dim); border-radius:12px; padding:18px;">
+            <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:32px; height:32px; border-radius:8px; background:rgba(141,235,0,0.08); border:1px solid rgba(141,235,0,0.12); display:flex; align-items:center; justify-content:center;">
+                  <i class="fas fa-brain" style="color:var(--green); font-size:15px;"></i>
+                </div>
+                <div>
+                  <div style="font-size:12px; color:var(--text-muted); font-family:'Space Mono',monospace;">Quiz Arena</div>
+                  <div style="font-size:11px; color:#666;"><i class="fas fa-fire" style="color:#ffaa00; font-size:11px;"></i> Streak: <span id="streakNum2">0</span></div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-left:auto;">
+                <select id="diffSelect" style="background:#111; color:#fff; border:1px solid #333; border-radius:6px; padding:6px 10px; font-family:'Space Mono',monospace; font-size:12px;">
+                  <option value="easy">Easy</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+                <a href="quiz.html" id="quizLaunchBtn" style="background:var(--green); color:#000; padding:8px 14px; border-radius:6px; font-family:'Space Mono',monospace; font-size:12px; font-weight:700; text-decoration:none;">Launch <i class="fas fa-arrow-right"></i></a>
+              </div>
+            </div>
+            <a href="quiz.html" id="scoreLaunchBtn" style="display:flex; align-items:center; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.06); margin-top:14px; padding-top:12px; text-decoration:none;">
+              <span style="font-size:12px; color:var(--text-muted);">Last Score: <strong id="lastScoreDisplay" style="color:#fff;">—</strong></span>
+              <span style="font-size:12px; color:var(--green);">View <i class="fas fa-arrow-right"></i></span>
+            </a>
+          </div></div>
         <div><div class="substack-teaser" id="substackTeaser" style="display:none;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
           <i class="fas fa-satellite-dish" style="color:var(--green);"></i>
@@ -1547,15 +1577,20 @@
     function renderChallenge(u) {
       const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000);
       const challenge = CHALLENGES[dayOfYear % CHALLENGES.length];
-      document.getElementById('challengeTitle').textContent = challenge.title;
-      document.getElementById('challengeDesc').textContent = challenge.description;
+      const titleEl = document.getElementById('challengeTitle');
+      const descEl = document.getElementById('challengeDesc');
+      if (titleEl) titleEl.textContent = challenge.title;
+      if (descEl) descEl.textContent = challenge.description;
       const completed = u.dailyChallengesCompleted || [];
       const today = new Date().toISOString().split('T')[0];
       const done = completed.includes(today);
       const btn = document.getElementById('challengeBtn');
-      if (done) { btn.innerHTML = '<i class="fas fa-check"></i> Completed'; btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'default'; }
-      else { btn.innerHTML = '<i class="fas fa-play"></i> Start Challenge'; btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.onclick = () => startChallenge(u); }
-      animateNumber(document.getElementById('streakNum'), u.dailyChallengeStreak || 0);
+      if (btn) {
+        if (done) { btn.innerHTML = '<i class="fas fa-check"></i> Completed'; btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'default'; }
+        else { btn.innerHTML = '<i class="fas fa-play"></i> Start Challenge'; btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.onclick = () => startChallenge(u); }
+      }
+      const streakEl = document.getElementById('streakNum');
+      if (streakEl) animateNumber(streakEl, u.dailyChallengeStreak || 0);
       document.getElementById('logStreak').textContent = u.dailyChallengeStreak || 0;
       const daysContainer = document.getElementById('logDays');
       const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
