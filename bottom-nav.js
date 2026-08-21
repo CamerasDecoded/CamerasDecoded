@@ -24,7 +24,7 @@
         <span class="badge-dot" id="badgeDashboard"></span>
       </a>
       <!-- Journey -->
-      <a href="journey.html" data-page="journey.html">
+      <a href="learning-journey.html" data-page="learning-journey.html">
         <i class="fas fa-compass"></i>
         <span>Journey</span>
         <span class="badge-dot" id="badgeJourney"></span>
