@@ -7,7 +7,6 @@
 
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <link rel="stylesheet" href="bottom-nav.css" />
 
   <style>
     /* ============================================================
@@ -390,8 +389,6 @@
       .stats-row { grid-template-columns:1fr; }
       .bento-grid { grid-template-columns:1fr; }
     }
-
-    #bottomNavContainer { margin-top:24px; }
   </style>
 </head>
 <body>
@@ -412,13 +409,9 @@
     </div>
     <nav class="sidebar-nav">
       <a href="admin-dashboard.html" class="nav-item active"><i class="fas fa-chart-pie"></i> Dashboard</a>
-      <a href="operator-dashboard.html" class="nav-item"><i class="fas fa-chart-simple"></i> My Dashboard</a>
+      <a href="admin-profile.html" class="nav-item"><i class="fas fa-user-cog"></i> Admin Profile</a>
       <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-      <a href="learning-journey.html" class="nav-item"><i class="fas fa-graduation-cap"></i> Learning Journey</a>
-      <a href="journey.html" class="nav-item"><i class="fas fa-route"></i> Journey</a>
-      <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-      <a href="profile.html" class="nav-item"><i class="fas fa-user"></i> Profile</a>
-      <a href="settings.html" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
+      <a href="operator-dashboard.html" class="nav-item"><i class="fas fa-chart-simple"></i> Operator Dashboard</a>
     </nav>
     <div class="sidebar-announcement" id="sidebarAnnouncementContainer">
       <div class="announcement-label"><i class="fas fa-bullhorn"></i> Announcement</div>
@@ -476,27 +469,20 @@
 
     <!-- BENTO GRID -->
     <div class="bento-grid">
-      <!-- Recent Activity -->
       <div class="bento-card span-2 span-row-2">
         <div class="card-title"><i class="fas fa-bolt"></i> Recent Activity</div>
         <div id="recentActivity" style="font-size:14px; color:var(--text-muted); line-height:1.8;">Loading...</div>
       </div>
-
-      <!-- Top Referrer -->
       <div class="bento-card">
         <div class="card-title"><i class="fas fa-trophy"></i> Top Referrer</div>
         <div class="card-value" id="topReferrer">—</div>
         <div class="card-sub" id="topReferrerCount">0 referrals</div>
       </div>
-
-      <!-- Most Saved Snapshot -->
       <div class="bento-card">
         <div class="card-title"><i class="fas fa-id-card"></i> Most Saved Snapshot</div>
         <div class="card-value" id="topSnapshot">—</div>
         <div class="card-sub" id="topSnapshotCount">0 saves</div>
       </div>
-
-      <!-- AI Usage -->
       <div class="bento-card span-2">
         <div class="card-title"><i class="fas fa-robot"></i> AI Tool Usage</div>
         <div class="ai-usage-grid" id="aiUsageGrid">
@@ -508,7 +494,7 @@
       </div>
     </div>
 
-    <!-- Extra Stats (New) -->
+    <!-- Extra Stats -->
     <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; margin-bottom:24px;">
       <div class="bento-card">
         <div class="card-title"><i class="fas fa-user-plus"></i> New Users Today</div>
@@ -540,7 +526,7 @@
       </div>
     </div>
 
-    <!-- USERS TABLE (Paginated) -->
+    <!-- USERS TABLE -->
     <div class="users-table-wrap">
       <h3>
         <i class="fas fa-users"></i> All Users
@@ -556,9 +542,6 @@
         <div id="loadMoreContainer"></div>
       </div>
     </div>
-
-    <!-- BOTTOM NAV -->
-    <div id="bottomNavContainer"></div>
 
   </main>
 
@@ -585,23 +568,6 @@
     const db = firebase.firestore();
     window.auth = auth;
     window.db = db;
-
-    // ================================================================
-    // BOTTOM NAV (injected)
-    // ================================================================
-    (function() {
-      const NAV_HTML = `
-        <nav class="bottom-nav chasing-border-nav" id="bottomNav" role="navigation" aria-label="Main Navigation">
-          <a href="index.html" data-page="index.html"><i class="fas fa-home"></i><span>Home</span></a>
-          <a href="operator-dashboard.html" data-page="operator-dashboard.html"><i class="fas fa-th-large"></i><span>Dashboard</span></a>
-          <a href="learning-journey.html" data-page="learning-journey.html"><i class="fas fa-graduation-cap"></i><span>Learn</span></a>
-          <a href="cynetis-7.html" data-page="cynetis-7.html"><i class="fas fa-camera"></i><span>Cynetis-7</span></a>
-          <a href="profile.html" data-page="profile.html"><i class="fas fa-user"></i><span>Profile</span></a>
-        </nav>
-      `;
-      const container = document.getElementById('bottomNavContainer');
-      if (container) container.innerHTML = NAV_HTML;
-    })();
 
     // ================================================================
     // PARTICLES
@@ -687,7 +653,7 @@
     // CACHE HELPERS
     // ================================================================
     const CACHE_KEY = 'adminStatsCache';
-    const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+    const CACHE_TTL = 15 * 60 * 1000;
 
     function getCache() {
       try {
@@ -707,73 +673,69 @@
     // COMPUTE STATS FROM USERS SNAPSHOT
     // ================================================================
     function computeStatsFromUsers(usersSnap) {
-  let totalUsers = 0, proUsers = 0, totalPoints = 0, totalReferrals = 0, totalModules = 0;
-  const aiUsage = { prompt: 0, snapshot: 0, ideas: 0, critique: 0 };
-  const users = [];
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  let newUsersToday = 0;
-  let activeToday = 0; // ← NEW
-  let topReferrer = { name: null, count: 0 };
-  let topSnapshot = { name: null, count: 0 };
+      let totalUsers = 0, proUsers = 0, totalPoints = 0, totalReferrals = 0, totalModules = 0;
+      const aiUsage = { prompt: 0, snapshot: 0, ideas: 0, critique: 0 };
+      const users = [];
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      let newUsersToday = 0;
+      let activeToday = 0;
+      let topReferrer = { name: null, count: 0 };
+      let topSnapshot = { name: null, count: 0 };
 
-  usersSnap.forEach(doc => {
-    const u = doc.data();
-    const uid = doc.id;
-    totalUsers++;
-    if (u.tier === 'pro') proUsers++;
-    totalPoints += u.totalPoints || 0;
-    totalReferrals += u.totalReferrals || 0;
-    const modulesCompleted = u.modulesCompleted || 0;
-    totalModules += modulesCompleted;
+      usersSnap.forEach(doc => {
+        const u = doc.data();
+        const uid = doc.id;
+        totalUsers++;
+        if (u.tier === 'pro') proUsers++;
+        totalPoints += u.totalPoints || 0;
+        totalReferrals += u.totalReferrals || 0;
+        const modulesCompleted = u.modulesCompleted || 0;
+        totalModules += modulesCompleted;
 
-    // New users today
-    if (u.createdAt) {
-      const created = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
-      if (created >= today) newUsersToday++;
+        if (u.createdAt) {
+          const created = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
+          if (created >= today) newUsersToday++;
+        }
+
+        if (u.lastActive) {
+          const last = u.lastActive.toDate ? u.lastActive.toDate() : new Date(u.lastActive);
+          if (last >= today) activeToday++;
+        }
+
+        const usage = u.aiUsage || {};
+        aiUsage.prompt += usage.prompt || 0;
+        aiUsage.snapshot += usage.snapshot || 0;
+        aiUsage.ideas += usage.ideas || 0;
+        aiUsage.critique += usage.critique || 0;
+
+        if ((u.totalReferrals || 0) > topReferrer.count) {
+          topReferrer.count = u.totalReferrals;
+          topReferrer.name = u.displayName || u.username || uid;
+        }
+
+        users.push({ uid, ...u });
+      });
+
+      const mrr = proUsers * 24;
+      const avgPoints = totalUsers > 0 ? Math.round(totalPoints / totalUsers) : 0;
+
+      return {
+        totalUsers,
+        proUsers,
+        mrr,
+        activeToday,
+        newUsersToday,
+        totalModules,
+        avgPoints,
+        aiUsage,
+        topReferrer,
+        topSnapshot,
+        users,
+        totalReferrals,
+        totalPoints
+      };
     }
-
-    // Active today – check lastActive
-    if (u.lastActive) {
-      const last = u.lastActive.toDate ? u.lastActive.toDate() : new Date(u.lastActive);
-      if (last >= today) activeToday++;
-    }
-
-    // AI usage
-    const usage = u.aiUsage || {};
-    aiUsage.prompt += usage.prompt || 0;
-    aiUsage.snapshot += usage.snapshot || 0;
-    aiUsage.ideas += usage.ideas || 0;
-    aiUsage.critique += usage.critique || 0;
-
-    // Top referrer
-    if ((u.totalReferrals || 0) > topReferrer.count) {
-      topReferrer.count = u.totalReferrals;
-      topReferrer.name = u.displayName || u.username || uid;
-    }
-
-    users.push({ uid, ...u });
-  });
-
-  const mrr = proUsers * 24;
-  const avgPoints = totalUsers > 0 ? Math.round(totalPoints / totalUsers) : 0;
-
-  return {
-    totalUsers,
-    proUsers,
-    mrr,
-    activeToday,   // ← now real
-    newUsersToday,
-    totalModules,
-    avgPoints,
-    aiUsage,
-    topReferrer,
-    topSnapshot,
-    users,
-    totalReferrals,
-    totalPoints
-  };
-}
 
     // ================================================================
     // LOAD STATS (with cache)
@@ -801,7 +763,6 @@
         cachedUsers = stats.users;
         displayStats(stats);
         updateLastUpdated(stats.timestamp);
-        // Load first page of users
         await loadUsersTable(true);
       } catch (err) {
         console.error('Error loading stats:', err);
@@ -818,18 +779,15 @@
       document.getElementById('statRevenue').textContent = '$' + stats.mrr;
       animateNumber(document.getElementById('statActive'), stats.activeToday);
 
-      // New stats
       animateNumber(document.getElementById('newUsersToday'), stats.newUsersToday);
       animateNumber(document.getElementById('totalModulesCompleted'), stats.totalModules);
       animateNumber(document.getElementById('avgPoints'), stats.avgPoints);
 
-      // AI Usage
       document.getElementById('aiPrompt').textContent = stats.aiUsage.prompt;
       document.getElementById('aiSnapshot').textContent = stats.aiUsage.snapshot;
       document.getElementById('aiIdeas').textContent = stats.aiUsage.ideas;
       document.getElementById('aiCritique').textContent = stats.aiUsage.critique;
 
-      // Top Referrer
       if (stats.topReferrer.name) {
         document.getElementById('topReferrer').textContent = stats.topReferrer.name;
         document.getElementById('topReferrerCount').textContent = stats.topReferrer.count + ' referrals';
@@ -838,11 +796,9 @@
         document.getElementById('topReferrerCount').textContent = '0 referrals';
       }
 
-      // Top Snapshot (placeholder)
       document.getElementById('topSnapshot').textContent = '📸 Portrait';
       document.getElementById('topSnapshotCount').textContent = '12 saves';
 
-      // Recent Activity (placeholder)
       document.getElementById('recentActivity').innerHTML = `
         <div>✅ User "JaneDoe" completed "Mastering Manual Mode"</div>
         <div>📸 User "PhotoPro" submitted a capstone photo</div>
@@ -863,7 +819,6 @@
     // USERS TABLE – PAGINATED
     // ================================================================
     let lastDoc = null;
-    let usersLoaded = false;
 
     async function loadUsersTable(forceReset = false) {
       if (forceReset) {
@@ -872,12 +827,6 @@
         document.getElementById('loadMoreContainer').innerHTML = '';
       }
 
-      // If we have cached users, we can slice from cache (faster, no Firestore read)
-      // But for accurate, fresh data, we might want to fetch from Firestore with pagination.
-      // We'll use Firestore pagination for simplicity and to avoid large cache memory.
-      // But we can also use cached data if we already have it.
-
-      // For now, we'll use Firestore pagination (limit 20)
       let query = db.collection('users')
         .orderBy('createdAt', 'desc')
         .limit(20);
@@ -894,12 +843,10 @@
         }
 
         if (snapshot.empty && lastDoc) {
-          // No more users
           document.getElementById('loadMoreContainer').innerHTML = '<p style="text-align:center;color:var(--text-muted);font-size:13px;">— End of list —</p>';
           return;
         }
 
-        // Remove "Loading" row if it's the first load
         if (!lastDoc && tbody.children.length === 1 && tbody.children[0].colSpan === 6) {
           tbody.innerHTML = '';
         }
@@ -920,7 +867,6 @@
           tbody.appendChild(row);
         });
 
-        // Add "Load More" button if more exist
         const loadMoreContainer = document.getElementById('loadMoreContainer');
         if (snapshot.docs.length === 20) {
           loadMoreContainer.innerHTML = `<button class="load-more-btn" onclick="loadUsersTable()">Load More</button>`;
@@ -985,17 +931,14 @@
           setTimeout(() => { window.location.href = 'operator-dashboard.html'; }, 1500);
           return;
         }
-        // Load profile
         const data = doc.data();
         document.getElementById('sidebarUsername').textContent = data.username || 'Admin';
         document.getElementById('sidebarEmail').textContent = data.email || 'admin@example.com';
         const avatar = document.querySelector('.profile-avatar');
         if (data.photoURL) avatar.style.backgroundImage = `url(${data.photoURL})`;
 
-        loadStats(false); // load from cache if available
+        loadStats(false);
         loadAndListenAnnouncement();
-        // Initially load users table (will be overwritten by loadStats)
-        // loadUsersTable(true);
       } catch (err) {
         console.error('Auth check error:', err);
         cdToast('Error verifying admin role', 'error');
