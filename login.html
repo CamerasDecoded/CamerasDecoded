@@ -596,6 +596,15 @@
     }
 
     // ================================================================
+    // UPDATE lastActive (called after successful login)
+    // ================================================================
+    function updateLastActive(uid) {
+      db.collection('users').doc(uid).set({
+        lastActive: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(err => console.warn('Could not update lastActive:', err));
+    }
+
+    // ================================================================
     // DOM REFS
     // ================================================================
     const loginContainer = document.getElementById('loginFormContainer');
@@ -648,12 +657,15 @@
     }
 
     // ================================================================
-    // SOCIAL LOGIN
+    // SOCIAL LOGIN (with lastActive update)
     // ================================================================
     window.signInWithGoogle = function() {
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider)
-        .then(result => handleSocialLogin(result.user))
+        .then(result => {
+          updateLastActive(result.user.uid);
+          handleSocialLogin(result.user);
+        })
         .catch(err => {
           console.error('Google error:', err);
           errorMsg.textContent = err.message;
@@ -666,7 +678,10 @@
       provider.addScope('email');
       provider.addScope('public_profile');
       auth.signInWithPopup(provider)
-        .then(result => handleSocialLogin(result.user))
+        .then(result => {
+          updateLastActive(result.user.uid);
+          handleSocialLogin(result.user);
+        })
         .catch(err => {
           console.error('Facebook error:', err);
           errorMsg.textContent = err.message;
@@ -680,6 +695,7 @@
       const name = user.displayName || '';
       const photoURL = user.photoURL || '';
 
+      // Ensure user doc exists + update lastActive
       db.collection('users').doc(uid).get()
         .then(doc => {
           if (!doc.exists) {
@@ -702,7 +718,8 @@
               savedCommunityPosts: [],
               preferences: { brands: [], lenses: [], interests: [] },
               learningJourney: {},
-              photoURL: photoURL
+              photoURL: photoURL,
+              lastActive: firebase.firestore.FieldValue.serverTimestamp()
             };
             return db.collection('users').doc(uid).set(data)
               .then(() => db.collection('referralCodes').doc(username).set({
@@ -711,6 +728,7 @@
               }).catch(() => {}))
               .then(() => db.collection('users').doc(uid).get());
           }
+          // If doc exists, still update lastActive (already done at sign-in step)
           return doc;
         })
         .then(doc => {
@@ -773,7 +791,7 @@
     }
 
     // ================================================================
-    // EMAIL/PASSWORD LOGIN
+    // EMAIL/PASSWORD LOGIN (with lastActive update)
     // ================================================================
     document.getElementById('loginForm').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -787,6 +805,8 @@
       auth.signInWithEmailAndPassword(email, password)
         .then(cred => {
           const uid = cred.user.uid;
+          // Update lastActive
+          updateLastActive(uid);
           return db.collection('users').doc(uid).get().then(doc => {
             if (!doc.exists) {
               // Minimal recovery – create doc if missing
@@ -808,7 +828,8 @@
                 savedCommunityPosts: [],
                 preferences: { brands: [], lenses: [], interests: [] },
                 learningJourney: {},
-                photoURL: cred.user.photoURL || ''
+                photoURL: cred.user.photoURL || '',
+                lastActive: firebase.firestore.FieldValue.serverTimestamp()
               };
               return db.collection('users').doc(uid).set(data)
                 .then(() => db.collection('referralCodes').doc(data.referralCode).set({
@@ -849,6 +870,8 @@
     auth.onAuthStateChanged((user) => {
       if (user && window.location.pathname.includes('login.html')) {
         const uid = user.uid;
+        // Update lastActive on auto-redirect too
+        updateLastActive(uid);
         db.collection('users').doc(uid).get().then(doc => {
           if (doc.exists) {
             const data = doc.data();
