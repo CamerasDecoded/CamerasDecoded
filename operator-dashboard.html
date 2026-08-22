@@ -302,7 +302,7 @@
     }
 
     /* ============================================================
-       SPOTLIGHT CARDS – (unchanged)
+       SPOTLIGHT CARDS
        ============================================================ */
     .dash-stats {
       perspective: 900px;
@@ -931,7 +931,7 @@
 
       </div>
 
-      <!-- TOUR BUTTON (always visible) -->
+      <!-- TOUR BUTTON -->
       <div style="display:flex; justify-content:flex-start; margin-top:-16px; margin-bottom:12px;">
         <button onclick="startTour()" style="background:transparent; border:none; color:var(--text-muted); font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; transition:0.3s; display:flex; align-items:center; gap:4px;">
           <i class="fas fa-compass" style="color:var(--green); font-size:12px;"></i> Take a tour
@@ -1203,21 +1203,21 @@
   <script src="bottom-nav.js"></script>
 
   <!-- ===== TOAST SYSTEM (already loaded via script tag) ===== -->
-  <!-- ================================================================ -->
 
   <script>
     // ================================================================
-    // DASHBOARD JAVASCRIPT – WITH TOAST SYSTEM INTEGRATION
+    // DASHBOARD JAVASCRIPT – WITH ROBUST ERROR HANDLING
     // ================================================================
 
     // ---- Wrap your toast/confirm system with our existing API ----
-    // cdToast uses the new showToast
-    const cdToast = showToast;
-
-    // cdConfirm returns a Promise using the new showConfirm
+    const cdToast = window.showToast || function(msg) { alert(msg); };
     function cdConfirm(message) {
       return new Promise((resolve) => {
-        showConfirm(message, () => resolve(true), () => resolve(false));
+        if (window.showConfirm) {
+          window.showConfirm(message, () => resolve(true), () => resolve(false));
+        } else {
+          resolve(confirm(message));
+        }
       });
     }
 
@@ -1247,6 +1247,11 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+
+    // Global error log
+    window.addEventListener('unhandledrejection', event => {
+      console.error('Unhandled rejection:', event.reason);
+    });
 
     const PROTOCOL_LIBRARY = [
       { id:'proto_001', title:'Mastering Real Estate HDR', genre:'real-estate', description:'Learn to shoot interior HDR with confidence.', brand:'Sony' },
@@ -1731,9 +1736,18 @@
     const contentEl = document.getElementById('dashboardContent');
 
     async function loadDashboard(user) {
-      if (!user) { loadingEl.innerHTML = '<p class="error">Not authenticated. <a href="login.html">Login</a></p>'; return; }
+      if (!user) {
+        loadingEl.innerHTML = '<p class="error">Not authenticated. <a href="login.html">Login</a></p>';
+        return;
+      }
+
       try {
+        console.log('🔄 Loading dashboard for user:', user.uid);
+
         const userData = await ensureUserDoc(user);
+        console.log('✅ User data loaded:', userData);
+
+        // Render all sections
         renderProfile(userData);
         renderStats(userData);
         renderAIWidget(userData);
@@ -1744,7 +1758,7 @@
 
         animateRingsOnLoad(userData);
 
-        // ---- Quiz ----
+        // Quiz setup
         if (userData.quizStreak !== undefined) {
           document.getElementById('streakNum2').textContent = userData.quizStreak;
           localStorage.setItem('quizStreak', userData.quizStreak);
@@ -1787,6 +1801,7 @@
 
         await loadNotification();
 
+        // Substack teaser (cached)
         (function() {
           const CACHE_KEY = 'substack_teaser_cache';
           const CACHE_DURATION = 3 * 60 * 60 * 1000;
@@ -1822,6 +1837,7 @@
 
         await buildFeed(userData);
 
+        // All done – show content
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
 
@@ -1831,7 +1847,7 @@
           window.BottomNav.updateBadges(userData);
         }
 
-        // ===== AUTO-START TOUR ON FIRST VISIT =====
+        // Auto-start tour on first visit
         if (!userData.tourCompleted) {
           setTimeout(() => {
             startTour();
@@ -1839,8 +1855,16 @@
         }
 
       } catch (err) {
-        console.error(err);
-        loadingEl.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+        console.error('❌ Dashboard load error:', err);
+        loadingEl.innerHTML = `
+          <p style="color:#ff4a4a; font-family:'Space Mono',monospace;">
+            <i class="fas fa-exclamation-triangle"></i> Error loading dashboard:<br>
+            <span style="font-size:13px;">${err.message}</span>
+          </p>
+          <button onclick="location.reload()" style="margin-top:16px; background:transparent; border:1px solid var(--green); color:var(--green); padding:8px 24px; border-radius:30px; cursor:pointer; font-family:'Space Mono',monospace;">
+            Retry
+          </button>
+        `;
       }
     }
 
@@ -1852,7 +1876,7 @@
     if (auth.currentUser) { loadDashboard(auth.currentUser); }
 
     // ================================================================
-    // SPOTLIGHT CARDS – (unchanged)
+    // SPOTLIGHT CARDS
     // ================================================================
     function initSpotlightCards() {
       const container = document.getElementById('statsContainer');
