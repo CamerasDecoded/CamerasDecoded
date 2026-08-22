@@ -72,7 +72,7 @@
     }
 
     /* ============================================================
-       SIDEBAR – built inline (no external sidebar.js needed)
+       SIDEBAR
        ============================================================ */
     .sidebar {
       width:240px; background:rgba(0,0,0,0.95); padding:20px 16px 24px;
@@ -119,7 +119,6 @@
       color:#ff4a4a;
     }
 
-    /* ===== SIDEBAR ANNOUNCEMENT ===== */
     .sidebar-announcement {
       padding: 12px;
       margin-top: auto;
@@ -223,7 +222,7 @@
       align-items:center;
       gap:12px;
     }
-    .greeting { color:var(--text-muted); font-size:14px; }
+    .greeting { color:var(--text-muted); font-size:14px; display:flex; align-items:center; gap:12px; }
 
     /* ============================================================
        STATS ROW
@@ -332,13 +331,17 @@
     .current-announcement strong { color:var(--green); }
 
     /* ============================================================
-       USERS TABLE
+       USERS TABLE (with pagination)
        ============================================================ */
     .users-table-wrap {
       background:var(--card-bg); backdrop-filter:blur(8px); border:1px solid var(--border-dim);
       border-radius:var(--radius); padding:18px 20px; overflow-x:auto;
     }
-    .users-table-wrap h3 { font-family:'Space Mono',monospace; font-size:16px; color:var(--green); margin-bottom:12px; }
+    .users-table-wrap h3 { font-family:'Space Mono',monospace; font-size:16px; color:var(--green); margin-bottom:12px; display:flex; align-items:center; gap:12px; }
+    .users-table-wrap h3 .refresh-btn {
+      background:transparent; border:1px solid var(--green); color:var(--green); padding:4px 12px; border-radius:6px; font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; transition:0.3s;
+    }
+    .users-table-wrap h3 .refresh-btn:hover { background:rgba(141,235,0,0.08); }
     .users-table-wrap table { width:100%; border-collapse:collapse; font-size:13px; color:var(--text-muted); }
     .users-table-wrap table thead th {
       text-align:left; padding:10px 8px; border-bottom:1px solid var(--border-dim);
@@ -346,6 +349,10 @@
     }
     .users-table-wrap table tbody td { padding:10px 8px; border-bottom:1px solid rgba(255,255,255,0.03); }
     .users-table-wrap table tbody tr:hover { background:rgba(141,235,0,0.03); }
+    .load-more-btn {
+      background:transparent; border:1px solid var(--green); color:var(--green); padding:8px 20px; border-radius:6px; cursor:pointer; font-family:'Space Mono',monospace; font-size:13px; transition:0.3s; margin:12px auto; display:block;
+    }
+    .load-more-btn:hover { background:rgba(141,235,0,0.08); }
 
     /* ============================================================
        TOAST
@@ -384,12 +391,7 @@
       .bento-grid { grid-template-columns:1fr; }
     }
 
-    /* ============================================================
-       BOTTOM NAV OFFSET
-       ============================================================ */
-    #bottomNavContainer {
-      margin-top:24px;
-    }
+    #bottomNavContainer { margin-top:24px; }
   </style>
 </head>
 <body>
@@ -400,7 +402,7 @@
   <!-- TOAST -->
   <div id="toast-container"></div>
 
-  <!-- ===== SIDEBAR (built inline, no external dependency) ===== -->
+  <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
     <div class="logo"><a href="index.html"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a></div>
     <div class="sidebar-profile">
@@ -418,7 +420,6 @@
       <a href="profile.html" class="nav-item"><i class="fas fa-user"></i> Profile</a>
       <a href="settings.html" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
     </nav>
-    <!-- Announcement -->
     <div class="sidebar-announcement" id="sidebarAnnouncementContainer">
       <div class="announcement-label"><i class="fas fa-bullhorn"></i> Announcement</div>
       <div class="announcement-text" id="sidebarAnnouncement">No active announcement</div>
@@ -448,8 +449,8 @@
     <div class="dash-header">
       <h1><i class="fas fa-chart-pie"></i> Admin Dashboard</h1>
       <div class="greeting">
-        <span>Welcome back, Admin.</span>
-        <span class="subscription-badge" style="background:var(--green-dim); border:1px solid rgba(141,235,0,0.2); border-radius:20px; padding:2px 14px; font-size:11px; color:var(--green); display:inline-block;">● Live</span>
+        <span id="lastUpdatedLabel">Last updated: —</span>
+        <button onclick="refreshAllStats()" style="background:transparent;border:1px solid var(--green);color:var(--green);padding:4px 14px;border-radius:6px;cursor:pointer;font-family:'Space Mono',monospace;font-size:12px;">↻ Refresh</button>
       </div>
     </div>
 
@@ -475,20 +476,27 @@
 
     <!-- BENTO GRID -->
     <div class="bento-grid">
+      <!-- Recent Activity -->
       <div class="bento-card span-2 span-row-2">
         <div class="card-title"><i class="fas fa-bolt"></i> Recent Activity</div>
         <div id="recentActivity" style="font-size:14px; color:var(--text-muted); line-height:1.8;">Loading...</div>
       </div>
+
+      <!-- Top Referrer -->
       <div class="bento-card">
         <div class="card-title"><i class="fas fa-trophy"></i> Top Referrer</div>
         <div class="card-value" id="topReferrer">—</div>
         <div class="card-sub" id="topReferrerCount">0 referrals</div>
       </div>
+
+      <!-- Most Saved Snapshot -->
       <div class="bento-card">
         <div class="card-title"><i class="fas fa-id-card"></i> Most Saved Snapshot</div>
         <div class="card-value" id="topSnapshot">—</div>
         <div class="card-sub" id="topSnapshotCount">0 saves</div>
       </div>
+
+      <!-- AI Usage -->
       <div class="bento-card span-2">
         <div class="card-title"><i class="fas fa-robot"></i> AI Tool Usage</div>
         <div class="ai-usage-grid" id="aiUsageGrid">
@@ -497,6 +505,22 @@
           <div class="ai-item"><span>Ideas</span> <strong id="aiIdeas">0</strong></div>
           <div class="ai-item"><span>Critique</span> <strong id="aiCritique">0</strong></div>
         </div>
+      </div>
+    </div>
+
+    <!-- Extra Stats (New) -->
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; margin-bottom:24px;">
+      <div class="bento-card">
+        <div class="card-title"><i class="fas fa-user-plus"></i> New Users Today</div>
+        <div class="card-value" id="newUsersToday">0</div>
+      </div>
+      <div class="bento-card">
+        <div class="card-title"><i class="fas fa-check-circle"></i> Modules Completed</div>
+        <div class="card-value" id="totalModulesCompleted">0</div>
+      </div>
+      <div class="bento-card">
+        <div class="card-title"><i class="fas fa-star"></i> Avg Points</div>
+        <div class="card-value" id="avgPoints">0</div>
       </div>
     </div>
 
@@ -516,9 +540,12 @@
       </div>
     </div>
 
-    <!-- USERS TABLE -->
+    <!-- USERS TABLE (Paginated) -->
     <div class="users-table-wrap">
-      <h3><i class="fas fa-users"></i> All Users</h3>
+      <h3>
+        <i class="fas fa-users"></i> All Users
+        <button class="refresh-btn" onclick="loadUsersTable(true)">↻ Refresh</button>
+      </h3>
       <div style="overflow-x:auto;">
         <table>
           <thead>
@@ -526,6 +553,7 @@
           </thead>
           <tbody id="usersTableBody"><tr><td colspan="6" style="text-align:center; padding:20px;">Loading users...</td></tr></tbody>
         </table>
+        <div id="loadMoreContainer"></div>
       </div>
     </div>
 
@@ -534,14 +562,13 @@
 
   </main>
 
-  <!-- ===== FIREBASE SDKs ===== -->
+  <!-- FIREBASE SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <!-- ===== EMBEDDED FIREBASE CONFIG (no external file needed) ===== -->
+  <!-- EMBEDDED FIREBASE CONFIG -->
   <script>
-    // EMBEDDED FIREBASE CONFIG
     const firebaseConfig = {
       apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
       authDomain: "cameras-decoded.firebaseapp.com",
@@ -551,7 +578,6 @@
       appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
       measurementId: "G-YN3M01WW0B"
     };
-
     firebase.initializeApp(firebaseConfig);
     firebase.firestore().settings({ experimentalForceLongPolling: true });
 
@@ -561,16 +587,16 @@
     window.db = db;
 
     // ================================================================
-    // BOTTOM NAV (injected manually)
+    // BOTTOM NAV (injected)
     // ================================================================
     (function() {
       const NAV_HTML = `
         <nav class="bottom-nav chasing-border-nav" id="bottomNav" role="navigation" aria-label="Main Navigation">
-          <a href="index.html" data-page="index.html"><i class="fas fa-home"></i><span>Home</span><span class="badge-dot" id="badgeHome"></span></a>
-          <a href="operator-dashboard.html" data-page="operator-dashboard.html"><i class="fas fa-th-large"></i><span>Dashboard</span><span class="badge-dot" id="badgeDashboard"></span></a>
-          <a href="learning-journey.html" data-page="learning-journey.html"><i class="fas fa-graduation-cap"></i><span>Learn</span><span class="badge-dot" id="badgeJourney"></span></a>
-          <a href="cynetis-7.html" data-page="cynetis-7.html"><i class="fas fa-camera"></i><span>Cynetis-7</span><span class="badge-dot" id="badgeCynetis"></span></a>
-          <a href="profile.html" data-page="profile.html"><i class="fas fa-user"></i><span>Profile</span><span class="badge-dot" id="badgeProfile"></span></a>
+          <a href="index.html" data-page="index.html"><i class="fas fa-home"></i><span>Home</span></a>
+          <a href="operator-dashboard.html" data-page="operator-dashboard.html"><i class="fas fa-th-large"></i><span>Dashboard</span></a>
+          <a href="learning-journey.html" data-page="learning-journey.html"><i class="fas fa-graduation-cap"></i><span>Learn</span></a>
+          <a href="cynetis-7.html" data-page="cynetis-7.html"><i class="fas fa-camera"></i><span>Cynetis-7</span></a>
+          <a href="profile.html" data-page="profile.html"><i class="fas fa-user"></i><span>Profile</span></a>
         </nav>
       `;
       const container = document.getElementById('bottomNavContainer');
@@ -658,108 +684,277 @@
     });
 
     // ================================================================
-    // LOAD DATA
+    // CACHE HELPERS
     // ================================================================
-    async function loadAnnouncement() {
+    const CACHE_KEY = 'adminStatsCache';
+    const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+    function getCache() {
       try {
-        const doc = await db.collection('admin').doc('announcement').get();
-        const textEl = document.getElementById('announcementText');
-        const sidebarEl = document.getElementById('sidebarAnnouncement');
-        if (doc.exists && doc.data().active && doc.data().message) {
-          const msg = doc.data().message;
-          textEl.textContent = msg;
-          if (sidebarEl) sidebarEl.textContent = msg;
-        } else {
-          textEl.textContent = 'No active announcement';
-          if (sidebarEl) sidebarEl.textContent = 'No active announcement';
-        }
-      } catch (e) { console.warn('Announcement load error:', e); }
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (Date.now() - data.timestamp > CACHE_TTL) return null;
+        return data.stats;
+      } catch { return null; }
     }
 
-    async function loadStats() {
+    function setCache(stats) {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ stats, timestamp: Date.now() }));
+    }
+
+    // ================================================================
+    // COMPUTE STATS FROM USERS SNAPSHOT
+    // ================================================================
+    function computeStatsFromUsers(usersSnap) {
+      let totalUsers = 0, proUsers = 0, totalPoints = 0, totalReferrals = 0, totalModules = 0;
+      const aiUsage = { prompt: 0, snapshot: 0, ideas: 0, critique: 0 };
+      const users = [];
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      let newUsersToday = 0;
+      let topReferrer = { name: null, count: 0 };
+      let topSnapshot = { name: null, count: 0 };
+
+      usersSnap.forEach(doc => {
+        const u = doc.data();
+        const uid = doc.id;
+        totalUsers++;
+        if (u.tier === 'pro') proUsers++;
+        totalPoints += u.totalPoints || 0;
+        totalReferrals += u.totalReferrals || 0;
+        // Modules completed: count from learningProgress subcollection? We'll store a count in user doc.
+        const modulesCompleted = u.modulesCompleted || 0;
+        totalModules += modulesCompleted;
+        // New users today
+        if (u.createdAt) {
+          const created = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
+          if (created >= today) newUsersToday++;
+        }
+        // AI usage
+        const usage = u.aiUsage || {};
+        aiUsage.prompt += usage.prompt || 0;
+        aiUsage.snapshot += usage.snapshot || 0;
+        aiUsage.ideas += usage.ideas || 0;
+        aiUsage.critique += usage.critique || 0;
+        // Top referrer
+        if ((u.totalReferrals || 0) > topReferrer.count) {
+          topReferrer.count = u.totalReferrals;
+          topReferrer.name = u.displayName || u.username || uid;
+        }
+        // Top snapshot – placeholder until we have a real field
+        // We'll just keep placeholder for now.
+        // Active today – we need a lastActive field. We'll simulate with a placeholder.
+        users.push({ uid, ...u });
+      });
+
+      // Active Today – placeholder (we'll later update from a separate query if needed)
+      // For now, we'll estimate based on lastActive if available, else use 30% placeholder.
+      const activeToday = Math.floor(totalUsers * 0.3); // placeholder until we implement lastActive
+
+      // MRR
+      const mrr = proUsers * 24;
+
+      // Average points
+      const avgPoints = totalUsers > 0 ? Math.round(totalPoints / totalUsers) : 0;
+
+      return {
+        totalUsers,
+        proUsers,
+        mrr,
+        activeToday,
+        newUsersToday,
+        totalModules,
+        avgPoints,
+        aiUsage,
+        topReferrer,
+        topSnapshot, // placeholder
+        users, // full array for table pagination
+        totalReferrals,
+        totalPoints
+      };
+    }
+
+    // ================================================================
+    // LOAD STATS (with cache)
+    // ================================================================
+    let cachedUsers = null;
+
+    async function loadStats(forceRefresh = false) {
+      if (!forceRefresh) {
+        const cached = getCache();
+        if (cached) {
+          console.log('📦 Using cached stats');
+          displayStats(cached);
+          updateLastUpdated(cached.timestamp);
+          return;
+        }
+      }
+
+      console.log('🔄 Fetching fresh stats from Firestore...');
+      cdToast('Refreshing stats...', 'success');
       try {
         const usersSnap = await db.collection('users').get();
-        const totalUsers = usersSnap.size;
-        let proCount = 0;
-        const users = [];
-        usersSnap.forEach(doc => {
-          const data = doc.data();
-          if (data.tier === 'pro') proCount++;
-          users.push({ id: doc.id, ...data });
-        });
-
-        animateNumber(document.getElementById('statUsers'), totalUsers);
-        animateNumber(document.getElementById('statPro'), proCount);
-        document.getElementById('statRevenue').textContent = '$' + (proCount * 24);
-        document.getElementById('statActive').textContent = Math.floor(totalUsers * 0.3);
-
-        const tbody = document.getElementById('usersTableBody');
-        if (users.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">No users found</td></tr>';
-        } else {
-          tbody.innerHTML = users.map(u => `
-            <tr>
-              <td>${u.displayName || u.username || '—'}</td>
-              <td>${u.email || '—'}</td>
-              <td>${u.tier || 'free'}</td>
-              <td>${u.role || 'Operator'}</td>
-              <td>${u.totalPoints || 0}</td>
-              <td>${u.totalReferrals || 0}</td>
-            </tr>
-          `).join('');
-        }
-
-        let aiPrompt = 0, aiSnapshot = 0, aiIdeas = 0, aiCritique = 0;
-        users.forEach(u => {
-          const usage = u.aiUsage || {};
-          aiPrompt += usage.prompt || 0;
-          aiSnapshot += usage.snapshot || 0;
-          aiIdeas += usage.ideas || 0;
-          aiCritique += usage.critique || 0;
-        });
-        document.getElementById('aiPrompt').textContent = aiPrompt;
-        document.getElementById('aiSnapshot').textContent = aiSnapshot;
-        document.getElementById('aiIdeas').textContent = aiIdeas;
-        document.getElementById('aiCritique').textContent = aiCritique;
-
-        const sortedByRef = users.sort((a, b) => (b.totalReferrals || 0) - (a.totalReferrals || 0));
-        if (sortedByRef.length && sortedByRef[0].totalReferrals > 0) {
-          document.getElementById('topReferrer').textContent = sortedByRef[0].displayName || sortedByRef[0].username || '—';
-          document.getElementById('topReferrerCount').textContent = sortedByRef[0].totalReferrals + ' referrals';
-        } else {
-          document.getElementById('topReferrer').textContent = '—';
-          document.getElementById('topReferrerCount').textContent = '0 referrals';
-        }
-        document.getElementById('topSnapshot').textContent = '📸 Portrait';
-        document.getElementById('topSnapshotCount').textContent = '12 saves';
-
-        document.getElementById('recentActivity').innerHTML = `
-          <div>✅ User "JaneDoe" completed "Mastering Manual Mode"</div>
-          <div>📸 User "PhotoPro" submitted a capstone photo</div>
-          <div>🔥 User "SignalSeeker" earned a 7‑day streak</div>
-          <div>📢 Admin published a new announcement</div>
-        `;
-
-        const user = auth.currentUser;
-        if (user) {
-          const doc = await db.collection('users').doc(user.uid).get();
-          if (doc.exists) {
-            const data = doc.data();
-            document.getElementById('sidebarUsername').textContent = data.username || 'Admin';
-            document.getElementById('sidebarEmail').textContent = data.email || 'admin@example.com';
-            const avatar = document.querySelector('.profile-avatar');
-            if (data.photoURL) avatar.style.backgroundImage = `url(${data.photoURL})`;
-          }
-        }
+        const stats = computeStatsFromUsers(usersSnap);
+        stats.timestamp = Date.now();
+        setCache(stats);
+        cachedUsers = stats.users;
+        displayStats(stats);
+        updateLastUpdated(stats.timestamp);
+        // Load first page of users
+        await loadUsersTable(true);
       } catch (err) {
         console.error('Error loading stats:', err);
-        cdToast('Failed to load dashboard data', 'error');
+        cdToast('Failed to load stats: ' + err.message, 'error');
       }
     }
 
     // ================================================================
-    // NOTIFICATION PUBLISH/CLEAR
+    // DISPLAY STATS ON DASHBOARD
     // ================================================================
+    function displayStats(stats) {
+      animateNumber(document.getElementById('statUsers'), stats.totalUsers);
+      animateNumber(document.getElementById('statPro'), stats.proUsers);
+      document.getElementById('statRevenue').textContent = '$' + stats.mrr;
+      animateNumber(document.getElementById('statActive'), stats.activeToday);
+
+      // New stats
+      animateNumber(document.getElementById('newUsersToday'), stats.newUsersToday);
+      animateNumber(document.getElementById('totalModulesCompleted'), stats.totalModules);
+      animateNumber(document.getElementById('avgPoints'), stats.avgPoints);
+
+      // AI Usage
+      document.getElementById('aiPrompt').textContent = stats.aiUsage.prompt;
+      document.getElementById('aiSnapshot').textContent = stats.aiUsage.snapshot;
+      document.getElementById('aiIdeas').textContent = stats.aiUsage.ideas;
+      document.getElementById('aiCritique').textContent = stats.aiUsage.critique;
+
+      // Top Referrer
+      if (stats.topReferrer.name) {
+        document.getElementById('topReferrer').textContent = stats.topReferrer.name;
+        document.getElementById('topReferrerCount').textContent = stats.topReferrer.count + ' referrals';
+      } else {
+        document.getElementById('topReferrer').textContent = '—';
+        document.getElementById('topReferrerCount').textContent = '0 referrals';
+      }
+
+      // Top Snapshot (placeholder)
+      document.getElementById('topSnapshot').textContent = '📸 Portrait';
+      document.getElementById('topSnapshotCount').textContent = '12 saves';
+
+      // Recent Activity (placeholder)
+      document.getElementById('recentActivity').innerHTML = `
+        <div>✅ User "JaneDoe" completed "Mastering Manual Mode"</div>
+        <div>📸 User "PhotoPro" submitted a capstone photo</div>
+        <div>🔥 User "SignalSeeker" earned a 7‑day streak</div>
+        <div>📢 Admin published a new announcement</div>
+      `;
+    }
+
+    function updateLastUpdated(timestamp) {
+      const el = document.getElementById('lastUpdatedLabel');
+      if (el) {
+        const date = new Date(timestamp);
+        el.textContent = 'Last updated: ' + date.toLocaleTimeString();
+      }
+    }
+
+    // ================================================================
+    // USERS TABLE – PAGINATED
+    // ================================================================
+    let lastDoc = null;
+    let usersLoaded = false;
+
+    async function loadUsersTable(forceReset = false) {
+      if (forceReset) {
+        lastDoc = null;
+        document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">Loading users...</td></tr>';
+        document.getElementById('loadMoreContainer').innerHTML = '';
+      }
+
+      // If we have cached users, we can slice from cache (faster, no Firestore read)
+      // But for accurate, fresh data, we might want to fetch from Firestore with pagination.
+      // We'll use Firestore pagination for simplicity and to avoid large cache memory.
+      // But we can also use cached data if we already have it.
+
+      // For now, we'll use Firestore pagination (limit 20)
+      let query = db.collection('users')
+        .orderBy('createdAt', 'desc')
+        .limit(20);
+
+      if (lastDoc) query = query.startAfter(lastDoc);
+
+      try {
+        const snapshot = await query.get();
+        const tbody = document.getElementById('usersTableBody');
+
+        if (snapshot.empty && !lastDoc) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">No users found</td></tr>';
+          return;
+        }
+
+        if (snapshot.empty && lastDoc) {
+          // No more users
+          document.getElementById('loadMoreContainer').innerHTML = '<p style="text-align:center;color:var(--text-muted);font-size:13px;">— End of list —</p>';
+          return;
+        }
+
+        // Remove "Loading" row if it's the first load
+        if (!lastDoc && tbody.children.length === 1 && tbody.children[0].colSpan === 6) {
+          tbody.innerHTML = '';
+        }
+
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+
+        snapshot.forEach(doc => {
+          const u = doc.data();
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${u.displayName || u.username || '—'}</td>
+            <td>${u.email || '—'}</td>
+            <td>${u.tier || 'free'}</td>
+            <td>${u.role || 'Operator'}</td>
+            <td>${u.totalPoints || 0}</td>
+            <td>${u.totalReferrals || 0}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        // Add "Load More" button if more exist
+        const loadMoreContainer = document.getElementById('loadMoreContainer');
+        if (snapshot.docs.length === 20) {
+          loadMoreContainer.innerHTML = `<button class="load-more-btn" onclick="loadUsersTable()">Load More</button>`;
+        } else {
+          loadMoreContainer.innerHTML = '<p style="text-align:center;color:var(--text-muted);font-size:13px;margin-top:8px;">— All users loaded —</p>';
+        }
+
+      } catch (err) {
+        console.error('Error loading users:', err);
+        cdToast('Error loading users: ' + err.message, 'error');
+      }
+    }
+
+    // ================================================================
+    // REFRESH ALL STATS
+    // ================================================================
+    window.refreshAllStats = function() {
+      loadStats(true);
+    };
+
+    // ================================================================
+    // ANNOUNCEMENT (real-time listener)
+    // ================================================================
+    function loadAndListenAnnouncement() {
+      const sidebarEl = document.getElementById('sidebarAnnouncement');
+      const panelEl = document.getElementById('announcementText');
+
+      db.collection('admin').doc('announcement').onSnapshot((doc) => {
+        const msg = doc.exists && doc.data().active ? doc.data().message : 'No active announcement';
+        if (sidebarEl) sidebarEl.textContent = msg;
+        if (panelEl) panelEl.textContent = msg;
+      });
+    }
+
     document.getElementById('publishAnnouncement').addEventListener('click', async () => {
       const input = document.getElementById('announcementInput');
       const message = input.value.trim();
@@ -768,7 +963,6 @@
         await db.collection('admin').doc('announcement').set({ message, active: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
         cdToast('Announcement published!');
         input.value = '';
-        loadAnnouncement();
       } catch (err) { cdToast('Failed to publish: ' + err.message, 'error'); }
     });
 
@@ -776,7 +970,6 @@
       try {
         await db.collection('admin').doc('announcement').set({ message: '', active: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
         cdToast('Announcement cleared');
-        loadAnnouncement();
       } catch (err) { cdToast('Failed to clear: ' + err.message, 'error'); }
     });
 
@@ -792,8 +985,17 @@
           setTimeout(() => { window.location.href = 'operator-dashboard.html'; }, 1500);
           return;
         }
-        loadStats();
-        loadAnnouncement();
+        // Load profile
+        const data = doc.data();
+        document.getElementById('sidebarUsername').textContent = data.username || 'Admin';
+        document.getElementById('sidebarEmail').textContent = data.email || 'admin@example.com';
+        const avatar = document.querySelector('.profile-avatar');
+        if (data.photoURL) avatar.style.backgroundImage = `url(${data.photoURL})`;
+
+        loadStats(false); // load from cache if available
+        loadAndListenAnnouncement();
+        // Initially load users table (will be overwritten by loadStats)
+        // loadUsersTable(true);
       } catch (err) {
         console.error('Auth check error:', err);
         cdToast('Error verifying admin role', 'error');
