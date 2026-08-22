@@ -707,73 +707,73 @@
     // COMPUTE STATS FROM USERS SNAPSHOT
     // ================================================================
     function computeStatsFromUsers(usersSnap) {
-      let totalUsers = 0, proUsers = 0, totalPoints = 0, totalReferrals = 0, totalModules = 0;
-      const aiUsage = { prompt: 0, snapshot: 0, ideas: 0, critique: 0 };
-      const users = [];
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      let newUsersToday = 0;
-      let topReferrer = { name: null, count: 0 };
-      let topSnapshot = { name: null, count: 0 };
+  let totalUsers = 0, proUsers = 0, totalPoints = 0, totalReferrals = 0, totalModules = 0;
+  const aiUsage = { prompt: 0, snapshot: 0, ideas: 0, critique: 0 };
+  const users = [];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  let newUsersToday = 0;
+  let activeToday = 0; // ← NEW
+  let topReferrer = { name: null, count: 0 };
+  let topSnapshot = { name: null, count: 0 };
 
-      usersSnap.forEach(doc => {
-        const u = doc.data();
-        const uid = doc.id;
-        totalUsers++;
-        if (u.tier === 'pro') proUsers++;
-        totalPoints += u.totalPoints || 0;
-        totalReferrals += u.totalReferrals || 0;
-        // Modules completed: count from learningProgress subcollection? We'll store a count in user doc.
-        const modulesCompleted = u.modulesCompleted || 0;
-        totalModules += modulesCompleted;
-        // New users today
-        if (u.createdAt) {
-          const created = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
-          if (created >= today) newUsersToday++;
-        }
-        // AI usage
-        const usage = u.aiUsage || {};
-        aiUsage.prompt += usage.prompt || 0;
-        aiUsage.snapshot += usage.snapshot || 0;
-        aiUsage.ideas += usage.ideas || 0;
-        aiUsage.critique += usage.critique || 0;
-        // Top referrer
-        if ((u.totalReferrals || 0) > topReferrer.count) {
-          topReferrer.count = u.totalReferrals;
-          topReferrer.name = u.displayName || u.username || uid;
-        }
-        // Top snapshot – placeholder until we have a real field
-        // We'll just keep placeholder for now.
-        // Active today – we need a lastActive field. We'll simulate with a placeholder.
-        users.push({ uid, ...u });
-      });
+  usersSnap.forEach(doc => {
+    const u = doc.data();
+    const uid = doc.id;
+    totalUsers++;
+    if (u.tier === 'pro') proUsers++;
+    totalPoints += u.totalPoints || 0;
+    totalReferrals += u.totalReferrals || 0;
+    const modulesCompleted = u.modulesCompleted || 0;
+    totalModules += modulesCompleted;
 
-      // Active Today – placeholder (we'll later update from a separate query if needed)
-      // For now, we'll estimate based on lastActive if available, else use 30% placeholder.
-      const activeToday = Math.floor(totalUsers * 0.3); // placeholder until we implement lastActive
-
-      // MRR
-      const mrr = proUsers * 24;
-
-      // Average points
-      const avgPoints = totalUsers > 0 ? Math.round(totalPoints / totalUsers) : 0;
-
-      return {
-        totalUsers,
-        proUsers,
-        mrr,
-        activeToday,
-        newUsersToday,
-        totalModules,
-        avgPoints,
-        aiUsage,
-        topReferrer,
-        topSnapshot, // placeholder
-        users, // full array for table pagination
-        totalReferrals,
-        totalPoints
-      };
+    // New users today
+    if (u.createdAt) {
+      const created = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
+      if (created >= today) newUsersToday++;
     }
+
+    // Active today – check lastActive
+    if (u.lastActive) {
+      const last = u.lastActive.toDate ? u.lastActive.toDate() : new Date(u.lastActive);
+      if (last >= today) activeToday++;
+    }
+
+    // AI usage
+    const usage = u.aiUsage || {};
+    aiUsage.prompt += usage.prompt || 0;
+    aiUsage.snapshot += usage.snapshot || 0;
+    aiUsage.ideas += usage.ideas || 0;
+    aiUsage.critique += usage.critique || 0;
+
+    // Top referrer
+    if ((u.totalReferrals || 0) > topReferrer.count) {
+      topReferrer.count = u.totalReferrals;
+      topReferrer.name = u.displayName || u.username || uid;
+    }
+
+    users.push({ uid, ...u });
+  });
+
+  const mrr = proUsers * 24;
+  const avgPoints = totalUsers > 0 ? Math.round(totalPoints / totalUsers) : 0;
+
+  return {
+    totalUsers,
+    proUsers,
+    mrr,
+    activeToday,   // ← now real
+    newUsersToday,
+    totalModules,
+    avgPoints,
+    aiUsage,
+    topReferrer,
+    topSnapshot,
+    users,
+    totalReferrals,
+    totalPoints
+  };
+}
 
     // ================================================================
     // LOAD STATS (with cache)
