@@ -874,6 +874,13 @@
 
       </div>
 
+      <!-- BATCH 1: TOUR BUTTON -->
+      <div style="display:flex; justify-content:flex-start; margin-top:-16px; margin-bottom:12px;">
+        <button onclick="startTour()" style="background:transparent; border:none; color:var(--text-muted); font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; transition:0.3s; display:flex; align-items:center; gap:4px;">
+          <i class="fas fa-compass" style="color:var(--green); font-size:12px;"></i> Take a tour
+        </button>
+      </div>
+
       <!-- STATS (unchanged) -->
       <div class="dash-stats" id="statsContainer">
         <div class="stat-card animate-fade-up stagger-1" style="background-image:url('images/stats/stat-protocols.jpg');" data-href="/protocols">
@@ -1237,7 +1244,8 @@
         quizStreak:0, quizLastScore:null,
         createdAt:firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-        tourCompleted:false
+        tourCompleted:false,
+        bonusPoints:0 // BATCH 1: added bonusPoints field
       };
       await docRef.set(data);
       return data;
@@ -1455,6 +1463,22 @@
       document.getElementById('aiCountSnapshot').textContent = usage.snapshot || 0;
       document.getElementById('aiCountIdeas').textContent = usage.ideas || 0;
       document.getElementById('aiCountCritique').textContent = usage.critique || 0;
+
+      // BATCH 1: AI Usage Cap – disable buttons if free tier reached limit
+      const toolBtns = document.querySelectorAll('.ai-tool-btn:not(.all-tools)');
+      if (u.tier === 'free' && usage.total >= limit) {
+        toolBtns.forEach(btn => {
+          btn.style.opacity = '0.4';
+          btn.style.pointerEvents = 'none';
+          btn.title = 'Upgrade to Pro for more uses';
+        });
+      } else {
+        toolBtns.forEach(btn => {
+          btn.style.opacity = '1';
+          btn.style.pointerEvents = 'auto';
+          btn.title = '';
+        });
+      }
     }
 
     function renderJourney(u) {
@@ -1547,6 +1571,52 @@
       document.getElementById('totalCommission').textContent = '$' + (u.totalCommissionEarned?.toFixed(2) || '0.00');
       const tierMap = { 'signal':'Signal Creator', 'operator':'Operator Creator', 'transmission_elite':'Transmission Elite' };
       document.getElementById('ambassadorTier').textContent = tierMap[u.ambassadorTier] || u.ambassadorTier || '—';
+    }
+
+    // BATCH 1: Personalized Signal Feed
+    async function buildFeed(userData) {
+      const container = document.getElementById('feed-container');
+      if (!container) return;
+
+      const interests = userData.preferences?.interests || [];
+      if (interests.length === 0) {
+        container.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--text-muted);">🌱 Complete your profile to get a personalized feed.</div>`;
+        return;
+      }
+
+      try {
+        // Example: query a 'protocols' collection with tags matching interests
+        // If you don't have a 'protocols' collection yet, we'll fall back to showing static recommendations.
+        const protocolsRef = db.collection('protocols').where('tags', 'array-contains-any', interests).limit(5);
+        const snap = await protocolsRef.get();
+        let html = '';
+        if (!snap.empty) {
+          snap.forEach(doc => {
+            const p = doc.data();
+            html += `
+              <div class="feed-card">
+                <h4>${p.title}</h4>
+                <p>${p.description || ''}</p>
+                <span class="feed-badge">${p.genre || 'general'}</span>
+              </div>
+            `;
+          });
+        } else {
+          // Fallback: show static recommendations from PROTOCOL_LIBRARY
+          const recs = PROTOCOL_LIBRARY.slice(0, 3);
+          html = recs.map(p => `
+            <div class="feed-card">
+              <h4>${p.title}</h4>
+              <p>${p.description}</p>
+              <span class="feed-badge">${p.genre}</span>
+            </div>
+          `).join('');
+        }
+        container.innerHTML = html || `<div style="padding:40px 20px;text-align:center;color:var(--text-muted);">No recommendations yet – explore more content!</div>`;
+      } catch (err) {
+        console.warn('Feed error:', err);
+        container.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--text-muted);">Unable to load feed at the moment.</div>`;
+      }
     }
 
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
@@ -1813,6 +1883,45 @@
       }
     }
 
+    // ---- BATCH 1: Tour function ----
+    function startTour() {
+      const user = firebase.auth().currentUser;
+      if (user) {
+        db.collection('users').doc(user.uid).update({ tourCompleted: true })
+          .catch(() => {});
+      }
+
+      const steps = [
+        { el: '.activity-card', msg: '👋 This is your Activity Card – track your streak, points, and bonus multiplier.' },
+        { el: '.dash-stats', msg: '📊 Your saved content counts – protocols, snapshot cards, and more.' },
+        { el: '.ai-widget', msg: '🤖 AI Workbench – generate prompts, snapshots, ideas, and get critiques. Free users get 5 uses/day.' },
+        { el: '.block-grid', msg: '📚 Quick access to your Journey, Today’s Challenge, and progress.' },
+        { el: '.protocol-grid', msg: '📖 Your saved protocols live here.' },
+        { el: '.referral-section', msg: '📡 Share your referral link and earn commissions.' },
+      ];
+
+      let i = 0;
+      function showStep() {
+        if (i >= steps.length) {
+          cdToast('🎉 Tour complete!');
+          return;
+        }
+        const step = steps[i];
+        const el = document.querySelector(step.el);
+        if (el) {
+          el.style.transition = 'box-shadow 0.3s';
+          el.style.boxShadow = '0 0 40px rgba(141,235,0,0.6)';
+          setTimeout(() => {
+            el.style.boxShadow = '';
+          }, 2000);
+          cdToast(step.msg, 'tour');
+        }
+        i++;
+        setTimeout(showStep, 2500);
+      }
+      showStep();
+    }
+
     // ---- Main load ----
     const loadingEl = document.getElementById('loadingState');
     const contentEl = document.getElementById('dashboardContent');
@@ -1909,12 +2018,8 @@
             });
         })();
 
-        (function() {
-          const container = document.getElementById('feed-container');
-          if (!container) return;
-          function setFeedMessage(msg) { container.innerHTML = `<div style="padding:40px 20px;text-align:center;grid-column:1/-1;color:var(--text-muted);">${msg}</div>`; }
-          setFeedMessage('Your personalized feed will appear here as you explore more content.');
-        })();
+        // BATCH 1: Build personalized feed
+        await buildFeed(userData);
 
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
