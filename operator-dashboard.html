@@ -5,11 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Operator Dashboard — Cameras Decoded</title>
 
+  <!-- ===== SHEPHERD.JS (Tour) ===== -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/css/shepherd.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/js/shepherd.min.js"></script>
+
   <!-- ===== SHARED BOTTOM NAV CSS ===== -->
   <link rel="stylesheet" href="bottom-nav.css" />
 
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
   <style>
     /* ============================================================
        COMPLETE DASHBOARD – APPLE ACTIVITY CARD WITH 3 RINGS
@@ -46,6 +51,13 @@
     }
     a { text-decoration: none; color: inherit; }
     h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
+
+    /* Shepherd highlight glow */
+    .shepherd-highlight {
+      box-shadow: 0 0 40px rgba(141,235,0,0.6) !important;
+      transition: box-shadow 0.3s ease;
+      border-color: var(--green) !important;
+    }
 
     /* ===== SCROLLBARS ===== */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -874,7 +886,7 @@
 
       </div>
 
-      <!-- BATCH 1: TOUR BUTTON -->
+      <!-- TOUR BUTTON (always visible) -->
       <div style="display:flex; justify-content:flex-start; margin-top:-16px; margin-bottom:12px;">
         <button onclick="startTour()" style="background:transparent; border:none; color:var(--text-muted); font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; transition:0.3s; display:flex; align-items:center; gap:4px;">
           <i class="fas fa-compass" style="color:var(--green); font-size:12px;"></i> Take a tour
@@ -1147,7 +1159,7 @@
 
   <script>
     // ================================================================
-    // DASHBOARD JAVASCRIPT – FULLY INTACT
+    // DASHBOARD JAVASCRIPT – FULLY INTACT + SHEPHERD TOUR
     // ================================================================
 
     function cdToast(message, type) {
@@ -1245,7 +1257,7 @@
         createdAt:firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
         tourCompleted:false,
-        bonusPoints:0 // BATCH 1: added bonusPoints field
+        bonusPoints:0
       };
       await docRef.set(data);
       return data;
@@ -1349,7 +1361,6 @@
       const tierProgress = isHundredPercent ? 1 : getTierProgress(streak, multiplier);
       const bonusPoints = isHundredPercent ? 0 : (userData?.bonusPoints || 0);
 
-      // ---- Rings ----
       const rings = ['streakRingFill', 'pointsRingFill', 'multiplierRingFill'];
       rings.forEach(id => setRingTransition(id, animate));
 
@@ -1362,7 +1373,6 @@
       const multProgress = (multiplier - 1.0) / 2.0;
       setRingValue('multiplierRingFill', multProgress);
 
-      // ---- Progress Bar ----
       const fill = document.getElementById('multiplierProgressFill');
       if (fill) {
         fill.style.transition = animate
@@ -1371,7 +1381,6 @@
         fill.style.width = (tierProgress * 100) + '%';
       }
 
-      // ---- Numbers (only when showing actual data) ----
       if (!isHundredPercent && userData) {
         animateNumber(document.getElementById('streakDays'), streak);
         animateNumber(document.getElementById('totalPoints'), points);
@@ -1385,7 +1394,6 @@
         document.getElementById('daysToNextTier').textContent = getDaysToNextTier(streak, multiplier);
         document.getElementById('nextTierLabel').textContent = getNextTierLabel(multiplier);
 
-        // Signal bars
         const signalLevel = Math.min(Math.floor(streak / 2), 5);
         for (let i = 1; i <= 5; i++) {
           const bar = document.getElementById('bar' + i);
@@ -1396,19 +1404,11 @@
       }
     }
 
-    // ================================================================
-    // ANIMATE RINGS ON LOAD – 0% → 100% → ACTUAL
-    // ================================================================
     function animateRingsOnLoad(userData) {
-      // Step 1: Set to 0% (no transition)
       updateProgressOverview({ dailyChallengeStreak: 0, totalPoints: 10, bonusPoints: 0 }, false);
-
-      // Step 2: Animate to 100% (with transition)
       setTimeout(() => {
         updateProgressOverview(null, true);
       }, 200);
-
-      // Step 3: Animate down to actual values
       setTimeout(() => {
         updateProgressOverview(userData, true);
       }, 1400);
@@ -1464,7 +1464,7 @@
       document.getElementById('aiCountIdeas').textContent = usage.ideas || 0;
       document.getElementById('aiCountCritique').textContent = usage.critique || 0;
 
-      // BATCH 1: AI Usage Cap – disable buttons if free tier reached limit
+      // AI Usage Cap – disable buttons if free tier reached limit
       const toolBtns = document.querySelectorAll('.ai-tool-btn:not(.all-tools)');
       if (u.tier === 'free' && usage.total >= limit) {
         toolBtns.forEach(btn => {
@@ -1573,20 +1573,15 @@
       document.getElementById('ambassadorTier').textContent = tierMap[u.ambassadorTier] || u.ambassadorTier || '—';
     }
 
-    // BATCH 1: Personalized Signal Feed
     async function buildFeed(userData) {
       const container = document.getElementById('feed-container');
       if (!container) return;
-
       const interests = userData.preferences?.interests || [];
       if (interests.length === 0) {
         container.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--text-muted);">🌱 Complete your profile to get a personalized feed.</div>`;
         return;
       }
-
       try {
-        // Example: query a 'protocols' collection with tags matching interests
-        // If you don't have a 'protocols' collection yet, we'll fall back to showing static recommendations.
         const protocolsRef = db.collection('protocols').where('tags', 'array-contains-any', interests).limit(5);
         const snap = await protocolsRef.get();
         let html = '';
@@ -1602,7 +1597,6 @@
             `;
           });
         } else {
-          // Fallback: show static recommendations from PROTOCOL_LIBRARY
           const recs = PROTOCOL_LIBRARY.slice(0, 3);
           html = recs.map(p => `
             <div class="feed-card">
@@ -1619,55 +1613,232 @@
       }
     }
 
-    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
-    function updateCartUI() {
-      const cart = getCart();
-      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-      const countEl = document.getElementById('cartHeaderCount');
-      const labelEl = document.getElementById('cartHeaderLabel');
-      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
-      if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
-    }
-    updateCartUI();
+    // ================================================================
+    // SHEPHERD.JS TOUR (with auto-start on first visit)
+    // ================================================================
+    let tour = null;
 
-    window.handleLogout = async function() {
-      const ok = await cdConfirm('Are you sure you want to logout?');
-      if (!ok) return;
-      await auth.signOut();
-      window.location.href = 'login.html';
-    };
+    function createTour() {
+      if (tour) return tour;
+      tour = new Shepherd.Tour({
+        defaultStepOptions: {
+          scrollTo: { behavior: 'smooth', block: 'center' },
+          cancelIcon: { enabled: true },
+          classes: 'shepherd-theme-dark',
+          arrow: true
+        },
+        useModalOverlay: true,
+        exitOnEsc: true
+      });
 
-    document.getElementById('mobileToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
-    document.getElementById('floatingToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+      // Step 1: Activity Card
+      tour.addStep({
+        id: 'activity-card',
+        text: '👋 This is your <strong>Activity Card</strong>. Here you see your daily <strong>streak</strong>, total <strong>points</strong>, and your current <strong>bonus multiplier</strong>. The progress bar shows how close you are to the next tier.',
+        attachTo: { element: '#progressOverview', on: 'bottom' },
+        highlightClass: 'shepherd-highlight',
+        classes: 'shepherd-step-custom',
+        buttons: [{ text: 'Next', action: tour.next }]
+      });
 
-    async function loadNotification() {
-      try {
-        const doc = await db.collection('admin').doc('announcement').get();
-        const msgEl = document.getElementById('notifMessage');
-        const tsEl = document.getElementById('notifTimestamp');
-        if (doc.exists) {
-          const data = doc.data();
-          if (data.active && data.message) {
-            msgEl.textContent = data.message;
-            msgEl.className = 'notif-message';
-            if (data.updatedAt) {
-              const date = data.updatedAt.toDate?.() || new Date();
-              tsEl.textContent = 'Updated ' + date.toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
-            }
-          } else {
-            msgEl.textContent = 'No active announcement';
-            msgEl.className = 'notif-message empty';
-            tsEl.textContent = '';
-          }
-        } else {
-          msgEl.textContent = 'No active announcement';
-          msgEl.className = 'notif-message empty';
-          tsEl.textContent = '';
+      // Step 2: Stats Row
+      tour.addStep({
+        id: 'stats',
+        text: '📊 These four cards show your <strong>saved content</strong> at a glance – Protocols, Snapshot Cards, Other saved items, and Community Posts you’ve bookmarked.',
+        attachTo: { element: '#statsContainer', on: 'bottom' },
+        highlightClass: 'shepherd-highlight',
+        buttons: [{ text: 'Next', action: tour.next }]
+      });
+
+      // Step 3: AI Workbench
+      tour.addStep({
+        id: 'ai-workbench',
+        text: '🤖 Your <strong>AI Workbench</strong> – generate creative prompts, Snapshot Cards, content ideas, and get photo critiques. <strong>Free users get 5 uses per day</strong>. Buttons grey out when you reach the limit.',
+        attachTo: { element: '#aiWidget', on: 'bottom' },
+        highlightClass: 'shepherd-highlight',
+        buttons: [{ text: 'Next', action: tour.next }]
+      });
+
+      // Step 4: 4-Block Grid
+      tour.addStep({
+        id: 'blocks',
+        text: '📚 Quick access to your <strong>Learning Journey</strong>, <strong>Journey Progress</strong>, <strong>Today’s Challenge</strong>, and your <strong>Challenge Log</strong> (with streak tracking).',
+        attachTo: { element: '.block-grid', on: 'bottom' },
+        highlightClass: 'shepherd-highlight',
+        buttons: [{ text: 'Next', action: tour.next }]
+      });
+
+      // Step 5: Protocol Library
+      tour.addStep({
+        id: 'protocols',
+        text: '📖 Your saved <strong>Protocol Library</strong> – all the guides and workflows you’ve bookmarked for quick reference.',
+        attachTo: { element: '#protocolGrid', on: 'bottom' },
+        highlightClass: 'shepherd-highlight',
+        buttons: [{ text: 'Next', action: tour.next }]
+      });
+
+      // Step 6: Referral Section
+      tour.addStep({
+        id: 'referral',
+        text: '📡 <strong>Referral Signal</strong> – share your unique link and earn commission. The more you share, the higher your Ambassador tier.',
+        attachTo: { element: '#referralSection', on: 'bottom' },
+        highlightClass: 'shepherd-highlight',
+        buttons: [{ text: 'Finish', action: tour.complete }]
+      });
+
+      tour.on('complete', () => {
+        const user = auth.currentUser;
+        if (user) {
+          db.collection('users').doc(user.uid).update({ tourCompleted: true }).catch(() => {});
         }
+        cdToast('🎉 Tour complete! You’re ready to decode.');
+      });
+
+      tour.on('cancel', () => {
+        // also mark complete if they cancel, so it doesn't auto-start again
+        const user = auth.currentUser;
+        if (user) {
+          db.collection('users').doc(user.uid).update({ tourCompleted: true }).catch(() => {});
+        }
+      });
+
+      return tour;
+    }
+
+    function startTour() {
+      const t = createTour();
+      if (t.isActive()) {
+        t.cancel();
+      }
+      // Reset and restart
+      t.start();
+    }
+
+    // ---- Main load ----
+    const loadingEl = document.getElementById('loadingState');
+    const contentEl = document.getElementById('dashboardContent');
+
+    async function loadDashboard(user) {
+      if (!user) { loadingEl.innerHTML = '<p class="error">Not authenticated. <a href="login.html">Login</a></p>'; return; }
+      try {
+        const userData = await ensureUserDoc(user);
+        renderProfile(userData);
+        renderStats(userData);
+        renderAIWidget(userData);
+        renderJourney(userData);
+        renderChallenge(userData);
+        renderProtocols(userData);
+        renderReferral(userData);
+
+        animateRingsOnLoad(userData);
+
+        // ---- Quiz ----
+        if (userData.quizStreak !== undefined) {
+          document.getElementById('streakNum2').textContent = userData.quizStreak;
+          localStorage.setItem('quizStreak', userData.quizStreak);
+        } else {
+          const streak = parseInt(localStorage.getItem('quizStreak') || '0');
+          document.getElementById('streakNum2').textContent = streak;
+        }
+        if (userData.quizLastScore) {
+          const score = userData.quizLastScore;
+          const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
+          const levelIcon = levelNames[score.level] || '';
+          document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${score.score}/${score.total}`;
+          localStorage.setItem('quizLastScore', JSON.stringify(score));
+        } else {
+          const stored = localStorage.getItem('quizLastScore');
+          if (stored) {
+            try {
+              const data = JSON.parse(stored);
+              const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
+              const levelIcon = levelNames[data.level] || '';
+              document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${data.score}/${data.total}`;
+            } catch { document.getElementById('lastScoreDisplay').textContent = '—'; }
+          } else { document.getElementById('lastScoreDisplay').textContent = '—'; }
+        }
+
+        const diffSelect = document.getElementById('diffSelect');
+        const launchBtn = document.getElementById('quizLaunchBtn');
+        function updateLaunchLink() { if (launchBtn && diffSelect) { launchBtn.href = `quiz-full.html?level=${diffSelect.value}`; } }
+        if (diffSelect) diffSelect.addEventListener('change', updateLaunchLink);
+        updateLaunchLink();
+
+        document.getElementById('scoreLaunchBtn').addEventListener('click', function(e) {
+          e.preventDefault();
+          const selectedLevel = diffSelect ? diffSelect.value : 'beginner';
+          window.location.href = `quiz-full.html?level=${selectedLevel}`;
+        });
+
+        document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${userData.uid}`;
+        document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${userData.uid}`;
+
+        await loadNotification();
+
+        (function() {
+          const CACHE_KEY = 'substack_teaser_cache';
+          const CACHE_DURATION = 3 * 60 * 60 * 1000;
+          function showTeaser(title, snippet, link) {
+            document.getElementById('substackTitle').textContent = title;
+            document.getElementById('substackSnippet').textContent = snippet;
+            document.getElementById('substackLink').href = link;
+            document.getElementById('substackTeaser').style.display = 'block';
+          }
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (cached) {
+            const data = JSON.parse(cached);
+            if (Date.now() - data.timestamp < CACHE_DURATION) { showTeaser(data.title, data.snippet, data.link); return; }
+          }
+          fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
+            .then(res => res.json())
+            .then(data => {
+              if (data.status === 'ok' && data.items && data.items.length > 0) {
+                const latest = data.items[0];
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = latest.description;
+                let snippet = tempDiv.textContent || tempDiv.innerText || '';
+                snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
+                if (snippet.length === 140) snippet += '…';
+                localStorage.setItem(CACHE_KEY, JSON.stringify({ title: latest.title, snippet, link: latest.link, timestamp: Date.now() }));
+                showTeaser(latest.title, snippet, latest.link);
+              }
+            })
+            .catch(() => {
+              showTeaser('The White Balance Lie', 'Why your indoor photos look yellow — and the one setting that fixes it.', 'https://camerasdecoded.substack.com');
+            });
+        })();
+
+        await buildFeed(userData);
+
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+
+        initSpotlightCards();
+
+        if (window.BottomNav) {
+          window.BottomNav.updateBadges(userData);
+        }
+
+        // ===== AUTO-START TOUR ON FIRST VISIT =====
+        if (!userData.tourCompleted) {
+          // wait 1.5 seconds for the DOM to fully settle and animations to play
+          setTimeout(() => {
+            startTour();
+          }, 1500);
+        }
+
       } catch (err) {
-        console.warn('Notification load error:', err);
+        console.error(err);
+        loadingEl.innerHTML = `<p class="error">Error: ${err.message}</p>`;
       }
     }
+
+    auth.onAuthStateChanged((user) => {
+      if (user) { loadDashboard(user); }
+      else { loadingEl.innerHTML = '<p>You are not logged in. <a href="login.html">Go to Login</a></p>'; }
+    });
+
+    if (auth.currentUser) { loadDashboard(auth.currentUser); }
 
     // ================================================================
     // SPOTLIGHT CARDS – (unchanged)
@@ -1883,165 +2054,66 @@
       }
     }
 
-    // ---- BATCH 1: Tour function ----
-    function startTour() {
-      const user = firebase.auth().currentUser;
-      if (user) {
-        db.collection('users').doc(user.uid).update({ tourCompleted: true })
-          .catch(() => {});
-      }
-
-      const steps = [
-        { el: '.activity-card', msg: '👋 This is your Activity Card – track your streak, points, and bonus multiplier.' },
-        { el: '.dash-stats', msg: '📊 Your saved content counts – protocols, snapshot cards, and more.' },
-        { el: '.ai-widget', msg: '🤖 AI Workbench – generate prompts, snapshots, ideas, and get critiques. Free users get 5 uses/day.' },
-        { el: '.block-grid', msg: '📚 Quick access to your Journey, Today’s Challenge, and progress.' },
-        { el: '.protocol-grid', msg: '📖 Your saved protocols live here.' },
-        { el: '.referral-section', msg: '📡 Share your referral link and earn commissions.' },
-      ];
-
-      let i = 0;
-      function showStep() {
-        if (i >= steps.length) {
-          cdToast('🎉 Tour complete!');
-          return;
-        }
-        const step = steps[i];
-        const el = document.querySelector(step.el);
-        if (el) {
-          el.style.transition = 'box-shadow 0.3s';
-          el.style.boxShadow = '0 0 40px rgba(141,235,0,0.6)';
-          setTimeout(() => {
-            el.style.boxShadow = '';
-          }, 2000);
-          cdToast(step.msg, 'tour');
-        }
-        i++;
-        setTimeout(showStep, 2500);
-      }
-      showStep();
-    }
-
-    // ---- Main load ----
-    const loadingEl = document.getElementById('loadingState');
-    const contentEl = document.getElementById('dashboardContent');
-
-    async function loadDashboard(user) {
-      if (!user) { loadingEl.innerHTML = '<p class="error">Not authenticated. <a href="login.html">Login</a></p>'; return; }
+    async function loadNotification() {
       try {
-        const userData = await ensureUserDoc(user);
-        renderProfile(userData);
-        renderStats(userData);
-        renderAIWidget(userData);
-        renderJourney(userData);
-        renderChallenge(userData);
-        renderProtocols(userData);
-        renderReferral(userData);
-
-        // ---- Animate rings on load ----
-        animateRingsOnLoad(userData);
-
-        // ---- Quiz ----
-        if (userData.quizStreak !== undefined) {
-          document.getElementById('streakNum2').textContent = userData.quizStreak;
-          localStorage.setItem('quizStreak', userData.quizStreak);
-        } else {
-          const streak = parseInt(localStorage.getItem('quizStreak') || '0');
-          document.getElementById('streakNum2').textContent = streak;
-        }
-        if (userData.quizLastScore) {
-          const score = userData.quizLastScore;
-          const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
-          const levelIcon = levelNames[score.level] || '';
-          document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${score.score}/${score.total}`;
-          localStorage.setItem('quizLastScore', JSON.stringify(score));
-        } else {
-          const stored = localStorage.getItem('quizLastScore');
-          if (stored) {
-            try {
-              const data = JSON.parse(stored);
-              const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
-              const levelIcon = levelNames[data.level] || '';
-              document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${data.score}/${data.total}`;
-            } catch { document.getElementById('lastScoreDisplay').textContent = '—'; }
-          } else { document.getElementById('lastScoreDisplay').textContent = '—'; }
-        }
-
-        // ---- Quiz launch ----
-        const diffSelect = document.getElementById('diffSelect');
-        const launchBtn = document.getElementById('quizLaunchBtn');
-        function updateLaunchLink() { if (launchBtn && diffSelect) { launchBtn.href = `quiz-full.html?level=${diffSelect.value}`; } }
-        if (diffSelect) diffSelect.addEventListener('change', updateLaunchLink);
-        updateLaunchLink();
-
-        document.getElementById('scoreLaunchBtn').addEventListener('click', function(e) {
-          e.preventDefault();
-          const selectedLevel = diffSelect ? diffSelect.value : 'beginner';
-          window.location.href = `quiz-full.html?level=${selectedLevel}`;
-        });
-
-        document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${userData.uid}`;
-        document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${userData.uid}`;
-
-        await loadNotification();
-
-        (function() {
-          const CACHE_KEY = 'substack_teaser_cache';
-          const CACHE_DURATION = 3 * 60 * 60 * 1000;
-          function showTeaser(title, snippet, link) {
-            document.getElementById('substackTitle').textContent = title;
-            document.getElementById('substackSnippet').textContent = snippet;
-            document.getElementById('substackLink').href = link;
-            document.getElementById('substackTeaser').style.display = 'block';
+        const doc = await db.collection('admin').doc('announcement').get();
+        const msgEl = document.getElementById('notifMessage');
+        const tsEl = document.getElementById('notifTimestamp');
+        if (doc.exists) {
+          const data = doc.data();
+          if (data.active && data.message) {
+            msgEl.textContent = data.message;
+            msgEl.className = 'notif-message';
+            if (data.updatedAt) {
+              const date = data.updatedAt.toDate?.() || new Date();
+              tsEl.textContent = 'Updated ' + date.toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+            }
+          } else {
+            msgEl.textContent = 'No active announcement';
+            msgEl.className = 'notif-message empty';
+            tsEl.textContent = '';
           }
-          const cached = localStorage.getItem(CACHE_KEY);
-          if (cached) {
-            const data = JSON.parse(cached);
-            if (Date.now() - data.timestamp < CACHE_DURATION) { showTeaser(data.title, data.snippet, data.link); return; }
-          }
-          fetch('https://api.rss2json.com/v1/api.json?rss_url=https://camerasdecoded.substack.com/feed')
-            .then(res => res.json())
-            .then(data => {
-              if (data.status === 'ok' && data.items && data.items.length > 0) {
-                const latest = data.items[0];
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = latest.description;
-                let snippet = tempDiv.textContent || tempDiv.innerText || '';
-                snippet = snippet.replace(/\s+/g, ' ').trim().substring(0, 140);
-                if (snippet.length === 140) snippet += '…';
-                localStorage.setItem(CACHE_KEY, JSON.stringify({ title: latest.title, snippet, link: latest.link, timestamp: Date.now() }));
-                showTeaser(latest.title, snippet, latest.link);
-              }
-            })
-            .catch(() => {
-              showTeaser('The White Balance Lie', 'Why your indoor photos look yellow — and the one setting that fixes it.', 'https://camerasdecoded.substack.com');
-            });
-        })();
-
-        // BATCH 1: Build personalized feed
-        await buildFeed(userData);
-
-        loadingEl.style.display = 'none';
-        contentEl.style.display = 'block';
-
-        initSpotlightCards();
-
-        if (window.BottomNav) {
-          window.BottomNav.updateBadges(userData);
+        } else {
+          msgEl.textContent = 'No active announcement';
+          msgEl.className = 'notif-message empty';
+          tsEl.textContent = '';
         }
-
       } catch (err) {
-        console.error(err);
-        loadingEl.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+        console.warn('Notification load error:', err);
       }
     }
 
-    auth.onAuthStateChanged((user) => {
-      if (user) { loadDashboard(user); }
-      else { loadingEl.innerHTML = '<p>You are not logged in. <a href="login.html">Go to Login</a></p>'; }
-    });
+    // ---- Expose tour to window for manual trigger ----
+    window.startTour = startTour;
+    // ---- Logout ----
+    window.handleLogout = async function() {
+      const ok = await cdConfirm('Are you sure you want to logout?');
+      if (!ok) return;
+      await auth.signOut();
+      window.location.href = 'login.html';
+    };
 
-    if (auth.currentUser) { loadDashboard(auth.currentUser); }
+    document.getElementById('mobileToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+    document.getElementById('floatingToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+
+    // ---- Cart UI ----
+    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
+    function updateCartUI() {
+      const cart = getCart();
+      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+      const countEl = document.getElementById('cartHeaderCount');
+      const labelEl = document.getElementById('cartHeaderLabel');
+      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
+      if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
+    }
+    updateCartUI();
   </script>
+
+  <!-- ===== REMINDER: AI TOOLS PAGE ENFORCEMENT ===== -->
+  <!--
+    BATCH 1 COMPLETE: AI cap is enforced on the dashboard UI.
+    REMEMBER: You must also enforce the cap on ai-tools.html
+    by checking user.tier and aiUsage.total before allowing an AI action.
+  -->
 </body>
 </html>
