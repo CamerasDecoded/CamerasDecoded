@@ -9,6 +9,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/css/shepherd.css"/>
   <script src="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/js/shepherd.min.js"></script>
 
+  <!-- ===== YOUR TOAST SYSTEM ===== -->
+  <script src="toast-system.js"></script>
+
   <!-- ===== SHARED BOTTOM NAV CSS ===== -->
   <link rel="stylesheet" href="bottom-nav.css" />
 
@@ -51,13 +54,6 @@
     }
     a { text-decoration: none; color: inherit; }
     h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
-
-    /* Shepherd highlight glow */
-    .shepherd-highlight {
-      box-shadow: 0 0 40px rgba(141,235,0,0.6) !important;
-      transition: box-shadow 0.3s ease;
-      border-color: var(--green) !important;
-    }
 
     /* ===== SCROLLBARS ===== */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -670,10 +666,61 @@
     .footer .footer-links a { color:var(--green); transition:0.2s; }
     .footer .footer-links a:hover { color:#a0f520; }
 
-    #toast-container { position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:10px; align-items:center; pointer-events:none; }
-    .toast { background:#0A0A0A; border:1px solid var(--green); color:#fff; font-family:'Space Mono',monospace; font-size:13px; padding:12px 24px; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.6); opacity:0; transform:translateY(-10px) scale(0.95); transition:all 0.3s var(--transition-smooth); pointer-events:auto; text-align:center; }
-    .toast.show { opacity:1; transform:translateY(0) scale(1); }
-    .toast.error { border-color:#ff4a4a; }
+    /* ===== SHEPHERD THEME OVERRIDES ===== */
+    .shepherd-theme-dark {
+      --shepherd-color-primary: #8deb00;
+      --shepherd-color-secondary: #1a1a1a;
+      --shepherd-background: #0A0A0A;
+      --shepherd-text-color: #fff;
+      --shepherd-border: 1px solid rgba(141,235,0,0.3);
+      font-family: 'Space Mono', monospace;
+    }
+    .shepherd-theme-dark .shepherd-content {
+      background: #0A0A0A;
+      border: 1px solid rgba(141,235,0,0.3);
+      border-radius: 12px;
+      box-shadow: 0 0 40px rgba(141,235,0,0.15);
+    }
+    .shepherd-theme-dark .shepherd-header {
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .shepherd-theme-dark .shepherd-title {
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+    }
+    .shepherd-theme-dark .shepherd-text {
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .shepherd-theme-dark .shepherd-footer {
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding: 10px 20px;
+    }
+    .shepherd-theme-dark .shepherd-button {
+      background: transparent;
+      border: 1px solid #8deb00;
+      color: #8deb00;
+      font-family: 'Space Mono', monospace;
+      border-radius: 30px;
+      padding: 6px 18px;
+      transition: 0.2s;
+    }
+    .shepherd-theme-dark .shepherd-button:hover {
+      background: #8deb00;
+      color: #000;
+    }
+    .shepherd-theme-dark .shepherd-cancel-icon {
+      color: #b4b4b4;
+    }
+    .shepherd-theme-dark .shepherd-cancel-icon:hover {
+      color: #fff;
+    }
+    .shepherd-highlight {
+      box-shadow: 0 0 40px rgba(141,235,0,0.6) !important;
+      border-color: var(--green) !important;
+    }
 
     .empty-state { grid-column:1/-1; text-align:center; color:var(--text-muted); padding:40px 0; font-style:italic; }
 
@@ -698,8 +745,6 @@
   </style>
 </head>
 <body>
-
-  <div id="toast-container"></div>
 
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
@@ -893,7 +938,7 @@
         </button>
       </div>
 
-      <!-- STATS (unchanged) -->
+      <!-- STATS -->
       <div class="dash-stats" id="statsContainer">
         <div class="stat-card animate-fade-up stagger-1" style="background-image:url('images/stats/stat-protocols.jpg');" data-href="/protocols">
           <div class="number" id="statProtocols">0</div>
@@ -1157,40 +1202,22 @@
 
   <script src="bottom-nav.js"></script>
 
+  <!-- ===== TOAST SYSTEM (already loaded via script tag) ===== -->
+  <!-- ================================================================ -->
+
   <script>
     // ================================================================
-    // DASHBOARD JAVASCRIPT – FULLY INTACT + SHEPHERD TOUR
+    // DASHBOARD JAVASCRIPT – WITH TOAST SYSTEM INTEGRATION
     // ================================================================
 
-    function cdToast(message, type) {
-      const container = document.getElementById('toast-container');
-      if (!container) return;
-      const toast = document.createElement('div');
-      toast.className = 'toast' + (type === 'error' ? ' error' : '');
-      toast.textContent = message;
-      container.appendChild(toast);
-      requestAnimationFrame(() => toast.classList.add('show'));
-      setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
-    }
+    // ---- Wrap your toast/confirm system with our existing API ----
+    // cdToast uses the new showToast
+    const cdToast = showToast;
 
+    // cdConfirm returns a Promise using the new showConfirm
     function cdConfirm(message) {
       return new Promise((resolve) => {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;';
-        const modal = document.createElement('div');
-        modal.style.cssText = 'background:#0F0F0F;border:1px solid var(--green);border-radius:16px;padding:32px 28px;max-width:400px;width:90%;text-align:center;box-shadow:0 0 60px rgba(141,235,0,0.1);';
-        modal.innerHTML = `
-          <h3 style="font-family:'Space Mono',monospace;color:var(--green);margin-bottom:8px;">Are you sure?</h3>
-          <p style="color:var(--text-muted);margin-bottom:20px;">${message}</p>
-          <div style="display:flex;gap:12px;">
-            <button class="btn-secondary" style="flex:1;padding:12px;background:transparent;border:1px solid #333;border-radius:8px;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:14px;cursor:pointer;transition:0.2s;" id="confirmNo" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='#333'">Cancel</button>
-            <button class="btn-primary" style="flex:1;padding:12px;background:var(--green);border:none;border-radius:8px;color:#000;font-family:'Space Mono',monospace;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.3s;" id="confirmYes" onmouseover="this.style.background='#a0f520'" onmouseout="this.style.background='var(--green)'">Yes</button>
-          </div>
-        `;
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-        document.getElementById('confirmNo').onclick = () => { overlay.remove(); resolve(false); };
-        document.getElementById('confirmYes').onclick = () => { overlay.remove(); resolve(true); };
+        showConfirm(message, () => resolve(true), () => resolve(false));
       });
     }
 
@@ -1329,9 +1356,6 @@
       return 0;
     }
 
-    // ================================================================
-    // RING CONTROLS
-    // ================================================================
     function setRingTransition(ringId, enabled) {
       const ring = document.getElementById(ringId);
       if (ring) {
@@ -1349,9 +1373,6 @@
       ring.style.strokeDashoffset = circumference * (1 - clamped);
     }
 
-    // ================================================================
-    // UPDATE PROGRESS OVERVIEW
-    // ================================================================
     function updateProgressOverview(userData, animate = true) {
       const isHundredPercent = userData === null;
 
@@ -1614,7 +1635,7 @@
     }
 
     // ================================================================
-    // SHEPHERD.JS TOUR (with auto-start on first visit)
+    // SHEPHERD.JS TOUR
     // ================================================================
     let tour = null;
 
@@ -1631,17 +1652,14 @@
         exitOnEsc: true
       });
 
-      // Step 1: Activity Card
       tour.addStep({
         id: 'activity-card',
         text: '👋 This is your <strong>Activity Card</strong>. Here you see your daily <strong>streak</strong>, total <strong>points</strong>, and your current <strong>bonus multiplier</strong>. The progress bar shows how close you are to the next tier.',
         attachTo: { element: '#progressOverview', on: 'bottom' },
         highlightClass: 'shepherd-highlight',
-        classes: 'shepherd-step-custom',
         buttons: [{ text: 'Next', action: tour.next }]
       });
 
-      // Step 2: Stats Row
       tour.addStep({
         id: 'stats',
         text: '📊 These four cards show your <strong>saved content</strong> at a glance – Protocols, Snapshot Cards, Other saved items, and Community Posts you’ve bookmarked.',
@@ -1650,7 +1668,6 @@
         buttons: [{ text: 'Next', action: tour.next }]
       });
 
-      // Step 3: AI Workbench
       tour.addStep({
         id: 'ai-workbench',
         text: '🤖 Your <strong>AI Workbench</strong> – generate creative prompts, Snapshot Cards, content ideas, and get photo critiques. <strong>Free users get 5 uses per day</strong>. Buttons grey out when you reach the limit.',
@@ -1659,7 +1676,6 @@
         buttons: [{ text: 'Next', action: tour.next }]
       });
 
-      // Step 4: 4-Block Grid
       tour.addStep({
         id: 'blocks',
         text: '📚 Quick access to your <strong>Learning Journey</strong>, <strong>Journey Progress</strong>, <strong>Today’s Challenge</strong>, and your <strong>Challenge Log</strong> (with streak tracking).',
@@ -1668,7 +1684,6 @@
         buttons: [{ text: 'Next', action: tour.next }]
       });
 
-      // Step 5: Protocol Library
       tour.addStep({
         id: 'protocols',
         text: '📖 Your saved <strong>Protocol Library</strong> – all the guides and workflows you’ve bookmarked for quick reference.',
@@ -1677,7 +1692,6 @@
         buttons: [{ text: 'Next', action: tour.next }]
       });
 
-      // Step 6: Referral Section
       tour.addStep({
         id: 'referral',
         text: '📡 <strong>Referral Signal</strong> – share your unique link and earn commission. The more you share, the higher your Ambassador tier.',
@@ -1695,7 +1709,6 @@
       });
 
       tour.on('cancel', () => {
-        // also mark complete if they cancel, so it doesn't auto-start again
         const user = auth.currentUser;
         if (user) {
           db.collection('users').doc(user.uid).update({ tourCompleted: true }).catch(() => {});
@@ -1710,7 +1723,6 @@
       if (t.isActive()) {
         t.cancel();
       }
-      // Reset and restart
       t.start();
     }
 
@@ -1821,7 +1833,6 @@
 
         // ===== AUTO-START TOUR ON FIRST VISIT =====
         if (!userData.tourCompleted) {
-          // wait 1.5 seconds for the DOM to fully settle and animations to play
           setTimeout(() => {
             startTour();
           }, 1500);
