@@ -793,6 +793,21 @@
       color: var(--green);
     }
 
+    /* ===== CONFETTI CANVAS (celebration) ===== */
+    #confetti-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 101;
+      display: none;
+    }
+    #confetti-canvas.active {
+      display: block;
+    }
+
     /* ===== RESPONSIVE ===== */
     @media (max-width: 768px) {
       body { padding: 12px; }
@@ -904,6 +919,9 @@
   <!-- ===== BOTTOM NAV CONTAINER ===== -->
   <div id="bottomNavContainer"></div>
 
+  <!-- ===== CONFETTI CANVAS (celebration) ===== -->
+  <canvas id="confetti-canvas"></canvas>
+
   <!-- ===== COMPLETION MODAL ===== -->
   <div class="modal-overlay" id="completionModal">
     <div class="modal-content modal-celebration">
@@ -985,6 +1003,107 @@
         if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
         else drops.length = newColumns;
       });
+    })();
+
+    // ================================================================
+    // CONFETTI – Celebration micro‑animation
+    // ================================================================
+    (function() {
+      const canvas = document.getElementById('confetti-canvas');
+      const ctx = canvas.getContext('2d');
+      let w, h;
+      let particles = [];
+      let animId = null;
+      let isActive = false;
+
+      function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      class Particle {
+        constructor() {
+          this.reset();
+        }
+        reset() {
+          this.x = Math.random() * w;
+          this.y = Math.random() * h - h; // start above screen
+          this.size = Math.random() * 6 + 3;
+          this.speedY = Math.random() * 3 + 1.5;
+          this.speedX = (Math.random() - 0.5) * 2;
+          this.color = `hsl(${Math.random() * 360}, 80%, 60%)`;
+          this.rotation = Math.random() * 360;
+          this.rotationSpeed = (Math.random() - 0.5) * 4;
+          this.opacity = 1;
+        }
+        update() {
+          this.y += this.speedY;
+          this.x += this.speedX;
+          this.rotation += this.rotationSpeed;
+          this.speedY += 0.04; // gravity
+          if (this.y > h + 20) {
+            this.reset();
+            this.y = -20;
+          }
+          // fade out after 3 seconds
+          if (this.y > h * 0.7) {
+            this.opacity = Math.max(0, 1 - (this.y - h * 0.7) / (h * 0.3));
+          }
+        }
+        draw() {
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          ctx.rotate(this.rotation * Math.PI / 180);
+          ctx.globalAlpha = this.opacity;
+          ctx.fillStyle = this.color;
+          ctx.shadowColor = this.color;
+          ctx.shadowBlur = 10;
+          ctx.fillRect(-this.size/2, -this.size/4, this.size, this.size/2);
+          ctx.restore();
+        }
+      }
+
+      function startConfetti() {
+        if (isActive) return;
+        isActive = true;
+        canvas.classList.add('active');
+        particles = [];
+        for (let i = 0; i < 120; i++) {
+          const p = new Particle();
+          p.y = Math.random() * -h;
+          particles.push(p);
+        }
+        if (animId) cancelAnimationFrame(animId);
+        function animate() {
+          ctx.clearRect(0, 0, w, h);
+          let alive = false;
+          for (const p of particles) {
+            p.update();
+            p.draw();
+            if (p.y < h + 20) alive = true;
+          }
+          if (alive || particles.length > 0) {
+            animId = requestAnimationFrame(animate);
+          } else {
+            canvas.classList.remove('active');
+            isActive = false;
+          }
+        }
+        animate();
+        // auto stop after 5 seconds
+        setTimeout(() => {
+          if (isActive) {
+            isActive = false;
+            canvas.classList.remove('active');
+            if (animId) cancelAnimationFrame(animId);
+            ctx.clearRect(0, 0, w, h);
+          }
+        }, 5000);
+      }
+
+      window.startConfetti = startConfetti;
     })();
 
     // ================================================================
@@ -1079,43 +1198,15 @@
         if (!moduleSnap.exists) throw new Error('Module not found');
         this.moduleData = moduleSnap.data();
 
-        // FIX: Don't use orderBy('order') - it excludes docs without order field
-        // Fetch all then sort in JS
-        let slidesSnap;
-        try {
-          slidesSnap = await moduleRef.collection('slides').get();
-        } catch (e) {
-          // fallback if get fails
-          slidesSnap = await moduleRef.collection('slides').orderBy('order').get();
-        }
-        
-        this.slides = slidesSnap.docs.map(doc => {
-          const data = doc.data();
-          // Normalize quiz data - handle both nested and top-level structures
-          let quizData = data.quiz;
-          if (!quizData && (data.question || data.options)) {
-            quizData = { question: data.question, options: data.options, explanation: data.explanation };
-          }
-          // Auto-detect type if missing
-          let type = data.type;
-          if (!type && quizData) type = 'quiz';
-          if (!type) type = 'content';
-          
-          return { 
-            id: doc.id, 
-            ...data,
-            type: type,
-            quiz: quizData,
-            order: data.order ?? parseInt(doc.id.split('-')[1]) ?? 999
-          };
-        }).sort((a,b) => (a.order || 0) - (b.order || 0));
-
+        const slidesSnap = await moduleRef.collection('slides').orderBy('order').get();
+        this.slides = slidesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         if (this.slides.length === 0) throw new Error('No slides found');
 
-        console.log('📄 Slides loaded:', this.slides.length, this.slides.map(s => `${s.id}(order:${s.order}, type:${s.type})`));
+        // Debug: Log slides to check quiz data
+        console.log('📄 Slides loaded:', this.slides.length);
         this.slides.forEach((slide, i) => {
           if (slide.type === 'quiz') {
-            console.log(`📝 Quiz slide ${i+1} (${slide.id}):`, slide.quiz);
+            console.log(`📝 Quiz slide ${i+1}:`, slide.quiz);
           }
         });
       }
@@ -1256,42 +1347,29 @@
       }
 
       renderQuiz(slide, index) {
-        // Robust: support quiz nested OR at root
-        let quiz = slide.quiz;
-        if (!quiz || !quiz.question) {
-          if (slide.question) {
-            quiz = { question: slide.question, options: slide.options, explanation: slide.explanation };
-          }
-        }
-        quiz = quiz || {};
+        const quiz = slide.quiz || {};
         const options = Array.isArray(quiz.options) ? quiz.options : [];
 
-        console.log(`🎯 Rendering quiz ${index} (${slide.id}):`, quiz);
-
+        // If no options, show a message
         if (options.length === 0) {
           return `
-            <h2>${quiz.question || slide.title || 'Quiz'}</h2>
-            <p style="color: #ff8a8a; background: rgba(255,0,0,0.08); padding:12px; border-radius:8px; margin-top:10px;">
-              Debug: No options found. Raw slide data:<br>
-              <pre style="text-align:left; font-size:10px; white-space:pre-wrap; word-break:break-all;">${JSON.stringify(slide, null, 2).substring(0, 1000)}</pre>
-            </p>
-            <div class="quiz-explanation" id="explanation-${index}">${quiz.explanation || ''}</div>
+            <h2>${quiz.question || 'Quiz'}</h2>
+            <p style="color: var(--text-muted);">No quiz options available. Please try again later.</p>
           `;
         }
 
         const optionsHtml = options.map(opt => `
           <button class="quiz-option" data-option-id="${opt.id}" data-slide-index="${index}">
-            <span style="display:inline-flex; width:22px; height:22px; border:1px solid rgba(255,255,255,0.15); border-radius:50%; align-items:center; justify-content:center; margin-right:8px; font-size:10px;">${(opt.id||'').replace('opt_','').replace('opt-','').toUpperCase().substring(0,2)}</span>
             ${opt.text || ''}
           </button>
         `).join('');
 
         return `
-          <h2>${quiz.question || slide.title || 'Quiz Time'}</h2>
-          <div class="quiz-options" style="margin-top:16px;">
+          <h2>${quiz.question || 'Quiz'}</h2>
+          <div class="quiz-options">
             ${optionsHtml}
           </div>
-          <div class="quiz-explanation" id="explanation-${index}" style="display:none; margin-top:16px;">
+          <div class="quiz-explanation" id="explanation-${index}">
             ${quiz.explanation || ''}
           </div>
         `;
@@ -1407,8 +1485,11 @@
             capstoneSubmittedAt: new Date()
           });
 
-          showToast('Photo submitted successfully!');
-          this.nextSlide();
+          showToast('Photo submitted successfully! 🎉');
+
+          // ✅ IMPORTANT: Complete the module automatically after submission
+          await this.completeModule();
+
         } catch (err) {
           console.error('Capstone upload error:', err);
           showToast('Upload failed: ' + err.message, 'error');
@@ -1557,27 +1638,21 @@
             this.quizAnswers[index] = optId;
 
             const slide = this.slides[index];
-            const quiz = slide.quiz || { options: slide.options };
-            const isCorrect = quiz.options?.find(o => o.id === optId)?.correct || false;
+            const isCorrect = slide.quiz.options.find(o => o.id === optId)?.correct || false;
 
             if (isCorrect) {
               clicked.classList.add('correct');
-              showToast('Correct! You can continue →');
             } else {
               clicked.classList.add('incorrect');
               options.forEach(o => {
                 const id = o.dataset.optionId;
-                if (quiz.options?.find(opt => opt.id === id)?.correct) {
+                if (slide.quiz.options.find(opt => opt.id === id)?.correct) {
                   o.classList.add('correct');
                 }
               });
-              showToast('Check the correct answer highlighted');
             }
 
-            if (explanation) {
-              explanation.style.display = 'block';
-              explanation.classList.add('show');
-            }
+            if (explanation) explanation.classList.add('show');
             this.saveProgress();
           });
         });
@@ -1639,11 +1714,11 @@
             .doc(this.userId)
             .collection('learningProgress')
             .doc(this.moduleId);
-          await progressRef.set({
+          await progressRef.update({
             currentSlideIndex: this.currentSlideIndex,
             quizAnswers: this.quizAnswers,
             updatedAt: new Date()
-          }, { merge: true });
+          });
         } catch (err) {
           console.warn('Save progress error:', err);
         }
@@ -1651,6 +1726,9 @@
 
       // ---- Completion modal ----
       showCompletionModal(xpReward) {
+        // Trigger confetti
+        if (window.startConfetti) window.startConfetti();
+
         const modal = document.getElementById('completionModal');
         document.getElementById('celebrationText').textContent =
           `You've mastered "${this.moduleData.metadata?.title || 'this module'}"!`;
