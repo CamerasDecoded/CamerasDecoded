@@ -1,1258 +1,1449 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Workbench – Cameras Decoded</title>
-  <meta name="description" content="AI tools for photographers – prompt generator, snapshot cards, content ideas, and more." />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Workbench – Cameras Decoded</title>
+    <meta name="description" content="AI tools for photographers – prompt generator, snapshot cards, content ideas, and more." />
 
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <!-- Firebase v9 compat -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <!-- Firebase v9 compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <style>
-    /* ============================================================
-       GLOBAL – matches dashboard
-       ============================================================ */
-    :root {
-      --green: #8deb00;
-      --green-dim: rgba(141, 235, 0, 0.12);
-      --green-glow: rgba(141, 235, 0, 0.25);
-      --gold: #e0b12d;
-      --gold-dim: rgba(224, 177, 45, 0.12);
-      --text-muted: #b4b4b4;
-      --bg-panel: #0A0A0A;
-      --border-dim: #1A1A1A;
-      --card-bg: rgba(10, 10, 10, 0.6);
-      --radius: 12px;
-      --transition-smooth: cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    <style>
+        /* ============================================================
+           GLOBAL – matches dashboard
+           ============================================================ */
+        :root {
+            --green: #8deb00;
+            --green-dim: rgba(141, 235, 0, 0.12);
+            --green-glow: rgba(141, 235, 0, 0.25);
+            --gold: #e0b12d;
+            --gold-dim: rgba(224, 177, 45, 0.12);
+            --text-muted: #b4b4b4;
+            --bg-panel: #0A0A0A;
+            --border-dim: #1A1A1A;
+            --card-bg: rgba(10, 10, 10, 0.6);
+            --radius: 12px;
+            --transition-smooth: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    body {
-      background: #050705;
-      background-image:
-        radial-gradient(circle at 20% 30%, rgba(141, 235, 0, 0.12) 0%, transparent 50%),
-        radial-gradient(circle at 80% 70%, rgba(141, 235, 0, 0.08) 0%, transparent 45%),
-        linear-gradient(rgba(141, 235, 0, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(141, 235, 0, 0.04) 1px, transparent 1px);
-      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
-      background-attachment: fixed;
-      color: #ffffff;
-      font-family: 'Montserrat', sans-serif;
-      min-height: 100vh;
-      padding: 20px 20px 80px 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+        body {
+            background: #050705;
+            background-image: radial-gradient(circle at 20% 30%, rgba(141, 235, 0, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(141, 235, 0, 0.08) 0%, transparent 45%),
+                linear-gradient(rgba(141, 235, 0, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(141, 235, 0, 0.04) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+            background-attachment: fixed;
+            color: #ffffff;
+            font-family: 'Montserrat', sans-serif;
+            min-height: 100vh;
+            padding: 20px 20px 80px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
 
-    a { text-decoration: none; color: inherit; }
-    h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+        h1,
+        h2,
+        h3,
+        .mono {
+            font-family: 'Space Mono', monospace;
+        }
 
-    /* ===== CONTAINER ===== */
-    .container {
-      max-width: 1200px;
-      width: 100%;
-      margin: 0 auto;
-      position: relative;
-      z-index: 2;
-    }
+        /* ===== CONTAINER ===== */
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+        }
 
-    /* ===== HEADER ===== */
-    .page-header {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px 24px;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border-dim);
-    }
-    .page-header-left h1 {
-      font-size: 32px;
-      font-weight: 700;
-      color: #fff;
-    }
-    .page-header-left h1 span { color: var(--green); }
-    .page-header-left .subtitle {
-      color: var(--text-muted);
-      font-size: 14px;
-      margin-top: 2px;
-    }
-    .page-header-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-shrink: 0;
-    }
-    .btn-outline {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 16px 6px 18px;
-      background: transparent;
-      border: 1px solid rgba(141,235,0,0.3);
-      border-radius: 30px;
-      color: var(--green);
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      transition: 0.3s;
-    }
-    .btn-outline:hover {
-      border-color: var(--green);
-      background: rgba(141,235,0,0.06);
-      box-shadow: 0 0 20px var(--green-glow);
-      gap: 12px;
-    }
-    .btn-outline i { font-size: 12px; transition: transform 0.3s; }
-    .btn-outline:hover i { transform: translateX(4px); }
+        /* ===== HEADER ===== */
+        .page-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px 24px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-dim);
+        }
+        .page-header-left h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .page-header-left h1 span {
+            color: var(--green);
+        }
+        .page-header-left .subtitle {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 2px;
+        }
+        .page-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        .btn-outline {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px 6px 18px;
+            background: transparent;
+            border: 1px solid rgba(141, 235, 0, 0.3);
+            border-radius: 30px;
+            color: var(--green);
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            transition: 0.3s;
+        }
+        .btn-outline:hover {
+            border-color: var(--green);
+            background: rgba(141, 235, 0, 0.06);
+            box-shadow: 0 0 20px var(--green-glow);
+            gap: 12px;
+        }
+        .btn-outline i {
+            font-size: 12px;
+            transition: transform 0.3s;
+        }
+        .btn-outline:hover i {
+            transform: translateX(4px);
+        }
 
-    /* ===== TICKER ===== */
-    .ticker {
-      background: var(--card-bg);
-      backdrop-filter: blur(8px);
-      border: 1px solid var(--border-dim);
-      padding: 14px 24px;
-      border-radius: var(--radius);
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 28px;
-      font-size: 13px;
-    }
-    .ticker .left { color: var(--text-muted); }
-    .ticker .left i { color: var(--green); margin-right: 8px; }
-    .ticker .right a { color: var(--green); font-family: 'Space Mono', monospace; font-size: 12px; transition: 0.2s; }
-    .ticker .right a:hover { color: #a0f520; }
+        /* ===== TICKER ===== */
+        .ticker {
+            background: var(--card-bg);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-dim);
+            padding: 14px 24px;
+            border-radius: var(--radius);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+            font-size: 13px;
+        }
+        .ticker .left {
+            color: var(--text-muted);
+        }
+        .ticker .left i {
+            color: var(--green);
+            margin-right: 8px;
+        }
+        .ticker .right a {
+            color: var(--green);
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            transition: 0.2s;
+        }
+        .ticker .right a:hover {
+            color: #a0f520;
+        }
 
-    /* ===== USAGE BAR + CYNETIS ===== */
-    .top-bar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 16px 24px;
-      margin-bottom: 28px;
-    }
-    .usage-badge {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-dim);
-      padding: 8px 18px;
-      border-radius: 40px;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      color: var(--text-muted);
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .usage-badge i { color: var(--green); }
-    .usage-badge strong { color: #fff; }
-    .usage-badge .limit { color: var(--green); }
+        /* ===== USAGE BAR + CYNETIS ===== */
+        .top-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px 24px;
+            margin-bottom: 28px;
+        }
+        .usage-badge {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-dim);
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .usage-badge i {
+            color: var(--green);
+        }
+        .usage-badge strong {
+            color: #fff;
+        }
+        .usage-badge .limit {
+            color: var(--green);
+        }
 
-    .cynetis-message {
-      background: var(--card-bg);
-      backdrop-filter: blur(8px);
-      border: 1px solid var(--border-dim);
-      border-left: 4px solid var(--green);
-      padding: 12px 18px;
-      border-radius: var(--radius);
-      flex: 1;
-      min-width: 200px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 14px;
-      color: var(--text-muted);
-    }
-    .cynetis-message .avatar-icon {
-      font-size: 24px;
-      color: var(--green);
-      flex-shrink: 0;
-      width: 32px;
-      text-align: center;
-    }
-    .cynetis-message strong {
-      color: var(--green);
-      font-family: 'Space Mono', monospace;
-      font-weight: 700;
-    }
+        .cynetis-message {
+            background: var(--card-bg);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-dim);
+            border-left: 4px solid var(--green);
+            padding: 12px 18px;
+            border-radius: var(--radius);
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        .cynetis-message .avatar-icon {
+            font-size: 24px;
+            color: var(--green);
+            flex-shrink: 0;
+            width: 32px;
+            text-align: center;
+        }
+        .cynetis-message strong {
+            color: var(--green);
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+        }
 
-    /* ===== SECTION HEADERS ===== */
-    .section-header {
-      margin: 40px 0 20px 0;
-      border-bottom: 1px solid var(--border-dim);
-      padding-bottom: 10px;
-    }
-    .section-header h2 {
-      font-family: 'Space Mono', monospace;
-      font-size: 18px;
-      color: var(--green);
-      letter-spacing: 1px;
-      text-transform: uppercase;
-    }
-    .section-header p {
-      color: var(--text-muted);
-      font-size: 13px;
-      margin-top: 2px;
-    }
+        /* ===== SECTION HEADERS ===== */
+        .section-header {
+            margin: 40px 0 20px 0;
+            border-bottom: 1px solid var(--border-dim);
+            padding-bottom: 10px;
+        }
+        .section-header h2 {
+            font-family: 'Space Mono', monospace;
+            font-size: 18px;
+            color: var(--green);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .section-header p {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 2px;
+        }
 
-    /* ============================================================
-       TOOL CARDS
-       ============================================================ */
-    .tool-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 20px;
-      margin-top: 4px;
-    }
+        /* ============================================================
+           TOOL CARDS
+           ============================================================ */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 20px;
+            margin-top: 4px;
+        }
 
-    .tool-card {
-      position: relative;
-      border-radius: var(--radius);
-      border: 1px solid var(--border-dim);
-      background-size: cover;
-      background-position: center;
-      min-height: 260px;
-      overflow: hidden;
-      transition: transform 0.3s var(--transition-smooth),
-                  border-color 0.3s ease,
-                  box-shadow 0.3s ease;
-      cursor: default;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-    }
-    .tool-card:hover {
-      transform: translateY(-4px);
-      border-color: rgba(141,235,0,0.3);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-    }
+        .tool-card {
+            position: relative;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-dim);
+            background-size: cover;
+            background-position: center;
+            min-height: 260px;
+            overflow: hidden;
+            transition: transform 0.3s var(--transition-smooth),
+                border-color 0.3s ease,
+                box-shadow 0.3s ease;
+            cursor: default;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+        .tool-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(141, 235, 0, 0.3);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+        }
 
-    /* Dark overlay for readability */
-    .tool-card .card-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%);
-      z-index: 1;
-      transition: background 0.3s ease;
-    }
-    .tool-card:hover .card-overlay {
-      background: linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.90) 100%);
-    }
+        /* Dark overlay for readability */
+        .tool-card .card-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.85) 100%);
+            z-index: 1;
+            transition: background 0.3s ease;
+        }
+        .tool-card:hover .card-overlay {
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.90) 100%);
+        }
 
-    /* Content */
-    .tool-card .card-content {
-      position: relative;
-      z-index: 2;
-      padding: 24px 22px 22px;
-      display: flex;
-      flex-direction: column;
-      min-height: 200px;
-      justify-content: flex-end;
-    }
+        /* Content */
+        .tool-card .card-content {
+            position: relative;
+            z-index: 2;
+            padding: 24px 22px 22px;
+            display: flex;
+            flex-direction: column;
+            min-height: 200px;
+            justify-content: flex-end;
+        }
 
-    .tool-card .card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 10px;
-    }
-    .tool-card .tool-icon {
-      font-size: 20px;
-      color: var(--green);
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(4px);
-      width: 40px;
-      height: 40px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid rgba(141,235,0,0.2);
-    }
-    .tool-card .badge {
-      font-family: 'Space Mono', monospace;
-      font-size: 8px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding: 2px 10px;
-      border-radius: 20px;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(4px);
-      border: 1px solid rgba(255,255,255,0.08);
-      color: var(--text-muted);
-    }
-    .tool-card .badge.live {
-      color: var(--green);
-      border-color: rgba(141,235,0,0.3);
-      background: rgba(141,235,0,0.12);
-    }
-    .tool-card .badge.coming {
-      color: var(--gold);
-      border-color: rgba(224,177,45,0.3);
-      background: rgba(224,177,45,0.12);
-    }
+        .tool-card .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .tool-card .tool-icon {
+            font-size: 20px;
+            color: var(--green);
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(141, 235, 0, 0.2);
+        }
+        .tool-card .badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 2px 10px;
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+        }
+        .tool-card .badge.live {
+            color: var(--green);
+            border-color: rgba(141, 235, 0, 0.3);
+            background: rgba(141, 235, 0, 0.12);
+        }
+        .tool-card .badge.coming {
+            color: var(--gold);
+            border-color: rgba(224, 177, 45, 0.3);
+            background: rgba(224, 177, 45, 0.12);
+        }
 
-    .tool-card h3 {
-      font-size: 18px;
-      font-weight: 700;
-      color: #fff;
-      text-shadow: 0 2px 12px rgba(0,0,0,0.6);
-      margin-bottom: 4px;
-    }
-    .tool-card p {
-      color: rgba(255,255,255,0.85);
-      font-size: 13px;
-      line-height: 1.5;
-      margin: 4px 0 16px;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.5);
-      flex: 1;
-    }
-    .tool-card .btn-launch {
-      width: 100%;
-      padding: 10px;
-      text-align: center;
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(8px);
-      border-radius: 6px;
-      color: #fff;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      border: 1px solid rgba(255,255,255,0.1);
-      cursor: pointer;
-      transition: all 0.25s ease;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-    }
-    .tool-card .btn-launch:hover:not(:disabled) {
-      background: var(--green);
-      color: #000;
-      border-color: var(--green);
-      box-shadow: 0 0 25px var(--green-glow);
-    }
-    .tool-card .btn-launch:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      background: rgba(0,0,0,0.3);
-    }
-    .tool-card .btn-launch.coming-soon {
-      border-color: rgba(224,177,45,0.2);
-      color: var(--gold);
-    }
-    .tool-card .btn-launch.coming-soon:hover:not(:disabled) {
-      background: rgba(224,177,45,0.1);
-      border-color: var(--gold);
-      box-shadow: 0 0 20px rgba(224,177,45,0.2);
-      color: var(--gold);
-    }
+        .tool-card h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+            margin-bottom: 4px;
+        }
+        .tool-card p {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 4px 0 16px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            flex: 1;
+        }
+        .tool-card .btn-launch {
+            width: 100%;
+            padding: 10px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            border-radius: 6px;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .tool-card .btn-launch:hover:not(:disabled) {
+            background: var(--green);
+            color: #000;
+            border-color: var(--green);
+            box-shadow: 0 0 25px var(--green-glow);
+        }
+        .tool-card .btn-launch:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .tool-card .btn-launch.coming-soon {
+            border-color: rgba(224, 177, 45, 0.2);
+            color: var(--gold);
+        }
+        .tool-card .btn-launch.coming-soon:hover:not(:disabled) {
+            background: rgba(224, 177, 45, 0.1);
+            border-color: var(--gold);
+            box-shadow: 0 0 20px rgba(224, 177, 45, 0.2);
+            color: var(--gold);
+        }
 
-    /* ===== COMING SOON OVERLAY ===== */
-    .tool-card.coming-soon .card-overlay {
-      background: rgba(0,0,0,0.7);
-    }
-    .tool-card.coming-soon .coming-badge {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      z-index: 3;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(8px);
-      padding: 4px 14px;
-      border-radius: 30px;
-      border: 1px solid var(--gold);
-      color: var(--gold);
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      pointer-events: none;
-    }
-    .tool-card.coming-soon .btn-launch {
-      opacity: 0.7;
-    }
+        /* ===== COMING SOON OVERLAY ===== */
+        .tool-card.coming-soon .card-overlay {
+            background: rgba(0, 0, 0, 0.7);
+        }
+        .tool-card.coming-soon .coming-badge {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 3;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            padding: 4px 14px;
+            border-radius: 30px;
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            pointer-events: none;
+        }
+        .tool-card.coming-soon .btn-launch {
+            opacity: 0.7;
+        }
 
-    /* ============================================================
-       MODAL
-       ============================================================ */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.8);
-      backdrop-filter: blur(8px);
-      z-index: 1000;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-    .modal-overlay.active { display: flex; }
-    .modal-panel {
-      position: relative;
-      background: var(--card-bg);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-dim);
-      border-radius: 20px;
-      max-width: 600px;
-      width: 100%;
-      max-height: 90vh;
-      overflow-y: auto;
-      padding: 32px 30px;
-      box-shadow: 0 30px 60px rgba(0,0,0,0.6);
-      animation: modalIn 0.3s var(--transition-smooth);
-    }
-    @keyframes modalIn {
-      from { opacity: 0; transform: scale(0.95) translateY(20px); }
-      to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-    .modal-panel .close-btn {
-      position: absolute;
-      top: 16px;
-      right: 20px;
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 28px;
-      cursor: pointer;
-      transition: color 0.2s;
-      line-height: 1;
-    }
-    .modal-panel .close-btn:hover { color: #fff; }
-    .modal-panel h2 {
-      font-size: 22px;
-      font-weight: 700;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: #fff;
-    }
-    .modal-panel h2 i { color: var(--green); }
-    .modal-panel .sub {
-      color: var(--text-muted);
-      font-size: 14px;
-      margin-bottom: 24px;
-    }
-    .modal-panel .result-box {
-      background: rgba(0,0,0,0.4);
-      border-radius: 10px;
-      padding: 16px 18px;
-      margin-top: 16px;
-      border: 1px solid var(--border-dim);
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 14px;
-      line-height: 1.7;
-      color: rgba(255,255,255,0.8);
-      max-height: 200px;
-      overflow-y: auto;
-      display: none;
-    }
-    .modal-panel .error-msg {
-      color: #ff6b6b;
-      font-size: 13px;
-      margin-top: 8px;
-    }
-    .input-group {
-      margin-bottom: 18px;
-    }
-    .input-group label {
-      display: block;
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-    .input-group input,
-    .input-group select,
-    .input-group textarea {
-      width: 100%;
-      padding: 12px 16px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border-dim);
-      border-radius: 10px;
-      color: #fff;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 15px;
-      outline: none;
-      transition: border-color 0.3s, box-shadow 0.3s;
-    }
-    .input-group input:focus,
-    .input-group select:focus,
-    .input-group textarea:focus {
-      border-color: rgba(141,235,0,0.3);
-      box-shadow: 0 0 30px rgba(141,235,0,0.03);
-      background: rgba(255,255,255,0.05);
-    }
-    .btn-neon-block {
-      display: inline-block;
-      width: 100%;
-      padding: 12px;
-      text-align: center;
-      background: transparent;
-      border-radius: 8px;
-      color: var(--green);
-      font-family: 'Space Mono', monospace;
-      font-size: 14px;
-      transition: 0.2s;
-      border: 1px solid var(--green);
-      cursor: pointer;
-    }
-    .btn-neon-block:hover:not(:disabled) {
-      background: rgba(141,235,0,0.05);
-      box-shadow: 0 0 20px var(--green-glow);
-    }
-    .btn-neon-block:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-    .copy-btn {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-dim);
-      color: var(--text-muted);
-      padding: 6px 18px;
-      border-radius: 30px;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      cursor: pointer;
-      transition: 0.2s;
-      margin-top: 10px;
-      display: none;
-    }
-    .copy-btn:hover {
-      border-color: var(--green);
-      color: #fff;
-    }
+        /* ============================================================
+           MODAL
+           ============================================================ */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-panel {
+            position: relative;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-dim);
+            border-radius: 20px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 32px 30px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+            animation: modalIn 0.3s var(--transition-smooth);
+        }
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        .modal-panel .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 28px;
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+        .modal-panel .close-btn:hover {
+            color: #fff;
+        }
+        .modal-panel h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #fff;
+        }
+        .modal-panel h2 i {
+            color: var(--green);
+        }
+        .modal-panel .sub {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        .modal-panel .result-box {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 16px 18px;
+            margin-top: 16px;
+            border: 1px solid var(--border-dim);
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 14px;
+            line-height: 1.7;
+            color: rgba(255, 255, 255, 0.8);
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+        .modal-panel .error-msg {
+            color: #ff6b6b;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+        .modal-panel .status-msg {
+            font-size: 13px;
+            margin-top: 8px;
+            text-align: center;
+        }
+        .modal-panel .status-msg.success {
+            color: var(--green);
+        }
+        .modal-panel .status-msg.error {
+            color: #ff4a4a;
+        }
+        .input-group {
+            margin-bottom: 18px;
+        }
+        .input-group label {
+            display: block;
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .input-group input,
+        .input-group select,
+        .input-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-dim);
+            border-radius: 10px;
+            color: #fff;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .input-group input:focus,
+        .input-group select:focus,
+        .input-group textarea:focus {
+            border-color: rgba(141, 235, 0, 0.3);
+            box-shadow: 0 0 30px rgba(141, 235, 0, 0.03);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .btn-neon-block {
+            display: inline-block;
+            width: 100%;
+            padding: 12px;
+            text-align: center;
+            background: transparent;
+            border-radius: 8px;
+            color: var(--green);
+            font-family: 'Space Mono', monospace;
+            font-size: 14px;
+            transition: 0.2s;
+            border: 1px solid var(--green);
+            cursor: pointer;
+        }
+        .btn-neon-block:hover:not(:disabled) {
+            background: rgba(141, 235, 0, 0.05);
+            box-shadow: 0 0 20px var(--green-glow);
+        }
+        .btn-neon-block:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .copy-btn {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-dim);
+            color: var(--text-muted);
+            padding: 6px 18px;
+            border-radius: 30px;
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 10px;
+            display: none;
+        }
+        .copy-btn:hover {
+            border-color: var(--green);
+            color: #fff;
+        }
 
-    /* ===== TOAST ===== */
-    #toast-container {
-      position: fixed;
-      top: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      align-items: center;
-      pointer-events: none;
-    }
-    .toast {
-      background: var(--bg-panel);
-      border: 1px solid var(--green);
-      color: #fff;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      padding: 12px 24px;
-      border-radius: var(--radius);
-      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
-      opacity: 0;
-      transform: translateY(-10px) scale(0.95);
-      transition: all 0.3s ease;
-      pointer-events: auto;
-      text-align: center;
-    }
-    .toast.show { opacity: 1; transform: translateY(0) scale(1); }
-    .toast.coming { border-color: var(--gold); }
+        /* ===== TOAST ===== */
+        #toast-container {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+            pointer-events: none;
+        }
+        .toast {
+            background: var(--bg-panel);
+            border: 1px solid var(--green);
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            padding: 12px 24px;
+            border-radius: var(--radius);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            transform: translateY(-10px) scale(0.95);
+            transition: all 0.3s ease;
+            pointer-events: auto;
+            text-align: center;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        .toast.coming {
+            border-color: var(--gold);
+        }
 
-    /* ============================================================
-       FOOTER
-       ============================================================ */
-    .footer {
-      border-top: 1px solid var(--border-dim);
-      padding-top: 30px;
-      margin-top: 60px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      font-size: 12px;
-      color: var(--text-muted);
-      text-align: center;
-    }
-    .footer .socials {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-    }
-    .footer .socials a {
-      color: #fff;
-      font-size: 18px;
-      transition: 0.2s;
-    }
-    .footer .socials a:hover { color: var(--green); }
-    .footer .footer-links {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-    .footer .footer-links a {
-      color: var(--green);
-      transition: 0.2s;
-    }
-    .footer .footer-links a:hover { color: #a0f520; }
+        /* ============================================================
+           FOOTER
+           ============================================================ */
+        .footer {
+            border-top: 1px solid var(--border-dim);
+            padding-top: 30px;
+            margin-top: 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        .footer .socials {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .footer .socials a {
+            color: #fff;
+            font-size: 18px;
+            transition: 0.2s;
+        }
+        .footer .socials a:hover {
+            color: var(--green);
+        }
+        .footer .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .footer .footer-links a {
+            color: var(--green);
+            transition: 0.2s;
+        }
+        .footer .footer-links a:hover {
+            color: #a0f520;
+        }
 
-    /* ============================================================
-       RESPONSIVE
-       ============================================================ */
-    @media (max-width: 768px) {
-      body { padding: 16px 16px 80px 16px; }
-      .page-header { flex-direction: column; align-items: stretch; gap: 12px; }
-      .page-header-left h1 { font-size: 26px; }
-      .page-header-actions { justify-content: flex-start; }
-      .tool-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-      .tool-card { min-height: 220px; }
-      .tool-card .card-content { padding: 18px 16px 16px; min-height: 160px; }
-      .top-bar { flex-direction: column; align-items: stretch; }
-      .cynetis-message { min-width: unset; }
-    }
-    @media (max-width: 480px) {
-      .tool-grid { grid-template-columns: 1fr; }
-      .tool-card { min-height: 200px; }
-    }
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+        @media (max-width: 768px) {
+            body {
+                padding: 16px 16px 80px 16px;
+            }
+            .page-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            .page-header-left h1 {
+                font-size: 26px;
+            }
+            .page-header-actions {
+                justify-content: flex-start;
+            }
+            .tool-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+            .tool-card {
+                min-height: 220px;
+            }
+            .tool-card .card-content {
+                padding: 18px 16px 16px;
+                min-height: 160px;
+            }
+            .top-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .cynetis-message {
+                min-width: unset;
+            }
+        }
+        @media (max-width: 480px) {
+            .tool-grid {
+                grid-template-columns: 1fr;
+            }
+            .tool-card {
+                min-height: 200px;
+            }
+        }
 
-    /* ===== SCROLL ANIMATIONS ===== */
-    .reveal {
-      opacity: 0;
-      transform: translateY(30px);
-      transition: opacity 0.7s var(--transition-smooth), transform 0.7s var(--transition-smooth);
-    }
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  </style>
+        /* ===== SCROLL ANIMATIONS ===== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.7s var(--transition-smooth), transform 0.7s var(--transition-smooth);
+        }
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
 </head>
 <body>
 
-  <div id="toast-container"></div>
+    <div id="toast-container"></div>
 
-  <div class="container">
+    <div class="container">
 
-    <!-- HEADER -->
-    <header class="page-header">
-      <div class="page-header-left">
-        <h1>AI <span>Workbench</span></h1>
-        <div class="subtitle">3 tools live – more coming soon.</div>
-      </div>
-      <div class="page-header-actions">
-        <a href="operator-dashboard.html" class="btn-outline"><i class="fas fa-arrow-left"></i> Dashboard</a>
-      </div>
-    </header>
+        <!-- HEADER -->
+        <header class="page-header">
+            <div class="page-header-left">
+                <h1>AI <span>Workbench</span></h1>
+                <div class="subtitle">3 tools live – more coming soon.</div>
+            </div>
+            <div class="page-header-actions">
+                <a href="operator-dashboard.html" class="btn-outline"><i class="fas fa-arrow-left"></i> Dashboard</a>
+            </div>
+        </header>
 
-    <!-- TICKER -->
-    <div class="ticker">
-      <div class="left"><i class="fas fa-satellite-dish"></i> Latest: <span style="color:#fff;">Protocol 8 – Why Your Indoor Photos Look Yellow</span></div>
-      <div class="right"><a href="https://open.substack.com/pub/camerasdecoded" target="_blank">Read on Substack →</a></div>
+        <!-- TICKER -->
+        <div class="ticker">
+            <div class="left"><i class="fas fa-satellite-dish"></i> Latest: <span style="color:#fff;">Protocol 8 – Why Your Indoor Photos Look Yellow</span></div>
+            <div class="right"><a href="https://open.substack.com/pub/camerasdecoded" target="_blank">Read on Substack →</a></div>
+        </div>
+
+        <!-- USAGE + CYNETIS -->
+        <div class="top-bar">
+            <div class="usage-badge">
+                <i class="fas fa-bolt"></i> Used <strong id="usageCount">0</strong> / <strong class="limit" id="usageLimit">5</strong> today
+            </div>
+            <div class="cynetis-message">
+                <span class="avatar-icon"><i class="fas fa-robot"></i></span>
+                <div><strong>Cynetis‑7:</strong> <span id="cynetisText">Select a live tool to get started.</span></div>
+            </div>
+        </div>
+
+        <!-- ============================================================
+             TOOL GRID
+             ============================================================ -->
+
+        <!-- Category: Learning & Feedback -->
+        <div class="section-header reveal">
+            <h2>📚 Learning &amp; Feedback</h2>
+            <p>Build skills and get AI‑powered insights.</p>
+        </div>
+        <div class="tool-grid">
+
+            <!-- 1. Snapshot Card AI – LIVE -->
+            <div class="tool-card" style="background-image: url('images/tools/snapshot-card.jpg');" data-tool="snapshot" data-live="true">
+                <div class="card-overlay"></div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-camera"></i></span>
+                        <span class="badge live">● Live</span>
+                    </div>
+                    <h3>Snapshot Card AI</h3>
+                    <p>Generate a Snapshot Card with key points, examples, and a catchy title.</p>
+                    <button class="btn-launch" data-tool="snapshot">Launch</button>
+                </div>
+            </div>
+
+            <!-- 2. Photo Critique AI – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/photo-critique.jpg');" data-tool="critique" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-image"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>Photo Critique AI</h3>
+                    <p>Upload a photo for AI analysis on composition, exposure, and color.</p>
+                    <button class="btn-launch coming-soon" data-tool="critique" disabled>Coming Soon</button>
+                </div>
+            </div>
+
+            <!-- 3. Learning Path – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/learning-path.jpg');" data-tool="path" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-route"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>Learning Path</h3>
+                    <p>Get a tailored curriculum based on your skill level and goals.</p>
+                    <button class="btn-launch coming-soon" data-tool="path" disabled>Coming Soon</button>
+                </div>
+            </div>
+
+            <!-- 4. AI Challenges – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/challenges.jpg');" data-tool="challenge" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-trophy"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>AI Challenges</h3>
+                    <p>Daily/weekly AI‑generated photography challenges with scoring.</p>
+                    <button class="btn-launch coming-soon" data-tool="challenge" disabled>Coming Soon</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category: Content & Editing -->
+        <div class="section-header reveal">
+            <h2>🎨 Content &amp; Editing</h2>
+            <p>Generate, enhance, and transform visuals.</p>
+        </div>
+        <div class="tool-grid">
+
+            <!-- 5. Prompt Generator – LIVE -->
+            <div class="tool-card" style="background-image: url('images/tools/prompt-generator.jpg');" data-tool="prompt" data-live="true">
+                <div class="card-overlay"></div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-wand-magic-sparkles"></i></span>
+                        <span class="badge live">● Live</span>
+                    </div>
+                    <h3>Prompt Generator</h3>
+                    <p>Build structured prompts for AI image/video models.</p>
+                    <button class="btn-launch" data-tool="prompt">Launch</button>
+                </div>
+            </div>
+
+            <!-- 6. Image Generator – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/image-generator.jpg');" data-tool="image" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-palette"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>Image Generator</h3>
+                    <p>Generate custom images from text prompts.</p>
+                    <button class="btn-launch coming-soon" data-tool="image" disabled>Coming Soon</button>
+                </div>
+            </div>
+
+            <!-- 7. Culling Assistant – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/culling.jpg');" data-tool="culling" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-layer-group"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>Culling Assistant</h3>
+                    <p>Upload a batch – AI selects the best shots.</p>
+                    <button class="btn-launch coming-soon" data-tool="culling" disabled>Coming Soon</button>
+                </div>
+            </div>
+
+            <!-- 8. Style Transfer – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/style-transfer.jpg');" data-tool="style" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-paint-brush"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>Style Transfer</h3>
+                    <p>Upload a reference to generate a matching preset/LUT.</p>
+                    <button class="btn-launch coming-soon" data-tool="style" disabled>Coming Soon</button>
+                </div>
+            </div>
+
+            <!-- 9. AI Upscaler – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/upscaler.jpg');" data-tool="upscale" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-expand"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>AI Upscaler</h3>
+                    <p>Upscale low‑res images to 4K+ quality.</p>
+                    <button class="btn-launch coming-soon" data-tool="upscale" disabled>Coming Soon</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category: Business & Productivity -->
+        <div class="section-header reveal">
+            <h2>💼 Business &amp; Productivity</h2>
+            <p>Run your photography business like a pro.</p>
+        </div>
+        <div class="tool-grid">
+
+            <!-- 10. Content Idea Engine – LIVE -->
+            <div class="tool-card" style="background-image: url('images/tools/content-ideas.jpg');" data-tool="ideas" data-live="true">
+                <div class="card-overlay"></div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-lightbulb"></i></span>
+                        <span class="badge live">● Live</span>
+                    </div>
+                    <h3>Content Idea Engine</h3>
+                    <p>Get 5 tailored blog, video, or social post ideas.</p>
+                    <button class="btn-launch" data-tool="ideas">Launch</button>
+                </div>
+            </div>
+
+            <!-- 11. Proposal Generator – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/proposals.jpg');" data-tool="proposal" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-file-signature"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>Proposal Generator</h3>
+                    <p>AI‑generated client proposals, contracts, and invoices.</p>
+                    <button class="btn-launch coming-soon" data-tool="proposal" disabled>Coming Soon</button>
+                </div>
+            </div>
+
+            <!-- 12. Shoot Planner – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/shoot-planner.jpg');" data-tool="planner" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-clipboard-list"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>Shoot Planner</h3>
+                    <p>Get a gear checklist, shot list, and timeline for any shoot.</p>
+                    <button class="btn-launch coming-soon" data-tool="planner" disabled>Coming Soon</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category: Brand & Portfolio -->
+        <div class="section-header reveal">
+            <h2>🖼️ Brand &amp; Portfolio</h2>
+            <p>Build your professional identity.</p>
+        </div>
+        <div class="tool-grid">
+
+            <!-- 13. Portfolio Builder – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/portfolio.jpg');" data-tool="portfolio" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-images"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>Portfolio Builder</h3>
+                    <p>Upload images and get a polished, shareable portfolio.</p>
+                    <button class="btn-launch coming-soon" data-tool="portfolio" disabled>Coming Soon</button>
+                </div>
+            </div>
+
+            <!-- 14. Brand Identity – COMING SOON -->
+            <div class="tool-card coming-soon" style="background-image: url('images/tools/brand-identity.jpg');" data-tool="brand" data-live="false">
+                <div class="card-overlay"></div>
+                <div class="coming-badge">Coming Soon</div>
+                <div class="card-content">
+                    <div class="card-top">
+                        <span class="tool-icon"><i class="fas fa-tag"></i></span>
+                        <span class="badge coming">● Coming</span>
+                    </div>
+                    <h3>Brand Identity</h3>
+                    <p>Generate a logo concept, color palette, tagline, and bio.</p>
+                    <button class="btn-launch coming-soon" data-tool="brand" disabled>Coming Soon</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="footer reveal">
+            <div class="socials">
+                <a href="https://www.youtube.com/@CamerasDecoded" target="_blank"><i class="fab fa-youtube"></i></a>
+                <a href="https://www.tiktok.com/@cameras.decoded" target="_blank"><i class="fab fa-tiktok"></i></a>
+                <a href="https://www.instagram.com/camerasdecoded/reels/" target="_blank"><i class="fab fa-instagram"></i></a>
+                <a href="https://www.facebook.com/profile.php?id=61553594660326" target="_blank"><i class="fab fa-facebook-f"></i></a>
+                <a href="https://camerasdecoded.substack.com" target="_blank"><i class="fas fa-bookmark"></i></a>
+            </div>
+            <div>© 2026 Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
+            <div class="footer-links">
+                <a href="roadmap.html">Roadmap</a> · <a href="blog-updates.html">Blog/Updates</a> · <a href="faq.html">FAQ</a> · <a href="contact.html">Contact</a> · <a href="podcast.html">Podcast</a> · <a href="terms.html">Privacy/Terms</a>
+            </div>
+        </footer>
+
     </div>
 
-    <!-- USAGE + CYNETIS -->
-    <div class="top-bar">
-      <div class="usage-badge">
-        <i class="fas fa-bolt"></i> Used <strong id="usageCount">0</strong> / <strong class="limit" id="usageLimit">5</strong> today
-      </div>
-      <div class="cynetis-message">
-        <span class="avatar-icon"><i class="fas fa-robot"></i></span>
-        <div><strong>Cynetis‑7:</strong> <span id="cynetisText">Select a live tool to get started.</span></div>
-      </div>
+    <!-- ===== MODAL ===== -->
+    <div class="modal-overlay" id="toolModal">
+        <div class="modal-panel">
+            <button class="close-btn" id="modalClose">&times;</button>
+            <h2 id="modalTitle"><i class="fas fa-tools"></i> Tool</h2>
+            <div class="sub" id="modalSub">Fill in the details below.</div>
+            <div id="modalBody"></div>
+        </div>
     </div>
 
     <!-- ============================================================
-         TOOL GRID
+         JAVASCRIPT – Full implementation
          ============================================================ -->
+    <script>
+        // ============================================================
+        // FIREBASE INIT (your config)
+        // ============================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+            authDomain: "cameras-decoded.firebaseapp.com",
+            projectId: "cameras-decoded",
+            storageBucket: "cameras-decoded.firebasestorage.app",
+            messagingSenderId: "1088920052790",
+            appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+            measurementId: "G-YN3M01WW0B"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
-    <!-- Category: Learning & Feedback -->
-    <div class="section-header reveal">
-      <h2>📚 Learning &amp; Feedback</h2>
-      <p>Build skills and get AI‑powered insights.</p>
-    </div>
-    <div class="tool-grid">
+        // ============================================================
+        // TOAST SYSTEM
+        // ============================================================
+        function showToast(message, type = '') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast' + (type ? ' ' + type : '');
+            toast.textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
 
-      <!-- 1. Snapshot Card AI – LIVE -->
-      <div class="tool-card" style="background-image: url('images/tools/snapshot-card.jpg');" data-tool="snapshot" data-live="true">
-        <div class="card-overlay"></div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-camera"></i></span>
-            <span class="badge live">● Live</span>
-          </div>
-          <h3>Snapshot Card AI</h3>
-          <p>Generate a Snapshot Card with key points, examples, and a catchy title.</p>
-          <button class="btn-launch" data-tool="snapshot">Launch</button>
-        </div>
-      </div>
+        // ============================================================
+        // USAGE TRACKING
+        // ============================================================
+        let currentUser = null;
+        let userPlan = 'free';
+        let usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0 };
+        const DAILY_LIMIT_FREE = 5;
 
-      <!-- 2. Photo Critique AI – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/photo-critique.jpg');" data-tool="critique" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-image"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>Photo Critique AI</h3>
-          <p>Upload a photo for AI analysis on composition, exposure, and color.</p>
-          <button class="btn-launch coming-soon" data-tool="critique" disabled>Coming Soon</button>
-        </div>
-      </div>
+        async function loadUsage() {
+            if (!currentUser) return;
+            try {
+                const doc = await db.collection('users').doc(currentUser.uid).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    userPlan = data.tier || 'free';
+                    const ai = data.aiUsage || {};
+                    usage = {
+                        total: ai.total || 0,
+                        prompt: ai.prompt || 0,
+                        snapshot: ai.snapshot || 0,
+                        ideas: ai.ideas || 0
+                    };
+                    // Check if we need to reset daily
+                    const lastReset = data.aiLastReset ? data.aiLastReset.toDate() : null;
+                    const today = new Date();
+                    if (!lastReset || lastReset.getDate() !== today.getDate() ||
+                        lastReset.getMonth() !== today.getMonth() ||
+                        lastReset.getFullYear() !== today.getFullYear()) {
+                        // Reset daily usage
+                        usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0 };
+                        await db.collection('users').doc(currentUser.uid).update({
+                            aiUsage: usage,
+                            aiLastReset: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                } else {
+                    // Create user doc if missing
+                    await db.collection('users').doc(currentUser.uid).set({
+                        tier: 'free',
+                        aiUsage: usage,
+                        aiLastReset: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            } catch (e) {
+                console.warn('Usage load error:', e);
+            }
+            updateUsageUI();
+        }
 
-      <!-- 3. Learning Path – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/learning-path.jpg');" data-tool="path" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-route"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>Learning Path</h3>
-          <p>Get a tailored curriculum based on your skill level and goals.</p>
-          <button class="btn-launch coming-soon" data-tool="path" disabled>Coming Soon</button>
-        </div>
-      </div>
+        async function recordUsage(tool) {
+            if (!currentUser) return false;
+            if (userPlan === 'free' && usage.total >= DAILY_LIMIT_FREE) {
+                showToast('Daily limit reached. Upgrade to Pro for unlimited.', 'coming');
+                return false;
+            }
+            usage[tool] = (usage[tool] || 0) + 1;
+            usage.total = (usage.total || 0) + 1;
+            try {
+                await db.collection('users').doc(currentUser.uid).update({
+                    [`aiUsage.${tool}`]: usage[tool],
+                    'aiUsage.total': usage.total
+                });
+                updateUsageUI();
+                return true;
+            } catch (e) {
+                console.warn('Usage update error:', e);
+                return false;
+            }
+        }
 
-      <!-- 4. AI Challenges – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/challenges.jpg');" data-tool="challenge" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-trophy"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>AI Challenges</h3>
-          <p>Daily/weekly AI‑generated photography challenges with scoring.</p>
-          <button class="btn-launch coming-soon" data-tool="challenge" disabled>Coming Soon</button>
-        </div>
-      </div>
-    </div>
+        function updateUsageUI() {
+            document.getElementById('usageCount').textContent = usage.total || 0;
+            document.getElementById('usageLimit').textContent = userPlan === 'pro' ? '∞' : DAILY_LIMIT_FREE;
+        }
 
-    <!-- Category: Content & Editing -->
-    <div class="section-header reveal">
-      <h2>🎨 Content &amp; Editing</h2>
-      <p>Generate, enhance, and transform visuals.</p>
-    </div>
-    <div class="tool-grid">
+        // ============================================================
+        // AUTH
+        // ============================================================
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            if (user) {
+                loadUsage();
+                document.querySelectorAll('.btn-launch:not(.coming-soon)').forEach(btn => btn.disabled = false);
+            } else {
+                document.querySelectorAll('.btn-launch:not(.coming-soon)').forEach(btn => btn.disabled = true);
+                showToast('Sign in to use AI tools.', '');
+            }
+        });
 
-      <!-- 5. Prompt Generator – LIVE -->
-      <div class="tool-card" style="background-image: url('images/tools/prompt-generator.jpg');" data-tool="prompt" data-live="true">
-        <div class="card-overlay"></div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-wand-magic-sparkles"></i></span>
-            <span class="badge live">● Live</span>
-          </div>
-          <h3>Prompt Generator</h3>
-          <p>Build structured prompts for AI image/video models.</p>
-          <button class="btn-launch" data-tool="prompt">Launch</button>
-        </div>
-      </div>
+        // ============================================================
+        // CYNETIS MESSAGES
+        // ============================================================
+        const CYNETIS_MSGS = {
+            snapshot: ["Snapshot Cards are your knowledge anchors. Let's build one that sticks.", "Focus on the core idea – I'll add examples."],
+            prompt: ["A strong prompt is key. Choose your subject and mood.", "Think about composition – I'll handle the rest."],
+            ideas: ["Content consistency is key. Here are fresh angles for your audience.", "I've mapped these to your progress."],
+            default: ["Select a live tool to get started.", "Every master was once a beginner. Which tool calls to you?"]
+        };
 
-      <!-- 6. Image Generator – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/image-generator.jpg');" data-tool="image" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-palette"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>Image Generator</h3>
-          <p>Generate custom images from text prompts.</p>
-          <button class="btn-launch coming-soon" data-tool="image" disabled>Coming Soon</button>
-        </div>
-      </div>
+        function setCynetisMessage(tool) {
+            const msgs = CYNETIS_MSGS[tool] || CYNETIS_MSGS.default;
+            document.getElementById('cynetisText').textContent = msgs[Math.floor(Math.random() * msgs.length)];
+        }
 
-      <!-- 7. Culling Assistant – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/culling.jpg');" data-tool="culling" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-layer-group"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>Culling Assistant</h3>
-          <p>Upload a batch – AI selects the best shots.</p>
-          <button class="btn-launch coming-soon" data-tool="culling" disabled>Coming Soon</button>
-        </div>
-      </div>
+        // ============================================================
+        // SAVE CARD TO FIRESTORE (shared with snapshot-library)
+        // ============================================================
+        async function saveCardToLibrary(cardObject) {
+            if (!currentUser) {
+                showToast('Please log in first.', 'error');
+                return false;
+            }
+            try {
+                await db.collection('users').doc(currentUser.uid).set({
+                    savedCards: firebase.firestore.FieldValue.arrayUnion(cardObject)
+                }, { merge: true });
+                return true;
+            } catch (err) {
+                console.error('Save error:', err);
+                showToast('Error saving: ' + err.message, 'error');
+                return false;
+            }
+        }
 
-      <!-- 8. Style Transfer – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/style-transfer.jpg');" data-tool="style" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-paint-brush"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>Style Transfer</h3>
-          <p>Upload a reference to generate a matching preset/LUT.</p>
-          <button class="btn-launch coming-soon" data-tool="style" disabled>Coming Soon</button>
-        </div>
-      </div>
+        // ============================================================
+        // MODAL LOGIC
+        // ============================================================
+        const modal = document.getElementById('toolModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalSub = document.getElementById('modalSub');
+        const modalBody = document.getElementById('modalBody');
+        const modalClose = document.getElementById('modalClose');
 
-      <!-- 9. AI Upscaler – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/upscaler.jpg');" data-tool="upscale" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-expand"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>AI Upscaler</h3>
-          <p>Upscale low‑res images to 4K+ quality.</p>
-          <button class="btn-launch coming-soon" data-tool="upscale" disabled>Coming Soon</button>
-        </div>
-      </div>
-    </div>
+        function openModal(tool) {
+            if (!currentUser) {
+                showToast('Please sign in to use AI tools.', '');
+                return;
+            }
+            if (userPlan === 'free' && usage.total >= DAILY_LIMIT_FREE) {
+                showToast('Daily limit reached. Upgrade to Pro for unlimited.', 'coming');
+                return;
+            }
+            modal.classList.add('active');
+            setCynetisMessage(tool);
+            switch (tool) {
+                case 'snapshot':
+                    renderSnapshot();
+                    break;
+                case 'prompt':
+                    renderPrompt();
+                    break;
+                case 'ideas':
+                    renderIdeas();
+                    break;
+                default:
+                    modal.classList.remove('active');
+            }
+        }
 
-    <!-- Category: Business & Productivity -->
-    <div class="section-header reveal">
-      <h2>💼 Business &amp; Productivity</h2>
-      <p>Run your photography business like a pro.</p>
-    </div>
-    <div class="tool-grid">
+        function closeModal() {
+            modal.classList.remove('active');
+        }
+        modalClose.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
 
-      <!-- 10. Content Idea Engine – LIVE -->
-      <div class="tool-card" style="background-image: url('images/tools/content-ideas.jpg');" data-tool="ideas" data-live="true">
-        <div class="card-overlay"></div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-lightbulb"></i></span>
-            <span class="badge live">● Live</span>
-          </div>
-          <h3>Content Idea Engine</h3>
-          <p>Get 5 tailored blog, video, or social post ideas.</p>
-          <button class="btn-launch" data-tool="ideas">Launch</button>
-        </div>
-      </div>
+        // ---- Snapshot ----
+        function renderSnapshot() {
+            modalTitle.innerHTML = '<i class="fas fa-camera"></i> Snapshot Card AI';
+            modalSub.textContent = 'Generate a complete Snapshot Card for any topic.';
+            modalBody.innerHTML = `
+                <div class="input-group"><label>Topic</label><input type="text" id="snapshotTopic" placeholder="e.g., Aperture, Lighting ratios" /></div>
+                <button class="btn-neon-block" id="generateSnapshot">Generate Snapshot</button>
+                <div id="snapshotResult" class="result-box"></div>
+                <div id="snapshotError" class="error-msg"></div>
+                <button class="btn-neon-block" id="saveSnapshotBtn" style="display:none; margin-top:10px; border-color:var(--gold); color:var(--gold);">
+                    <i class="fas fa-save"></i> Save to Library
+                </button>
+                <div id="snapshotSaveStatus" class="status-msg"></div>
+            `;
 
-      <!-- 11. Proposal Generator – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/proposals.jpg');" data-tool="proposal" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-file-signature"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>Proposal Generator</h3>
-          <p>AI‑generated client proposals, contracts, and invoices.</p>
-          <button class="btn-launch coming-soon" data-tool="proposal" disabled>Coming Soon</button>
-        </div>
-      </div>
-
-      <!-- 12. Shoot Planner – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/shoot-planner.jpg');" data-tool="planner" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-clipboard-list"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>Shoot Planner</h3>
-          <p>Get a gear checklist, shot list, and timeline for any shoot.</p>
-          <button class="btn-launch coming-soon" data-tool="planner" disabled>Coming Soon</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Category: Brand & Portfolio -->
-    <div class="section-header reveal">
-      <h2>🖼️ Brand &amp; Portfolio</h2>
-      <p>Build your professional identity.</p>
-    </div>
-    <div class="tool-grid">
-
-      <!-- 13. Portfolio Builder – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/portfolio.jpg');" data-tool="portfolio" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-images"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>Portfolio Builder</h3>
-          <p>Upload images and get a polished, shareable portfolio.</p>
-          <button class="btn-launch coming-soon" data-tool="portfolio" disabled>Coming Soon</button>
-        </div>
-      </div>
-
-      <!-- 14. Brand Identity – COMING SOON -->
-      <div class="tool-card coming-soon" style="background-image: url('images/tools/brand-identity.jpg');" data-tool="brand" data-live="false">
-        <div class="card-overlay"></div>
-        <div class="coming-badge">Coming Soon</div>
-        <div class="card-content">
-          <div class="card-top">
-            <span class="tool-icon"><i class="fas fa-tag"></i></span>
-            <span class="badge coming">● Coming</span>
-          </div>
-          <h3>Brand Identity</h3>
-          <p>Generate a logo concept, color palette, tagline, and bio.</p>
-          <button class="btn-launch coming-soon" data-tool="brand" disabled>Coming Soon</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- FOOTER -->
-    <footer class="footer reveal">
-      <div class="socials">
-        <a href="https://www.youtube.com/@CamerasDecoded" target="_blank"><i class="fab fa-youtube"></i></a>
-        <a href="https://www.tiktok.com/@cameras.decoded" target="_blank"><i class="fab fa-tiktok"></i></a>
-        <a href="https://www.instagram.com/camerasdecoded/reels/" target="_blank"><i class="fab fa-instagram"></i></a>
-        <a href="https://www.facebook.com/profile.php?id=61553594660326" target="_blank"><i class="fab fa-facebook-f"></i></a>
-        <a href="https://camerasdecoded.substack.com" target="_blank"><i class="fas fa-bookmark"></i></a>
-      </div>
-      <div>© 2026 Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
-      <div class="footer-links">
-        <a href="roadmap.html">Roadmap</a> · <a href="blog-updates.html">Blog/Updates</a> · <a href="faq.html">FAQ</a> · <a href="contact.html">Contact</a> · <a href="podcast.html">Podcast</a> · <a href="terms.html">Privacy/Terms</a>
-      </div>
-    </footer>
-
-  </div>
-
-  <!-- ===== MODAL ===== -->
-  <div class="modal-overlay" id="toolModal">
-    <div class="modal-panel">
-      <button class="close-btn" id="modalClose">&times;</button>
-      <h2 id="modalTitle"><i class="fas fa-tools"></i> Tool</h2>
-      <div class="sub" id="modalSub">Fill in the details below.</div>
-      <div id="modalBody"></div>
-    </div>
-  </div>
-
-  <!-- ============================================================
-       JAVASCRIPT – Full implementation
-       ============================================================ -->
-  <script>
-    // ============================================================
-    // FIREBASE INIT (your config)
-    // ============================================================
-    const firebaseConfig = {
-      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-      authDomain: "cameras-decoded.firebaseapp.com",
-      projectId: "cameras-decoded",
-      storageBucket: "cameras-decoded.firebasestorage.app",
-      messagingSenderId: "1088920052790",
-      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-      measurementId: "G-YN3M01WW0B"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-
-    // ============================================================
-    // TOAST SYSTEM
-    // ============================================================
-    function showToast(message, type = '') {
-      const container = document.getElementById('toast-container');
-      if (!container) return;
-      const toast = document.createElement('div');
-      toast.className = 'toast' + (type ? ' ' + type : '');
-      toast.textContent = message;
-      container.appendChild(toast);
-      requestAnimationFrame(() => toast.classList.add('show'));
-      setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-      }, 3500);
-    }
-
-    // ============================================================
-    // USAGE TRACKING
-    // ============================================================
-    let currentUser = null;
-    let userPlan = 'free';
-    let usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0 };
-    const DAILY_LIMIT_FREE = 5;
-
-    async function loadUsage() {
-      if (!currentUser) return;
-      try {
-        const doc = await db.collection('users').doc(currentUser.uid).get();
-        if (doc.exists) {
-          const data = doc.data();
-          userPlan = data.tier || 'free';
-          const ai = data.aiUsage || {};
-          usage = {
-            total: ai.total || 0,
-            prompt: ai.prompt || 0,
-            snapshot: ai.snapshot || 0,
-            ideas: ai.ideas || 0
-          };
-          // Check if we need to reset daily
-          const lastReset = data.aiLastReset ? data.aiLastReset.toDate() : null;
-          const today = new Date();
-          if (!lastReset || lastReset.getDate() !== today.getDate() ||
-              lastReset.getMonth() !== today.getMonth() ||
-              lastReset.getFullYear() !== today.getFullYear()) {
-            // Reset daily usage
-            usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0 };
-            await db.collection('users').doc(currentUser.uid).update({
-              aiUsage: usage,
-              aiLastReset: firebase.firestore.FieldValue.serverTimestamp()
+            document.getElementById('generateSnapshot').addEventListener('click', async () => {
+                const topic = document.getElementById('snapshotTopic').value.trim();
+                if (!topic) {
+                    document.getElementById('snapshotError').textContent = 'Enter a topic.';
+                    return;
+                }
+                const card = generateSnapshotCard(topic);
+                const box = document.getElementById('snapshotResult');
+                box.style.display = 'block';
+                box.innerHTML =
+                    `<strong style="color:#fff;">📌 ${card.title}</strong>\n\n${card.points.map(p => '• ' + p).join('\n')}\n\n💡 ${card.tip}`;
+                document.getElementById('snapshotError').textContent = '';
+                const ok = await recordUsage('snapshot');
+                if (!ok) {
+                    document.getElementById('snapshotError').textContent = 'Usage limit reached.';
+                    return;
+                }
+                // Show save button and store card data for later
+                const saveBtn = document.getElementById('saveSnapshotBtn');
+                saveBtn.style.display = 'block';
+                saveBtn.dataset.cardTitle = card.title;
+                saveBtn.dataset.cardPoints = JSON.stringify(card.points);
+                saveBtn.dataset.cardTip = card.tip;
+                document.getElementById('snapshotSaveStatus').textContent = '';
+                document.getElementById('snapshotSaveStatus').className = 'status-msg';
             });
-          }
-        } else {
-          // Create user doc if missing
-          await db.collection('users').doc(currentUser.uid).set({
-            tier: 'free',
-            aiUsage: usage,
-            aiLastReset: firebase.firestore.FieldValue.serverTimestamp()
-          });
+
+            document.getElementById('saveSnapshotBtn').addEventListener('click', async function() {
+                const title = this.dataset.cardTitle;
+                const points = JSON.parse(this.dataset.cardPoints || '[]');
+                const tip = this.dataset.cardTip || '';
+                if (!title) {
+                    document.getElementById('snapshotSaveStatus').textContent = 'No card to save. Generate one first.';
+                    document.getElementById('snapshotSaveStatus').className = 'status-msg error';
+                    return;
+                }
+                const cardObject = {
+                    id: 'ai_' + Date.now(),
+                    name: title,
+                    content: { points, tip },
+                    imageUrl: 'https://via.placeholder.com/300x140/0A0A0A/8deb00?text=AI+Card',
+                    savedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                const success = await saveCardToLibrary(cardObject);
+                if (success) {
+                    document.getElementById('snapshotSaveStatus').textContent = '✅ Card saved to your library!';
+                    document.getElementById('snapshotSaveStatus').className = 'status-msg success';
+                    this.style.display = 'none';
+                } else {
+                    document.getElementById('snapshotSaveStatus').textContent = '❌ Failed to save.';
+                    document.getElementById('snapshotSaveStatus').className = 'status-msg error';
+                }
+            });
         }
-      } catch (e) {
-        console.warn('Usage load error:', e);
-      }
-      updateUsageUI();
-    }
 
-    async function recordUsage(tool) {
-      if (!currentUser) return;
-      if (userPlan === 'free' && usage.total >= DAILY_LIMIT_FREE) {
-        showToast('Daily limit reached. Upgrade to Pro for unlimited.', 'coming');
-        return false;
-      }
-      usage[tool] = (usage[tool] || 0) + 1;
-      usage.total = (usage.total || 0) + 1;
-      try {
-        await db.collection('users').doc(currentUser.uid).update({
-          [`aiUsage.${tool}`]: usage[tool],
-          'aiUsage.total': usage.total
-        });
-        updateUsageUI();
-        return true;
-      } catch (e) {
-        console.warn('Usage update error:', e);
-        return false;
-      }
-    }
-
-    function updateUsageUI() {
-      document.getElementById('usageCount').textContent = usage.total || 0;
-      document.getElementById('usageLimit').textContent = userPlan === 'pro' ? '∞' : DAILY_LIMIT_FREE;
-    }
-
-    // ============================================================
-    // AUTH
-    // ============================================================
-    auth.onAuthStateChanged((user) => {
-      currentUser = user;
-      if (user) {
-        loadUsage();
-        document.querySelectorAll('.btn-launch:not(.coming-soon)').forEach(btn => btn.disabled = false);
-      } else {
-        document.querySelectorAll('.btn-launch:not(.coming-soon)').forEach(btn => btn.disabled = true);
-        showToast('Sign in to use AI tools.', '');
-      }
-    });
-
-    // ============================================================
-    // CYNETIS MESSAGES
-    // ============================================================
-    const CYNETIS_MSGS = {
-      snapshot: ["Snapshot Cards are your knowledge anchors. Let's build one that sticks.", "Focus on the core idea – I'll add examples."],
-      prompt: ["A strong prompt is key. Choose your subject and mood.", "Think about composition – I'll handle the rest."],
-      ideas: ["Content consistency is key. Here are fresh angles for your audience.", "I've mapped these to your progress."],
-      default: ["Select a live tool to get started.", "Every master was once a beginner. Which tool calls to you?"]
-    };
-
-    function setCynetisMessage(tool) {
-      const msgs = CYNETIS_MSGS[tool] || CYNETIS_MSGS.default;
-      document.getElementById('cynetisText').textContent = msgs[Math.floor(Math.random() * msgs.length)];
-    }
-
-    // ============================================================
-    // MODAL LOGIC
-    // ============================================================
-    const modal = document.getElementById('toolModal');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalSub = document.getElementById('modalSub');
-    const modalBody = document.getElementById('modalBody');
-    const modalClose = document.getElementById('modalClose');
-
-    function openModal(tool) {
-      if (!currentUser) {
-        showToast('Please sign in to use AI tools.', '');
-        return;
-      }
-      if (userPlan === 'free' && usage.total >= DAILY_LIMIT_FREE) {
-        showToast('Daily limit reached. Upgrade to Pro for unlimited.', 'coming');
-        return;
-      }
-      modal.classList.add('active');
-      setCynetisMessage(tool);
-      switch (tool) {
-        case 'snapshot': renderSnapshot(); break;
-        case 'prompt': renderPrompt(); break;
-        case 'ideas': renderIdeas(); break;
-        default: modal.classList.remove('active');
-      }
-    }
-
-    function closeModal() { modal.classList.remove('active'); }
-    modalClose.addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-
-    // ---- Snapshot ----
-    function renderSnapshot() {
-      modalTitle.innerHTML = '<i class="fas fa-camera"></i> Snapshot Card AI';
-      modalSub.textContent = 'Generate a complete Snapshot Card for any topic.';
-      modalBody.innerHTML = `
-        <div class="input-group"><label>Topic</label><input type="text" id="snapshotTopic" placeholder="e.g., Aperture, Lighting ratios" /></div>
-        <button class="btn-neon-block" id="generateSnapshot">Generate Snapshot</button>
-        <div id="snapshotResult" class="result-box"></div>
-        <div id="snapshotError" class="error-msg"></div>
-      `;
-      document.getElementById('generateSnapshot').addEventListener('click', async () => {
-        const topic = document.getElementById('snapshotTopic').value.trim();
-        if (!topic) { document.getElementById('snapshotError').textContent = 'Enter a topic.'; return; }
-        const card = generateSnapshotCard(topic);
-        const box = document.getElementById('snapshotResult');
-        box.style.display = 'block';
-        box.innerHTML = `<strong style="color:#fff;">📌 ${card.title}</strong>\n\n${card.points.map(p => '• ' + p).join('\n')}\n\n💡 ${card.tip}`;
-        const ok = await recordUsage('snapshot');
-        if (!ok) document.getElementById('snapshotError').textContent = 'Usage limit reached.';
-      });
-    }
-    function generateSnapshotCard(topic) {
-      const templates = {
-        'aperture': { title: 'Mastering Aperture', points: ['Controls depth of field', 'Affects light intake (f-stop)', 'Wide open (f/1.4) for bokeh'], tip: 'Use aperture priority mode.' },
-        'lighting': { title: 'Lighting Ratios', points: ['Key light vs fill light', '2:1 = soft contrast', '4:1 = dramatic'], tip: 'Start with window light.' }
-      };
-      const key = topic.toLowerCase();
-      if (templates[key]) return templates[key];
-      return { title: `Snapshot: ${topic}`, points: [`Core principle of ${topic}`, 'Real-world application', 'Quick win technique'], tip: `Practice ${topic} daily.` };
-    }
-
-    // ---- Prompt ----
-    function renderPrompt() {
-      modalTitle.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Prompt Generator';
-      modalSub.textContent = 'Craft a detailed prompt for AI image/video models.';
-      modalBody.innerHTML = `
-        <div class="input-group"><label>Subject</label><select id="pSubject"><option value="portrait">Portrait</option><option value="landscape">Landscape</option><option value="product">Product</option></select></div>
-        <div class="input-group"><label>Style</label><select id="pStyle"><option value="cinematic">Cinematic</option><option value="realistic">Hyper-realistic</option><option value="vintage">Vintage</option></select></div>
-        <div class="input-group"><label>Mood</label><select id="pMood"><option value="dramatic">Dramatic</option><option value="bright">Bright</option><option value="moody">Moody</option></select></div>
-        <button class="btn-neon-block" id="generatePrompt">Generate Prompt</button>
-        <div id="promptResult" class="result-box"></div>
-        <button class="copy-btn" id="copyPromptBtn">📋 Copy</button>
-        <div id="promptError" class="error-msg"></div>
-      `;
-      document.getElementById('generatePrompt').addEventListener('click', async () => {
-        const subject = document.getElementById('pSubject').value;
-        const style = document.getElementById('pStyle').value;
-        const mood = document.getElementById('pMood').value;
-        const prompt = `${subject} in ${style} style, ${mood} lighting, highly detailed, 8k.`;
-        const box = document.getElementById('promptResult');
-        box.style.display = 'block';
-        box.textContent = prompt;
-        document.getElementById('copyPromptBtn').style.display = 'inline-block';
-        const ok = await recordUsage('prompt');
-        if (!ok) document.getElementById('promptError').textContent = 'Usage limit reached.';
-      });
-      document.getElementById('copyPromptBtn').addEventListener('click', () => {
-        navigator.clipboard.writeText(document.getElementById('promptResult').textContent)
-          .then(() => showToast('Copied!', ''));
-      });
-    }
-
-    // ---- Ideas ----
-    function renderIdeas() {
-      modalTitle.innerHTML = '<i class="fas fa-lightbulb"></i> Content Idea Engine';
-      modalSub.textContent = 'Get 5 tailored content ideas.';
-      modalBody.innerHTML = `
-        <div class="input-group"><label>Focus</label><select id="ideasFocus"><option value="photography">Photography</option><option value="business">Business</option><option value="editing">Editing</option><option value="gear">Gear</option></select></div>
-        <button class="btn-neon-block" id="generateIdeas">Generate Ideas</button>
-        <div id="ideasResult" class="result-box"></div>
-        <div id="ideasError" class="error-msg"></div>
-      `;
-      document.getElementById('generateIdeas').addEventListener('click', async () => {
-        const focus = document.getElementById('ideasFocus').value;
-        const ideas = getContentIdeas(focus);
-        const box = document.getElementById('ideasResult');
-        box.style.display = 'block';
-        box.innerHTML = ideas.map((idea, i) => `${i+1}. ${idea}`).join('\n');
-        const ok = await recordUsage('ideas');
-        if (!ok) document.getElementById('ideasError').textContent = 'Usage limit reached.';
-      });
-    }
-    function getContentIdeas(focus) {
-      const map = {
-        'photography': ['5 common composition mistakes', 'Finding your style', 'Histogram guide', 'Portrait lighting breakdown', 'Street photography tips'],
-        'business': ['Pricing your services', 'Referral systems', 'Client pitch formula', 'Social media strategy', 'Passive income with prints'],
-        'editing': ['Lightroom shortcuts', 'Color grading workflow', 'Skin retouching', 'Cinematic LUTs', 'Color matching'],
-        'gear': ['Full-frame vs crop', 'Best budget lenses', 'Camera settings for genres', 'What\'s in my bag', 'Testing used lenses']
-      };
-      return map[focus] || map['photography'];
-    }
-
-    // ============================================================
-    // EVENT LISTENERS – launch buttons
-    // ============================================================
-    document.querySelectorAll('.btn-launch').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const tool = btn.dataset.tool;
-        const card = btn.closest('.tool-card');
-        // Check if it's a "coming soon" card
-        if (card && card.classList.contains('coming-soon')) {
-          showToast('Coming soon – stay tuned!', 'coming');
-          return;
+        function generateSnapshotCard(topic) {
+            const templates = {
+                'aperture': { title: 'Mastering Aperture', points: ['Controls depth of field', 'Affects light intake (f-stop)',
+                        'Wide open (f/1.4) for bokeh'
+                    ], tip: 'Use aperture priority mode.' },
+                'lighting': { title: 'Lighting Ratios', points: ['Key light vs fill light', '2:1 = soft contrast',
+                        '4:1 = dramatic'
+                    ], tip: 'Start with window light.' }
+            };
+            const key = topic.toLowerCase();
+            if (templates[key]) return templates[key];
+            return { title: `Snapshot: ${topic}`, points: [`Core principle of ${topic}`, 'Real-world application',
+                    'Quick win technique'
+                ], tip: `Practice ${topic} daily.` };
         }
-        // Live tools
-        openModal(tool);
-      });
-    });
 
-    // Allow clicking on the card itself (except on buttons)
-    document.querySelectorAll('.tool-card').forEach(card => {
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('.btn-launch')) return;
-        const btn = card.querySelector('.btn-launch');
-        if (btn) btn.click();
-      });
-    });
+        // ---- Prompt ----
+        function renderPrompt() {
+            modalTitle.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Prompt Generator';
+            modalSub.textContent = 'Craft a detailed prompt for AI image/video models.';
+            modalBody.innerHTML = `
+                <div class="input-group"><label>Subject</label><select id="pSubject"><option value="portrait">Portrait</option><option value="landscape">Landscape</option><option value="product">Product</option></select></div>
+                <div class="input-group"><label>Style</label><select id="pStyle"><option value="cinematic">Cinematic</option><option value="realistic">Hyper-realistic</option><option value="vintage">Vintage</option></select></div>
+                <div class="input-group"><label>Mood</label><select id="pMood"><option value="dramatic">Dramatic</option><option value="bright">Bright</option><option value="moody">Moody</option></select></div>
+                <button class="btn-neon-block" id="generatePrompt">Generate Prompt</button>
+                <div id="promptResult" class="result-box"></div>
+                <button class="copy-btn" id="copyPromptBtn">📋 Copy</button>
+                <div id="promptError" class="error-msg"></div>
+            `;
+            document.getElementById('generatePrompt').addEventListener('click', async () => {
+                const subject = document.getElementById('pSubject').value;
+                const style = document.getElementById('pStyle').value;
+                const mood = document.getElementById('pMood').value;
+                const prompt = `${subject} in ${style} style, ${mood} lighting, highly detailed, 8k.`;
+                const box = document.getElementById('promptResult');
+                box.style.display = 'block';
+                box.textContent = prompt;
+                document.getElementById('copyPromptBtn').style.display = 'inline-block';
+                const ok = await recordUsage('prompt');
+                if (!ok) document.getElementById('promptError').textContent = 'Usage limit reached.';
+            });
+            document.getElementById('copyPromptBtn').addEventListener('click', () => {
+                navigator.clipboard.writeText(document.getElementById('promptResult').textContent)
+                    .then(() => showToast('Copied!', ''));
+            });
+        }
 
-    // ============================================================
-    // SCROLL REVEAL
-    // ============================================================
-    document.addEventListener('DOMContentLoaded', () => {
-      const reveals = document.querySelectorAll('.reveal');
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-          }
+        // ---- Ideas ----
+        function renderIdeas() {
+            modalTitle.innerHTML = '<i class="fas fa-lightbulb"></i> Content Idea Engine';
+            modalSub.textContent = 'Get 5 tailored content ideas.';
+            modalBody.innerHTML = `
+                <div class="input-group"><label>Focus</label><select id="ideasFocus"><option value="photography">Photography</option><option value="business">Business</option><option value="editing">Editing</option><option value="gear">Gear</option></select></div>
+                <button class="btn-neon-block" id="generateIdeas">Generate Ideas</button>
+                <div id="ideasResult" class="result-box"></div>
+                <div id="ideasError" class="error-msg"></div>
+            `;
+            document.getElementById('generateIdeas').addEventListener('click', async () => {
+                const focus = document.getElementById('ideasFocus').value;
+                const ideas = getContentIdeas(focus);
+                const box = document.getElementById('ideasResult');
+                box.style.display = 'block';
+                box.innerHTML = ideas.map((idea, i) => `${i+1}. ${idea}`).join('\n');
+                const ok = await recordUsage('ideas');
+                if (!ok) document.getElementById('ideasError').textContent = 'Usage limit reached.';
+            });
+        }
+
+        function getContentIdeas(focus) {
+            const map = {
+                'photography': ['5 common composition mistakes', 'Finding your style', 'Histogram guide',
+                    'Portrait lighting breakdown', 'Street photography tips'
+                ],
+                'business': ['Pricing your services', 'Referral systems', 'Client pitch formula',
+                    'Social media strategy', 'Passive income with prints'
+                ],
+                'editing': ['Lightroom shortcuts', 'Color grading workflow', 'Skin retouching', 'Cinematic LUTs',
+                    'Color matching'
+                ],
+                'gear': ['Full-frame vs crop', 'Best budget lenses', 'Camera settings for genres',
+                    'What\'s in my bag', 'Testing used lenses'
+                ]
+            };
+            return map[focus] || map['photography'];
+        }
+
+        // ============================================================
+        // EVENT LISTENERS – launch buttons
+        // ============================================================
+        document.querySelectorAll('.btn-launch').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tool = btn.dataset.tool;
+                const card = btn.closest('.tool-card');
+                if (card && card.classList.contains('coming-soon')) {
+                    showToast('Coming soon – stay tuned!', 'coming');
+                    return;
+                }
+                openModal(tool);
+            });
         });
-      }, { threshold: 0.1 });
-      reveals.forEach(el => observer.observe(el));
-    });
 
-    // ============================================================
-    // CART UI (for consistency)
-    // ============================================================
-    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
-    // Not needed on this page, but kept for future.
+        // Allow clicking on the card itself (except on buttons)
+        document.querySelectorAll('.tool-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-launch')) return;
+                const btn = card.querySelector('.btn-launch');
+                if (btn) btn.click();
+            });
+        });
 
-    console.log('🚀 AI Workbench – 3 live tools, 11 coming soon.');
-  </script>
+        // ============================================================
+        // SCROLL REVEAL
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            const reveals = document.querySelectorAll('.reveal');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.1 });
+            reveals.forEach(el => observer.observe(el));
+        });
+
+        // ============================================================
+        // CART UI (for consistency)
+        // ============================================================
+        function getCart() {
+            return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
+        }
+
+        // Not used on this page, but kept for future.
+
+        console.log('🚀 AI Workbench – 3 live tools, 11 coming soon.');
+    </script>
+
 </body>
 </html>
