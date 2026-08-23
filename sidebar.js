@@ -1,5 +1,5 @@
 // ================================================================
-// SHARED SIDEBAR – exactly matches operator-dashboard sidebar
+// SHARED SIDEBAR – auth‑aware (hides Dashboard/Profile/Settings/Billing/Logout for guests)
 // ================================================================
 
 (function() {
@@ -14,15 +14,9 @@
         <div class="profile-email" id="sidebarEmail">loading...</div>
       </div>
       <nav class="sidebar-nav">
-        <!-- Group 1: Dashboard & Home -->
+        <!-- Group 1: Public (always visible) -->
         <div class="nav-group">
-          <a href="operator-dashboard.html" class="nav-item" data-page="operator-dashboard.html"><i class="fas fa-chart-simple"></i> Dashboard</a>
           <a href="index.html" class="nav-item" data-page="index.html"><i class="fas fa-home"></i> Home</a>
-        </div>
-        <hr class="sidebar-divider">
-
-        <!-- Group 2: Community / Roles -->
-        <div class="nav-group">
           <a href="operators.html" class="nav-item" data-page="operators.html"><i class="fas fa-user-astronaut"></i> Operators</a>
           <a href="community.html" class="nav-item" data-page="community.html"><i class="fas fa-users"></i> Community</a>
           <a href="educators-pdf-viewer.html" class="nav-item" data-page="educators-pdf-viewer.html"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
@@ -30,7 +24,7 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- Group 3: Journey, Products, Protocols, Snapshot Cards, Cynetis-7 -->
+        <!-- Group 2: Mixed (Journey, Products, Protocols, Snapshot, Cynetis-7) – visible to all -->
         <div class="nav-group">
           <a href="journey.html" class="nav-item" data-page="journey.html"><i class="fas fa-route"></i> Journey</a>
           <a href="products.html" class="nav-item" data-page="products.html"><i class="fas fa-box-open"></i> Products</a>
@@ -40,7 +34,7 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- Group 4: Blog, Podcast, Inner Signal -->
+        <!-- Group 3: Blog, Podcast, Inner Signal – visible to all -->
         <div class="nav-group">
           <a href="blog-updates.html" class="nav-item" data-page="blog-updates.html"><i class="fas fa-newspaper"></i> Blog/Updates</a>
           <a href="podcast.html" class="nav-item" data-page="podcast.html"><i class="fas fa-podcast"></i> Podcast</a>
@@ -48,12 +42,19 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- Group 5: Profile, Settings, Billing, Logout -->
-        <div class="nav-group">
+        <!-- PRIVATE LINKS (hidden when logged out) -->
+        <div class="nav-group private-links" id="privateLinks" style="display:none;">
+          <a href="operator-dashboard.html" class="nav-item" data-page="operator-dashboard.html"><i class="fas fa-chart-simple"></i> Dashboard</a>
           <a href="profile.html" class="nav-item" data-page="profile.html"><i class="fas fa-id-card"></i> Profile</a>
           <a href="#" class="nav-item" data-page="settings.html"><i class="fas fa-cog"></i> Settings</a>
           <a href="#" class="nav-item" data-page="billing.html"><i class="fas fa-credit-card"></i> Billing</a>
           <a href="#" class="nav-item" onclick="handleLogout(); return false;" style="color:#ff4a4a;"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+
+        <!-- AUTH CTA (shown when logged out) -->
+        <div class="nav-group auth-cta" id="authCta" style="display:flex; flex-direction:column; gap:8px; padding-top:4px;">
+          <a href="login.html" class="nav-item" style="border:1px solid var(--green); border-radius:30px; justify-content:center; color:var(--green);"><i class="fas fa-sign-in-alt"></i> Log in</a>
+          <a href="signup.html" class="nav-item" style="border:1px solid var(--green); border-radius:30px; justify-content:center; background:var(--green); color:#000;"><i class="fas fa-user-plus"></i> Sign Up</a>
         </div>
 
         <!-- Admin-only links (hidden by default, shown if user is admin) -->
@@ -64,7 +65,7 @@
         </div>
       </nav>
 
-      <!-- Announcement section (matches operator dashboard) -->
+      <!-- Announcement section -->
       <div class="sidebar-notification" id="sidebarNotification">
         <div class="notif-header">
           <i class="fas fa-bullhorn"></i>
@@ -88,7 +89,7 @@
       document.body.prepend(div);
     }
     // Set active link based on current page
-    const path = window.location.pathname.split('/').pop() || 'operator-dashboard.html';
+    const path = window.location.pathname.split('/').pop() || 'index.html';
     document.querySelectorAll('.sidebar-nav .nav-item').forEach(link => {
       const href = link.getAttribute('data-page');
       if (href === path) {
@@ -97,8 +98,35 @@
         link.classList.remove('active');
       }
     });
+    // Update visibility based on auth state
+    updateAuthVisibility();
     // Show admin links if user is admin
     checkAndShowAdminLinks();
+  }
+
+  // ---- Toggle private links vs auth CTA based on user ----
+  function updateAuthVisibility() {
+    const user = firebase.auth().currentUser;
+    const privateLinks = document.getElementById('privateLinks');
+    const authCta = document.getElementById('authCta');
+    const profileName = document.getElementById('sidebarUsername');
+    const profileEmail = document.getElementById('sidebarEmail');
+    const avatar = document.querySelector('.profile-avatar');
+
+    if (user) {
+      // Logged in: show private, hide auth CTA
+      if (privateLinks) privateLinks.style.display = 'flex';
+      if (authCta) authCta.style.display = 'none';
+      // Profile info will be loaded by loadSidebarProfile()
+    } else {
+      // Logged out: hide private, show auth CTA
+      if (privateLinks) privateLinks.style.display = 'none';
+      if (authCta) authCta.style.display = 'flex';
+      // Reset profile to guest
+      if (profileName) profileName.textContent = 'Guest';
+      if (profileEmail) profileEmail.textContent = 'Not logged in';
+      if (avatar) avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
+    }
   }
 
   // ---- Check admin role and show admin-only links ----
@@ -120,7 +148,10 @@
   async function loadSidebarProfile() {
     try {
       const user = firebase.auth().currentUser;
-      if (!user) return;
+      if (!user) {
+        updateAuthVisibility();
+        return;
+      }
       const doc = await firebase.firestore().collection('users').doc(user.uid).get();
       if (doc.exists) {
         const data = doc.data();
@@ -129,6 +160,8 @@
         const avatar = document.querySelector('.profile-avatar');
         if (data.photoURL) avatar.style.backgroundImage = `url(${data.photoURL})`;
       }
+      // Ensure private links are visible now that we're logged in
+      updateAuthVisibility();
     } catch (e) {
       console.warn('Could not load profile:', e);
     }
@@ -143,7 +176,6 @@
       const container = document.getElementById('sidebarNotification');
       if (!announcementEl || !container) return;
 
-      // Real-time listener: updates every sidebar immediately when admin publishes
       db.collection('admin').doc('announcement').onSnapshot((doc) => {
         if (doc.exists && doc.data().active && doc.data().message) {
           const data = doc.data();
@@ -189,6 +221,10 @@
           loadSidebarProfile();
           loadAndListenToAnnouncement();
           checkAndShowAdminLinks();
+        } else {
+          updateAuthVisibility();
+          // Still load announcement (it's public)
+          loadAndListenToAnnouncement();
         }
       });
     }
