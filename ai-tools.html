@@ -1160,6 +1160,27 @@
         });
 
         // ============================================================
+        // SAVE CARD TO FIRESTORE (shared with snapshot-library)
+        // ============================================================
+        window.saveCardToLibrary = async function(cardObject) {
+            if (!currentUser) {
+                showToast('Please log in first.', 'error');
+                return false;
+            }
+            try {
+                await db.collection('users').doc(currentUser.uid).set({
+                    savedCards: firebase.firestore.FieldValue.arrayUnion(cardObject)
+                }, { merge: true });
+                showToast('✅ Card saved to your library!', '');
+                return true;
+            } catch (err) {
+                console.error('Save error:', err);
+                showToast('Error saving: ' + err.message, 'error');
+                return false;
+            }
+        };
+
+        // ============================================================
         // CYNETIS MESSAGES
         // ============================================================
         const CYNETIS_MSGS = {
@@ -1172,26 +1193,6 @@
         function setCynetisMessage(tool) {
             const msgs = CYNETIS_MSGS[tool] || CYNETIS_MSGS.default;
             document.getElementById('cynetisText').textContent = msgs[Math.floor(Math.random() * msgs.length)];
-        }
-
-        // ============================================================
-        // SAVE CARD TO FIRESTORE (shared with snapshot-library)
-        // ============================================================
-        async function saveCardToLibrary(cardObject) {
-            if (!currentUser) {
-                showToast('Please log in first.', 'error');
-                return false;
-            }
-            try {
-                await db.collection('users').doc(currentUser.uid).set({
-                    savedCards: firebase.firestore.FieldValue.arrayUnion(cardObject)
-                }, { merge: true });
-                return true;
-            } catch (err) {
-                console.error('Save error:', err);
-                showToast('Error saving: ' + err.message, 'error');
-                return false;
-            }
         }
 
         // ============================================================
@@ -1242,7 +1243,7 @@
             modalTitle.innerHTML = '<i class="fas fa-camera"></i> Snapshot Card AI';
             modalSub.textContent = 'Generate a complete Snapshot Card for any topic.';
             modalBody.innerHTML = `
-                <div class="input-group"><label>Topic</label><input type="text" id="snapshotTopic" placeholder="e.g., Aperture, Lighting ratios" /></div>
+                <div class="input-group"><label>Topic</label><input type="text" id="snapshotTopic" placeholder="e.g., Aperture, Lighting ratios, Shutter speed" /></div>
                 <button class="btn-neon-block" id="generateSnapshot">Generate Snapshot</button>
                 <div id="snapshotResult" class="result-box"></div>
                 <div id="snapshotError" class="error-msg"></div>
@@ -1295,7 +1296,7 @@
                     imageUrl: 'https://via.placeholder.com/300x140/0A0A0A/8deb00?text=AI+Card',
                     savedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
-                const success = await saveCardToLibrary(cardObject);
+                const success = await window.saveCardToLibrary(cardObject);
                 if (success) {
                     document.getElementById('snapshotSaveStatus').textContent = '✅ Card saved to your library!';
                     document.getElementById('snapshotSaveStatus').className = 'status-msg success';
@@ -1308,19 +1309,31 @@
         }
 
         function generateSnapshotCard(topic) {
+            // Expanded dictionary for common photography concepts
             const templates = {
-                'aperture': { title: 'Mastering Aperture', points: ['Controls depth of field', 'Affects light intake (f-stop)',
-                        'Wide open (f/1.4) for bokeh'
-                    ], tip: 'Use aperture priority mode.' },
-                'lighting': { title: 'Lighting Ratios', points: ['Key light vs fill light', '2:1 = soft contrast',
-                        '4:1 = dramatic'
-                    ], tip: 'Start with window light.' }
+                'aperture': { title: 'Mastering Aperture', points: ['Controls depth of field', 'Affects light intake (f-stop)', 'Wide open (f/1.4) for bokeh', 'Smaller apertures (f/16) for landscapes'], tip: 'Use aperture priority mode to practice.' },
+                'shutter speed': { title: 'Shutter Speed 101', points: ['Freezes motion (fast speeds like 1/1000)', 'Creates motion blur (slow speeds like 1/30)', 'Syncs with flash at 1/125-1/250', 'Use a tripod below 1/60'], tip: 'Start with 1/125s for general handheld shooting.' },
+                'shutter': { title: 'Shutter Speed 101', points: ['Freezes motion (fast speeds)', 'Creates motion blur (slow speeds)', 'Syncs with flash', 'Use a tripod below 1/60'], tip: 'Start with 1/125s for general handheld shooting.' },
+                'iso': { title: 'ISO Explained', points: ['Base ISO for max quality (usually 100)', 'Higher ISO = more noise and grain', 'Auto ISO in priority modes can help', 'Modern cameras handle ISO 6400 well'], tip: 'Keep ISO as low as possible, but don\'t be afraid to raise it for exposure.' },
+                'composition': { title: 'Rule of Thirds', points: ['Place subject on intersecting grid lines', 'Lead with negative space', 'Break the rule intentionally for effect'], tip: 'Turn on your camera\'s grid overlay to practice.' },
+                'white balance': { title: 'White Balance Mastery', points: ['Use a neutral grey card for accuracy', 'Shoot RAW for flexibility', 'Tungsten vs Daylight – color temperature matters', 'Kelvin values help fine‑tune'], tip: 'Set a custom white balance for consistent color.' },
+                'lighting': { title: 'Lighting Ratios', points: ['Key light vs fill light', '2:1 = soft contrast', '4:1 = dramatic', 'Use reflectors to fill shadows'], tip: 'Start with window light – it\'s free and beautiful.' },
+                'flash': { title: 'Flash Photography Basics', points: ['Bounce flash off ceilings/walls', 'Use diffusers to soften light', 'Sync speed limits', 'Fill flash for backlit subjects'], tip: 'Master one flash off‑camera first.' },
+                'raw': { title: 'Shooting RAW', points: ['More dynamic range than JPEG', 'Non‑destructive editing', 'Better white balance flexibility', 'Requires post‑processing'], tip: 'Shoot RAW+JPEG while learning to edit.' },
+                'histogram': { title: 'Understanding Histograms', points: ['Shows tonal distribution', 'Left = shadows, right = highlights', 'Clipping loses detail', 'Aim for a balanced curve'], tip: 'Use the histogram to avoid blown highlights.' },
+                'bokeh': { title: 'Bokeh & Depth of Field', points: ['Wide apertures (f/1.4) create blur', 'Longer focal length = more blur', 'Distance between subject and background matters', 'Bokeh quality depends on lens design'], tip: 'Shoot wide open with a fast prime lens for creamy bokeh.' },
+                'focal length': { title: 'Focal Length Guide', points: ['Wide (24mm) for landscapes', 'Normal (50mm) for everyday', 'Tele (85mm+) for portraits', 'Zoom vs prime – pros and cons'], tip: 'A 50mm prime is great for beginners.' },
+                'exposure': { title: 'Exposure Triangle', points: ['Aperture, Shutter Speed, ISO work together', 'Change one, adjust the other to compensate', 'Exposure compensation for fine‑tuning', 'Use manual mode to learn'], tip: 'Practice using manual mode with your camera\'s light meter.' },
+                'manual': { title: 'Manual Mode Mastery', points: ['Full control over aperture, shutter, ISO', 'Use light meter to guide exposure', 'Practice in changing light conditions', 'Don\'t be afraid to experiment'], tip: 'Start in a controlled environment (studio or still life).' }
             };
             const key = topic.toLowerCase();
             if (templates[key]) return templates[key];
-            return { title: `Snapshot: ${topic}`, points: [`Core principle of ${topic}`, 'Real-world application',
-                    'Quick win technique'
-                ], tip: `Practice ${topic} daily.` };
+            // Fallback with the topic included
+            return {
+                title: `Snapshot: ${topic}`,
+                points: [`Core principle of ${topic}`, 'Real‑world application', 'Quick win technique'],
+                tip: `Practice ${topic} daily to improve.`
+            };
         }
 
         // ---- Prompt ----
@@ -1439,8 +1452,6 @@
         function getCart() {
             return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
         }
-
-        // Not used on this page, but kept for future.
 
         console.log('🚀 AI Workbench – 3 live tools, 11 coming soon.');
     </script>
