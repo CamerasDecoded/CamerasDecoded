@@ -556,6 +556,7 @@
             color: var(--text-muted);
         }
         .tier-saved .tier-header .add-card-btn {
+            text-decoration: none;
             padding: 4px 16px;
             background: var(--green);
             border: none;
@@ -716,104 +717,9 @@
         }
 
         /* ============================================================
-           ADD CARD MODAL
+           ADD CARD MODAL – REMOVED (now links to AI tools)
            ============================================================ */
-        .add-card-modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .add-card-modal.open {
-            display: flex;
-        }
-        .add-card-modal .modal-content {
-            background: var(--bg-panel);
-            border: 1px solid var(--border-dim);
-            border-radius: 12px;
-            padding: 28px 24px;
-            max-width: 420px;
-            width: 100%;
-            position: relative;
-        }
-        .add-card-modal .modal-content .close-modal {
-            position: absolute;
-            top: 12px;
-            right: 16px;
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            font-size: 22px;
-            cursor: pointer;
-        }
-        .add-card-modal .modal-content .close-modal:hover {
-            color: #fff;
-        }
-        .add-card-modal .modal-content h3 {
-            font-family: 'Space Mono', monospace;
-            color: var(--green);
-            margin-bottom: 6px;
-            font-size: 18px;
-        }
-        .add-card-modal .modal-content .modal-sub {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 16px;
-            opacity: 0.7;
-        }
-        .add-card-modal .modal-content input {
-            width: 100%;
-            padding: 10px 14px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--border-dim);
-            border-radius: 6px;
-            color: #fff;
-            font-size: 13px;
-            font-family: 'Montserrat', sans-serif;
-            margin-bottom: 12px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .add-card-modal .modal-content input:focus {
-            border-color: var(--green);
-        }
-        .add-card-modal .modal-content .btn-submit {
-            width: 100%;
-            padding: 10px;
-            background: var(--green);
-            border: none;
-            border-radius: 6px;
-            color: #000;
-            font-family: 'Space Mono', monospace;
-            font-size: 14px;
-            font-weight: 700;
-            transition: 0.2s;
-            cursor: pointer;
-        }
-        .add-card-modal .modal-content .btn-submit:hover {
-            transform: scale(1.02);
-            box-shadow: 0 0 30px rgba(141, 235, 0, 0.3);
-        }
-        .add-card-modal .modal-content .btn-submit:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .add-card-modal .modal-content .status-msg {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-top: 10px;
-            text-align: center;
-        }
-        .add-card-modal .modal-content .status-msg.success {
-            color: var(--green);
-        }
-        .add-card-modal .modal-content .status-msg.error {
-            color: #ff4a4a;
-        }
+        /* (keeping styles just in case, but modal is gone) */
 
         /* ============================================================
            LOGIN PROMPT
@@ -1235,8 +1141,8 @@
                         <span class="card-count" id="card-count">0 saved</span>
                     </div>
                     <div style="display:flex; flex-direction:column; align-items:flex-end;">
-                        <button class="add-card-btn" id="open-add-card-btn"><i class="fas fa-plus"></i> Custom Card</button>
-                        <span class="add-card-helper">manual entry — name + image URL</span>
+                        <a href="ai-tools.html" class="add-card-btn"><i class="fas fa-plus"></i> Custom Card</a>
+                        <span class="add-card-helper">Create with AI Workbench</span>
                     </div>
                 </div>
 
@@ -1285,19 +1191,6 @@
             </div>
         </footer>
 
-    </div>
-
-    <!-- ===== ADD CARD MODAL ===== -->
-    <div class="add-card-modal" id="add-card-modal">
-        <div class="modal-content">
-            <button class="close-modal" id="close-modal">✕</button>
-            <h3><i class="fas fa-plus-circle"></i> Custom Snapshot Card</h3>
-            <div class="modal-sub">Enter a name and optional image URL for a card not found in the Atlas.</div>
-            <input type="text" id="modal-card-name" placeholder="Card name (e.g., Sony A7IV Portrait)" />
-            <input type="text" id="modal-card-image" placeholder="Image URL (optional)" />
-            <button class="btn-submit" id="modal-add-btn"><i class="fas fa-save"></i> Save to Library</button>
-            <div id="modal-status" class="status-msg"></div>
-        </div>
     </div>
 
     <!-- ============================================================
@@ -1437,14 +1330,6 @@
         const cartCount = document.getElementById('cartHeaderCount');
         const cartLabel = document.getElementById('cartHeaderLabel');
 
-        const modal = document.getElementById('add-card-modal');
-        const openModalBtn = document.getElementById('open-add-card-btn');
-        const closeModalBtn = document.getElementById('close-modal');
-        const modalName = document.getElementById('modal-card-name');
-        const modalImage = document.getElementById('modal-card-image');
-        const modalAddBtn = document.getElementById('modal-add-btn');
-        const modalStatus = document.getElementById('modal-status');
-
         const carouselLeft = document.getElementById('carousel-left');
         const carouselRight = document.getElementById('carousel-right');
 
@@ -1455,6 +1340,23 @@
         let unsubscribeFirestore = null;
         let savedCards = [];
         let savedCardIds = [];
+
+        // ============================================================
+        // TOAST (simple)
+        // ============================================================
+        function showToast(message, type = '') {
+            const container = document.getElementById('cd-toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'cd-toast' + (type === 'error' ? ' error' : '');
+            toast.textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
 
         // ============================================================
         // ATLAS ARTICLES — image filename convention: {slug}-card.png
@@ -1900,15 +1802,15 @@
         }
 
         // ============================================================
-        // SAVE FROM ATLAS
+        // SAVE FROM ATLAS (with toast confirmation)
         // ============================================================
         window.saveAtlasCard = function(slug) {
             if (!currentUid) {
-                alert('Please log in first.');
+                showToast('Please log in first.', 'error');
                 return;
             }
             if (savedCardIds.includes(slug)) {
-                alert('Already saved.');
+                showToast('Already saved.');
                 return;
             }
 
@@ -1926,84 +1828,12 @@
             };
 
             saveCard(newCard).then(() => {
-                // snapshot updates UI
+                showToast('✅ Card saved to your library!');
             }).catch(err => {
                 console.error('Save error:', err);
-                alert('Error saving: ' + err.message);
+                showToast('Error saving: ' + err.message, 'error');
             });
         };
-
-        // ============================================================
-        // MODAL ADD CARD
-        // ============================================================
-        modalAddBtn.addEventListener('click', async () => {
-            if (!currentUid) {
-                modalStatus.textContent = 'Please log in first.';
-                modalStatus.className = 'status-msg error';
-                return;
-            }
-
-            const name = modalName.value.trim();
-            if (!name) {
-                modalStatus.textContent = 'Please enter a card name.';
-                modalStatus.className = 'status-msg error';
-                return;
-            }
-
-            const imageUrl = modalImage.value.trim() ||
-                'https://via.placeholder.com/300x140/0A0A0A/8deb00?text=Snapshot+Card';
-            const id = 'card_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-
-            const newCard = {
-                id: id,
-                name: name,
-                imageUrl: imageUrl,
-                savedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-
-            modalAddBtn.disabled = true;
-            modalAddBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-
-            try {
-                await saveCard(newCard);
-                modalStatus.textContent = '✅ Card saved successfully!';
-                modalStatus.className = 'status-msg success';
-                modalName.value = '';
-                modalImage.value = '';
-                setTimeout(() => closeModal(), 1200);
-            } catch (err) {
-                console.error('Add card error:', err);
-                modalStatus.textContent = '❌ Error: ' + err.message;
-                modalStatus.className = 'status-msg error';
-            } finally {
-                modalAddBtn.disabled = false;
-                modalAddBtn.innerHTML = '<i class="fas fa-save"></i> Save to Library';
-            }
-        });
-
-        // ============================================================
-        // MODAL OPEN/CLOSE
-        // ============================================================
-        function openModal() {
-            modal.classList.add('open');
-            modalName.value = '';
-            modalImage.value = '';
-            modalStatus.textContent = '';
-            modalStatus.className = 'status-msg';
-            modalAddBtn.disabled = false;
-            modalAddBtn.innerHTML = '<i class="fas fa-save"></i> Save to Library';
-            setTimeout(() => modalName.focus(), 200);
-        }
-
-        function closeModal() {
-            modal.classList.remove('open');
-        }
-
-        openModalBtn.addEventListener('click', openModal);
-        closeModalBtn.addEventListener('click', closeModal);
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
-        });
 
         // ============================================================
         // CAROUSEL SCROLL
