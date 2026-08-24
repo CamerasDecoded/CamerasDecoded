@@ -14,7 +14,7 @@
         <div class="profile-email" id="sidebarEmail">loading...</div>
       </div>
       <nav class="sidebar-nav">
-        <!-- Group 1: Public (always visible) -->
+        <!-- Group 1: Public -->
         <div class="nav-group">
           <a href="index.html" class="nav-item" data-page="index.html"><i class="fas fa-home"></i> Home</a>
           <a href="operators.html" class="nav-item" data-page="operators.html"><i class="fas fa-user-astronaut"></i> Operators</a>
@@ -24,7 +24,7 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- Group 2: Mixed (Journey, Learning Modules, Products, Protocols, Snapshot, Cynetis-7) -->
+        <!-- Group 2: Mixed -->
         <div class="nav-group">
           <a href="journey.html" class="nav-item" data-page="journey.html"><i class="fas fa-route"></i> Journey</a>
           <a href="learning-journey.html" class="nav-item" data-page="learning-journey.html"><i class="fas fa-graduation-cap"></i> Learning Modules</a>
@@ -43,7 +43,7 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- PRIVATE LINKS (hidden when logged out) -->
+        <!-- PRIVATE LINKS -->
         <div class="nav-group private-links" id="privateLinks" style="display:none;">
           <a href="operator-dashboard.html" class="nav-item" data-page="operator-dashboard.html"><i class="fas fa-chart-simple"></i> Dashboard</a>
           <a href="profile.html" class="nav-item" data-page="profile.html"><i class="fas fa-id-card"></i> Profile</a>
@@ -52,13 +52,13 @@
           <a href="#" class="nav-item" onclick="handleLogout(); return false;" style="color:#ff4a4a;"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
 
-        <!-- AUTH CTA (shown when logged out) -->
+        <!-- AUTH CTA -->
         <div class="nav-group auth-cta" id="authCta" style="display:flex; flex-direction:column; gap:8px; padding-top:4px;">
           <a href="login.html" class="nav-item" style="border:1px solid var(--green); border-radius:30px; justify-content:center; color:var(--green);"><i class="fas fa-sign-in-alt"></i> Log in</a>
           <a href="signup.html" class="nav-item" style="border:1px solid var(--green); border-radius:30px; justify-content:center; background:var(--green); color:#000;"><i class="fas fa-user-plus"></i> Sign Up</a>
         </div>
 
-        <!-- Admin-only links (hidden by default, shown if user is admin) -->
+        <!-- Admin-only -->
         <hr class="sidebar-divider admin-only" style="display:none;">
         <div class="nav-group admin-only" style="display:none;">
           <a href="admin-dashboard.html" class="nav-item" data-page="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Admin Dashboard</a>
@@ -66,7 +66,7 @@
         </div>
       </nav>
 
-      <!-- Announcement section (pinned to bottom) -->
+      <!-- Announcement -->
       <div class="sidebar-notification" id="sidebarNotification">
         <div class="notif-header">
           <i class="fas fa-bullhorn"></i>
@@ -78,7 +78,6 @@
     </aside>
   `;
 
-  // ---- Inject sidebar into page ----
   function injectSidebar() {
     if (document.getElementById('sidebar')) return;
     const container = document.getElementById('sidebarContainer');
@@ -102,16 +101,11 @@
       }
     });
 
-    // Update visibility based on auth state
     updateAuthVisibility();
     checkAndShowAdminLinks();
-
-    // ---- NOTE: The hamburger toggle is handled by the operator dashboard.
-    // The dashboard has a listener for #floatingToggle that toggles .open on #sidebar.
-    // We do not add a listener here to avoid conflicts.
   }
 
-  // ---- Toggle private links vs auth CTA based on user ----
+  // ---- Toggle visibility ----
   function updateAuthVisibility() {
     const user = firebase.auth().currentUser;
     const privateLinks = document.getElementById('privateLinks');
@@ -132,7 +126,6 @@
     }
   }
 
-  // ---- Check admin role and show admin-only links ----
   async function checkAndShowAdminLinks() {
     try {
       const user = firebase.auth().currentUser;
@@ -147,7 +140,6 @@
     }
   }
 
-  // ---- Load user profile into sidebar ----
   async function loadSidebarProfile() {
     try {
       const user = firebase.auth().currentUser;
@@ -169,7 +161,6 @@
     }
   }
 
-  // ---- Load announcement from Firestore and listen for changes ----
   function loadAndListenToAnnouncement() {
     try {
       const db = firebase.firestore();
@@ -205,7 +196,6 @@
     }
   }
 
-  // ---- Logout ----
   window.handleLogout = function() {
     firebase.auth().signOut().then(() => {
       window.location.href = 'login.html';
@@ -214,9 +204,26 @@
     });
   };
 
+  // ---- Toggle sidebar with hamburger ----
+  function setupToggle() {
+    // Use event delegation on the document to catch clicks on #floatingToggle
+    document.addEventListener('click', function(e) {
+      const target = e.target.closest('#floatingToggle');
+      if (target) {
+        e.preventDefault();
+        e.stopPropagation();
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+          sidebar.classList.toggle('open');
+        }
+      }
+    });
+  }
+
   // ---- Auto‑init ----
   document.addEventListener('DOMContentLoaded', function() {
     injectSidebar();
+    setupToggle();
 
     if (typeof firebase !== 'undefined' && firebase.auth) {
       firebase.auth().onAuthStateChanged(user => {
@@ -232,7 +239,6 @@
     }
   });
 
-  // Expose for later use
   window.Sidebar = {
     inject: injectSidebar,
     loadProfile: loadSidebarProfile,
