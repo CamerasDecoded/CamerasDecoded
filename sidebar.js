@@ -24,9 +24,10 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- Group 2: Mixed (Journey, Products, Protocols, Snapshot, Cynetis-7) – visible to all -->
+        <!-- Group 2: Journey, Learning Modules, Products, Protocols, Snapshot, Cynetis-7 – visible to all -->
         <div class="nav-group">
           <a href="journey.html" class="nav-item" data-page="journey.html"><i class="fas fa-route"></i> Journey</a>
+          <a href="learning-journey.html" class="nav-item" data-page="learning-journey.html"><i class="fas fa-graduation-cap"></i> Learning Modules</a>
           <a href="products.html" class="nav-item" data-page="products.html"><i class="fas fa-box-open"></i> Products</a>
           <a href="protocols.html" class="nav-item" data-page="protocols.html"><i class="fas fa-code-branch"></i> Protocols</a>
           <a href="snapshot-library.html" class="nav-item" data-page="snapshot-library.html"><i class="fas fa-id-card"></i> Snapshot Cards</a>
@@ -114,15 +115,11 @@
     const avatar = document.querySelector('.profile-avatar');
 
     if (user) {
-      // Logged in: show private, hide auth CTA
       if (privateLinks) privateLinks.style.display = 'flex';
       if (authCta) authCta.style.display = 'none';
-      // Profile info will be loaded by loadSidebarProfile()
     } else {
-      // Logged out: hide private, show auth CTA
       if (privateLinks) privateLinks.style.display = 'none';
       if (authCta) authCta.style.display = 'flex';
-      // Reset profile to guest
       if (profileName) profileName.textContent = 'Guest';
       if (profileEmail) profileEmail.textContent = 'Not logged in';
       if (avatar) avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
@@ -160,7 +157,6 @@
         const avatar = document.querySelector('.profile-avatar');
         if (data.photoURL) avatar.style.backgroundImage = `url(${data.photoURL})`;
       }
-      // Ensure private links are visible now that we're logged in
       updateAuthVisibility();
     } catch (e) {
       console.warn('Could not load profile:', e);
@@ -223,7 +219,6 @@
           checkAndShowAdminLinks();
         } else {
           updateAuthVisibility();
-          // Still load announcement (it's public)
           loadAndListenToAnnouncement();
         }
       });
