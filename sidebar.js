@@ -24,7 +24,7 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- Group 2: Journey, Learning Modules, Products, Protocols, Snapshot, Cynetis-7 – visible to all -->
+        <!-- Group 2: Mixed (Journey, Learning Modules, Products, Protocols, Snapshot, Cynetis-7) -->
         <div class="nav-group">
           <a href="journey.html" class="nav-item" data-page="journey.html"><i class="fas fa-route"></i> Journey</a>
           <a href="learning-journey.html" class="nav-item" data-page="learning-journey.html"><i class="fas fa-graduation-cap"></i> Learning Modules</a>
@@ -35,7 +35,7 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- Group 3: Blog, Podcast, Inner Signal – visible to all -->
+        <!-- Group 3: Blog, Podcast, Inner Signal -->
         <div class="nav-group">
           <a href="blog-updates.html" class="nav-item" data-page="blog-updates.html"><i class="fas fa-newspaper"></i> Blog/Updates</a>
           <a href="podcast.html" class="nav-item" data-page="podcast.html"><i class="fas fa-podcast"></i> Podcast</a>
@@ -66,7 +66,7 @@
         </div>
       </nav>
 
-      <!-- Announcement section -->
+      <!-- Announcement section (pinned to bottom) -->
       <div class="sidebar-notification" id="sidebarNotification">
         <div class="notif-header">
           <i class="fas fa-bullhorn"></i>
@@ -78,6 +78,7 @@
     </aside>
   `;
 
+  // ---- Inject sidebar into page ----
   function injectSidebar() {
     if (document.getElementById('sidebar')) return;
     const container = document.getElementById('sidebarContainer');
@@ -89,6 +90,7 @@
       div.innerHTML = SIDEBAR_HTML;
       document.body.prepend(div);
     }
+
     // Set active link based on current page
     const path = window.location.pathname.split('/').pop() || 'index.html';
     document.querySelectorAll('.sidebar-nav .nav-item').forEach(link => {
@@ -99,10 +101,20 @@
         link.classList.remove('active');
       }
     });
+
     // Update visibility based on auth state
     updateAuthVisibility();
-    // Show admin links if user is admin
     checkAndShowAdminLinks();
+
+    // ---- Mobile toggle (floating header button) ----
+    const floatingToggle = document.getElementById('floatingToggle');
+    if (floatingToggle) {
+      floatingToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) sidebar.classList.toggle('open');
+      });
+    }
   }
 
   // ---- Toggle private links vs auth CTA based on user ----
@@ -211,6 +223,10 @@
   // ---- Auto‑init ----
   document.addEventListener('DOMContentLoaded', function() {
     injectSidebar();
+
+    // Ensure sidebar gets proper styling from the dashboard's CSS
+    // The dashboard's CSS already has .sidebar styles; we just need to make sure it applies.
+
     if (typeof firebase !== 'undefined' && firebase.auth) {
       firebase.auth().onAuthStateChanged(user => {
         if (user) {
