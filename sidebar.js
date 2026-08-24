@@ -106,15 +106,9 @@
     updateAuthVisibility();
     checkAndShowAdminLinks();
 
-    // ---- Mobile toggle (floating header button) ----
-    const floatingToggle = document.getElementById('floatingToggle');
-    if (floatingToggle) {
-      floatingToggle.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar) sidebar.classList.toggle('open');
-      });
-    }
+    // ---- NOTE: The hamburger toggle is handled by the operator dashboard.
+    // The dashboard has a listener for #floatingToggle that toggles .open on #sidebar.
+    // We do not add a listener here to avoid conflicts.
   }
 
   // ---- Toggle private links vs auth CTA based on user ----
@@ -223,9 +217,6 @@
   // ---- Auto‑init ----
   document.addEventListener('DOMContentLoaded', function() {
     injectSidebar();
-
-    // Ensure sidebar gets proper styling from the dashboard's CSS
-    // The dashboard's CSS already has .sidebar styles; we just need to make sure it applies.
 
     if (typeof firebase !== 'undefined' && firebase.auth) {
       firebase.auth().onAuthStateChanged(user => {
