@@ -514,9 +514,12 @@
     }
 
     // ================================================================
-    // RENDER CURRENT STEP
+    // RENDER CURRENT STEP (FIXED)
     // ================================================================
     function renderCurrentStep() {
+      // Reset slider confirmation on re‑entry
+      sliderConfirmed = false;
+
       saveFormData();
       const container = document.getElementById('stepContainer');
       const stepData = steps[currentStepIndex];
@@ -542,6 +545,8 @@
       restoreSelections();
 
       if (currentStepIndex === steps.length - 1) {
+        // Reset slider confirmation for this step
+        sliderConfirmed = false;
         const summaryCard = document.getElementById('summaryCard');
         if (summaryCard) {
           const existingBack = summaryCard.parentNode.querySelector('.btn-secondary');
@@ -564,8 +569,11 @@
           btn.removeEventListener('click', window.activateSignal);
           btn.addEventListener('click', window.activateSignal);
         }
-        updateSummary();
-        setTimeout(initSlider, 150);
+        // Update summary and init slider after DOM is ready
+        setTimeout(function() {
+          updateSummary();
+          initSlider();
+        }, 200);
       }
 
       if (selectedRole === 'Instructor' && currentStepIndex === 1) {
@@ -788,71 +796,95 @@
     };
 
     // ================================================================
-    // SUMMARY
+    // SUMMARY (FIXED – shows Partner & Instructor data)
     // ================================================================
     function updateSummary() {
       const card = document.getElementById('summaryCard');
       if (!card) return;
       const data = formData;
-      const brands = data.selectedGear || [];
-      const brandStr = brands.length ? brands.join(', ') : '—';
-      const lenses = data.selectedLenses || [];
-      const lensStr = lenses.length ? lenses.join(', ') : '—';
-      const interests = data.selectedInterests || [];
-      const interestStr = interests.length ? interests.join(', ') : '—';
-      const painStr = (data.painPoints || []).map(p => {
-        const map = {technical:'Technical confusion', creative:'Creative block', editing:'Editing / post‑processing', 'color-grading':'Color grading', business:'Business / marketing', portfolio:'Building a portfolio / showreel', clients:'Attracting clients', inspiration:'Lack of inspiration', technical2:'Understanding my camera', audio:'Audio / Sound', lighting:'Lighting for video'};
-        return map[p] || p;
-      }).join(', ') || '—';
-      const challengeMap = { 'low-light':'Low light performance', 'composition':'Composition & framing', 'posing-subjects':'Posing subjects / directing talent', 'manual-settings':'Manual settings confusion', 'autofocus':'Autofocus struggles', 'editing':'Post‑processing / editing', 'color-grading':'Color grading', 'confidence':'Confidence / imposter syndrome', 'gear':'Understanding my gear', 'business':'Building my business', 'other':'Other' };
-      const challenge = data.challenge ? (challengeMap[data.challenge] || data.challenge) : '—';
-      const shootFreq = data.shootFrequency || '—';
-      const learnStyle = data.learningStyle || '—';
-      const confidence = data.confidenceSlider || '—';
-      const experienceMap = { '<6':'Less than 6 months', '6-12':'6–12 months', '1-2':'1–2 years', '3-5':'3–5 years', '5+':'5+ years' };
-      const experience = data.experience ? (experienceMap[data.experience] || data.experience) : '—';
-      const primaryGoalMap = { 'master-manual':'Master manual mode', 'start-business':'Start a photography / video business', 'improve-social':'Improve social media content', 'family-travel':'Capture family / travel memories', 'professional-event':'Become a professional event/wedding photographer', 'filmmaker':'Become a filmmaker / videographer', 'other':'Other' };
-      const primaryGoal = data.primaryGoal ? (primaryGoalMap[data.primaryGoal] || data.primaryGoal) : '—';
-      const ambitionMap = { 'hobbyist':'Hobbyist', 'semi-pro':'Semi‑professional', 'professional':'Professional' };
-      const ambition = data.ambition ? (ambitionMap[data.ambition] || data.ambition) : '—';
-      const formatMap = { 'video':'Video', 'written':'Written guides', 'interactive':'Interactive exercises', 'audio':'Audio / Podcasts', 'mixed':'Mix of everything' };
-      const format = data.contentFormat ? (formatMap[data.contentFormat] || data.contentFormat) : '—';
-      const channelMap = { 'email':'Email', 'sms':'SMS', 'push':'Push notifications', 'email-sms':'Email + SMS' };
-      const channel = data.deliveryChannel ? (channelMap[data.deliveryChannel] || data.deliveryChannel) : '—';
-      const sixMonthGoalMap = { 'exposure':'Exposure triangle (manual mode)', 'composition':'Composition & storytelling', 'lighting':'Lighting (photo & video)', 'editing':'Editing / post‑production', 'color':'Color grading', 'audio':'Audio for video', 'business':'Business & client management', 'gear':'Mastering my specific gear' };
-      const sixMonthGoal = data.sixMonthGoal ? (sixMonthGoalMap[data.sixMonthGoal] || data.sixMonthGoal) : '—';
-      const dreamProjectMap = { 'portrait-series':'A portrait series', 'short-film':'A short film', 'documentary':'A documentary', 'music-video':'A music video', 'commercial':'A commercial / corporate video', 'travel-film':'A travel film', 'wedding-film':'A wedding film', 'social-content':'Social media content (Reels/TikTok)', 'photobook':'A photo book / portfolio' };
-      const dreamProject = data.dreamProject ? (dreamProjectMap[data.dreamProject] || data.dreamProject) : '—';
-      const tier = data.operatorTier || 'free';
-      const tierLabel = tier === 'pro' ? 'Pro' : 'Free';
-      const referral = data.referralCode || '—';
+      const role = selectedRole;
 
-      card.innerHTML = `
-        <div class="row"><span>Full Name</span><span class="val">${data.fullName || '—'}</span></div>
-        <div class="row"><span>Username</span><span class="val">${data.username || '—'}</span></div>
-        <div class="row"><span>Email</span><span class="val">${data.email || '—'}</span></div>
-        <div class="row"><span>Camera Brand(s)</span><span class="val">${brandStr}</span></div>
-        <div class="row"><span>Lenses</span><span class="val">${lensStr}</span></div>
-        <div class="row"><span>Interests</span><span class="val">${interestStr}</span></div>
-        <div class="row"><span>Biggest Challenge</span><span class="val">${challenge}</span></div>
-        <div class="row"><span>Shoot Frequency</span><span class="val">${shootFreq}</span></div>
-        <div class="row"><span>Learning Style</span><span class="val">${learnStyle}</span></div>
-        <div class="row"><span>Confidence</span><span class="val">${confidence}/10</span></div>
-        <div class="row"><span>Experience</span><span class="val">${experience}</span></div>
-        <div class="row"><span>Primary Goal</span><span class="val">${primaryGoal}</span></div>
-        <div class="row"><span>Ambition</span><span class="val">${ambition}</span></div>
-        <div class="row"><span>Content Format</span><span class="val">${format}</span></div>
-        <div class="row"><span>Delivery Channel</span><span class="val">${channel}</span></div>
-        <div class="row"><span>Pain Points</span><span class="val">${painStr}</span></div>
-        <div class="row"><span>6‑Month Goal</span><span class="val">${sixMonthGoal}</span></div>
-        <div class="row"><span>Dream Project</span><span class="val">${dreamProject}</span></div>
-        <div class="row"><span>Selected Plan</span><span class="val green">${tierLabel}</span></div>
-        <div class="row"><span>Referral Code</span><span class="val">${referral}</span></div>
-      `;
+      let rows = [];
+
+      // Common fields
+      rows.push({ label: 'Full Name', value: data.fullName || '—' });
+      rows.push({ label: 'Username', value: data.username || '—' });
+      rows.push({ label: 'Email', value: data.email || '—' });
+
+      if (role === 'Operator') {
+        const brands = (data.selectedGear || []).join(', ') || '—';
+        const lenses = (data.selectedLenses || []).join(', ') || '—';
+        const interests = (data.selectedInterests || []).join(', ') || '—';
+        const painMap = { technical:'Technical confusion', creative:'Creative block', editing:'Editing / post‑processing', 'color-grading':'Color grading', business:'Business / marketing', portfolio:'Building a portfolio / showreel', clients:'Attracting clients', inspiration:'Lack of inspiration', technical2:'Understanding my camera', audio:'Audio / Sound', lighting:'Lighting for video' };
+        const painStr = (data.painPoints || []).map(p => painMap[p] || p).join(', ') || '—';
+        const challengeMap = { 'low-light':'Low light performance', 'composition':'Composition & framing', 'posing-subjects':'Posing subjects / directing talent', 'manual-settings':'Manual settings confusion', 'autofocus':'Autofocus struggles', 'editing':'Post‑processing / editing', 'color-grading':'Color grading', 'confidence':'Confidence / imposter syndrome', 'gear':'Understanding my gear', 'business':'Building my business', 'other':'Other' };
+        const challenge = data.challenge ? (challengeMap[data.challenge] || data.challenge) : '—';
+        const shootFreq = data.shootFrequency || '—';
+        const learnStyle = data.learningStyle || '—';
+        const confidence = data.confidenceSlider || '—';
+        const experienceMap = { '<6':'Less than 6 months', '6-12':'6–12 months', '1-2':'1–2 years', '3-5':'3–5 years', '5+':'5+ years' };
+        const experience = data.experience ? (experienceMap[data.experience] || data.experience) : '—';
+        const primaryGoalMap = { 'master-manual':'Master manual mode', 'start-business':'Start a photography / video business', 'improve-social':'Improve social media content', 'family-travel':'Capture family / travel memories', 'professional-event':'Become a professional event/wedding photographer', 'filmmaker':'Become a filmmaker / videographer', 'other':'Other' };
+        const primaryGoal = data.primaryGoal ? (primaryGoalMap[data.primaryGoal] || data.primaryGoal) : '—';
+        const ambitionMap = { 'hobbyist':'Hobbyist', 'semi-pro':'Semi‑professional', 'professional':'Professional' };
+        const ambition = data.ambition ? (ambitionMap[data.ambition] || data.ambition) : '—';
+        const formatMap = { 'video':'Video', 'written':'Written guides', 'interactive':'Interactive exercises', 'audio':'Audio / Podcasts', 'mixed':'Mix of everything' };
+        const format = data.contentFormat ? (formatMap[data.contentFormat] || data.contentFormat) : '—';
+        const channelMap = { 'email':'Email', 'sms':'SMS', 'push':'Push notifications', 'email-sms':'Email + SMS' };
+        const channel = data.deliveryChannel ? (channelMap[data.deliveryChannel] || data.deliveryChannel) : '—';
+        const sixMonthGoalMap = { 'exposure':'Exposure triangle (manual mode)', 'composition':'Composition & storytelling', 'lighting':'Lighting (photo & video)', 'editing':'Editing / post‑production', 'color':'Color grading', 'audio':'Audio for video', 'business':'Business & client management', 'gear':'Mastering my specific gear' };
+        const sixMonthGoal = data.sixMonthGoal ? (sixMonthGoalMap[data.sixMonthGoal] || data.sixMonthGoal) : '—';
+        const dreamProjectMap = { 'portrait-series':'A portrait series', 'short-film':'A short film', 'documentary':'A documentary', 'music-video':'A music video', 'commercial':'A commercial / corporate video', 'travel-film':'A travel film', 'wedding-film':'A wedding film', 'social-content':'Social media content (Reels/TikTok)', 'photobook':'A photo book / portfolio' };
+        const dreamProject = data.dreamProject ? (dreamProjectMap[data.dreamProject] || data.dreamProject) : '—';
+        const tier = data.operatorTier || 'free';
+        const tierLabel = tier === 'pro' ? 'Pro' : 'Free';
+        const referral = data.referralCode || '—';
+
+        rows.push({ label: 'Camera Brand(s)', value: brands });
+        rows.push({ label: 'Lenses', value: lenses });
+        rows.push({ label: 'Interests', value: interests });
+        rows.push({ label: 'Biggest Challenge', value: challenge });
+        rows.push({ label: 'Shoot Frequency', value: shootFreq });
+        rows.push({ label: 'Learning Style', value: learnStyle });
+        rows.push({ label: 'Confidence', value: confidence + '/10' });
+        rows.push({ label: 'Experience', value: experience });
+        rows.push({ label: 'Primary Goal', value: primaryGoal });
+        rows.push({ label: 'Ambition', value: ambition });
+        rows.push({ label: 'Content Format', value: format });
+        rows.push({ label: 'Delivery Channel', value: channel });
+        rows.push({ label: 'Pain Points', value: painStr });
+        rows.push({ label: '6‑Month Goal', value: sixMonthGoal });
+        rows.push({ label: 'Dream Project', value: dreamProject });
+        rows.push({ label: 'Selected Plan', value: tierLabel });
+        rows.push({ label: 'Referral Code', value: referral });
+      } else if (role === 'Partner') {
+        const company = data.companyName || '—';
+        const tier = data.partnerTier || 'signal';
+        const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+        const isAnnual = data.partnerIsAnnual === 'true' || false;
+        const billing = isAnnual ? 'Annual' : 'Monthly';
+        rows.push({ label: 'Company / Store', value: company });
+        rows.push({ label: 'License Tier', value: tierLabel });
+        rows.push({ label: 'Billing', value: billing });
+      } else if (role === 'Instructor') {
+        const experience = data.teachingExperience || '—';
+        const isAnnual = data.instructorIsAnnual === 'true' || false;
+        const billing = isAnnual ? 'Annual' : 'Monthly';
+        rows.push({ label: 'Teaching Experience', value: experience });
+        rows.push({ label: 'License', value: 'Educator' });
+        rows.push({ label: 'Billing', value: billing });
+      }
+
+      card.innerHTML = rows.map(r => `
+        <div class="row">
+          <span>${r.label}</span>
+          <span class="val${r.label === 'License Tier' || r.label === 'Selected Plan' ? ' green' : ''}">${r.value}</span>
+        </div>
+      `).join('');
     }
 
     // ================================================================
-    // SLIDER CONFIRMATION
+    // SLIDER CONFIRMATION (FIXED – robust event binding)
     // ================================================================
     function initSlider() {
       const container = document.getElementById('sliderConfirmContainer');
@@ -861,6 +893,8 @@
       const label = document.getElementById('sliderLabel');
       const confirmed = document.getElementById('sliderConfirmed');
       if (!container) return;
+
+      // Reset state
       sliderConfirmed = false;
       const containerWidth = container.offsetWidth;
       const knobWidth = 44;
@@ -868,28 +902,43 @@
       let currentLeft = 4;
       let dragging = false;
 
+      // Remove any stale listeners by cloning and replacing
+      const newKnob = knob.cloneNode(true);
+      knob.parentNode.replaceChild(newKnob, knob);
+      const newContainer = container.cloneNode(true);
+      container.parentNode.replaceChild(newContainer, container);
+
+      // Re‑fetch updated elements
+      const finalContainer = document.getElementById('sliderConfirmContainer');
+      const finalKnob = document.getElementById('sliderKnob');
+      const finalTrack = document.getElementById('sliderTrack');
+      const finalLabel = document.getElementById('sliderLabel');
+      const finalConfirmed = document.getElementById('sliderConfirmed');
+
+      if (!finalContainer || !finalKnob) return;
+
       function updateSlider(clientX) {
-        const rect = container.getBoundingClientRect();
+        const rect = finalContainer.getBoundingClientRect();
         let newLeft = clientX - rect.left - knobWidth / 2;
         newLeft = Math.max(4, Math.min(maxLeft, newLeft));
         currentLeft = newLeft;
-        knob.style.left = newLeft + 'px';
+        finalKnob.style.left = newLeft + 'px';
         const progress = (newLeft - 4) / (maxLeft - 4);
-        track.style.width = (progress * 100) + '%';
+        if (finalTrack) finalTrack.style.width = (progress * 100) + '%';
         if (progress >= 0.95) {
           sliderConfirmed = true;
-          label.style.display = 'none';
-          confirmed.style.display = 'inline';
-          container.style.borderColor = 'var(--green)';
-          knob.innerHTML = '<i class="fas fa-check"></i>';
-          knob.style.background = 'var(--green)';
+          if (finalLabel) finalLabel.style.display = 'none';
+          if (finalConfirmed) finalConfirmed.style.display = 'inline';
+          finalContainer.style.borderColor = 'var(--green)';
+          finalKnob.innerHTML = '<i class="fas fa-check"></i>';
+          finalKnob.style.background = 'var(--green)';
           document.getElementById('confirmError').style.display = 'none';
         } else {
           sliderConfirmed = false;
-          label.style.display = 'inline';
-          confirmed.style.display = 'none';
-          container.style.borderColor = 'var(--border)';
-          knob.innerHTML = '<i class="fas fa-arrow-right"></i>';
+          if (finalLabel) finalLabel.style.display = 'inline';
+          if (finalConfirmed) finalConfirmed.style.display = 'none';
+          finalContainer.style.borderColor = 'var(--border)';
+          finalKnob.innerHTML = '<i class="fas fa-arrow-right"></i>';
         }
       }
 
@@ -897,7 +946,7 @@
         e.preventDefault();
         dragging = true;
         const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-        knob.style.cursor = 'grabbing';
+        finalKnob.style.cursor = 'grabbing';
         document.addEventListener('mousemove', onDrag);
         document.addEventListener('mouseup', endDrag);
         document.addEventListener('touchmove', onDragTouch, { passive: false });
@@ -909,14 +958,14 @@
 
       function endDrag() {
         dragging = false;
-        knob.style.cursor = 'grab';
+        finalKnob.style.cursor = 'grab';
         if (!sliderConfirmed) {
-          knob.style.left = '4px';
-          track.style.width = '0%';
-          label.style.display = 'inline';
-          confirmed.style.display = 'none';
-          container.style.borderColor = 'var(--border)';
-          knob.innerHTML = '<i class="fas fa-arrow-right"></i>';
+          finalKnob.style.left = '4px';
+          if (finalTrack) finalTrack.style.width = '0%';
+          if (finalLabel) finalLabel.style.display = 'inline';
+          if (finalConfirmed) finalConfirmed.style.display = 'none';
+          finalContainer.style.borderColor = 'var(--border)';
+          finalKnob.innerHTML = '<i class="fas fa-arrow-right"></i>';
         }
         document.removeEventListener('mousemove', onDrag);
         document.removeEventListener('mouseup', endDrag);
@@ -927,12 +976,12 @@
       function endDragTouch() {
         dragging = false;
         if (!sliderConfirmed) {
-          knob.style.left = '4px';
-          track.style.width = '0%';
-          label.style.display = 'inline';
-          confirmed.style.display = 'none';
-          container.style.borderColor = 'var(--border)';
-          knob.innerHTML = '<i class="fas fa-arrow-right"></i>';
+          finalKnob.style.left = '4px';
+          if (finalTrack) finalTrack.style.width = '0%';
+          if (finalLabel) finalLabel.style.display = 'inline';
+          if (finalConfirmed) finalConfirmed.style.display = 'none';
+          finalContainer.style.borderColor = 'var(--border)';
+          finalKnob.innerHTML = '<i class="fas fa-arrow-right"></i>';
         }
         document.removeEventListener('mousemove', onDrag);
         document.removeEventListener('mouseup', endDrag);
@@ -940,22 +989,22 @@
         document.removeEventListener('touchend', endDragTouch);
       }
 
-      knob.addEventListener('mousedown', startDrag);
-      container.addEventListener('mousedown', function(e) {
-        if (e.target === knob) return;
-        const rect = container.getBoundingClientRect();
+      finalKnob.addEventListener('mousedown', startDrag);
+      finalContainer.addEventListener('mousedown', function(e) {
+        if (e.target === finalKnob) return;
+        const rect = finalContainer.getBoundingClientRect();
         const clickX = e.clientX - rect.left - knobWidth / 2;
         if (clickX > 20 && clickX < containerWidth - 20) { startDrag(e); updateSlider(e.clientX); }
       });
-      knob.addEventListener('touchstart', startDrag, { passive: true });
-      container.addEventListener('touchstart', function(e) {
-        if (e.target === knob) return;
-        const rect = container.getBoundingClientRect();
+      finalKnob.addEventListener('touchstart', startDrag, { passive: true });
+      finalContainer.addEventListener('touchstart', function(e) {
+        if (e.target === finalKnob) return;
+        const rect = finalContainer.getBoundingClientRect();
         const touch = e.touches[0];
         const clickX = touch.clientX - rect.left - knobWidth / 2;
         if (clickX > 20 && clickX < containerWidth - 20) { startDrag(e); updateSlider(touch.clientX); }
       }, { passive: true });
-      window.addEventListener('resize', function() { if (!sliderConfirmed) { knob.style.left = '4px'; track.style.width = '0%'; } });
+      window.addEventListener('resize', function() { if (!sliderConfirmed) { finalKnob.style.left = '4px'; if (finalTrack) finalTrack.style.width = '0%'; } });
     }
 
     // ================================================================
@@ -1031,8 +1080,6 @@
       btn.style.display = 'none';
       spinner.style.display = 'block';
       errorEl.style.display = 'none';
-
-      // auth and db are already defined at the top of this script
 
       let userData = { name, email, username, role: selectedRole, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
       const referredBy = localStorage.getItem('signup_referral') || null;
