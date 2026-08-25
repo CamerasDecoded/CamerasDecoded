@@ -14,8 +14,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="firebase-init.js"></script>
   <script src="cd-ui.js"></script>
-
-  <!-- ===== SHARED BOTTOM NAV CSS (not used here, but for consistency) ===== -->
   <link rel="stylesheet" href="bottom-nav.css" />
 
   <style>
@@ -576,7 +574,7 @@
     <div class="floating-left-group">
       <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
       <span id="roleTierBadge" class="role-tier-badge">
-        <span class="glow-role">Partner</span> · <span class="tier-text" id="userTierText">Free</span>
+        <span class="glow-role">Partner</span> · <span class="tier-text" id="userTierText">Signal</span>
       </span>
     </div>
     <div class="floating-center-group">
@@ -853,12 +851,6 @@
     function downloadResource(filename) { cdToast('Downloading ' + filename); }
 
     // ============================================================
-    // LOGOUT (uses global handleLogout from sidebar.js)
-    // ============================================================
-    // The sidebar.js already defines handleLogout globally.
-    // We just ensure the logout button calls it.
-
-    // ============================================================
     // CART UI
     // ============================================================
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
@@ -942,14 +934,15 @@
       });
     }
 
-    // ---- Update partner profile ----
+    // ---- Update partner profile (FIXED: reads partnerTier) ----
     function updatePartnerProfile(data) {
       document.getElementById('profileUsername').textContent = data.username || '—';
       document.getElementById('profileName').textContent = data.name || '—';
       document.getElementById('profileEmail').textContent = data.email || '—';
       document.getElementById('profileCompany').textContent = data.companyName || '—';
-      const tier = data.partnerTier || 'Signal';
-      document.getElementById('profileLicense').textContent = tier.charAt(0).toUpperCase() + tier.slice(1);
+      const tier = data.partnerTier || 'signal';
+      const tierDisplay = tier.charAt(0).toUpperCase() + tier.slice(1);
+      document.getElementById('profileLicense').textContent = tierDisplay;
       const billing = data.billingInterval || 'monthly';
       document.getElementById('profileBilling').textContent = billing.charAt(0).toUpperCase() + billing.slice(1);
       document.getElementById('partnerUniqueId').textContent = data.partnerId || '—';
@@ -964,8 +957,9 @@
       document.getElementById('totalReferrals').textContent = data.totalReferrals || 0;
       document.getElementById('totalCommission').textContent = '$' + (data.totalCommissionEarned || 0);
       document.getElementById('ambassadorTier').textContent = 'Partner (20%)';
-      // Tier badge
-      document.getElementById('userTierText').textContent = data.tier === 'pro' ? 'Pro' : 'Free';
+
+      // Header tier badge – use partnerTier
+      document.getElementById('userTierText').textContent = tierDisplay;
     }
 
     // ---- Render commission history (optimized: limit to 20 most recent) ----
@@ -1025,7 +1019,7 @@
       }
     }
 
-    // ---- Auth listener ----
+    // ---- Auth listener (FIXED: use merge:true on initial create) ----
     auth.onAuthStateChanged((user) => {
       if (!user) {
         window.location.href = 'login.html';
@@ -1037,7 +1031,7 @@
       // Real-time profile listener
       userDocRef.onSnapshot((doc) => {
         if (!doc.exists) {
-          // Create default partner profile
+          // Create default partner profile with { merge: true } to avoid overwriting
           userDocRef.set({
             username: user.email.split('@')[0],
             name: user.displayName || '',
@@ -1050,16 +1044,14 @@
             clicks: 0, downloads: 0, agreements: 0, referredStudents: 0,
             referralCode: '',
             totalReferrals: 0,
-            totalCommissionEarned: 0,
-            tier: 'free'
-          }).catch(console.error);
+            totalCommissionEarned: 0
+          }, { merge: true }).catch(console.error);
           return;
         }
         updatePartnerProfile(doc.data());
       }, (error) => console.error('Profile listener error:', error));
 
       // Commission listener – limit to 20 for cost efficiency
-      // We'll use a query with limit and order
       userDocRef.collection('commissions')
         .orderBy('createdAt', 'desc')
         .limit(20)
