@@ -1067,7 +1067,7 @@
     };
 
     // ================================================================
-    // ACTIVATE SIGNAL – FIXED: uses auth and db from top of script
+    // ACTIVATE SIGNAL – FIXED: robust redirect with retry
     // ================================================================
     window.activateSignal = function() {
       const btn = document.getElementById('activateBtn');
@@ -1236,7 +1236,29 @@
           let redirect = 'operator-dashboard.html';
           if (selectedRole === 'Partner') redirect = 'partner-dashboard.html';
           else if (selectedRole === 'Instructor') redirect = 'instructor-dashboard.html';
-          setTimeout(() => { window.location.href = redirect + '?welcome=onboarding'; }, 3000);
+
+          // Wait for the user document to be readable before redirecting
+          const waitForUserDoc = (retries = 10) => {
+            db.collection('users').doc(uid).get()
+              .then((doc) => {
+                if (doc.exists) {
+                  // Document is ready – redirect
+                  window.location.href = redirect + '?welcome=onboarding';
+                } else if (retries > 0) {
+                  // Retry after 300ms
+                  setTimeout(() => waitForUserDoc(retries - 1), 300);
+                } else {
+                  // Fallback – redirect anyway
+                  window.location.href = redirect + '?welcome=onboarding';
+                }
+              })
+              .catch((err) => {
+                console.warn('⚠ Error checking user doc, redirecting anyway:', err);
+                window.location.href = redirect + '?welcome=onboarding';
+              });
+          };
+          // Start waiting after a short delay
+          setTimeout(() => waitForUserDoc(), 500);
         })
         .catch(err => {
           console.log('🔴 Signup error:', err);
