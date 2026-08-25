@@ -577,9 +577,7 @@
         <span class="glow-role">Partner</span> · <span class="tier-text" id="userTierText">Signal</span>
       </span>
     </div>
-    <div class="floating-center-group">
-      <!-- Optional: center title or keep empty -->
-    </div>
+    <div class="floating-center-group"></div>
     <div class="floating-right-group">
       <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
         <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
@@ -776,7 +774,7 @@
 
   <script>
     // ============================================================
-    // BINARY RAIN (same as before)
+    // BINARY RAIN
     // ============================================================
     (function() {
       const canvas = document.getElementById('binary-rain');
@@ -867,7 +865,6 @@
     // ============================================================
     // AUTH + FIRESTORE
     // ============================================================
-    // auth and db are already available globally from firebase-init.js
     let userDocRef = null;
     let currentUser = null;
 
@@ -934,7 +931,7 @@
       });
     }
 
-    // ---- Update partner profile (FIXED: reads partnerTier) ----
+    // ---- Update partner profile (reads partnerTier correctly) ----
     function updatePartnerProfile(data) {
       document.getElementById('profileUsername').textContent = data.username || '—';
       document.getElementById('profileName').textContent = data.name || '—';
@@ -962,7 +959,7 @@
       document.getElementById('userTierText').textContent = tierDisplay;
     }
 
-    // ---- Render commission history (optimized: limit to 20 most recent) ----
+    // ---- Render commission history (limit to 20) ----
     function renderCommissionHistory(commissions) {
       const list = document.getElementById('commissionList');
       if (!list) return;
@@ -975,7 +972,6 @@
         const dateB = b.createdAt?.toDate?.() || new Date(0);
         return dateB - dateA;
       });
-      // Only show latest 20
       const display = sorted.slice(0, 20);
       let html = '';
       display.forEach(c => {
@@ -1019,7 +1015,38 @@
       }
     }
 
-    // ---- Auth listener (FIXED: use merge:true on initial create) ----
+    // ---- Handle pending onboarding data ----
+    function handlePendingOnboarding(uid) {
+      const pending = localStorage.getItem('pending_onboarding_data');
+      if (!pending) return Promise.resolve();
+      try {
+        const data = JSON.parse(pending);
+        if (!data.uid || data.uid !== uid) {
+          // Not for this user, ignore
+          return Promise.resolve();
+        }
+        localStorage.removeItem('pending_onboarding_data');
+        // Write with merge: true to avoid overwriting
+        return db.collection('users').doc(uid).set(data.userData, { merge: true })
+          .then(() => {
+            console.log('✅ Pending onboarding data written successfully.');
+            cdToast('✅ Your account setup is complete.');
+            const url = new URL(window.location);
+            url.searchParams.delete('onboarding');
+            window.history.replaceState({}, document.title, url.toString());
+          })
+          .catch(err => {
+            console.warn('⚠ Could not write pending data:', err);
+            localStorage.setItem('pending_onboarding_data', JSON.stringify(data));
+          });
+      } catch (e) {
+        console.warn('⚠ Invalid pending data:', e);
+        localStorage.removeItem('pending_onboarding_data');
+        return Promise.resolve();
+      }
+    }
+
+    // ---- Auth listener ----
     auth.onAuthStateChanged((user) => {
       if (!user) {
         window.location.href = 'login.html';
@@ -1028,10 +1055,18 @@
       currentUser = user;
       userDocRef = db.collection('users').doc(user.uid);
 
+      // Check for pending onboarding immediately
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('onboarding') === 'pending') {
+        handlePendingOnboarding(user.uid).then(() => {
+          // After handling, the snapshot will pick up the new data.
+        });
+      }
+
       // Real-time profile listener
       userDocRef.onSnapshot((doc) => {
         if (!doc.exists) {
-          // Create default partner profile with { merge: true } to avoid overwriting
+          // Create default partner profile with merge: true
           userDocRef.set({
             username: user.email.split('@')[0],
             name: user.displayName || '',
@@ -1051,7 +1086,7 @@
         updatePartnerProfile(doc.data());
       }, (error) => console.error('Profile listener error:', error));
 
-      // Commission listener – limit to 20 for cost efficiency
+      // Commission listener – limit to 20
       userDocRef.collection('commissions')
         .orderBy('createdAt', 'desc')
         .limit(20)
@@ -1065,7 +1100,7 @@
     });
 
     // ============================================================
-    // SIDEBAR – ensure it's closed on mobile when clicking a link
+    // SIDEBAR – close on mobile when clicking a link
     // ============================================================
     document.addEventListener('click', function(e) {
       const sidebar = document.getElementById('sidebar');
