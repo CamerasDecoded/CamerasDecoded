@@ -454,8 +454,18 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    let selectedRole = 'Operator';
-    let selectedTier = 'free';
+    // ================================================================
+    // REFERRAL HANDLING
+    // ================================================================
+    function getReferralParam() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('ref') || null;
+    }
+    const referralParam = getReferralParam();
+    if (referralParam) {
+      localStorage.setItem('signup_referral', referralParam);
+    }
+    const storedReferral = localStorage.getItem('signup_referral') || null;
 
     // ================================================================
     // TOAST
@@ -477,6 +487,9 @@
     // ================================================================
     // ROLE & TIER SELECTION
     // ================================================================
+    let selectedRole = 'Operator';
+    let selectedTier = 'free';
+
     window.selectRole = function(role) {
       selectedRole = role;
       document.querySelectorAll('.role-card').forEach(c => {
@@ -492,7 +505,7 @@
     };
 
     // ================================================================
-    // SOCIAL SIGNUP
+    // SOCIAL SIGNUP (Google / Facebook)
     // ================================================================
     window.signUpWithGoogle = function() {
       const provider = new firebase.auth.GoogleAuthProvider();
@@ -513,13 +526,15 @@
     function handleSocialUser(user) {
       const name = user.displayName || '';
       const username = name ? name.toLowerCase().replace(/\s/g, '') : (user.email ? user.email.split('@')[0] : 'user' + Math.random().toString(36).substring(2,6));
+      const referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+
       const userData = {
         displayName: name,
         email: user.email || '',
         username: username,
         photoURL: user.photoURL || null,
         role: selectedRole,
-        tier: 'free', // social signup always starts free; they can upgrade later
+        tier: selectedTier,
         billingInterval: 'monthly',
         preferences: { brands: [], lenses: [], interests: [] },
         learningJourney: {},
@@ -534,7 +549,7 @@
         savedBlogs: [],
         savedPodcasts: [],
         savedCommunityPosts: [],
-        referralCode: username,
+        referralCode: referralCode,
         totalReferrals: 0,
         totalCommissionEarned: 0,
         ambassadorTier: 'signal',
@@ -544,9 +559,35 @@
         tourCompleted: false
       };
 
+      if (storedReferral) {
+        userData.referredBy = storedReferral;
+      }
+
       db.collection('users').doc(user.uid).set(userData, { merge: true })
         .then(() => {
+          return db.collection('referralCodes').doc(referralCode).set({
+            uid: user.uid,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          }).catch(err => { console.warn('Referral code doc creation skipped:', err); });
+        })
+        .then(() => {
+          if (storedReferral) {
+            return db.collection('referralCodes').doc(storedReferral).get()
+              .then(doc => {
+                if (doc.exists) {
+                  const referrerUid = doc.data().uid;
+                  return db.collection('users').doc(referrerUid).update({
+                    totalReferrals: firebase.firestore.FieldValue.increment(1)
+                  }).catch(() => {});
+                }
+                return Promise.resolve();
+              });
+          }
+          return Promise.resolve();
+        })
+        .then(() => {
           cdToast('✅ Account created!');
+          localStorage.removeItem('signup_referral');
           window.location.href = 'profile.html?welcome=onboarding';
         })
         .catch(err => {
@@ -568,11 +609,9 @@
       const password = document.getElementById('password').value;
       const confirmPassword = document.getElementById('confirmPassword').value;
 
-      // Reset errors
       document.querySelectorAll('.error-hint').forEach(el => el.style.display = 'none');
       errorEl.style.display = 'none';
 
-      // Validate
       if (!displayName) { document.getElementById('usernameError').style.display = 'block'; return; }
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { document.getElementById('emailError').style.display = 'block'; return; }
       if (!username) { document.getElementById('usernameError').style.display = 'block'; return; }
@@ -582,6 +621,8 @@
       btn.disabled = true;
       btn.textContent = 'Creating...';
       spinner.style.display = 'block';
+
+      const referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
 
       auth.createUserWithEmailAndPassword(email, password)
         .then(cred => {
@@ -610,7 +651,7 @@
             savedBlogs: [],
             savedPodcasts: [],
             savedCommunityPosts: [],
-            referralCode: username,
+            referralCode: referralCode,
             totalReferrals: 0,
             totalCommissionEarned: 0,
             ambassadorTier: 'signal',
@@ -619,12 +660,40 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             tourCompleted: false
           };
-          return db.collection('users').doc(user.uid).set(userData, { merge: true }).then(() => user);
+
+          if (storedReferral) {
+            userData.referredBy = storedReferral;
+          }
+
+          return db.collection('users').doc(user.uid).set(userData, { merge: true })
+            .then(() => user);
+        })
+        .then(user => {
+          return db.collection('referralCodes').doc(referralCode).set({
+            uid: user.uid,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          }).catch(err => { console.warn('Referral code doc creation skipped:', err); });
+        })
+        .then(() => {
+          if (storedReferral) {
+            return db.collection('referralCodes').doc(storedReferral).get()
+              .then(doc => {
+                if (doc.exists) {
+                  const referrerUid = doc.data().uid;
+                  return db.collection('users').doc(referrerUid).update({
+                    totalReferrals: firebase.firestore.FieldValue.increment(1)
+                  }).catch(() => {});
+                }
+                return Promise.resolve();
+              });
+          }
+          return Promise.resolve();
         })
         .then(() => {
           btn.disabled = false;
           btn.textContent = 'Create Account →';
           spinner.style.display = 'none';
+          localStorage.removeItem('signup_referral');
           cdToast('✅ Account created! Redirecting to profile...');
           window.location.href = 'profile.html?welcome=onboarding';
         })
