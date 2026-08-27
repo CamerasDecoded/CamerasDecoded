@@ -1,8 +1,9 @@
 // ================================================================
-// SHARED BOTTOM NAVIGATION – ROLE‑AWARE
+// BOTTOM NAV – ROLE‑AWARE (Single File – All Roles)
 // ================================================================
-// This file expects Firebase (firebase.auth, firebase.firestore)
-// to be initialized globally before this script runs.
+// Automatically detects user role from Firestore and updates
+// Dashboard and Profile links accordingly.
+// Works on Operator, Partner, and Instructor pages.
 // ================================================================
 
 (function() {
@@ -18,7 +19,7 @@
         <span class="badge-dot" id="badgeHome"></span>
       </a>
       <!-- Dashboard (dynamic) -->
-      <a href="#" data-page="dashboard" id="navDashboard">
+      <a href="#" id="navDashboard" data-page="dashboard">
         <i class="fas fa-th-large"></i>
         <span>Dashboard</span>
         <span class="badge-dot" id="badgeDashboard"></span>
@@ -36,7 +37,7 @@
         <span class="badge-dot" id="badgeCynetis"></span>
       </a>
       <!-- Profile (dynamic) -->
-      <a href="#" data-page="profile" id="navProfile">
+      <a href="#" id="navProfile" data-page="profile">
         <i class="fas fa-user"></i>
         <span>Profile</span>
         <span class="badge-dot" id="badgeProfile"></span>
@@ -44,7 +45,7 @@
     </nav>
   `;
 
-  // ---- Mapping role to dashboard URL ----
+  // ---- Role → URL mappings ----
   const DASHBOARD_MAP = {
     'Operator': 'operator-dashboard.html',
     'Partner': 'partner-dashboard.html',
@@ -57,26 +58,33 @@
     'Instructor': 'instructor-profile.html'
   };
 
-  // ---- Get user role from Firestore ----
-  async function getUserRole() {
-    if (typeof firebase === 'undefined' || !firebase.auth) return null;
-    const user = firebase.auth().currentUser;
-    if (!user) return null;
-    try {
-      const db = firebase.firestore();
-      const doc = await db.collection('users').doc(user.uid).get();
-      if (doc.exists) {
-        return doc.data().role || 'Operator';
-      }
-    } catch (e) {
-      console.warn('Could not fetch user role:', e);
+  // ---- Fetch user role from Firestore ----
+  function getUserRole(callback) {
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      callback('Operator');
+      return;
     }
-    return null;
+    const user = firebase.auth().currentUser;
+    if (!user) {
+      callback('Operator');
+      return;
+    }
+    firebase.firestore().collection('users').doc(user.uid).get()
+      .then(doc => {
+        if (doc.exists) {
+          const role = doc.data().role || 'Operator';
+          callback(role);
+        } else {
+          callback('Operator');
+        }
+      })
+      .catch(() => {
+        callback('Operator');
+      });
   }
 
-  // ---- Update dynamic links based on role ----
-  async function updateDynamicLinks() {
-    const role = await getUserRole();
+  // ---- Update links based on role ----
+  function updateLinks(role) {
     const dashboardUrl = DASHBOARD_MAP[role] || 'operator-dashboard.html';
     const profileUrl = PROFILE_MAP[role] || 'profile.html';
 
@@ -92,11 +100,11 @@
       profileLink.dataset.page = profileUrl;
     }
 
-    // Update active state after links change
+    // Re-set active nav after updating links
     setActiveNav();
   }
 
-  // ---- Inject nav into the page ----
+  // ---- Inject nav ----
   function injectNav() {
     if (document.getElementById('bottomNav')) return;
     const container = document.getElementById('bottomNavContainer');
@@ -108,8 +116,11 @@
       div.innerHTML = NAV_HTML;
       document.body.appendChild(div);
     }
-    // Update links as soon as injected
-    updateDynamicLinks();
+
+    // Fetch role and update links
+    getUserRole(function(role) {
+      updateLinks(role);
+    });
   }
 
   // ---- Set active link based on current URL ----
@@ -117,7 +128,6 @@
     const path = window.location.pathname.split('/').pop() || 'index.html';
     document.querySelectorAll('.bottom-nav a').forEach(link => {
       const href = link.getAttribute('href');
-      // For dynamic links, we compare the data-page attribute if href is '#'
       const page = link.dataset.page || href;
       if (page === path || href === path) {
         link.classList.add('active');
@@ -127,14 +137,10 @@
     });
   }
 
-  // ---- Update notification badges (requires Firestore) ----
+  // ---- Update notification badges ----
   async function updateNotificationBadges(userData) {
-    if (typeof firebase === 'undefined' || !firebase.firestore) {
-      console.warn('Firebase not available for badge updates.');
-      return;
-    }
+    if (typeof firebase === 'undefined' || !firebase.firestore) return;
     const db = firebase.firestore();
-
     try {
       // 1. Home – admin announcement
       const annDoc = await db.collection('admin').doc('announcement').get();
@@ -144,14 +150,13 @@
 
       // 2. Dashboard, Journey, Profile – alerts based on user data
       if (userData) {
+        // Different alert logic per role? Keep simple: profile incomplete or low points.
         const hasAlerts = !userData.tourCompleted ||
                           !userData.learningJourney?.primaryGoal ||
                           (userData.totalPoints || 0) < 10;
-
         const dashboardLink = document.getElementById('navDashboard');
         const journeyLink = document.querySelector('.bottom-nav a[href="learning-journey.html"]');
         const profileLink = document.getElementById('navProfile');
-
         if (dashboardLink) dashboardLink.classList.toggle('show-badge', hasAlerts);
         if (journeyLink) journeyLink.classList.toggle('show-badge', hasAlerts);
         if (profileLink) profileLink.classList.toggle('show-badge', hasAlerts);
@@ -181,7 +186,6 @@
     inject: injectNav,
     setActive: setActiveNav,
     updateBadges: updateNotificationBadges,
-    updateLinks: updateDynamicLinks,
     init: function(userData) {
       injectNav();
       setActiveNav();
@@ -194,8 +198,10 @@
             .then(doc => {
               if (doc.exists) {
                 updateNotificationBadges(doc.data());
-                // Also ensure links are updated (in case they weren't yet)
-                updateDynamicLinks();
+                // Re-run role detection to ensure links are correct
+                getUserRole(function(role) {
+                  updateLinks(role);
+                });
               }
             })
             .catch(() => {});
@@ -209,7 +215,6 @@
     document.addEventListener('DOMContentLoaded', function() {
       injectNav();
       setActiveNav();
-      // If Firebase is already loaded, try to fetch user data
       if (typeof firebase !== 'undefined' && firebase.auth) {
         const user = firebase.auth().currentUser;
         if (user) {
@@ -217,7 +222,9 @@
             .then(doc => {
               if (doc.exists) {
                 updateNotificationBadges(doc.data());
-                updateDynamicLinks();
+                getUserRole(function(role) {
+                  updateLinks(role);
+                });
               }
             })
             .catch(() => {});
@@ -235,7 +242,9 @@
           .then(doc => {
             if (doc.exists) {
               updateNotificationBadges(doc.data());
-              updateDynamicLinks();
+              getUserRole(function(role) {
+                updateLinks(role);
+              });
             }
           })
           .catch(() => {});
