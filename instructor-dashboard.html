@@ -8,1151 +8,713 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <!-- ===== FIREBASE SDK (LOAD FIRST – CRITICAL) ===== -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- ===== SHARED BOTTOM NAV CSS ===== -->
+  <link rel="stylesheet" href="bottom-nav.css" />
 
   <style>
-    /* ===== ALL STYLES UNCHANGED ===== */
+    /* ============================================================
+       INSTRUCTOR DASHBOARD STYLES – consistent with partner/operator
+       ============================================================ */
     :root {
-      --space-sm: 12px;
-      --space-md: 24px;
-      --space-lg: 40px;
-      --space-xl: 64px;
+      --green: #8deb00;
+      --green-dim: rgba(141,235,0,0.12);
+      --green-glow: rgba(141,235,0,0.25);
+      --text-muted: #b4b4b4;
+      --bg-panel: #0A0A0A;
+      --border-dim: #1A1A1A;
+      --gold: #e0b12d;
+      --card-bg: rgba(10,10,10,0.6);
+      --radius: 12px;
+      --transition-smooth: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
+    * { margin:0; padding:0; box-sizing:border-box; }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background-color: #000000;
-      background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
-      background-size: 24px 24px;
+      background: #050705;
+      background-image: radial-gradient(circle at 20% 30%, rgba(141,235,0,0.12) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 70%, rgba(141,235,0,0.08) 0%, transparent 45%),
+                        linear-gradient(rgba(141,235,0,0.04) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(141,235,0,0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+      background-attachment: fixed;
       color: #ffffff;
       font-family: 'Montserrat', sans-serif;
-      line-height: 1.6;
-      position: relative;
-      display: flex;
       min-height: 100vh;
+      overflow-x: hidden;
     }
-
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      background: linear-gradient(180deg, rgba(29,179,27,0.35) 0%, rgba(0,0,0,0.95) 70%, #000000 100%);
-      pointer-events: none;
-      z-index: -1;
-    }
-
-    #binary-rain {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      z-index: 0;
-      pointer-events: none;
-      opacity: 0.2;
-    }
-
-    #rain-fade {
-      position: fixed;
-      bottom: 0; left: 0;
-      width: 100vw; height: 45vh;
-      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 60%, #000000 100%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
+    a { text-decoration: none; color: inherit; }
     h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
-    .green-text { color: #8deb00; }
-    .grey-text { color: #b4b4b4; }
-    a { text-decoration: none; color: inherit; transition: 0.2s; }
 
-    .sidebar {
-      width: 240px;
-      background: rgba(0,0,0,0.9);
-      padding: var(--space-md) var(--space-md);
-      border-right: 1px solid #1A1A1A;
-      height: 100vh;
-      position: sticky;
+    /* ===== SCROLLBARS ===== */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+    * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeInUp { 0% { opacity:0; transform:translateY(20px); } 100% { opacity:1; transform:translateY(0); } }
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ============================================================
+       SIDEBAR (injected by sidebar.js)
+       ============================================================ */
+    #sidebarContainer {
+      position: fixed;
       top: 0;
-      flex-shrink: 0;
-      z-index: 2;
+      left: 0;
+      bottom: 0;
+      z-index: 1000;
+      width: 280px;
     }
-    .sidebar .logo img {
-      display: block;
-      height: 120px;
-      width: auto;
+    .sidebar {
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      padding: 20px 16px 24px;
+      border-right: 1px solid var(--border-dim);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s var(--transition-smooth);
+      transform: translateX(0);
+      position: relative;
     }
-    .sidebar .nav-item {
+    @media (max-width: 1024px) {
+      #sidebarContainer {
+        position: fixed;
+        width: 280px;
+        z-index: 1000;
+      }
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s var(--transition-smooth);
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+    }
+    .sidebar .logo { text-align:center; margin-bottom:12px; }
+    .sidebar .logo img { height:70px; width:auto; transition:filter 0.3s ease; }
+    .sidebar .logo img:hover { filter:drop-shadow(0 0 20px rgba(141,235,0,0.15)); }
+    .sidebar-profile { text-align:center; padding:12px 0 16px; border-bottom:1px solid var(--border-dim); margin-bottom:16px; flex-shrink:0; }
+    .profile-avatar { width:64px; height:64px; border-radius:50%; background-size:cover; background-position:center; margin:0 auto 8px; border:2px solid var(--green); background-color:#1a1a1a; transition:transform 0.3s var(--transition-smooth), box-shadow 0.3s ease; }
+    .profile-avatar:hover { transform:scale(1.05); box-shadow:0 0 30px var(--green-glow); border-color:#a0f520; }
+    .profile-name { font-weight:600; font-size:14px; color:#fff; }
+    .profile-email { font-size:12px; color:var(--text-muted); }
+
+    .sidebar-nav {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar-nav .nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar-nav .nav-item {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 12px 0;
-      color: #b4b4b4;
+      padding: 10px 12px;
+      color: var(--text-muted);
       font-family: 'Space Mono', monospace;
       font-size: 13px;
-      letter-spacing: 0.5px;
-      border-bottom: 1px solid transparent;
-      transition: all 0.2s;
+      border-radius: 6px;
+      transition: all 0.2s var(--transition-smooth);
+      cursor: pointer;
+      text-decoration: none;
+      border: none;
     }
-    .sidebar .nav-item i {
-      font-size: 15px;
+    .sidebar-nav .nav-item i {
       width: 20px;
       text-align: center;
-      transition: color 0.2s;
-      color: inherit;
+      font-size: 14px;
+      transition: transform 0.2s ease;
     }
-    .sidebar .nav-item:hover,
-    .sidebar .nav-item:hover i {
-      color: #8deb00;
-      transform: translateX(6px) scale(1.05);
-      text-shadow: 0 0 12px rgba(141,235,0,0.6);
-      border-bottom: 1px solid #8deb00;
+    .sidebar-nav .nav-item:hover {
+      color: var(--green);
+      background: rgba(141,235,0,0.05);
+      transform: translateX(3px);
     }
-    .sidebar .nav-item.active,
-    .sidebar .nav-item.active i {
-      color: #8deb00;
-      border-left: 2px solid #8deb00;
-      padding-left: 10px;
-      text-shadow: 0 0 12px rgba(141,235,0,0.6);
+    .sidebar-nav .nav-item:hover i {
+      transform: scale(1.1);
+    }
+    .sidebar-nav .nav-item.active {
+      color: var(--green);
+      background: rgba(141,235,0,0.08);
     }
     .sidebar-divider {
       border: none;
-      border-top: 1px solid #1A1A1A;
-      margin: 8px 0;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 6px 0;
+      flex-shrink: 0;
     }
 
+    .sidebar-notification {
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-dim);
+      background: rgba(255,255,255,0.01);
+      border-radius: 8px;
+      padding: 10px 12px;
+      transition: background 0.3s ease;
+      flex-shrink: 0;
+    }
+    .sidebar-notification:hover { background: rgba(141,235,0,0.02); }
+    .sidebar-notification .notif-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .sidebar-notification .notif-header i { color: var(--green); font-size: 12px; }
+    .sidebar-notification .notif-message {
+      font-size: 12px;
+      color: #fff;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .sidebar-notification .notif-message.empty {
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 11px;
+    }
+    .sidebar-notification .notif-timestamp {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-family: 'Space Mono', monospace;
+      opacity: 0.5;
+    }
+
+    .auth-cta .nav-item {
+      justify-content: center;
+      border: 1px solid var(--green);
+      border-radius: 30px;
+      color: var(--green);
+      background: transparent;
+      padding: 8px 12px;
+      margin: 4px 0;
+    }
+    .auth-cta .nav-item:hover {
+      background: rgba(141,235,0,0.08);
+    }
+    .auth-cta .nav-item.signup {
+      background: var(--green);
+      color: #000;
+    }
+    .auth-cta .nav-item.signup:hover {
+      background: #a0f520;
+    }
+
+    /* ============================================================
+       MAIN CONTENT LAYOUT
+       ============================================================ */
     .main-content {
-      flex: 1;
-      padding: var(--space-md) var(--space-lg) var(--space-lg) var(--space-lg);
-      padding-top: 80px;
-      max-width: 1200px;
+      margin-left: 280px;
+      padding: 80px 40px 40px;
+      max-width: calc(1200px + 280px);
       position: relative;
       z-index: 2;
-      animation: fadeIn 0.5s ease-in-out forwards;
     }
-    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 1024px) {
+      .main-content { margin-left: 0; padding: 100px 20px 20px; }
+    }
 
+    /* ============================================================
+       FLOATING HEADER (consistent with partner/operator)
+       ============================================================ */
     .floating-header {
-      position: fixed;
-      top: 12px;
-      left: 240px;
-      right: 0;
-      z-index: 99;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      padding: 10px 24px;
-      background: rgba(0,0,0,0.25);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(141,235,0,0.15);
-      border-radius: 30px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: #b4b4b4;
-      margin: 0 12px;
+      position:fixed; top:12px; left:292px; right:12px; z-index:99;
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
+      padding:6px 14px; background:rgba(0,0,0,0.4); backdrop-filter:blur(16px);
+      border:1px solid rgba(141,235,0,0.2); border-radius:30px; min-height:40px;
+      transition:background 0.3s ease, box-shadow 0.3s ease;
+    }
+    .floating-header:hover { background:rgba(0,0,0,0.6); box-shadow:0 4px 30px rgba(0,0,0,0.3); }
+    .floating-left-group, .floating-right-group { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .floating-center-group { display:flex; align-items:center; gap:8px; flex:1; justify-content:center; }
+    .floating-home-icon { font-size:15px; color:var(--green); transition:transform 0.3s var(--transition-smooth), color 0.3s ease; text-decoration:none; }
+    .floating-home-icon:hover { color:#a0f520; transform:scale(1.1); }
+    .floating-toggle { display:none; background:none; border:none; color:var(--green); font-size:20px; cursor:pointer; transition:transform 0.3s ease; }
+    .floating-toggle:hover { transform:scale(1.1); }
+    .logout-btn {
+      background:transparent; border:1px solid var(--green); color:var(--green);
+      padding:2px 10px; border-radius:20px; cursor:pointer;
+      font-family:'Space Mono',monospace; font-size:10px;
+      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease;
+      min-height:22px; line-height:1.2;
+    }
+    .logout-btn:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform:scale(1.02); }
+    .logout-btn:active { transform:scale(0.95); }
+    .role-tier-badge {
+      background:rgba(10,10,10,0.9); border:1px solid rgba(141,235,0,0.3);
+      border-radius:14px; padding:2px 12px; font-size:10px; color:var(--green);
+      display:inline-flex; align-items:center; gap:4px; white-space:nowrap;
+      transition:border-color 0.3s ease;
+    }
+    .role-tier-badge:hover { border-color:var(--green); box-shadow:0 0 20px rgba(141,235,0,0.1); }
+    .glow-role { font-weight:700; text-shadow:0 0 8px #8deb00, 0 0 12px #8deb00; }
+    .cart-header-link {
+      display:inline-flex; align-items:center; gap:4px;
+      border:1px solid var(--green); border-radius:20px; padding:2px 10px;
+      color:var(--green); font-family:'Space Mono',monospace; font-size:10px;
+      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease;
+      text-decoration:none; min-height:22px; line-height:1.2;
+    }
+    .cart-header-link:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform:scale(1.02); }
+    .cart-count-badge { background:var(--green); color:#000; border-radius:50%; padding:0 4px; font-size:8px; font-weight:700; display:inline-block; min-width:14px; text-align:center; line-height:14px; }
+
+    @media (max-width: 1024px) {
+      .floating-header { left:10px; right:10px; top:70px; padding:6px 12px; }
+      .floating-toggle { display:block !important; }
+    }
+    @media (min-width: 1025px) {
+      .floating-toggle { display:none !important; }
     }
 
-    .floating-header a { color: #8deb00; transition: color 0.2s; }
-    .floating-header a:hover { color: #a0f520; }
-
-    .floating-home-icon { font-size: 17px; flex-shrink: 0; }
-
-    .floating-nav-links {
-      display: flex;
-      flex: 1;
-      justify-content: center;
-      gap: 25px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .floating-header .logout-btn {
-      background: transparent; border: 1px solid #8deb00; border-radius: 20px; padding: 6px 16px;
-      color: #8deb00; font-family: 'Space Mono', monospace; font-size: 12px; cursor: pointer; transition: 0.2s;
-    }
-    .floating-header .logout-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 12px rgba(141,235,0,0.2); }
-
-    @property --angle {
-      syntax: '<angle>';
-      initial-value: 0deg;
-      inherits: false;
-    }
-    @keyframes spinBorder { to { --angle: 360deg; } }
-
+    /* ===== CHASING BORDER (shared) ===== */
+    @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
     .chasing-border {
-      position: relative;
-      z-index: 0;
+      position:relative; border-color:transparent !important; background-clip:padding-box; overflow:visible;
     }
     .chasing-border::before {
       content: '';
       position: absolute;
-      top: -2px;
-      left: -2px;
-      right: -2px;
-      bottom: -2px;
+      inset: -1.5px;
       border-radius: inherit;
-      background: conic-gradient(from var(--angle, 0deg), #8deb00, #00e5ff, #a0f520, #8deb00);
-      animation: spinBorder 4s linear infinite;
-      z-index: -1;
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      padding: 1.5px;
+      background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
+      -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
       -webkit-mask-composite: xor;
-              mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
       mask-composite: exclude;
-      padding: 2px;
+      animation: spinBorder 4s linear infinite;
+      pointer-events: none;
+      z-index: 0;
     }
+    .chasing-border>* { position:relative; z-index:1; }
+    @keyframes spinBorder { to { --angle: 360deg; } }
 
-    .cart-header-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: transparent;
-      border: 1px solid #8deb00;
-      border-radius: 20px;
-      padding: 6px 14px;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      transition: 0.2s;
-      text-decoration: none;
-      flex-shrink: 0;
-      margin-left: auto;
-    }
-    .cart-header-link:hover {
-      background: rgba(141,235,0,0.1);
-      box-shadow: 0 0 12px rgba(141,235,0,0.3);
-    }
-    .cart-count-badge {
-      background: #8deb00;
-      color: #000;
-      border-radius: 50%;
-      padding: 1px 7px;
-      font-size: 11px;
-      font-weight: 700;
-      display: inline-block;
-    }
-
-    .floating-toggle {
-      display: none;
-      background: transparent;
-      border: none;
-      color: #8deb00;
-      font-size: 24px;
-      cursor: pointer;
-      padding: 0 6px;
-      flex-shrink: 0;
-      margin-left: 8px;
-      transition: color 0.2s;
-    }
-    .floating-toggle:hover { color: #a0f520; }
-
+    /* ============================================================
+       DASHBOARD SPECIFIC STYLES
+       ============================================================ */
     .dash-header {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--space-lg);
-      border-bottom: 1px solid #1A1A1A;
-      padding-bottom: 15px;
+      display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center;
+      margin-bottom:24px; border-bottom:1px solid var(--border-dim); padding-bottom:16px;
     }
     .dash-header h1 {
-      font-family: 'Space Mono', monospace;
-      font-size: 28px;
-      color: #8deb00;
-      letter-spacing: 1px;
+      font-family:'Space Mono',monospace; font-size:26px; color:var(--green);
+      display:flex; align-items:center; gap:12px;
     }
     .dash-header .instructor-id {
-      color: #b4b4b4;
-      font-size: 13px;
-      font-family: 'Space Mono', monospace;
+      color:var(--text-muted); font-size:13px; font-family:'Space Mono',monospace;
     }
-    .dash-header .instructor-id span {
-      color: #8deb00;
-    }
+    .dash-header .instructor-id span { color:var(--green); }
 
     .section-header {
-      margin-bottom: 20px;
-      margin-top: var(--space-xl);
-      border-bottom: 1px solid #1A1A1A;
-      padding-bottom: 15px;
+      margin: 40px 0 20px;
+      border-bottom: 1px solid var(--border-dim);
+      padding-bottom: 12px;
     }
     .section-header h2 {
-      font-family: 'Space Mono', monospace;
-      font-size: 18px;
-      color: #8deb00;
-      letter-spacing: 1px;
-      text-transform: uppercase;
+      font-family:'Space Mono',monospace; font-size:18px; color:var(--green);
+      text-transform:uppercase; letter-spacing:1px;
     }
 
+    /* Stats Grid */
     .stat-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 15px;
-      margin-bottom: var(--space-xl);
+      display:grid; grid-template-columns:repeat(4,1fr); gap:15px; margin-bottom:30px;
     }
     .stat-card {
-      background: #0A0A0A;
-      border: 1px solid #1A1A1A;
-      border-radius: 8px;
-      padding: 18px 20px;
-      text-align: center;
-      transition: border-color 0.2s;
+      background:var(--bg-panel);
+      border:1px solid var(--border-dim);
+      border-radius:var(--radius);
+      padding:18px 20px;
+      text-align:center;
+      transition:border-color 0.3s ease, transform 0.3s ease;
     }
     .stat-card:hover {
-      border-color: #8deb00;
+      border-color:var(--green);
+      transform:translateY(-3px);
+      box-shadow:0 8px 30px rgba(0,0,0,0.3);
     }
     .stat-card .label {
-      font-size: 12px;
-      color: #b4b4b4;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-family: 'Space Mono', monospace;
+      font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;
+      font-family:'Space Mono',monospace;
     }
     .stat-card .value {
-      font-size: 34px;
-      font-weight: 700;
-      color: #8deb00;
-      text-shadow: 0 0 20px rgba(141,235,0,0.2);
-      margin: 4px 0;
+      font-size:34px; font-weight:700; color:var(--green);
+      text-shadow:0 0 20px rgba(141,235,0,0.2); margin:4px 0;
     }
-    .stat-card .sub {
-      font-size: 12px;
-      color: #666;
-    }
+    .stat-card .sub { font-size:12px; color:#666; }
 
+    /* Profile Section (instructor info) */
     .profile-section {
-      background: #0A0A0A;
-      border: 1px solid #1A1A1A;
-      border-radius: 10px;
-      padding: 18px 24px;
-      margin-bottom: 30px;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 12px 24px;
+      background:var(--bg-panel);
+      border:1px solid var(--border-dim);
+      border-radius:var(--radius);
+      padding:18px 24px;
+      margin-bottom:30px;
+      display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(200px,1fr));
+      gap:12px 24px;
     }
-    .profile-item { display: flex; flex-direction: column; }
-    .profile-item .label { font-size: 10px; color: #666; font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-    .profile-item .value { font-size: 14px; color: #fff; font-weight: 500; word-break: break-word; }
-    .profile-item .value.green { color: #8deb00; }
+    .profile-item { display:flex; flex-direction:column; }
+    .profile-item .label { font-size:10px; color:#666; font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; }
+    .profile-item .value { font-size:14px; color:#fff; font-weight:500; word-break:break-word; margin-top:4px; }
+    .profile-item .value.green { color:var(--green); }
 
+    /* Referral Section */
     .referral-section {
-      background: #0A0A0A;
-      border: 1px solid #1A1A1A;
-      border-radius: 10px;
-      padding: 20px 24px;
-      margin-bottom: 30px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 20px;
+      background:var(--bg-panel);
+      border:1px solid var(--border-dim);
+      border-radius:var(--radius);
+      padding:20px 24px;
+      margin-bottom:30px;
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      gap:20px;
     }
-    .referral-section .link-area {
-      flex: 1;
-      min-width: 200px;
-    }
-    .referral-section .link-area .label {
-      font-size: 12px;
-      color: #666;
-      font-family: 'Space Mono', monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .referral-section .link-area .link {
-      font-family: 'Space Mono', monospace;
-      color: #8deb00;
-      word-break: break-all;
-      margin-top: 4px;
-    }
-    .referral-section .stats {
-      display: flex;
-      gap: 30px;
-      flex-wrap: wrap;
-    }
-    .referral-section .stats .stat {
-      text-align: center;
-    }
-    .referral-section .stats .stat .num {
-      font-size: 28px;
-      font-weight: 700;
-      color: #8deb00;
-    }
-    .referral-section .stats .stat .lbl {
-      font-size: 12px;
-      color: #666;
-      font-family: 'Space Mono', monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+    .referral-section .link-area { flex:1; min-width:200px; }
+    .referral-section .link-area .label { font-size:12px; color:#666; font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; }
+    .referral-section .link-area .link { font-family:'Space Mono',monospace; color:var(--green); word-break:break-all; margin-top:4px; }
+    .referral-section .stats { display:flex; gap:30px; flex-wrap:wrap; }
+    .referral-section .stats .stat { text-align:center; }
+    .referral-section .stats .stat .num { font-size:28px; font-weight:700; color:var(--green); }
+    .referral-section .stats .stat .lbl { font-size:12px; color:#666; font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; }
     .referral-section .tier-badge {
-      font-family: 'Space Mono', monospace;
-      color: #8deb00;
-      font-size: 14px;
-      background: rgba(141,235,0,0.08);
-      padding: 4px 14px;
-      border-radius: 20px;
-      border: 1px solid rgba(141,235,0,0.2);
-      display: inline-block;
-      margin-top: 8px;
-      width: 100%;
-      text-align: center;
+      font-family:'Space Mono',monospace; color:var(--green); font-size:14px;
+      background:rgba(141,235,0,0.08);
+      padding:4px 14px; border-radius:20px;
+      border:1px solid rgba(141,235,0,0.2);
+      display:inline-block; width:100%; text-align:center;
     }
 
+    /* Commission Section */
     .commission-section {
-      background: #0A0A0A;
-      border: 1px solid #1A1A1A;
-      border-radius: 10px;
-      padding: 20px 24px;
-      margin-bottom: 30px;
+      background:var(--bg-panel);
+      border:1px solid var(--border-dim);
+      border-radius:var(--radius);
+      padding:20px 24px;
+      margin-bottom:30px;
     }
     .commission-section .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 16px;
+      display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+      margin-bottom:16px;
     }
     .commission-section .header h3 {
-      font-family: 'Space Mono', monospace;
-      color: #8deb00;
-      font-size: 18px;
+      font-family:'Space Mono',monospace; color:var(--green); font-size:18px;
     }
     .commission-section .header .test-btn {
-      padding: 6px 16px;
-      background: transparent;
-      border: 1px solid #e0b12d;
-      border-radius: 20px;
-      color: #e0b12d;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      cursor: pointer;
-      transition: 0.2s;
+      padding:6px 16px; background:transparent; border:1px solid var(--gold);
+      border-radius:20px; color:var(--gold); font-family:'Space Mono',monospace; font-size:12px;
+      cursor:pointer; transition:0.2s;
     }
     .commission-section .header .test-btn:hover {
-      background: rgba(224,177,45,0.1);
-      box-shadow: 0 0 20px rgba(224,177,45,0.2);
+      background:rgba(224,177,45,0.1); box-shadow:0 0 20px rgba(224,177,45,0.2);
     }
     .commission-section .header .reset-demo {
-      display: none;
-      padding: 4px 12px;
-      background: transparent;
-      border: 1px solid #555;
-      border-radius: 16px;
-      color: #999;
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      cursor: pointer;
-      transition: 0.2s;
+      display:none;
+      padding:4px 12px; background:transparent; border:1px solid #555;
+      border-radius:16px; color:#999; font-family:'Space Mono',monospace; font-size:11px;
+      cursor:pointer; transition:0.2s;
     }
-    .commission-section .header .reset-demo:hover {
-      border-color: #ff4444;
-      color: #ff4444;
-    }
-    .commission-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    .commission-section .header .reset-demo:hover { border-color:#ff4444; color:#ff4444; }
+    .commission-list { display:flex; flex-direction:column; gap:8px; }
     .commission-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 14px;
-      background: #0F0F0F;
-      border-radius: 6px;
-      border-left: 3px solid #8deb00;
-      font-size: 14px;
+      display:flex; justify-content:space-between; align-items:center;
+      padding:10px 14px; background:#0F0F0F; border-radius:6px; border-left:3px solid var(--green);
+      font-size:14px;
     }
-    .commission-item .left .name {
-      color: #fff;
-      font-weight: 500;
-    }
-    .commission-item .left .date {
-      color: #666;
-      font-size: 12px;
-      font-family: 'Space Mono', monospace;
-    }
-    .commission-item .right .amount {
-      color: #8deb00;
-      font-weight: 700;
-    }
+    .commission-item .left .name { color:#fff; font-weight:500; }
+    .commission-item .left .date { color:#666; font-size:12px; font-family:'Space Mono',monospace; }
+    .commission-item .right .amount { color:var(--green); font-weight:700; }
     .commission-item .right .status {
-      font-size: 11px;
-      font-family: 'Space Mono', monospace;
-      padding: 2px 10px;
-      border-radius: 12px;
-      margin-left: 10px;
+      font-size:11px; font-family:'Space Mono',monospace; padding:2px 10px; border-radius:12px; margin-left:10px;
     }
-    .commission-item .right .status.pending {
-      background: rgba(255,170,0,0.12);
-      color: #ffaa00;
-      border: 1px solid rgba(255,170,0,0.2);
-    }
-    .commission-item .right .status.paid {
-      background: rgba(141,235,0,0.12);
-      color: #8deb00;
-      border: 1px solid rgba(141,235,0,0.2);
-    }
-    .commission-item .right .status.failed {
-      background: rgba(255,68,68,0.12);
-      color: #ff4444;
-      border: 1px solid rgba(255,68,68,0.2);
-    }
-    .commission-empty {
-      color: #666;
-      font-size: 13px;
-      font-style: italic;
-      padding: 10px 0;
-      text-align: center;
-    }
+    .commission-item .right .status.pending { background:rgba(255,170,0,0.12); color:#ffaa00; border:1px solid rgba(255,170,0,0.2); }
+    .commission-item .right .status.paid { background:rgba(141,235,0,0.12); color:var(--green); border:1px solid rgba(141,235,0,0.2); }
+    .commission-item .right .status.failed { background:rgba(255,68,68,0.12); color:#ff4444; border:1px solid rgba(255,68,68,0.2); }
+    .commission-empty { color:#666; font-size:13px; font-style:italic; padding:10px 0; text-align:center; }
 
+    /* Curriculum Access */
     .curriculum-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-bottom: var(--space-xl);
+      display:flex; flex-direction:column; gap:10px; margin-bottom:var(--space-xl);
     }
     .curriculum-item {
-      background: #0A0A0A;
-      border: 1px solid #1A1A1A;
-      border-radius: 8px;
-      padding: 16px 22px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      transition: border-color 0.2s;
+      background:var(--bg-panel);
+      border:1px solid var(--border-dim);
+      border-radius:8px;
+      padding:16px 22px;
+      display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      transition:border-color 0.2s;
     }
-    .curriculum-item:hover {
-      border-color: #8deb00;
-    }
-    .curriculum-item .left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .curriculum-item .left .module-num {
-      font-family: 'Space Mono', monospace;
-      font-size: 14px;
-      color: #8deb00;
-      width: 36px;
-    }
-    .curriculum-item .left .module-title {
-      font-size: 15px;
-      color: #ffffff;
-    }
-    .curriculum-item .left .module-desc {
-      font-size: 13px;
-      color: #b4b4b4;
-    }
-    .curriculum-item .right {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-    .curriculum-item .right .badge-mod {
-      font-size: 11px;
-      font-family: 'Space Mono', monospace;
-      color: #666;
-      background: rgba(255,255,255,0.04);
-      padding: 2px 12px;
-      border-radius: 12px;
-    }
+    .curriculum-item:hover { border-color:var(--green); }
+    .curriculum-item .left { display:flex; align-items:center; gap:16px; }
+    .curriculum-item .left .module-num { font-family:'Space Mono',monospace; font-size:14px; color:var(--green); width:36px; }
+    .curriculum-item .left .module-title { font-size:15px; color:#fff; }
+    .curriculum-item .left .module-desc { font-size:13px; color:var(--text-muted); }
+    .curriculum-item .right { display:flex; gap:12px; align-items:center; }
+    .curriculum-item .right .badge-mod { font-size:11px; font-family:'Space Mono',monospace; color:#666; background:rgba(255,255,255,0.04); padding:2px 12px; border-radius:12px; }
 
     .btn-sm {
-      padding: 6px 16px;
-      background: transparent;
-      border: 1px solid #8deb00;
-      border-radius: 6px;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      cursor: pointer;
-      transition: 0.2s;
+      padding:6px 16px; background:transparent; border:1px solid var(--green);
+      border-radius:6px; color:var(--green); font-family:'Space Mono',monospace; font-size:12px;
+      cursor:pointer; transition:0.2s;
     }
-    .btn-sm:hover {
-      background: rgba(141,235,0,0.1);
-      box-shadow: 0 0 12px rgba(141,235,0,0.2);
-    }
-    .btn-sm-outline {
-      border-color: #333;
-      color: #b4b4b4;
-    }
-    .btn-sm-outline:hover {
-      border-color: #8deb00;
-      color: #8deb00;
-    }
+    .btn-sm:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 12px rgba(141,235,0,0.2); }
+    .btn-sm-outline { border-color:#333; color:var(--text-muted); }
+    .btn-sm-outline:hover { border-color:var(--green); color:var(--green); }
 
+    /* Guide Box */
     .guide-box {
-      background: rgba(29,179,27,0.04);
-      border: 1px solid rgba(141,235,0,0.2);
-      border-radius: 10px;
-      padding: 22px 28px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: var(--space-xl);
+      background:rgba(29,179,27,0.04);
+      border:1px solid rgba(141,235,0,0.2);
+      border-radius:10px;
+      padding:22px 28px;
+      display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      margin-bottom:30px;
     }
-    .guide-box .left h4 {
-      font-family: 'Space Mono', monospace;
-      color: #8deb00;
-      font-size: 18px;
-    }
-    .guide-box .left p {
-      color: #b4b4b4;
-      font-size: 14px;
-      margin: 2px 0 0 0;
-    }
-    .guide-box .right {
-      display: flex;
-      gap: 15px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .guide-box .right .unique-id {
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: #b4b4b4;
-      background: #0A0A0A;
-      padding: 6px 14px;
-      border: 1px solid #1A1A1A;
-      border-radius: 6px;
-    }
-    .guide-box .right .unique-id span {
-      color: #8deb00;
-    }
+    .guide-box .left h4 { font-family:'Space Mono',monospace; color:var(--green); font-size:18px; }
+    .guide-box .left p { color:var(--text-muted); font-size:14px; margin:2px 0 0 0; }
+    .guide-box .right { display:flex; gap:15px; align-items:center; flex-wrap:wrap; }
+    .guide-box .right .unique-id { font-family:'Space Mono',monospace; font-size:13px; color:var(--text-muted); background:var(--bg-panel); padding:6px 14px; border:1px solid var(--border-dim); border-radius:6px; }
+    .guide-box .right .unique-id span { color:var(--green); }
 
+    /* Email Scripts */
     .email-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: var(--space-xl);
+      display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:30px;
     }
     .email-card {
-      background: #0A0A0A;
-      border: 1px solid #1A1A1A;
-      border-radius: 8px;
-      padding: 20px 24px;
+      background:var(--bg-panel);
+      border:1px solid var(--border-dim);
+      border-radius:8px;
+      padding:20px 24px;
     }
-    .email-card h4 {
-      font-family: 'Space Mono', monospace;
-      color: #8deb00;
-      font-size: 16px;
-      margin-bottom: 4px;
-    }
-    .email-card p {
-      color: #b4b4b4;
-      font-size: 13px;
-      margin-bottom: 10px;
-    }
+    .email-card h4 { font-family:'Space Mono',monospace; color:var(--green); font-size:16px; margin-bottom:4px; }
+    .email-card p { color:var(--text-muted); font-size:13px; margin-bottom:10px; }
     .email-card textarea {
-      width: 100%;
-      background: #0F0F0F;
-      border: 1px solid #1A1A1A;
-      border-radius: 6px;
-      color: #ddd;
-      padding: 10px 12px;
-      font-size: 13px;
-      font-family: 'Montserrat', sans-serif;
-      resize: vertical;
-      outline: none;
-      min-height: 80px;
+      width:100%; background:#0F0F0F; border:1px solid var(--border-dim); border-radius:6px;
+      color:#ddd; padding:10px 12px; font-size:13px; font-family:'Montserrat',sans-serif;
+      resize:vertical; outline:none; min-height:80px;
     }
-    .email-card textarea:focus {
-      border-color: #8deb00;
-    }
-    .email-card .actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 10px;
-    }
+    .email-card textarea:focus { border-color:var(--green); }
+    .email-card .actions { display:flex; gap:12px; margin-top:10px; }
 
+    /* Student CRM */
     .crm-container {
-      background: #0A0A0A;
-      border: 1px solid #1A1A1A;
-      border-radius: 10px;
-      padding: 24px 28px;
-      margin-bottom: var(--space-xl);
+      background:var(--bg-panel);
+      border:1px solid var(--border-dim);
+      border-radius:10px;
+      padding:24px 28px;
+      margin-bottom:30px;
     }
     .crm-container .form-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      align-items: end;
-      margin-bottom: 18px;
+      display:flex; flex-wrap:wrap; gap:15px; align-items:end; margin-bottom:18px;
     }
-    .crm-container .form-row .field {
-      flex: 1;
-      min-width: 150px;
-    }
-    .crm-container .form-row label {
-      display: block;
-      color: #b4b4b4;
-      font-size: 12px;
-      font-family: 'Space Mono', monospace;
-      margin-bottom: 4px;
-    }
+    .crm-container .form-row .field { flex:1; min-width:150px; }
+    .crm-container .form-row label { display:block; color:var(--text-muted); font-size:12px; font-family:'Space Mono',monospace; margin-bottom:4px; }
     .crm-container .form-row input {
-      width: 100%;
-      padding: 10px 14px;
-      background: #0F0F0F;
-      border: 1px solid #1A1A1A;
-      border-radius: 6px;
-      color: #ffffff;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 14px;
-      outline: none;
+      width:100%; padding:10px 14px; background:#0F0F0F; border:1px solid var(--border-dim);
+      border-radius:6px; color:#fff; font-family:'Montserrat',sans-serif; font-size:14px; outline:none;
     }
-    .crm-container .form-row input:focus {
-      border-color: #8deb00;
-    }
-    .crm-container .student-list {
-      border-top: 1px solid #1A1A1A;
-      padding-top: 16px;
-    }
+    .crm-container .form-row input:focus { border-color:var(--green); }
+    .crm-container .student-list { border-top:1px solid var(--border-dim); padding-top:16px; }
     .crm-container .student-list .student-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid #0F0F0F;
-      font-size: 14px;
-      color: #d0d0d0;
+      display:flex; justify-content:space-between; align-items:center;
+      padding:8px 0; border-bottom:1px solid #0F0F0F; font-size:14px; color:#d0d0d0;
     }
-    .crm-container .student-list .student-row .email {
-      color: #b4b4b4;
-      font-size: 13px;
-    }
+    .crm-container .student-list .student-row .email { color:var(--text-muted); font-size:13px; }
     .crm-container .student-list .student-row .remove-btn {
-      color: #ff4444;
-      font-size: 13px;
-      cursor: pointer;
-      background: none;
-      border: none;
-      font-family: 'Space Mono', monospace;
+      color:#ff4444; font-size:13px; cursor:pointer; background:none; border:none;
+      font-family:'Space Mono',monospace;
     }
-    .crm-container .student-list .student-row .remove-btn:hover {
-      color: #ff6666;
-    }
-    .empty-msg {
-      color: #666;
-      font-size: 13px;
-      font-style: italic;
-      padding: 8px 0;
-    }
+    .crm-container .student-list .student-row .remove-btn:hover { color:#ff6666; }
+    .empty-msg { color:#666; font-size:13px; font-style:italic; padding:8px 0; }
 
+    /* Billing */
     .billing-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: var(--space-xl);
+      display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:30px;
     }
     .billing-panel {
-      background: #0A0A0A;
-      border: 1px solid #1A1A1A;
-      border-radius: 8px;
-      padding: 22px 26px;
+      background:var(--bg-panel);
+      border:1px solid var(--border-dim);
+      border-radius:8px;
+      padding:22px 26px;
     }
-    .billing-panel h4 {
-      font-family: 'Space Mono', monospace;
-      color: #8deb00;
-      font-size: 16px;
-      margin-bottom: 10px;
-    }
+    .billing-panel h4 { font-family:'Space Mono',monospace; color:var(--green); font-size:16px; margin-bottom:10px; }
     .billing-panel .line {
-      display: flex;
-      justify-content: space-between;
-      padding: 6px 0;
-      color: #b4b4b4;
-      font-size: 14px;
-      border-bottom: 1px solid #0F0F0F;
+      display:flex; justify-content:space-between; padding:6px 0;
+      color:var(--text-muted); font-size:14px; border-bottom:1px solid #0F0F0F;
     }
-    .billing-panel .line .val {
-      color: #ffffff;
-    }
-    .billing-panel .line .val.green {
-      color: #8deb00;
-    }
+    .billing-panel .line .val { color:#fff; }
+    .billing-panel .line .val.green { color:var(--green); }
     .billing-panel .stripe-placeholder {
-      background: #0F0F0F;
-      border: 1px dashed #1A1A1A;
-      border-radius: 6px;
-      padding: 16px;
-      text-align: center;
-      color: #666;
-      font-size: 13px;
-      margin-top: 12px;
+      background:#0F0F0F; border:1px dashed var(--border-dim); border-radius:6px;
+      padding:16px; text-align:center; color:#666; font-size:13px; margin-top:12px;
     }
-    .billing-panel .stripe-placeholder i {
-      color: #8deb00;
-      margin-right: 6px;
-    }
+    .billing-panel .stripe-placeholder i { color:var(--green); margin-right:6px; }
 
+    /* Store Grid */
     .store-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-bottom: var(--space-xl);
+      display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:30px;
     }
     .store-item {
-      background: #0A0A0A;
-      border: 1px solid #1A1A1A;
-      border-radius: 8px;
-      padding: 20px;
-      text-align: center;
-      transition: border-color 0.2s;
+      background:var(--bg-panel);
+      border:1px solid var(--border-dim);
+      border-radius:8px;
+      padding:20px;
+      text-align:center;
+      transition:border-color 0.2s;
     }
-    .store-item:hover {
-      border-color: #8deb00;
-    }
-    .store-item i {
-      font-size: 32px;
-      color: #8deb00;
-      margin-bottom: 8px;
-    }
-    .store-item h4 {
-      font-family: 'Space Mono', monospace;
-      color: #ffffff;
-      font-size: 16px;
-    }
-    .store-item .price {
-      color: #b4b4b4;
-      font-size: 14px;
-      margin: 4px 0 12px 0;
-    }
+    .store-item:hover { border-color:var(--green); }
+    .store-item i { font-size:32px; color:var(--green); margin-bottom:8px; }
+    .store-item h4 { font-family:'Space Mono',monospace; color:#fff; font-size:16px; }
+    .store-item .price { color:var(--text-muted); font-size:14px; margin:4px 0 12px 0; }
     .store-item .order-btn {
-      padding: 8px 20px;
-      background: transparent;
-      border: 1px solid #8deb00;
-      border-radius: 6px;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      cursor: pointer;
-      transition: 0.2s;
+      padding:8px 20px; background:transparent; border:1px solid var(--green);
+      border-radius:6px; color:var(--green); font-family:'Space Mono',monospace; font-size:12px;
+      cursor:pointer; transition:0.2s;
     }
-    .store-item .order-btn:hover {
-      background: rgba(141,235,0,0.1);
-      box-shadow: 0 0 12px rgba(141,235,0,0.2);
-    }
+    .store-item .order-btn:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 12px rgba(141,235,0,0.2); }
 
     .btn-neon-outline {
-      display: inline-block;
-      padding: 10px 28px;
-      background: transparent;
-      border: 1px solid #8deb00;
-      border-radius: 8px;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 14px;
-      transition: 0.2s;
-      text-decoration: none;
+      display:inline-block; padding:10px 28px; background:transparent;
+      border:1px solid var(--green); border-radius:8px; color:var(--green);
+      font-family:'Space Mono',monospace; font-size:14px; transition:0.2s; text-decoration:none;
     }
-    .btn-neon-outline:hover {
-      background: rgba(141,235,0,0.1);
-      box-shadow: 0 0 20px rgba(141,235,0,0.3);
-    }
+    .btn-neon-outline:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.3); }
 
+    /* Footer */
     .footer {
-      border-top: 1px solid #1A1A1A;
-      padding-top: var(--space-md);
-      margin-top: var(--space-xl);
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-      font-size: 12px;
-      color: #b4b4b4;
-      text-align: center;
+      border-top:1px solid var(--border-dim);
+      padding-top:20px; margin-top:40px;
+      display:flex; flex-direction:column; gap:15px;
+      font-size:12px; color:var(--text-muted); text-align:center;
     }
-    .footer .socials {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-    }
-    .footer .socials a {
-      color: #ffffff !important;
-      font-size: 18px;
-      transition: 0.2s;
-    }
-    .footer .socials a:hover {
-      color: #8deb00 !important;
-    }
-    .footer .footer-links {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-    .footer .footer-links a {
-      color: #8deb00 !important;
-    }
-    .footer .footer-links a:hover {
-      color: #a0f520 !important;
-    }
+    .footer .socials { display:flex; justify-content:center; gap:20px; }
+    .footer .socials a { color:#fff; font-size:18px; transition:0.2s; }
+    .footer .socials a:hover { color:var(--green); }
+    .footer .footer-links { display:flex; justify-content:center; gap:20px; flex-wrap:wrap; }
+    .footer .footer-links a { color:var(--green); transition:0.2s; }
+    .footer .footer-links a:hover { color:#a0f520; }
 
+    /* Toast */
+    #toast-container {
+      position:fixed; top:24px; left:50%; transform:translateX(-50%); z-index:10000;
+      display:flex; flex-direction:column; gap:10px; align-items:center; pointer-events:none;
+    }
+    .toast {
+      background:#0A0A0A; border:1px solid var(--green); color:#fff;
+      font-family:'Space Mono',monospace; font-size:13px; padding:12px 22px;
+      border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.6);
+      opacity:0; transform:translateY(-10px); transition:all 0.3s ease;
+      pointer-events:auto; max-width:90vw; text-align:center;
+    }
+    .toast.show { opacity:1; transform:translateY(0); }
+    .toast.error { border-color:#ff4a4a; }
+
+    /* Responsive */
     @media (max-width: 1024px) {
-      body { flex-direction: column; }
-      
-      .sidebar {
-        width: 100%;
-        height: auto;
-        position: static;
-        border-right: none;
-        border-bottom: 1px solid #1A1A1A;
-        padding: 15px 20px;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        flex-direction: row;
-      }
-      .sidebar .logo { margin: 0; }
-      .sidebar .logo img { height: 50px; width: auto; margin: 0; }
-      .sidebar .nav-group { display: none !important; }
-      .sidebar .mobile-toggle { display: block !important; background: transparent; border: none; color: #8deb00; font-size: 28px; cursor: pointer; padding: 4px 8px; z-index: 101; }
-      .floating-toggle { display: block !important; }
-      .main-content { padding: 20px; padding-top: 100px; }
-      .dash-header h1 { font-size: 22px; }
-      .stat-grid { grid-template-columns: 1fr 1fr; }
-      .email-grid { grid-template-columns: 1fr; }
-      .billing-grid { grid-template-columns: 1fr; }
-      .store-grid { grid-template-columns: 1fr 1fr; }
-      .curriculum-item { flex-direction: column; align-items: flex-start; gap: 10px; }
-      .guide-box { flex-direction: column; align-items: flex-start; gap: 15px; }
-      .referral-section { flex-direction: column; align-items: stretch; }
-      .referral-section .stats { justify-content: space-around; }
-      .commission-section .header { flex-direction: column; align-items: stretch; }
-      .commission-item { flex-direction: column; align-items: flex-start; gap: 6px; }
-      .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; border-radius: 25px; gap: 10px; }
-      .floating-nav-links { gap: 12px; }
-      #cartHeaderLabel { display: none; }
+      .stat-grid { grid-template-columns:1fr 1fr; }
+      .email-grid { grid-template-columns:1fr; }
+      .billing-grid { grid-template-columns:1fr; }
+      .store-grid { grid-template-columns:1fr 1fr; }
+      .curriculum-item { flex-direction:column; align-items:flex-start; gap:10px; }
+      .guide-box { flex-direction:column; align-items:flex-start; gap:15px; }
+      .referral-section { flex-direction:column; align-items:stretch; }
+      .referral-section .stats { justify-content:space-around; }
+      .commission-section .header { flex-direction:column; align-items:stretch; }
+      .commission-item { flex-direction:column; align-items:flex-start; gap:6px; }
+      .profile-section { grid-template-columns:1fr 1fr; }
     }
     @media (max-width: 600px) {
-      .stat-grid { grid-template-columns: 1fr; }
-      .store-grid { grid-template-columns: 1fr; }
-      .referral-section .stats { flex-direction: column; align-items: center; gap: 10px; }
+      .stat-grid { grid-template-columns:1fr; }
+      .store-grid { grid-template-columns:1fr; }
+      .profile-section { grid-template-columns:1fr; }
+      .referral-section .stats { flex-direction:column; align-items:center; gap:10px; }
     }
-
-    .nav-group-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.85);
-      z-index: 10000;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      padding: 40px 20px;
-      overflow-y: auto;
-    }
-    .nav-group-overlay.open {
-      display: flex !important;
-    }
-    .nav-group-overlay .nav-item {
-      font-size: 22px;
-      padding: 12px 0;
-      color: #ffffff;
-      font-family: 'Space Mono', monospace;
-      letter-spacing: 0.5px;
-      width: 100%;
-      max-width: 360px;
-      text-align: center;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    .nav-group-overlay .nav-item i {
-      color: #8deb00;
-      font-size: 18px;
-      width: 28px;
-    }
-    .nav-group-overlay .nav-item:hover {
-      color: #8deb00;
-    }
-    .nav-group-overlay .close-btn {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      color: #8deb00;
-      font-size: 32px;
-      cursor: pointer;
-      background: transparent;
-      border: none;
-      padding: 8px;
-      z-index: 10001;
-      font-family: 'Space Mono', monospace;
-    }
-    .nav-group-overlay .sidebar-divider {
-      display: none;
-    }
-    .nav-group-overlay .nav-item.dashboard-link {
-      color: #8deb00;
-      border-left: 2px solid #8deb00;
-      padding-left: 10px;
-      text-shadow: 0 0 12px rgba(141,235,0,0.6);
-    }
-    .nav-group-overlay .nav-item.dashboard-link i {
-      color: #8deb00;
-    }
-
-    .sidebar .mobile-toggle { display: none; }
-
-    @media (min-width: 1025px) {
-      .sidebar .nav-group { display: flex !important; flex-direction: column !important; }
-    }
-
-    .header-login-btn {
-      display: block;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      border: 1px solid #8deb00;
-      padding: 0 10px 0 14px;
-      border-radius: 20px;
-      background: transparent;
-      transition: 0.2s;
-      text-decoration: none;
-      text-align: center;
-      width: fit-content;
-    }
-    .header-login-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 15px rgba(141,235,0,0.3); }
-    @media (min-width:1025px){ .header-login-btn { margin-top:10px; margin-bottom:20px; align-self:flex-start; } }
-
-    #scrollTopBtn {
-      position: fixed;
-      bottom: 30px; right: 30px;
-      visibility: hidden; opacity: 0;
-      width: 45px; height: 45px;
-      border-radius: 50%;
-      border: 1px solid #8deb00;
-      background: rgba(0,0,0,0.85);
-      color: #8deb00;
-      cursor: pointer;
-      font-size: 18px;
-      z-index: 999;
-      font-family: 'Space Mono', monospace;
-      transition: opacity 0.3s ease, visibility 0.3s ease;
-      box-shadow: 0 0 10px rgba(141,235,0,0.2);
-    }
-    #scrollTopBtn.show { visibility: visible; opacity: 1; }
-    #scrollTopBtn:hover { background: #8deb00; color: #000000; box-shadow: 0 0 20px rgba(141,235,0,0.6); transform: translateY(-2px); }
-    @keyframes pulse {
-      0%   { transform: scale(1);   box-shadow: 0 0 10px rgba(141,235,0,0.2); }
-      50%  { transform: scale(1.15); box-shadow: 0 0 25px rgba(141,235,0,0.5); }
-      100% { transform: scale(1);   box-shadow: 0 0 10px rgba(141,235,0,0.2); }
-    }
-    #scrollTopBtn.pulse { animation: pulse 1.2s ease-in-out infinite; }
   </style>
 </head>
 <body>
 
-  <!-- BINARY RAIN CANVAS -->
-  <canvas id="binary-rain"></canvas>
-  <div id="rain-fade"></div>
+  <!-- ===== SIDEBAR CONTAINER (injected by sidebar.js) ===== -->
+  <div id="sidebarContainer"></div>
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="logo"><img src="cameras-decoded-logo.png" alt="Cameras Decoded"></div>
-    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
-      <a href="login.html" class="header-login-btn">Log in</a>
-      <a href="signup.html" class="header-login-btn">Sign Up</a>
+  <!-- ===== FLOATING HEADER ===== -->
+  <div class="floating-header">
+    <div class="floating-left-group">
+      <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
+      <span id="roleTierBadge" class="role-tier-badge">
+        <span class="glow-role">Instructor</span> · <span class="tier-text" id="userTierText">Educator</span>
+      </span>
     </div>
-    
-    <!-- DESKTOP NAV -->
-    <div class="nav-group" id="navGroupDesktop">
-      <!-- Dashboard link will be inserted here by JS (above Home) -->
-      <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-      <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-      <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-      <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-      <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-      <hr class="sidebar-divider">
-      <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-      <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-      <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-      <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-      <hr class="sidebar-divider">
-      <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-      <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-      <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-      <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
+    <div class="floating-center-group"></div>
+    <div class="floating-right-group">
+      <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
+        <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
+        <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
+      </a>
+      <button class="logout-btn" onclick="handleLogout()">Logout</button>
+      <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
     </div>
-    
-    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
-  </aside>
-
-  <!-- MOBILE OVERLAY -->
-  <div class="nav-group-overlay" id="navGroupOverlay">
-    <button class="close-btn" id="closeToggle">✕</button>
-    <!-- Dashboard link will be inserted here by JS (above Home) -->
-    <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-    <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-    <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-    <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-    <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-    <hr class="sidebar-divider">
-    <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-    <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-    <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-    <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-    <hr class="sidebar-divider">
-    <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-    <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-    <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-    <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
-    <!-- Dashboard link container (JS will insert above Home) -->
-    <div id="mobileDashboardContainer"></div>
   </div>
 
-  <!-- FLOATING GLASS HEADER -->
-  <div class="floating-header" id="floatingHeader">
-    <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
-    <div class="floating-nav-links">
-      <a href="operators.html">Operators</a>
-      <a href="partners.html">Partners</a>
-      <a href="educators-pdf-viewer.html">Instructors</a>
-    </div>
-    <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
-      <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
-      <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
-    </a>
-    <!-- ===== LOGOUT BUTTON (uses globally defined function) ===== -->
-    <button class="logout-btn" onclick="handleLogout()">Logout</button>
-    <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
-  </div>
-
-  <!-- MAIN CONTENT -->
+  <!-- ===== MAIN CONTENT ===== -->
   <main class="main-content">
 
     <!-- DASHBOARD HEADER -->
-    <div class="dash-header">
+    <div class="dash-header reveal">
       <h1>⌨ Instructor Command Center</h1>
       <div class="instructor-id">Your ID: <span id="instructorUniqueId">—</span></div>
     </div>
 
-    <!-- STAT CARDS (all zero – no mock numbers) -->
-    <div class="stat-grid">
-      <div class="stat-card"><div class="label">Students</div><div class="value" id="studentCount">0</div><div class="sub">active</div></div>
-      <div class="stat-card"><div class="label">Guide Sales</div><div class="value" id="guideSalesCount">0</div><div class="sub">commission tracked</div></div>
-      <div class="stat-card"><div class="label">Workshops</div><div class="value" id="workshopCount">0</div><div class="sub">completed / upcoming</div></div>
-      <div class="stat-card"><div class="label">Cohorts</div><div class="value" id="cohortCount">0</div><div class="sub">active</div></div>
+    <!-- STAT CARDS -->
+    <div class="stat-grid reveal">
+      <div class="stat-card">
+        <div class="label">Students</div>
+        <div class="value" id="studentCount">0</div>
+        <div class="sub">active</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Guide Sales</div>
+        <div class="value" id="guideSalesCount">0</div>
+        <div class="sub">commission tracked</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Workshops</div>
+        <div class="value" id="workshopCount">0</div>
+        <div class="sub">completed / upcoming</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Cohorts</div>
+        <div class="value" id="cohortCount">0</div>
+        <div class="sub">active</div>
+      </div>
     </div>
 
-    <!-- ===== PROFILE SECTION ===== -->
-    <div class="profile-section" id="profileSection">
+    <!-- ===== PROFILE SECTION (Instructor Info) ===== -->
+    <div class="profile-section reveal" id="profileSection">
       <div class="profile-item"><span class="label">Username</span><span class="value" id="profileUsername">—</span></div>
       <div class="profile-item"><span class="label">Full Name</span><span class="value" id="profileName">—</span></div>
       <div class="profile-item"><span class="label">Email</span><span class="value" id="profileEmail">—</span></div>
@@ -1161,8 +723,8 @@
       <div class="profile-item"><span class="label">Billing</span><span class="value" id="profileBilling">—</span></div>
     </div>
 
-    <!-- ===== REFERRAL SECTION (flat 20%) ===== -->
-    <div class="referral-section" id="referralSection">
+    <!-- ===== REFERRAL SECTION ===== -->
+    <div class="referral-section reveal" id="referralSection">
       <div class="link-area">
         <div class="label">Your Referral Link</div>
         <div class="link" id="referralLink">camerasdecoded.com/ref/—</div>
@@ -1186,9 +748,9 @@
     </div>
 
     <!-- ===== COMMISSION HISTORY ===== -->
-    <div class="commission-section" id="commissionSection">
+    <div class="commission-section reveal" id="commissionSection">
       <div class="header">
-        <h3><i class="fas fa-coin" style="color:#8deb00; margin-right:8px;"></i>Commission History</h3>
+        <h3><i class="fas fa-coin" style="color:var(--green); margin-right:8px;"></i>Commission History</h3>
         <div>
           <button class="test-btn" id="simulateBtn" onclick="simulatePurchase()"><i class="fas fa-vial"></i> Simulate Purchase</button>
           <button class="reset-demo" id="resetDemoBtn" onclick="resetDemoCommission()" style="display:none;">↻ Reset demo</button>
@@ -1199,9 +761,9 @@
       </div>
     </div>
 
-    <!-- CURRICULUM ACCESS (unchanged) -->
-    <div class="section-header"><h2>Curriculum Access</h2></div>
-    <div class="curriculum-list">
+    <!-- CURRICULUM ACCESS -->
+    <div class="section-header reveal"><h2>Curriculum Access</h2></div>
+    <div class="curriculum-list reveal">
       <div class="curriculum-item">
         <div class="left">
           <span class="module-num">01</span>
@@ -1269,8 +831,8 @@
       </div>
     </div>
 
-    <!-- ===== CAMERA CONFIDENCE GUIDE (UPDATED) ===== -->
-    <div class="guide-box">
+    <!-- ===== CAMERA CONFIDENCE GUIDE ===== -->
+    <div class="guide-box reveal">
       <div class="left">
         <h4>📘 Camera Confidence Guide</h4>
         <p>Full curriculum version with instructor annotations and teaching notes.</p>
@@ -1282,8 +844,8 @@
     </div>
 
     <!-- EMAIL SCRIPTS -->
-    <div class="section-header"><h2>Email Scripts</h2></div>
-    <div class="email-grid">
+    <div class="section-header reveal"><h2>Email Scripts</h2></div>
+    <div class="email-grid reveal">
       <div class="email-card">
         <h4>Intro Email</h4>
         <p>Welcome message for new students</p>
@@ -1321,8 +883,8 @@ See you soon,
     </div>
 
     <!-- ===== STUDENT CRM (Firestore-backed) ===== -->
-    <div class="section-header"><h2>Student CRM</h2></div>
-    <div class="crm-container">
+    <div class="section-header reveal"><h2>Student CRM</h2></div>
+    <div class="crm-container reveal">
       <form id="addStudentForm" class="form-row">
         <div class="field">
           <label for="studentName">Full Name</label>
@@ -1341,9 +903,9 @@ See you soon,
       </div>
     </div>
 
-    <!-- BILLING (dynamic-ready – no mock numbers) -->
-    <div class="section-header"><h2>Billing</h2></div>
-    <div class="billing-grid">
+    <!-- ===== BILLING (dynamic from Firestore) ===== -->
+    <div class="section-header reveal"><h2>Billing</h2></div>
+    <div class="billing-grid reveal">
       <div class="billing-panel">
         <h4>Current Plan</h4>
         <div class="line"><span>Plan</span><span class="val green" id="billingPlan">—</span></div>
@@ -1364,8 +926,8 @@ See you soon,
     </div>
 
     <!-- MATERIALS STORE -->
-    <div class="section-header"><h2>Branded Materials</h2></div>
-    <div class="store-grid">
+    <div class="section-header reveal"><h2>Branded Materials</h2></div>
+    <div class="store-grid reveal">
       <div class="store-item"><i class="fas fa-tshirt"></i><h4>Operator Tee</h4><div class="price">$25</div><button class="order-btn" onclick="orderItem('Operator Tee', 25)">Order</button></div>
       <div class="store-item"><i class="fas fa-hat-wizard"></i><h4>Decoder Cap</h4><div class="price">$20</div><button class="order-btn" onclick="orderItem('Decoder Cap', 20)">Order</button></div>
       <div class="store-item"><i class="fas fa-book"></i><h4>Guide Booklet</h4><div class="price">$12</div><button class="order-btn" onclick="orderItem('Guide Booklet', 12)">Order</button></div>
@@ -1374,7 +936,19 @@ See you soon,
       <div class="store-item"><i class="fas fa-bag-shopping"></i><h4>Tote Bag</h4><div class="price">$22</div><button class="order-btn" onclick="orderItem('Tote Bag', 22)">Order</button></div>
     </div>
 
-    <footer class="footer">
+    <!-- Support -->
+    <div class="support-box reveal" style="background:rgba(29,179,27,0.04);border:1px solid rgba(141,235,0,0.2);border-radius:var(--radius);padding:22px 28px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:10px;">
+      <div>
+        <h4 style="font-family:'Space Mono',monospace;color:var(--green);font-size:16px;">Need help?</h4>
+        <p style="color:var(--text-muted);font-size:14px;">Dedicated instructor support – reply within 4 hours.</p>
+      </div>
+      <div>
+        <a href="mailto:signal@camerasdecoded.com" class="btn-neon-outline" style="padding:8px 24px;">Contact Support</a>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer reveal">
       <div>© 2026 Cameras Decoded. All rights reserved.</div>
       <div class="socials">
         <a href="https://www.youtube.com/@CamerasDecoded"><i class="fab fa-youtube"></i></a>
@@ -1399,11 +973,23 @@ See you soon,
     </footer>
   </main>
 
+  <!-- ===== SHARED BOTTOM NAV (injected) ===== -->
+  <div id="bottomNavContainer"></div>
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== SHARED SCRIPTS ===== -->
+  <script src="bottom-nav.js"></script>
+  <script src="sidebar.js"></script>
+
   <script>
     // ============================================================
-    //  IMPORTANT: handleLogout is defined FIRST (global scope)
+    // GLOBAL LOGOUT FUNCTION (for floating header)
     // ============================================================
-    function handleLogout() {
+    window.handleLogout = function() {
       if (typeof firebase !== 'undefined' && firebase.auth) {
         firebase.auth().signOut().then(() => {
           localStorage.removeItem('cameras_decoded_uid');
@@ -1417,96 +1003,105 @@ See you soon,
         localStorage.clear();
         window.location.href = 'login.html';
       }
-    }
-    window.handleLogout = handleLogout;
+    };
 
     // ============================================================
-    //  COPY GUIDE LINK (new function)
+    // TOAST
+    // ============================================================
+    function cdToast(message, type) {
+      const container = document.getElementById('toast-container');
+      if (!container) {
+        // Create toast container if it doesn't exist
+        const div = document.createElement('div');
+        div.id = 'toast-container';
+        document.body.appendChild(div);
+      }
+      const c = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast' + (type === 'error' ? ' error' : '');
+      toast.textContent = message;
+      c.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add('show'));
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // ============================================================
+    // COPY REFERRAL LINK
+    // ============================================================
+    function copyReferralLink() {
+      const link = document.getElementById('referralLink').textContent;
+      navigator.clipboard.writeText('https://' + link).then(() => cdToast('Copied!'))
+        .catch(() => {
+          const input = document.createElement('input');
+          input.value = 'https://' + link;
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand('copy');
+          document.body.removeChild(input);
+          cdToast('Copied!');
+        });
+    }
+
+    // ============================================================
+    // COPY GUIDE LINK
     // ============================================================
     function copyGuideLink() {
       const referralLink = document.getElementById('referralLink').textContent;
       const code = referralLink.replace('camerasdecoded.com/ref/', '').trim();
       if (!code || code === '—') {
-        alert('Referral code not found. Please refresh or contact support.');
+        cdToast('Referral code not found.', 'error');
         return;
       }
       const link = `https://camerasdecoded.com/camera-confidence-guide.html?ref=${code}`;
-      navigator.clipboard.writeText(link).then(() => {
-        alert('Guide link copied with your referral code!');
-      }).catch(() => {
-        const input = document.createElement('input');
-        input.value = link;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-        alert('Guide link copied with your referral code!');
-      });
+      navigator.clipboard.writeText(link).then(() => cdToast('Guide link copied!'))
+        .catch(() => {
+          const input = document.createElement('input');
+          input.value = link;
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand('copy');
+          document.body.removeChild(input);
+          cdToast('Guide link copied!');
+        });
     }
 
     // ============================================================
-    //  MOBILE MENU, SCROLL, BINARY RAIN, CART
+    // EMAIL SCRIPT HELPERS
     // ============================================================
-    document.addEventListener('DOMContentLoaded', function() {
-      const mobileToggle = document.getElementById('mobileToggle');
-      const floatingToggle = document.getElementById('floatingToggle');
-      const closeToggle = document.getElementById('closeToggle');
-      const overlay = document.getElementById('navGroupOverlay');
+    function copyScript(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      navigator.clipboard.writeText(el.value).then(() => cdToast('Copied!'))
+        .catch(() => { el.select(); document.execCommand('copy'); cdToast('Copied!'); });
+    }
+    function downloadText(id, filename) {
+      const text = document.getElementById(id).value;
+      const blob = new Blob([text], {type: 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
 
-      function openMenu() { overlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
-      function closeMenu() { overlay.classList.remove('open'); document.body.style.overflow = ''; }
+    // ============================================================
+    // ORDER ITEM (cart)
+    // ============================================================
+    function orderItem(name, price) {
+      const cart = JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
+      const existing = cart.find(item => item.name === name);
+      if (existing) existing.qty += 1;
+      else cart.push({ name, price, qty: 1, image: '' });
+      localStorage.setItem('cameras_decoded_cart', JSON.stringify(cart));
+      updateCartUI();
+      cdToast(`${name} added to cart.`);
+    }
 
-      if (mobileToggle) mobileToggle.addEventListener('click', openMenu);
-      if (floatingToggle) floatingToggle.addEventListener('click', openMenu);
-      if (closeToggle) closeToggle.addEventListener('click', closeMenu);
-      if (overlay) overlay.addEventListener('click', function(e) { if (e.target === overlay) closeMenu(); });
-    });
-
-    window.onscroll = function() {
-      const btn = document.getElementById('scrollTopBtn');
-      if (!btn) return;
-      const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
-      if (show) { btn.classList.add('show'); requestAnimationFrame(() => btn.classList.add('pulse')); }
-      else { btn.classList.remove('show', 'pulse'); }
-    };
-
-    (function() {
-      const canvas = document.getElementById('binary-rain');
-      const ctx = canvas.getContext('2d');
-      let width = window.innerWidth, height = window.innerHeight;
-      canvas.width = width; canvas.height = height;
-      const fontSize = 16, columns = Math.floor(width / fontSize);
-      const drops = Array(columns).fill(1), speed = 0.55;
-      function draw() {
-        ctx.fillStyle = 'rgba(0,0,0,0.05)';
-        ctx.fillRect(0, 0, width, height);
-        ctx.font = fontSize + 'px "Space Mono", monospace';
-        ctx.textAlign = 'center';
-        for (let i = 0; i < drops.length; i++) {
-          const char = Math.random() > 0.5 ? '1' : '0';
-          const x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
-          if (char === '1') { ctx.shadowColor = '#8deb00'; ctx.shadowBlur = 8; ctx.fillStyle = '#8deb00'; }
-          else { ctx.shadowColor = '#3a7a1a'; ctx.shadowBlur = 4; ctx.fillStyle = '#4caf50'; }
-          ctx.fillText(char, x, y);
-          if (char === '1' && Math.random() < 0.025) {
-            ctx.shadowBlur = 15; ctx.fillStyle = '#ffffff';
-            ctx.beginPath(); ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-          }
-          if (y > height && Math.random() > 0.97) { drops[i] = 0; }
-          drops[i] += speed;
-        }
-        requestAnimationFrame(draw);
-      }
-      draw();
-      window.addEventListener('resize', () => {
-        width = window.innerWidth; height = window.innerHeight;
-        canvas.width = width; canvas.height = height;
-        const newColumns = Math.floor(width / fontSize);
-        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
-        else drops.length = newColumns;
-      });
-    })();
-
+    // ============================================================
+    // CART UI
+    // ============================================================
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
     function updateCartUI() {
       const cart = getCart();
@@ -1519,7 +1114,7 @@ See you soon,
     updateCartUI();
 
     // ============================================================
-    //  FIREBASE INIT (SDKs loaded from head)
+    // FIREBASE INIT
     // ============================================================
     const firebaseConfig = {
       apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
@@ -1542,17 +1137,22 @@ See you soon,
     let window.demoCommissionId = null;
 
     // ============================================================
-    //  UPDATE INSTRUCTOR PROFILE (with referral section)
+    // UPDATE INSTRUCTOR PROFILE
     // ============================================================
     function updateInstructorProfile(data) {
       document.getElementById('profileUsername').textContent = data.username || '—';
       document.getElementById('profileName').textContent = data.name || '—';
       document.getElementById('profileEmail').textContent = data.email || '—';
       document.getElementById('profileExperience').textContent = data.teachingExperience || '—';
+
       const license = data.instructorLicense || 'educator';
-      document.getElementById('profileLicense').textContent = license.charAt(0).toUpperCase() + license.slice(1);
+      const licenseDisplay = license.charAt(0).toUpperCase() + license.slice(1);
+      document.getElementById('profileLicense').textContent = licenseDisplay;
+
       const billing = data.billingInterval || 'annual';
-      document.getElementById('profileBilling').textContent = billing.charAt(0).toUpperCase() + billing.slice(1);
+      const billingDisplay = billing.charAt(0).toUpperCase() + billing.slice(1);
+      document.getElementById('profileBilling').textContent = billingDisplay;
+
       const instructorId = data.instructorId || '—';
       document.getElementById('instructorUniqueId').textContent = instructorId;
       document.getElementById('guideUniqueId').textContent = instructorId;
@@ -1561,12 +1161,17 @@ See you soon,
       document.getElementById('guideSalesCount').textContent = data.guideSales || 0;
       document.getElementById('cohortCount').textContent = data.totalCohorts || 0;
 
-      // Billing placeholders (dynamic-ready)
-      const planMap = { 'educator': 'Instructor Pro', 'instructor': 'Instructor Pro' };
-      document.getElementById('billingPlan').textContent = planMap[license] || '—';
-      const priceMap = { 'educator': '$47 / month', 'instructor': '$47 / month' };
-      document.getElementById('billingPrice').textContent = priceMap[license] || '—';
+      // Billing (dynamic from Firestore)
+      const planMap = { 'educator': 'Educator License', 'instructor': 'Instructor Pro' };
+      document.getElementById('billingPlan').textContent = planMap[license] || 'Educator License';
+
+      // Price based on billing interval
+      const isAnnual = data.billingInterval === 'annual';
+      document.getElementById('billingPrice').textContent = isAnnual ? '$2,500 / year' : '$300 / month';
       document.getElementById('billingNext').textContent = data.nextBillingDate || '—';
+
+      // Header tier badge
+      document.getElementById('userTierText').textContent = licenseDisplay;
 
       // Referral section
       const code = data.referralCode || '';
@@ -1577,7 +1182,7 @@ See you soon,
     }
 
     // ============================================================
-    //  COMMISSION HISTORY (instructor – flat 20%)
+    // COMMISSION HISTORY
     // ============================================================
     function renderCommissionHistory(commissions) {
       const list = document.getElementById('commissionList');
@@ -1592,7 +1197,7 @@ See you soon,
         return dateB - dateA;
       });
       let html = '';
-      sorted.forEach(c => {
+      sorted.slice(0, 20).forEach(c => {
         const date = c.createdAt?.toDate?.() || new Date();
         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         const statusClass = c.status || 'pending';
@@ -1634,15 +1239,15 @@ See you soon,
     }
 
     // ============================================================
-    //  SIMULATE PURCHASE (instructor – flat 20%)
+    // SIMULATE PURCHASE (instructor – flat 20%)
     // ============================================================
     function simulatePurchase() {
       if (!userDocRef) {
-        alert('Please log in first.');
+        cdToast('Please log in first.', 'error');
         return;
       }
       if (window.demoCommissionId) {
-        alert('A demo commission already exists. You can reset it using the "Reset demo" button.');
+        cdToast('A demo commission already exists. Reset it first.', '');
         return;
       }
       const rate = 0.20;
@@ -1665,19 +1270,19 @@ See you soon,
           totalCommissionEarned: firebase.firestore.FieldValue.increment(commissionAmount)
         });
       }).then(() => {
-        showToast(`✅ Demo commission: $${commissionAmount.toFixed(2)} earned (20% rate).`);
+        cdToast(`✅ Demo commission: $${commissionAmount.toFixed(2)} earned (20% rate).`);
       }).catch(err => {
         console.error('Simulate error:', err);
-        alert('Error creating test commission: ' + err.message);
+        cdToast('Error creating test commission: ' + err.message, 'error');
       });
     }
 
     // ============================================================
-    //  RESET DEMO COMMISSION
+    // RESET DEMO COMMISSION
     // ============================================================
     function resetDemoCommission() {
       if (!window.demoCommissionId) {
-        alert('No demo commission to reset.');
+        cdToast('No demo commission to reset.', '');
         return;
       }
       if (!userDocRef) return;
@@ -1692,54 +1297,15 @@ See you soon,
         });
       }).then(() => {
         window.demoCommissionId = null;
-        showToast('Demo commission removed.');
+        cdToast('Demo commission removed.');
       }).catch(err => {
         console.error('Reset demo error:', err);
-        alert('Could not reset demo: ' + err.message);
+        cdToast('Could not reset demo: ' + err.message, 'error');
       });
     }
 
     // ============================================================
-    //  TOAST NOTIFICATION
-    // ============================================================
-    function showToast(message) {
-      const toast = document.createElement('div');
-      toast.textContent = message;
-      toast.style.cssText = `
-        position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-        background: #0A0A0A; border: 1px solid #8deb00;
-        color: #ffffff; padding: 12px 24px; border-radius: 10px;
-        font-family: 'Space Mono', monospace; font-size: 14px;
-        z-index: 10000; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        animation: fadeSlide 0.3s ease;
-      `;
-      document.body.appendChild(toast);
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transition = 'opacity 0.5s';
-        setTimeout(() => toast.remove(), 500);
-      }, 3000);
-    }
-
-    // ============================================================
-    //  COPY REFERRAL LINK
-    // ============================================================
-    function copyReferralLink() {
-      const link = document.getElementById('referralLink').textContent;
-      navigator.clipboard.writeText('https://' + link).then(() => alert('Copied!'))
-        .catch(() => {
-          const input = document.createElement('input');
-          input.value = 'https://' + link;
-          document.body.appendChild(input);
-          input.select();
-          document.execCommand('copy');
-          document.body.removeChild(input);
-          alert('Copied!');
-        });
-    }
-
-    // ============================================================
-    //  STUDENT CRM (Firestore-backed)
+    // STUDENT CRM (Firestore-backed)
     // ============================================================
     function renderStudents() {
       const list = document.getElementById('studentList');
@@ -1749,9 +1315,9 @@ See you soon,
         return;
       }
       let html = '';
-      students.forEach((s, idx) => {
+      students.forEach((s) => {
         html += `
-          <div class="student-row" data-idx="${idx}">
+          <div class="student-row">
             <span><strong>${s.name}</strong> <span class="email">${s.email}</span></span>
             <button class="remove-btn" onclick="removeStudent('${s.id}')">✕</button>
           </div>
@@ -1762,7 +1328,10 @@ See you soon,
     }
 
     function addStudent(name, email) {
-      if (!instructorsDocRef) return;
+      if (!instructorsDocRef) {
+        cdToast('Instructor document not ready.', 'error');
+        return;
+      }
       const studentRef = instructorsDocRef.collection('students').doc();
       studentRef.set({
         name: name,
@@ -1774,9 +1343,10 @@ See you soon,
             totalStudents: firebase.firestore.FieldValue.increment(1)
           }).catch(console.error);
         }
+        cdToast(`✅ Student "${name}" added!`);
       }).catch(err => {
         console.error('Add student error:', err);
-        alert('Could not add student: ' + err.message);
+        cdToast('Could not add student: ' + err.message, 'error');
       });
     }
 
@@ -1789,9 +1359,10 @@ See you soon,
             totalStudents: firebase.firestore.FieldValue.increment(-1)
           }).catch(console.error);
         }
+        cdToast('Student removed.');
       }).catch(err => {
         console.error('Remove student error:', err);
-        alert('Could not remove student: ' + err.message);
+        cdToast('Could not remove student: ' + err.message, 'error');
       });
     };
 
@@ -1813,42 +1384,35 @@ See you soon,
     }
 
     // ============================================================
-    //  EMAIL SCRIPT HELPERS
+    // SIDEBAR TOGGLE (fix hamburger)
     // ============================================================
-    function copyScript(id) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      navigator.clipboard.writeText(el.value).then(() => alert('Copied!'))
-        .catch(() => { el.select(); document.execCommand('copy'); alert('Copied!'); });
-    }
-    function downloadText(id, filename) {
-      const text = document.getElementById(id).value;
-      const blob = new Blob([text], {type: 'text/plain'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename; a.click();
-      URL.revokeObjectURL(url);
-    }
-    function copyToClipboard(text) { navigator.clipboard.writeText(text).then(() => alert('Copied!')); }
+    document.addEventListener('click', function(e) {
+      const toggle = e.target.closest('#floatingToggle');
+      if (toggle) {
+        e.preventDefault();
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+          sidebar.classList.toggle('open');
+        }
+      }
+      // Close sidebar when clicking a link on mobile
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar && window.innerWidth <= 1024) {
+        const link = e.target.closest('.sidebar-nav .nav-item');
+        if (link) {
+          sidebar.classList.remove('open');
+        }
+      }
+    });
 
     // ============================================================
-    //  MATERIALS ORDER
-    // ============================================================
-    function orderItem(name, price) {
-      const cart = getCart();
-      const existing = cart.find(item => item.name === name);
-      if (existing) existing.qty += 1;
-      else cart.push({ name, price, qty: 1, image: '' });
-      localStorage.setItem('cameras_decoded_cart', JSON.stringify(cart));
-      updateCartUI();
-      alert(`${name} added to cart.`);
-    }
-
-    // ============================================================
-    //  AUTH + FIRESTORE LISTENERS
+    // AUTH + FIRESTORE LISTENERS
     // ============================================================
     auth.onAuthStateChanged((user) => {
-      if (!user) { window.location.href = 'login.html'; return; }
+      if (!user) {
+        window.location.href = 'login.html';
+        return;
+      }
       currentUser = user;
       userDocRef = db.collection('users').doc(user.uid);
       instructorsDocRef = db.collection('instructors').doc(user.uid);
@@ -1884,10 +1448,14 @@ See you soon,
             totalReferrals: 0,
             totalCommissionEarned: 0,
             nextBillingDate: new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-          }).catch(console.error);
+          }, { merge: true }).catch(console.error);
           return;
         }
         updateInstructorProfile(doc.data());
+        // Update bottom nav badges
+        if (window.BottomNav) {
+          window.BottomNav.updateBadges(doc.data());
+        }
       }, (error) => console.error('Profile error:', error));
 
       // Commission listener
@@ -1904,36 +1472,34 @@ See you soon,
         e.preventDefault();
         const name = document.getElementById('studentName').value.trim();
         const email = document.getElementById('studentEmail').value.trim();
-        if (!name || !email) return;
+        if (!name || !email) {
+          cdToast('Please fill in both fields.', 'error');
+          return;
+        }
         addStudent(name, email);
         this.reset();
       });
 
-      // Dynamic dashboard link (insert above Home)
+      // Dynamic dashboard link in sidebar (insert above Home)
       const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
       const mobileContainer = document.getElementById('mobileDashboardContainer');
 
-      function removeDashboardLink() {
+      function insertDashboardLink(dashboardUrl) {
+        // Remove existing
         const existingDesktop = document.getElementById('dynamic-dashboard-node');
         if (existingDesktop) existingDesktop.remove();
         const existingMobile = document.getElementById('mobile-dashboard-node');
         if (existingMobile) existingMobile.remove();
-      }
 
-      function insertDashboardLink(dashboardUrl) {
         if (homeNav && homeNav.parentNode) {
-          const existing = document.getElementById('dynamic-dashboard-node');
-          if (existing) existing.remove();
           const dashLink = document.createElement('a');
           dashLink.id = 'dynamic-dashboard-node';
-          dashLink.className = 'nav-item';
+          dashLink.className = 'nav-item active';
           dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
           dashLink.href = dashboardUrl;
           homeNav.parentNode.insertBefore(dashLink, homeNav);
         }
         if (mobileContainer) {
-          const existing = document.getElementById('mobile-dashboard-node');
-          if (existing) existing.remove();
           const dashLink = document.createElement('a');
           dashLink.id = 'mobile-dashboard-node';
           dashLink.className = 'nav-item dashboard-link';
@@ -1943,39 +1509,39 @@ See you soon,
         }
       }
 
-      if (user) {
-        localStorage.setItem('cameras_decoded_uid', user.uid);
-        if (typeof db !== 'undefined' && db) {
-          db.collection('users').doc(user.uid).get().then((doc) => {
-            if (doc.exists) {
-              const role = doc.data().role || 'Operator';
-              let dashboardUrl = 'operator-dashboard.html';
-              if (role === 'Instructor') dashboardUrl = 'instructor-dashboard.html';
-              else if (role === 'Operator') dashboardUrl = 'operator-dashboard.html';
-              else if (role === 'Partner') dashboardUrl = 'partner-dashboard.html';
-              insertDashboardLink(dashboardUrl);
-              if (role === 'Instructor' && doc.data().instructorId) {
-                document.getElementById('instructorUniqueId').textContent = doc.data().instructorId;
-                document.getElementById('guideUniqueId').textContent = doc.data().instructorId;
-              }
-            } else {
-              insertDashboardLink('operator-dashboard.html');
-            }
-          }).catch(() => {
-            insertDashboardLink('operator-dashboard.html');
-          });
-        } else {
-          insertDashboardLink('operator-dashboard.html');
-        }
-      } else {
-        localStorage.removeItem('cameras_decoded_uid');
-        removeDashboardLink();
-        document.querySelector('.dash-header h1').textContent = '⌨ Instructor Access — Please Log In';
-      }
-    });
-  </script>
+      insertDashboardLink('instructor-dashboard.html');
 
-  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+      // Bottom Nav init
+      if (window.BottomNav) {
+        window.BottomNav.init();
+      }
+
+      // Store user ID in localStorage
+      localStorage.setItem('cameras_decoded_uid', user.uid);
+    });
+
+    // ============================================================
+    // REVEAL ANIMATIONS
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      const reveals = document.querySelectorAll('.reveal');
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      }, { threshold: 0.1 });
+      reveals.forEach(el => observer.observe(el));
+
+      // Remove any redundant login/signup buttons (they're handled by sidebar.js)
+    });
+
+    // ============================================================
+    // STORAGE EVENT LISTENER FOR CART
+    // ============================================================
+    window.addEventListener('storage', updateCartUI);
+  </script>
 
 </body>
 </html>
