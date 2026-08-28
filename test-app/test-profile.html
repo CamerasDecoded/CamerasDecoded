@@ -71,99 +71,103 @@
   </style>
 
   <script>
-    let uid = null;
-    let userData = null;
+    document.addEventListener('DOMContentLoaded', function() {
+      let uid = null;
+      let userData = null;
 
-    function toggleChip(el) { el.classList.toggle('selected'); }
+      window.toggleChip = function(el) { el.classList.toggle('selected'); };
 
-    function toggleChipLimit(el, max) {
-      const parent = el.parentElement;
-      const selected = parent.querySelectorAll('.chip.selected').length;
-      if (el.classList.contains('selected')) {
-        el.classList.remove('selected');
-      } else {
-        if (selected >= max) { cdToast('Max ' + max + ' selections.', 'error'); return; }
-        el.classList.add('selected');
-      }
-      const countEl = document.getElementById('interestCount');
-      if (countEl) countEl.textContent = parent.querySelectorAll('.chip.selected').length;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    uid = params.get('uid');
-    if (!uid) {
-      auth.onAuthStateChanged(user => {
-        if (user) { uid = user.uid; loadProfile(); }
-        else { window.location.href = 'test-signup.html'; }
-      });
-    } else {
-      loadProfile();
-    }
-
-    function loadProfile() {
-      db.collection('users').doc(uid).get()
-        .then(doc => {
-          if (!doc.exists) { cdToast('User not found.', 'error'); return; }
-          userData = doc.data();
-          if (userData.role !== 'Operator') {
-            redirectToProfile(userData.role, uid);
-            return;
-          }
-          document.getElementById('displayName').textContent = userData.name || '—';
-          document.getElementById('displayEmail').textContent = userData.email || '—';
-
-          const prefs = userData.preferences || {};
-          document.querySelectorAll('#brands .chip').forEach(el => {
-            if ((prefs.brands || []).includes(el.dataset.val)) el.classList.add('selected');
-          });
-          document.querySelectorAll('#interests .chip').forEach(el => {
-            if ((prefs.interests || []).includes(el.dataset.val)) el.classList.add('selected');
-          });
-          document.getElementById('interestCount').textContent = (prefs.interests || []).length;
-
-          const lj = userData.learningJourney || {};
-          document.getElementById('primaryGoal').value = lj.primaryGoal || 'master-manual';
-          const conf = lj.confidence || 5;
-          document.getElementById('confidence').value = conf;
-          document.getElementById('confDisplay').textContent = conf;
-          document.getElementById('confidence').oninput = function() {
-            document.getElementById('confDisplay').textContent = this.value;
-          };
-
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('content').style.display = 'block';
-        })
-        .catch(err => {
-          document.getElementById('loading').textContent = 'Error: ' + err.message;
-        });
-    }
-
-    function saveProfile() {
-      const brands = Array.from(document.querySelectorAll('#brands .chip.selected')).map(el => el.dataset.val);
-      const interests = Array.from(document.querySelectorAll('#interests .chip.selected')).map(el => el.dataset.val);
-      const primaryGoal = document.getElementById('primaryGoal').value;
-      const confidence = parseInt(document.getElementById('confidence').value) || 5;
-
-      const updateData = {
-        'preferences.brands': brands,
-        'preferences.interests': interests,
-        'learningJourney.primaryGoal': primaryGoal,
-        'learningJourney.confidence': confidence,
-        tourCompleted: true,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      window.toggleChipLimit = function(el, max) {
+        const parent = el.parentElement;
+        const selected = parent.querySelectorAll('.chip.selected').length;
+        if (el.classList.contains('selected')) {
+          el.classList.remove('selected');
+        } else {
+          if (selected >= max) { cdToast('Max ' + max + ' selections.', 'error'); return; }
+          el.classList.add('selected');
+        }
+        const countEl = document.getElementById('interestCount');
+        if (countEl) countEl.textContent = parent.querySelectorAll('.chip.selected').length;
       };
 
-      db.collection('users').doc(uid).update(updateData)
-        .then(() => {
-          cdToast('✅ Profile saved!');
-          // TEST VERSION: redirect to test-operator-dashboard
-          redirectToDashboard('Operator', uid);
-        })
-        .catch(err => {
-          document.getElementById('saveError').textContent = err.message;
-          document.getElementById('saveError').style.display = 'block';
-        });
-    }
+      const params = new URLSearchParams(window.location.search);
+      uid = params.get('uid');
+
+      if (!uid) {
+        if (window.auth && window.auth.currentUser) {
+          uid = window.auth.currentUser.uid;
+          loadProfile();
+        } else {
+          window.location.href = 'test-signup.html';
+        }
+      } else {
+        loadProfile();
+      }
+
+      function loadProfile() {
+        window.db.collection('users').doc(uid).get()
+          .then(doc => {
+            if (!doc.exists) { cdToast('User not found.', 'error'); return; }
+            userData = doc.data();
+            if (userData.role !== 'Operator') {
+              redirectToProfile(userData.role, uid);
+              return;
+            }
+            document.getElementById('displayName').textContent = userData.name || '—';
+            document.getElementById('displayEmail').textContent = userData.email || '—';
+
+            const prefs = userData.preferences || {};
+            document.querySelectorAll('#brands .chip').forEach(el => {
+              if ((prefs.brands || []).includes(el.dataset.val)) el.classList.add('selected');
+            });
+            document.querySelectorAll('#interests .chip').forEach(el => {
+              if ((prefs.interests || []).includes(el.dataset.val)) el.classList.add('selected');
+            });
+            document.getElementById('interestCount').textContent = (prefs.interests || []).length;
+
+            const lj = userData.learningJourney || {};
+            document.getElementById('primaryGoal').value = lj.primaryGoal || 'master-manual';
+            const conf = lj.confidence || 5;
+            document.getElementById('confidence').value = conf;
+            document.getElementById('confDisplay').textContent = conf;
+            document.getElementById('confidence').oninput = function() {
+              document.getElementById('confDisplay').textContent = this.value;
+            };
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+          })
+          .catch(err => {
+            document.getElementById('loading').textContent = 'Error: ' + err.message;
+          });
+      }
+
+      window.saveProfile = function() {
+        const brands = Array.from(document.querySelectorAll('#brands .chip.selected')).map(el => el.dataset.val);
+        const interests = Array.from(document.querySelectorAll('#interests .chip.selected')).map(el => el.dataset.val);
+        const primaryGoal = document.getElementById('primaryGoal').value;
+        const confidence = parseInt(document.getElementById('confidence').value) || 5;
+
+        const updateData = {
+          'preferences.brands': brands,
+          'preferences.interests': interests,
+          'learningJourney.primaryGoal': primaryGoal,
+          'learningJourney.confidence': confidence,
+          tourCompleted: true,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        window.db.collection('users').doc(uid).update(updateData)
+          .then(() => {
+            cdToast('✅ Profile saved!');
+            redirectToDashboard('Operator', uid);
+          })
+          .catch(err => {
+            document.getElementById('saveError').textContent = err.message;
+            document.getElementById('saveError').style.display = 'block';
+          });
+      };
+    });
   </script>
 </body>
 </html>

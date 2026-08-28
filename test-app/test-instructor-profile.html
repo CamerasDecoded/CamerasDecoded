@@ -44,56 +44,60 @@
   </div>
 
   <script>
-    let uid = null;
-    const params = new URLSearchParams(window.location.search);
-    uid = params.get('uid');
-    if (!uid) {
-      auth.onAuthStateChanged(user => {
-        if (user) { uid = user.uid; loadProfile(); }
-        else { window.location.href = 'test-signup.html'; }
-      });
-    } else {
-      loadProfile();
-    }
+    document.addEventListener('DOMContentLoaded', function() {
+      let uid = null;
+      const params = new URLSearchParams(window.location.search);
+      uid = params.get('uid');
 
-    function loadProfile() {
-      db.collection('users').doc(uid).get()
-        .then(doc => {
-          if (!doc.exists) { cdToast('User not found.', 'error'); return; }
-          const data = doc.data();
-          if (data.role !== 'Instructor') {
-            redirectToProfile(data.role, uid);
-            return;
-          }
-          document.getElementById('displayName').textContent = data.name || '—';
-          document.getElementById('displayEmail').textContent = data.email || '—';
-          document.getElementById('teachingExperience').value = data.teachingExperience || '';
-          document.getElementById('billingInterval').value = data.billingInterval || 'annual';
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('content').style.display = 'block';
+      if (!uid) {
+        if (window.auth && window.auth.currentUser) {
+          uid = window.auth.currentUser.uid;
+          loadProfile();
+        } else {
+          window.location.href = 'test-signup.html';
+        }
+      } else {
+        loadProfile();
+      }
+
+      function loadProfile() {
+        window.db.collection('users').doc(uid).get()
+          .then(doc => {
+            if (!doc.exists) { cdToast('User not found.', 'error'); return; }
+            const data = doc.data();
+            if (data.role !== 'Instructor') {
+              redirectToProfile(data.role, uid);
+              return;
+            }
+            document.getElementById('displayName').textContent = data.name || '—';
+            document.getElementById('displayEmail').textContent = data.email || '—';
+            document.getElementById('teachingExperience').value = data.teachingExperience || '';
+            document.getElementById('billingInterval').value = data.billingInterval || 'annual';
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+          });
+      }
+
+      window.saveProfile = function() {
+        const teachingExperience = document.getElementById('teachingExperience').value;
+        const billingInterval = document.getElementById('billingInterval').value;
+
+        window.db.collection('users').doc(uid).update({
+          teachingExperience: teachingExperience,
+          billingInterval: billingInterval,
+          tourCompleted: true,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        })
+        .then(() => {
+          cdToast('✅ Profile saved!');
+          redirectToDashboard('Instructor', uid);
+        })
+        .catch(err => {
+          document.getElementById('saveError').textContent = err.message;
+          document.getElementById('saveError').style.display = 'block';
         });
-    }
-
-    function saveProfile() {
-      const teachingExperience = document.getElementById('teachingExperience').value;
-      const billingInterval = document.getElementById('billingInterval').value;
-
-      db.collection('users').doc(uid).update({
-        teachingExperience: teachingExperience,
-        billingInterval: billingInterval,
-        tourCompleted: true,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      })
-      .then(() => {
-        cdToast('✅ Profile saved!');
-        // TEST VERSION: redirect to test-instructor-dashboard
-        redirectToDashboard('Instructor', uid);
-      })
-      .catch(err => {
-        document.getElementById('saveError').textContent = err.message;
-        document.getElementById('saveError').style.display = 'block';
-      });
-    }
+      };
+    });
   </script>
 </body>
 </html>

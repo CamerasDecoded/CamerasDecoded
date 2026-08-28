@@ -1,5 +1,5 @@
 // test-app.js – Shared Firebase init, auth helpers, and navigation
-console.log('✅ test-app.js loaded');
+console.log('✅ test-app.js loading...');
 
 const firebaseConfig = {
   apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
@@ -19,7 +19,7 @@ firebase.firestore().settings({ experimentalForceLongPolling: true });
 window.auth = firebase.auth();
 window.db = firebase.firestore();
 
-console.log('✅ Firebase initialized, auth and db available');
+console.log('✅ Firebase initialized, window.auth and window.db are set');
 
 // --- Toast ---
 function cdToast(message, type) {
@@ -85,7 +85,9 @@ function redirectToProfile(role, uid) {
 
 // --- Logout (TEST VERSION) ---
 function handleLogout() {
-  auth.signOut().then(() => {
+  window.auth.signOut().then(() => {
     window.location.href = 'test-index.html';
   });
 }
+
+console.log('✅ test-app.js loaded successfully');

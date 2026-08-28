@@ -4,11 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign Up (Test)</title>
-  <!-- Load Firebase SDKs first -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <!-- Then load test-app.js which initializes Firebase -->
   <script src="test-app.js"></script>
 </head>
 <body>
@@ -65,161 +63,161 @@
   </div>
 
   <script>
-    // All script code is in the body so it runs after test-app.js loads.
-    let selectedRole = 'Operator';
-    let selectedTier = 'free';
-
-    function selectRole(role) {
-      selectedRole = role;
-      ['Operator', 'Partner', 'Instructor'].forEach(r => {
-        const btn = document.getElementById('role' + r);
-        if (r === role) {
-          btn.style.background = '#8deb00';
-          btn.style.color = '#000';
-          btn.style.fontWeight = '700';
-        } else {
-          btn.style.background = '#333';
-          btn.style.color = '#fff';
-          btn.style.fontWeight = '400';
-        }
-      });
-      console.log('✅ Selected role:', selectedRole);
-    }
-
-    function selectTier(tier) {
-      selectedTier = tier;
-      ['free', 'pro'].forEach(t => {
-        const btn = document.getElementById('tier' + t.charAt(0).toUpperCase() + t.slice(1));
-        if (t === tier) {
-          btn.style.background = '#8deb00';
-          btn.style.color = '#000';
-          btn.style.fontWeight = '700';
-        } else {
-          btn.style.background = '#333';
-          btn.style.color = '#fff';
-          btn.style.fontWeight = '400';
-        }
-      });
-      console.log('✅ Selected tier:', selectedTier);
-    }
-
-    function signUp() {
-      const name = document.getElementById('name').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value;
-      const confirmPassword = document.getElementById('confirmPassword').value;
-
-      document.getElementById('error').style.display = 'none';
-      document.getElementById('loading').style.display = 'block';
-
-      console.log('📝 Sign-up attempt:', { name, email, username, role: selectedRole, tier: selectedTier });
-
-      if (!name || !email || !username || !password) {
-        document.getElementById('error').textContent = 'Please fill in all fields.';
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('loading').style.display = 'none';
-        return;
-      }
-      if (password.length < 6) {
-        document.getElementById('error').textContent = 'Password must be at least 6 characters.';
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('loading').style.display = 'none';
-        return;
-      }
-      if (password !== confirmPassword) {
-        document.getElementById('error').textContent = 'Passwords do not match.';
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('loading').style.display = 'none';
-        return;
-      }
-
-      const referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
-      console.log('🔑 Referral code:', referralCode);
-
-      // Use window.auth (or just auth)
-      window.auth.createUserWithEmailAndPassword(email, password)
-        .then(cred => {
-          const user = cred.user;
-          console.log('✅ Auth user created:', user.uid);
-          return user.updateProfile({ displayName: name }).then(() => user);
-        })
-        .then(user => {
-          console.log('✅ User profile updated');
-          const userData = {
-            name: name,
-            email: email,
-            username: username,
-            role: selectedRole,
-            tier: selectedTier,
-            billingInterval: 'monthly',
-            referralCode: referralCode,
-            totalReferrals: 0,
-            totalCommissionEarned: 0,
-            ambassadorTier: 'signal',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            tourCompleted: false
-          };
-          // Role-specific defaults
-          if (selectedRole === 'Partner') {
-            userData.partnerTier = 'signal';
-            userData.companyName = '';
-            userData.partnerId = 'PART-' + user.uid.slice(0,6).toUpperCase();
-          } else if (selectedRole === 'Instructor') {
-            userData.instructorLicense = 'educator';
-            userData.teachingExperience = '';
-            userData.instructorId = 'INSTR-' + user.uid.slice(0,6).toUpperCase();
-            userData.totalStudents = 0;
-            userData.totalWorkshops = 0;
-          } else {
-            // Operator
-            userData.preferences = { brands: [], lenses: [], interests: [] };
-            userData.learningJourney = {};
-            userData.totalPoints = 0;
-            userData.level = 1;
-            userData.badgesEarned = [];
-          }
-          console.log('📄 Writing user data to Firestore:', userData);
-          return window.db.collection('users').doc(user.uid).set(userData, { merge: true }).then(() => user);
-        })
-        .then(user => {
-          console.log('✅ User data written to Firestore');
-          // Create referral code doc (non-critical)
-          return window.db.collection('referralCodes').doc(referralCode).set({
-            uid: user.uid,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          }).catch(err => {
-            console.warn('⚠️ Referral code doc creation failed (non-critical):', err);
-          }).then(() => user);
-        })
-        .then(user => {
-          document.getElementById('loading').style.display = 'none';
-          cdToast('✅ Account created!');
-          console.log('🚀 Redirecting to profile for role:', selectedRole, 'uid:', user.uid);
-          redirectToProfile(selectedRole, user.uid);
-        })
-        .catch(err => {
-          console.error('❌ Signup error:', err);
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('error').textContent = err.message;
-          document.getElementById('error').style.display = 'block';
-        });
-    }
-
-    // If already logged in, go to dashboard
-    // Use DOMContentLoaded to ensure auth is defined
+    // All script code is inside the body so it runs after test-app.js loads.
+    // But we wrap everything in DOMContentLoaded to ensure Firebase is ready.
     document.addEventListener('DOMContentLoaded', function() {
-      window.auth.onAuthStateChanged(user => {
-        if (user) {
-          window.db.collection('users').doc(user.uid).get().then(doc => {
-            if (doc.exists) {
-              console.log('👤 Already logged in, redirecting to dashboard');
-              redirectToDashboard(doc.data().role || 'Operator', user.uid);
-            }
-          });
+
+      let selectedRole = 'Operator';
+      let selectedTier = 'free';
+
+      window.selectRole = function(role) {
+        selectedRole = role;
+        ['Operator', 'Partner', 'Instructor'].forEach(r => {
+          const btn = document.getElementById('role' + r);
+          if (r === role) {
+            btn.style.background = '#8deb00';
+            btn.style.color = '#000';
+            btn.style.fontWeight = '700';
+          } else {
+            btn.style.background = '#333';
+            btn.style.color = '#fff';
+            btn.style.fontWeight = '400';
+          }
+        });
+        console.log('✅ Selected role:', selectedRole);
+      };
+
+      window.selectTier = function(tier) {
+        selectedTier = tier;
+        ['free', 'pro'].forEach(t => {
+          const btn = document.getElementById('tier' + t.charAt(0).toUpperCase() + t.slice(1));
+          if (t === tier) {
+            btn.style.background = '#8deb00';
+            btn.style.color = '#000';
+            btn.style.fontWeight = '700';
+          } else {
+            btn.style.background = '#333';
+            btn.style.color = '#fff';
+            btn.style.fontWeight = '400';
+          }
+        });
+        console.log('✅ Selected tier:', selectedTier);
+      };
+
+      window.signUp = function() {
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+
+        document.getElementById('error').style.display = 'none';
+        document.getElementById('loading').style.display = 'block';
+
+        console.log('📝 Sign-up attempt:', { name, email, username, role: selectedRole, tier: selectedTier });
+
+        if (!name || !email || !username || !password) {
+          document.getElementById('error').textContent = 'Please fill in all fields.';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('loading').style.display = 'none';
+          return;
         }
-      });
+        if (password.length < 6) {
+          document.getElementById('error').textContent = 'Password must be at least 6 characters.';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('loading').style.display = 'none';
+          return;
+        }
+        if (password !== confirmPassword) {
+          document.getElementById('error').textContent = 'Passwords do not match.';
+          document.getElementById('error').style.display = 'block';
+          document.getElementById('loading').style.display = 'none';
+          return;
+        }
+
+        const referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+        console.log('🔑 Referral code:', referralCode);
+
+        // Use window.auth
+        window.auth.createUserWithEmailAndPassword(email, password)
+          .then(cred => {
+            const user = cred.user;
+            console.log('✅ Auth user created:', user.uid);
+            return user.updateProfile({ displayName: name }).then(() => user);
+          })
+          .then(user => {
+            console.log('✅ User profile updated');
+            const userData = {
+              name: name,
+              email: email,
+              username: username,
+              role: selectedRole,
+              tier: selectedTier,
+              billingInterval: 'monthly',
+              referralCode: referralCode,
+              totalReferrals: 0,
+              totalCommissionEarned: 0,
+              ambassadorTier: 'signal',
+              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              tourCompleted: false
+            };
+            // Role-specific defaults
+            if (selectedRole === 'Partner') {
+              userData.partnerTier = 'signal';
+              userData.companyName = '';
+              userData.partnerId = 'PART-' + user.uid.slice(0,6).toUpperCase();
+            } else if (selectedRole === 'Instructor') {
+              userData.instructorLicense = 'educator';
+              userData.teachingExperience = '';
+              userData.instructorId = 'INSTR-' + user.uid.slice(0,6).toUpperCase();
+              userData.totalStudents = 0;
+              userData.totalWorkshops = 0;
+            } else {
+              // Operator
+              userData.preferences = { brands: [], lenses: [], interests: [] };
+              userData.learningJourney = {};
+              userData.totalPoints = 0;
+              userData.level = 1;
+              userData.badgesEarned = [];
+            }
+            console.log('📄 Writing user data to Firestore:', userData);
+            return window.db.collection('users').doc(user.uid).set(userData, { merge: true }).then(() => user);
+          })
+          .then(user => {
+            console.log('✅ User data written to Firestore');
+            // Create referral code doc (non-critical)
+            return window.db.collection('referralCodes').doc(referralCode).set({
+              uid: user.uid,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(err => {
+              console.warn('⚠️ Referral code doc creation failed (non-critical):', err);
+            }).then(() => user);
+          })
+          .then(user => {
+            document.getElementById('loading').style.display = 'none';
+            cdToast('✅ Account created!');
+            console.log('🚀 Redirecting to profile for role:', selectedRole, 'uid:', user.uid);
+            redirectToProfile(selectedRole, user.uid);
+          })
+          .catch(err => {
+            console.error('❌ Signup error:', err);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').textContent = err.message;
+            document.getElementById('error').style.display = 'block';
+          });
+      };
+
+      // If already logged in, go to dashboard
+      if (window.auth && window.auth.currentUser) {
+        const user = window.auth.currentUser;
+        window.db.collection('users').doc(user.uid).get().then(doc => {
+          if (doc.exists) {
+            console.log('👤 Already logged in, redirecting to dashboard');
+            redirectToDashboard(doc.data().role || 'Operator', user.uid);
+          }
+        });
+      }
     });
   </script>
 </body>
