@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partner Dashboard</title>
+  <link rel="stylesheet" href="test-bottom-nav.css">
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="test-app.js"></script>
+</head>
+<body>
+  <div style="max-width:600px;margin:40px auto;padding:20px;font-family:sans-serif;">
+    <h1>📡 Partner Dashboard</h1>
+    <div id="loading">Loading...</div>
+    <div id="content" style="display:none;">
+      <div style="padding:20px;background:#f5f5f5;border-radius:8px;margin-bottom:20px;">
+        <h2>Welcome, <span id="userName">—</span>!</h2>
+        <p><strong>Company:</strong> <span id="userCompany">—</span></p>
+        <p><strong>License:</strong> <span id="userTier">—</span></p>
+        <p><strong>Billing:</strong> <span id="userBilling">—</span></p>
+        <p><strong>Referral:</strong> <span id="userReferral">—</span></p>
+        <button onclick="copyReferral()" style="padding:6px 16px;background:#8deb00;border:none;border-radius:4px;cursor:pointer;">Copy Referral</button>
+        <br><br>
+        <button onclick="handleLogout()" style="padding:6px 16px;background:#ff4444;border:none;border-radius:4px;cursor:pointer;color:#fff;">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Nav (hardcoded for Partner) -->
+  <div id="bottomNavContainer">
+    <nav class="bottom-nav chasing-border-nav">
+      <a href="test-index.html">Home</a>
+      <a href="test-partner-dashboard.html">Dashboard</a>
+      <a href="learning-journey.html">Journey</a>
+      <a href="cynetis-7.html">Cynetis-7</a>
+      <a href="test-partner-profile.html">Profile</a>
+    </nav>
+  </div>
+
+  <script src="test-bottom-nav.js"></script>
+  <script>
+    let uid = null;
+    const params = new URLSearchParams(window.location.search);
+    uid = params.get('uid');
+    if (!uid) {
+      auth.onAuthStateChanged(user => {
+        if (user) { uid = user.uid; loadDashboard(); }
+        else { window.location.href = 'test-signup.html'; }
+      });
+    } else {
+      loadDashboard();
+    }
+
+    function loadDashboard() {
+      db.collection('users').doc(uid).get()
+        .then(doc => {
+          if (!doc.exists) { cdToast('User not found.', 'error'); return; }
+          const data = doc.data();
+          if (data.role !== 'Partner') {
+            redirectToDashboard(data.role, uid);
+            return;
+          }
+          document.getElementById('userName').textContent = data.name || '—';
+          document.getElementById('userCompany').textContent = data.companyName || '—';
+          const tierMap = { 'signal': 'Signal', 'operator': 'Operator', 'enterprise': 'Enterprise' };
+          document.getElementById('userTier').textContent = tierMap[data.partnerTier] || 'Signal';
+          document.getElementById('userBilling').textContent = data.billingInterval === 'annual' ? 'Annual' : 'Monthly';
+          document.getElementById('userReferral').textContent = data.referralCode || '—';
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('content').style.display = 'block';
+          if (window.BottomNav) window.BottomNav.setActive();
+        })
+        .catch(err => {
+          document.getElementById('loading').textContent = 'Error: ' + err.message;
+        });
+    }
+
+    function copyReferral() {
+      const link = document.getElementById('userReferral').textContent;
+      if (!link || link === '—') { cdToast('Referral code not available.', 'error'); return; }
+      const fullLink = 'https://camerasdecoded.com/ref/' + link;
+      navigator.clipboard.writeText(fullLink).then(() => cdToast('✅ Copied!'))
+        .catch(() => {
+          const input = document.createElement('input');
+          input.value = fullLink;
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand('copy');
+          document.body.removeChild(input);
+          cdToast('✅ Copied!');
+        });
+    }
+  </script>
+</body>
+</html>

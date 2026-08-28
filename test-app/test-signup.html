@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="test-app.js"></script>
+</head>
+<body>
+  <div style="max-width:400px;margin:40px auto;padding:20px;font-family:sans-serif;">
+    <h1>Create Account</h1>
+    <p style="color:#666;">Choose your path and join the network.</p>
+
+    <div style="margin:20px 0;">
+      <label style="display:block;margin-bottom:4px;font-weight:600;">I am a...</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="selectRole('Operator')" id="roleOperator" style="padding:8px 16px;background:#8deb00;border:none;border-radius:6px;cursor:pointer;font-weight:700;">Operator</button>
+        <button onclick="selectRole('Partner')" id="rolePartner" style="padding:8px 16px;background:#333;border:none;border-radius:6px;cursor:pointer;color:#fff;">Partner</button>
+        <button onclick="selectRole('Instructor')" id="roleInstructor" style="padding:8px 16px;background:#333;border:none;border-radius:6px;cursor:pointer;color:#fff;">Instructor</button>
+      </div>
+    </div>
+
+    <div style="margin:12px 0;">
+      <label style="display:block;font-size:12px;color:#666;">Full Name</label>
+      <input type="text" id="name" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Alex Rivera" />
+    </div>
+    <div style="margin:12px 0;">
+      <label style="display:block;font-size:12px;color:#666;">Email</label>
+      <input type="email" id="email" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="you@example.com" />
+    </div>
+    <div style="margin:12px 0;">
+      <label style="display:block;font-size:12px;color:#666;">Username</label>
+      <input type="text" id="username" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="alexrivera" />
+    </div>
+    <div style="margin:12px 0;">
+      <label style="display:block;font-size:12px;color:#666;">Password (min 6)</label>
+      <input type="password" id="password" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="••••••••" />
+    </div>
+    <div style="margin:12px 0;">
+      <label style="display:block;font-size:12px;color:#666;">Confirm Password</label>
+      <input type="password" id="confirmPassword" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="••••••••" />
+    </div>
+
+    <div style="margin:16px 0;">
+      <label style="display:block;font-size:12px;color:#666;">Plan</label>
+      <div style="display:flex;gap:8px;">
+        <button onclick="selectTier('free')" id="tierFree" style="padding:8px 20px;background:#8deb00;border:none;border-radius:6px;cursor:pointer;font-weight:700;">Free</button>
+        <button onclick="selectTier('pro')" id="tierPro" style="padding:8px 20px;background:#333;border:none;border-radius:6px;cursor:pointer;color:#fff;">Pro ($24/mo)</button>
+      </div>
+    </div>
+
+    <button onclick="signUp()" style="width:100%;padding:14px;background:#8deb00;border:none;border-radius:8px;font-weight:700;font-size:16px;cursor:pointer;">Create Account →</button>
+
+    <div id="error" style="color:red;margin-top:12px;display:none;"></div>
+    <div id="loading" style="margin-top:12px;display:none;">Creating account...</div>
+
+    <div style="margin-top:20px;font-size:14px;color:#666;text-align:center;">
+      <a href="test-login.html" style="color:#8deb00;text-decoration:none;">Already have an account? Log in</a>
+    </div>
+  </div>
+
+  <script>
+    let selectedRole = 'Operator';
+    let selectedTier = 'free';
+
+    function selectRole(role) {
+      selectedRole = role;
+      ['Operator', 'Partner', 'Instructor'].forEach(r => {
+        const btn = document.getElementById('role' + r);
+        if (r === role) {
+          btn.style.background = '#8deb00';
+          btn.style.color = '#000';
+          btn.style.fontWeight = '700';
+        } else {
+          btn.style.background = '#333';
+          btn.style.color = '#fff';
+          btn.style.fontWeight = '400';
+        }
+      });
+    }
+
+    function selectTier(tier) {
+      selectedTier = tier;
+      ['free', 'pro'].forEach(t => {
+        const btn = document.getElementById('tier' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (t === tier) {
+          btn.style.background = '#8deb00';
+          btn.style.color = '#000';
+          btn.style.fontWeight = '700';
+        } else {
+          btn.style.background = '#333';
+          btn.style.color = '#fff';
+          btn.style.fontWeight = '400';
+        }
+      });
+    }
+
+    function signUp() {
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+
+      document.getElementById('error').style.display = 'none';
+
+      if (!name || !email || !username || !password) {
+        document.getElementById('error').textContent = 'Please fill in all fields.';
+        document.getElementById('error').style.display = 'block';
+        return;
+      }
+      if (password.length < 6) {
+        document.getElementById('error').textContent = 'Password must be at least 6 characters.';
+        document.getElementById('error').style.display = 'block';
+        return;
+      }
+      if (password !== confirmPassword) {
+        document.getElementById('error').textContent = 'Passwords do not match.';
+        document.getElementById('error').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('loading').style.display = 'block';
+
+      const referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(cred => {
+          const user = cred.user;
+          return user.updateProfile({ displayName: name }).then(() => user);
+        })
+        .then(user => {
+          const userData = {
+            name: name,
+            email: email,
+            username: username,
+            role: selectedRole,
+            tier: selectedTier,
+            billingInterval: 'monthly',
+            referralCode: referralCode,
+            totalReferrals: 0,
+            totalCommissionEarned: 0,
+            ambassadorTier: 'signal',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            tourCompleted: false
+          };
+          // Role-specific defaults
+          if (selectedRole === 'Partner') {
+            userData.partnerTier = 'signal';
+            userData.companyName = '';
+            userData.partnerId = 'PART-' + user.uid.slice(0,6).toUpperCase();
+          } else if (selectedRole === 'Instructor') {
+            userData.instructorLicense = 'educator';
+            userData.teachingExperience = '';
+            userData.instructorId = 'INSTR-' + user.uid.slice(0,6).toUpperCase();
+            userData.totalStudents = 0;
+            userData.totalWorkshops = 0;
+          } else {
+            // Operator
+            userData.preferences = { brands: [], lenses: [], interests: [] };
+            userData.learningJourney = {};
+            userData.totalPoints = 0;
+            userData.level = 1;
+            userData.badgesEarned = [];
+          }
+          return db.collection('users').doc(user.uid).set(userData).then(() => user);
+        })
+        .then(user => {
+          // Create referral code doc
+          return db.collection('referralCodes').doc(referralCode).set({
+            uid: user.uid,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          }).catch(() => {}).then(() => user);
+        })
+        .then(user => {
+          document.getElementById('loading').style.display = 'none';
+          cdToast('✅ Account created!');
+          // Redirect to role-specific profile
+          redirectToProfile(selectedRole, user.uid);
+        })
+        .catch(err => {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('error').textContent = err.message;
+          document.getElementById('error').style.display = 'block';
+        });
+    }
+
+    // If already logged in, go to dashboard
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        db.collection('users').doc(user.uid).get().then(doc => {
+          if (doc.exists) {
+            redirectToDashboard(doc.data().role || 'Operator', user.uid);
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>

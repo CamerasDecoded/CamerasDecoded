@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operator Profile</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="test-app.js"></script>
+</head>
+<body>
+  <div style="max-width:600px;margin:40px auto;padding:20px;font-family:sans-serif;">
+    <h1>📡 Complete Your Operator Profile</h1>
+
+    <div id="loading">Loading...</div>
+
+    <div id="content" style="display:none;">
+      <div style="padding:16px;background:#f5f5f5;border-radius:8px;margin-bottom:20px;">
+        <p><strong>Name:</strong> <span id="displayName">—</span></p>
+        <p><strong>Email:</strong> <span id="displayEmail">—</span></p>
+        <p><strong>Role:</strong> Operator</p>
+      </div>
+
+      <div>
+        <label>Brands (click to select)</label>
+        <div id="brands" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0;">
+          <span class="chip" data-val="Sony" onclick="toggleChip(this)">Sony</span>
+          <span class="chip" data-val="Canon" onclick="toggleChip(this)">Canon</span>
+          <span class="chip" data-val="Nikon" onclick="toggleChip(this)">Nikon</span>
+          <span class="chip" data-val="Fuji" onclick="toggleChip(this)">Fuji</span>
+        </div>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label>Interests (max 3)</label>
+        <div id="interests" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0;">
+          <span class="chip" data-val="Portraits" onclick="toggleChipLimit(this, 3)">Portraits</span>
+          <span class="chip" data-val="Events" onclick="toggleChipLimit(this, 3)">Events</span>
+          <span class="chip" data-val="Landscape" onclick="toggleChipLimit(this, 3)">Landscape</span>
+          <span class="chip" data-val="Street" onclick="toggleChipLimit(this, 3)">Street</span>
+        </div>
+        <div style="font-size:12px;color:#666;">Selected: <span id="interestCount">0</span> / 3</div>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label>Primary Goal</label>
+        <select id="primaryGoal" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="master-manual">Master Manual Mode</option>
+          <option value="start-business">Start a Business</option>
+          <option value="improve-social">Improve Social Content</option>
+        </select>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label>Confidence (1-10)</label>
+        <input type="range" id="confidence" min="1" max="10" value="5" style="width:100%;" />
+        <span id="confDisplay">5</span>
+      </div>
+
+      <button onclick="saveProfile()" style="width:100%;padding:14px;background:#8deb00;border:none;border-radius:8px;font-weight:700;font-size:16px;cursor:pointer;">Save Profile →</button>
+      <div id="saveError" style="color:red;margin-top:12px;display:none;"></div>
+    </div>
+  </div>
+
+  <style>
+    .chip {
+      display:inline-block; padding:6px 14px; background:#f0f0f0; border:1px solid #ddd; border-radius:20px; font-size:13px; cursor:pointer; user-select:none;
+    }
+    .chip.selected { background:#8deb00; border-color:#8deb00; color:#000; font-weight:600; }
+  </style>
+
+  <script>
+    let uid = null;
+    let userData = null;
+
+    function toggleChip(el) { el.classList.toggle('selected'); }
+
+    function toggleChipLimit(el, max) {
+      const parent = el.parentElement;
+      const selected = parent.querySelectorAll('.chip.selected').length;
+      if (el.classList.contains('selected')) {
+        el.classList.remove('selected');
+      } else {
+        if (selected >= max) { cdToast('Max ' + max + ' selections.', 'error'); return; }
+        el.classList.add('selected');
+      }
+      const countEl = document.getElementById('interestCount');
+      if (countEl) countEl.textContent = parent.querySelectorAll('.chip.selected').length;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    uid = params.get('uid');
+    if (!uid) {
+      auth.onAuthStateChanged(user => {
+        if (user) { uid = user.uid; loadProfile(); }
+        else { window.location.href = 'test-signup.html'; }
+      });
+    } else {
+      loadProfile();
+    }
+
+    function loadProfile() {
+      db.collection('users').doc(uid).get()
+        .then(doc => {
+          if (!doc.exists) { cdToast('User not found.', 'error'); return; }
+          userData = doc.data();
+          if (userData.role !== 'Operator') {
+            redirectToProfile(userData.role, uid);
+            return;
+          }
+          document.getElementById('displayName').textContent = userData.name || '—';
+          document.getElementById('displayEmail').textContent = userData.email || '—';
+
+          const prefs = userData.preferences || {};
+          document.querySelectorAll('#brands .chip').forEach(el => {
+            if ((prefs.brands || []).includes(el.dataset.val)) el.classList.add('selected');
+          });
+          document.querySelectorAll('#interests .chip').forEach(el => {
+            if ((prefs.interests || []).includes(el.dataset.val)) el.classList.add('selected');
+          });
+          document.getElementById('interestCount').textContent = (prefs.interests || []).length;
+
+          const lj = userData.learningJourney || {};
+          document.getElementById('primaryGoal').value = lj.primaryGoal || 'master-manual';
+          const conf = lj.confidence || 5;
+          document.getElementById('confidence').value = conf;
+          document.getElementById('confDisplay').textContent = conf;
+          document.getElementById('confidence').oninput = function() {
+            document.getElementById('confDisplay').textContent = this.value;
+          };
+
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('content').style.display = 'block';
+        })
+        .catch(err => {
+          document.getElementById('loading').textContent = 'Error: ' + err.message;
+        });
+    }
+
+    function saveProfile() {
+      const brands = Array.from(document.querySelectorAll('#brands .chip.selected')).map(el => el.dataset.val);
+      const interests = Array.from(document.querySelectorAll('#interests .chip.selected')).map(el => el.dataset.val);
+      const primaryGoal = document.getElementById('primaryGoal').value;
+      const confidence = parseInt(document.getElementById('confidence').value) || 5;
+
+      const updateData = {
+        'preferences.brands': brands,
+        'preferences.interests': interests,
+        'learningJourney.primaryGoal': primaryGoal,
+        'learningJourney.confidence': confidence,
+        tourCompleted: true,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      db.collection('users').doc(uid).update(updateData)
+        .then(() => {
+          cdToast('✅ Profile saved!');
+          redirectToDashboard('Operator', uid);
+        })
+        .catch(err => {
+          document.getElementById('saveError').textContent = err.message;
+          document.getElementById('saveError').style.display = 'block';
+        });
+    }
+  </script>
+</body>
+</html>
