@@ -4,9 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign Up (Test)</title>
+  <!-- Load Firebase SDKs first -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- Then load test-app.js which initializes Firebase -->
   <script src="test-app.js"></script>
 </head>
 <body>
@@ -63,6 +65,7 @@
   </div>
 
   <script>
+    // All script code is in the body so it runs after test-app.js loads.
     let selectedRole = 'Operator';
     let selectedTier = 'free';
 
@@ -134,7 +137,8 @@
       const referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
       console.log('🔑 Referral code:', referralCode);
 
-      auth.createUserWithEmailAndPassword(email, password)
+      // Use window.auth (or just auth)
+      window.auth.createUserWithEmailAndPassword(email, password)
         .then(cred => {
           const user = cred.user;
           console.log('✅ Auth user created:', user.uid);
@@ -177,12 +181,12 @@
             userData.badgesEarned = [];
           }
           console.log('📄 Writing user data to Firestore:', userData);
-          return db.collection('users').doc(user.uid).set(userData, { merge: true }).then(() => user);
+          return window.db.collection('users').doc(user.uid).set(userData, { merge: true }).then(() => user);
         })
         .then(user => {
           console.log('✅ User data written to Firestore');
           // Create referral code doc (non-critical)
-          return db.collection('referralCodes').doc(referralCode).set({
+          return window.db.collection('referralCodes').doc(referralCode).set({
             uid: user.uid,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           }).catch(err => {
@@ -203,16 +207,19 @@
         });
     }
 
-    // If already logged in, go to dashboard (TEST VERSION)
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        db.collection('users').doc(user.uid).get().then(doc => {
-          if (doc.exists) {
-            console.log('👤 Already logged in, redirecting to dashboard');
-            redirectToDashboard(doc.data().role || 'Operator', user.uid);
-          }
-        });
-      }
+    // If already logged in, go to dashboard
+    // Use DOMContentLoaded to ensure auth is defined
+    document.addEventListener('DOMContentLoaded', function() {
+      window.auth.onAuthStateChanged(user => {
+        if (user) {
+          window.db.collection('users').doc(user.uid).get().then(doc => {
+            if (doc.exists) {
+              console.log('👤 Already logged in, redirecting to dashboard');
+              redirectToDashboard(doc.data().role || 'Operator', user.uid);
+            }
+          });
+        }
+      });
     });
   </script>
 </body>

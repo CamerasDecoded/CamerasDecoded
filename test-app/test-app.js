@@ -1,4 +1,6 @@
 // test-app.js – Shared Firebase init, auth helpers, and navigation
+console.log('✅ test-app.js loaded');
+
 const firebaseConfig = {
   apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
   authDomain: "cameras-decoded.firebaseapp.com",
@@ -9,11 +11,15 @@ const firebaseConfig = {
   measurementId: "G-YN3M01WW0B"
 };
 
+// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 firebase.firestore().settings({ experimentalForceLongPolling: true });
 
+// Expose auth and db globally
 window.auth = firebase.auth();
 window.db = firebase.firestore();
+
+console.log('✅ Firebase initialized, auth and db available');
 
 // --- Toast ---
 function cdToast(message, type) {
