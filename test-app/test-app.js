@@ -53,25 +53,6 @@ function cdToast(message, type) {
   }, 4000);
 }
 
-// --- Get the current user UID (from URL or auth) ---
-function getCurrentUid(callback) {
-  const urlParams = new URLSearchParams(window.location.search);
-  const uidFromUrl = urlParams.get('uid');
-  if (uidFromUrl) {
-    callback(uidFromUrl);
-    return;
-  }
-  const user = auth.currentUser;
-  if (user) {
-    callback(user.uid);
-  } else {
-    auth.onAuthStateChanged(user => {
-      if (user) callback(user.uid);
-      else callback(null);
-    });
-  }
-}
-
 // --- Redirect to role‑specific dashboard (TEST VERSION) ---
 function redirectToDashboard(role, uid) {
   const map = {
@@ -79,7 +60,9 @@ function redirectToDashboard(role, uid) {
     'Partner': 'test-partner-dashboard.html',
     'Instructor': 'test-instructor-dashboard.html'
   };
-  window.location.href = (map[role] || 'test-operator-dashboard.html') + '?uid=' + uid;
+  const url = (map[role] || 'test-operator-dashboard.html') + '?uid=' + uid;
+  console.log('🔀 Redirecting to dashboard:', url);
+  window.location.href = url;
 }
 
 // --- Redirect to role‑specific profile (TEST VERSION) ---
@@ -89,7 +72,9 @@ function redirectToProfile(role, uid) {
     'Partner': 'test-partner-profile.html',
     'Instructor': 'test-instructor-profile.html'
   };
-  window.location.href = (map[role] || 'test-profile.html') + '?uid=' + uid;
+  const url = (map[role] || 'test-profile.html') + '?uid=' + uid;
+  console.log('🔀 Redirecting to profile:', url);
+  window.location.href = url;
 }
 
 // --- Logout (TEST VERSION) ---

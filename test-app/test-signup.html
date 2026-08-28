@@ -80,6 +80,7 @@
           btn.style.fontWeight = '400';
         }
       });
+      console.log('✅ Selected role:', selectedRole);
     }
 
     function selectTier(tier) {
@@ -96,6 +97,7 @@
           btn.style.fontWeight = '400';
         }
       });
+      console.log('✅ Selected tier:', selectedTier);
     }
 
     function signUp() {
@@ -106,33 +108,40 @@
       const confirmPassword = document.getElementById('confirmPassword').value;
 
       document.getElementById('error').style.display = 'none';
+      document.getElementById('loading').style.display = 'block';
+
+      console.log('📝 Sign-up attempt:', { name, email, username, role: selectedRole, tier: selectedTier });
 
       if (!name || !email || !username || !password) {
         document.getElementById('error').textContent = 'Please fill in all fields.';
         document.getElementById('error').style.display = 'block';
+        document.getElementById('loading').style.display = 'none';
         return;
       }
       if (password.length < 6) {
         document.getElementById('error').textContent = 'Password must be at least 6 characters.';
         document.getElementById('error').style.display = 'block';
+        document.getElementById('loading').style.display = 'none';
         return;
       }
       if (password !== confirmPassword) {
         document.getElementById('error').textContent = 'Passwords do not match.';
         document.getElementById('error').style.display = 'block';
+        document.getElementById('loading').style.display = 'none';
         return;
       }
 
-      document.getElementById('loading').style.display = 'block';
-
       const referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+      console.log('🔑 Referral code:', referralCode);
 
       auth.createUserWithEmailAndPassword(email, password)
         .then(cred => {
           const user = cred.user;
+          console.log('✅ Auth user created:', user.uid);
           return user.updateProfile({ displayName: name }).then(() => user);
         })
         .then(user => {
+          console.log('✅ User profile updated');
           const userData = {
             name: name,
             email: email,
@@ -167,22 +176,27 @@
             userData.level = 1;
             userData.badgesEarned = [];
           }
-          return db.collection('users').doc(user.uid).set(userData).then(() => user);
+          console.log('📄 Writing user data to Firestore:', userData);
+          return db.collection('users').doc(user.uid).set(userData, { merge: true }).then(() => user);
         })
         .then(user => {
-          // Create referral code doc
+          console.log('✅ User data written to Firestore');
+          // Create referral code doc (non-critical)
           return db.collection('referralCodes').doc(referralCode).set({
             uid: user.uid,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          }).catch(() => {}).then(() => user);
+          }).catch(err => {
+            console.warn('⚠️ Referral code doc creation failed (non-critical):', err);
+          }).then(() => user);
         })
         .then(user => {
           document.getElementById('loading').style.display = 'none';
           cdToast('✅ Account created!');
-          // Redirect to role-specific profile (TEST VERSION)
+          console.log('🚀 Redirecting to profile for role:', selectedRole, 'uid:', user.uid);
           redirectToProfile(selectedRole, user.uid);
         })
         .catch(err => {
+          console.error('❌ Signup error:', err);
           document.getElementById('loading').style.display = 'none';
           document.getElementById('error').textContent = err.message;
           document.getElementById('error').style.display = 'block';
@@ -194,6 +208,7 @@
       if (user) {
         db.collection('users').doc(user.uid).get().then(doc => {
           if (doc.exists) {
+            console.log('👤 Already logged in, redirecting to dashboard');
             redirectToDashboard(doc.data().role || 'Operator', user.uid);
           }
         });
