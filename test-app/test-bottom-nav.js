@@ -1,4 +1,4 @@
-// test-bottom-nav.js – Minimal version (no dynamic injection)
+// test-bottom-nav.js – Minimal version (TEST VERSION)
 (function() {
   'use strict';
 
@@ -20,6 +20,7 @@
     try {
       const annDoc = await db.collection('admin').doc('announcement').get();
       const hasAnnouncement = annDoc.exists && annDoc.data().active === true;
+      // TEST VERSION: point to test-index.html
       const homeLink = document.querySelector('.bottom-nav a[href="test-index.html"]');
       if (homeLink) homeLink.classList.toggle('show-badge', hasAnnouncement);
 

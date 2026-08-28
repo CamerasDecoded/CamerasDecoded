@@ -72,7 +72,7 @@ function getCurrentUid(callback) {
   }
 }
 
-// --- Redirect to role‑specific dashboard ---
+// --- Redirect to role‑specific dashboard (TEST VERSION) ---
 function redirectToDashboard(role, uid) {
   const map = {
     'Operator': 'test-operator-dashboard.html',
@@ -82,7 +82,7 @@ function redirectToDashboard(role, uid) {
   window.location.href = (map[role] || 'test-operator-dashboard.html') + '?uid=' + uid;
 }
 
-// --- Redirect to role‑specific profile ---
+// --- Redirect to role‑specific profile (TEST VERSION) ---
 function redirectToProfile(role, uid) {
   const map = {
     'Operator': 'test-profile.html',
@@ -92,7 +92,7 @@ function redirectToProfile(role, uid) {
   window.location.href = (map[role] || 'test-profile.html') + '?uid=' + uid;
 }
 
-// --- Logout ---
+// --- Logout (TEST VERSION) ---
 function handleLogout() {
   auth.signOut().then(() => {
     window.location.href = 'test-index.html';
