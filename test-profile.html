@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operator Profile — Cameras Decoded</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-init.js"></script>
+  <script src="cd-ui.js"></script>
+</head>
+<body>
+  <div style="max-width:600px;margin:40px auto;padding:20px;font-family:sans-serif;">
+    <h1>📡 Complete Your Operator Profile</h1>
+    <p style="color:#666;">Tell us about your gear and goals.</p>
+
+    <div id="loading" style="padding:40px;text-align:center;">Loading your profile...</div>
+
+    <div id="content" style="display:none;">
+      <div style="margin:16px 0;padding:16px;background:#f5f5f5;border-radius:8px;">
+        <p><strong>Name:</strong> <span id="displayName">—</span></p>
+        <p><strong>Email:</strong> <span id="displayEmail">—</span></p>
+        <p><strong>Role:</strong> <span id="displayRole">Operator</span></p>
+        <p><strong>Plan:</strong> <span id="displayTier">Free</span></p>
+      </div>
+
+      <h3>Gear & Preferences</h3>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Camera Brands (select all that apply)</label>
+        <div id="brandsGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+          <span class="chip" data-value="Sony" onclick="toggleChip(this)">Sony</span>
+          <span class="chip" data-value="Canon" onclick="toggleChip(this)">Canon</span>
+          <span class="chip" data-value="Nikon" onclick="toggleChip(this)">Nikon</span>
+          <span class="chip" data-value="Fuji" onclick="toggleChip(this)">Fuji</span>
+          <span class="chip" data-value="Panasonic" onclick="toggleChip(this)">Panasonic</span>
+          <span class="chip" data-value="Blackmagic" onclick="toggleChip(this)">Blackmagic</span>
+        </div>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Lenses (select all that apply)</label>
+        <div id="lensesGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+          <span class="chip" data-value="24-70mm f/2.8" onclick="toggleChip(this)">24-70mm f/2.8</span>
+          <span class="chip" data-value="85mm f/1.4" onclick="toggleChip(this)">85mm f/1.4</span>
+          <span class="chip" data-value="70-200mm f/2.8" onclick="toggleChip(this)">70-200mm f/2.8</span>
+          <span class="chip" data-value="35mm f/1.4" onclick="toggleChip(this)">35mm f/1.4</span>
+          <span class="chip" data-value="50mm f/1.8" onclick="toggleChip(this)">50mm f/1.8</span>
+          <span class="chip" data-value="16-35mm f/2.8" onclick="toggleChip(this)">16-35mm f/2.8</span>
+        </div>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Interests (max 3)</label>
+        <div id="interestsGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+          <span class="chip" data-value="Portraits" onclick="toggleChipLimit(this, 3)">Portraits</span>
+          <span class="chip" data-value="Events/Weddings" onclick="toggleChipLimit(this, 3)">Events/Weddings</span>
+          <span class="chip" data-value="Landscape" onclick="toggleChipLimit(this, 3)">Landscape</span>
+          <span class="chip" data-value="Street" onclick="toggleChipLimit(this, 3)">Street</span>
+          <span class="chip" data-value="Sports/Action" onclick="toggleChipLimit(this, 3)">Sports/Action</span>
+          <span class="chip" data-value="Real Estate" onclick="toggleChipLimit(this, 3)">Real Estate</span>
+          <span class="chip" data-value="Product" onclick="toggleChipLimit(this, 3)">Product</span>
+          <span class="chip" data-value="Videography/Film" onclick="toggleChipLimit(this, 3)">Videography/Film</span>
+        </div>
+        <div style="font-size:12px;color:#666;margin-top:4px;">Selected: <span id="interestCount">0</span> / 3</div>
+      </div>
+
+      <h3 style="margin-top:24px;">Learning Journey</h3>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Experience Level</label>
+        <select id="experience" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="<6">Less than 6 months</option>
+          <option value="6-12">6–12 months</option>
+          <option value="1-2">1–2 years</option>
+          <option value="3-5">3–5 years</option>
+          <option value="5+">5+ years</option>
+        </select>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Primary Goal</label>
+        <select id="primaryGoal" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="master-manual">Master Manual Mode</option>
+          <option value="start-business">Start a Business</option>
+          <option value="improve-social">Improve Social Content</option>
+          <option value="family-travel">Capture Family/Travel</option>
+          <option value="professional-event">Professional Events/Weddings</option>
+          <option value="filmmaker">Become a Filmmaker</option>
+        </select>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Ambition</label>
+        <select id="ambition" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="hobbyist">Hobbyist – I create for fun</option>
+          <option value="semi-pro">Semi‑Professional – I earn some income</option>
+          <option value="professional">Professional – This is my primary income</option>
+        </select>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Confidence (1–10)</label>
+        <input type="range" id="confidence" min="1" max="10" value="5" step="1" style="width:100%;" />
+        <span id="confidenceDisplay">5</span>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Pain Points (max 3)</label>
+        <div id="painPointsGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+          <span class="chip" data-value="Technical confusion" onclick="toggleChipLimit(this, 3)">Technical confusion</span>
+          <span class="chip" data-value="Creative block" onclick="toggleChipLimit(this, 3)">Creative block</span>
+          <span class="chip" data-value="Editing/post-processing" onclick="toggleChipLimit(this, 3)">Editing/post-processing</span>
+          <span class="chip" data-value="Color grading" onclick="toggleChipLimit(this, 3)">Color grading</span>
+          <span class="chip" data-value="Business/marketing" onclick="toggleChipLimit(this, 3)">Business/marketing</span>
+          <span class="chip" data-value="Attracting clients" onclick="toggleChipLimit(this, 3)">Attracting clients</span>
+          <span class="chip" data-value="Lack of inspiration" onclick="toggleChipLimit(this, 3)">Lack of inspiration</span>
+        </div>
+        <div style="font-size:12px;color:#666;margin-top:4px;">Selected: <span id="painCount">0</span> / 3</div>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Content Format</label>
+        <select id="contentFormat" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="video">Video Tutorials</option>
+          <option value="written">Written Guides</option>
+          <option value="interactive">Interactive Exercises</option>
+          <option value="mixed">Mix of Everything</option>
+        </select>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Delivery Channel</label>
+        <select id="deliveryChannel" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="email">Email</option>
+          <option value="push">Push Notifications</option>
+          <option value="sms">SMS</option>
+        </select>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Shoot Frequency</label>
+        <select id="shootFrequency" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="rarely">Rarely</option>
+        </select>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">6-Month Skill Goal</label>
+        <select id="sixMonthGoal" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="exposure">Exposure Triangle</option>
+          <option value="composition">Composition & Storytelling</option>
+          <option value="lighting">Lighting</option>
+          <option value="editing">Editing/Post‑Production</option>
+          <option value="color">Color Grading</option>
+          <option value="business">Business & Client Management</option>
+        </select>
+      </div>
+
+      <div style="margin:12px 0;">
+        <label style="display:block;font-size:12px;color:#666;">Dream Project</label>
+        <select id="dreamProject" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="portrait-series">A Portrait Series</option>
+          <option value="short-film">A Short Film</option>
+          <option value="documentary">A Documentary</option>
+          <option value="music-video">A Music Video</option>
+          <option value="commercial">A Commercial/Corporate Video</option>
+          <option value="wedding-film">A Wedding Film</option>
+          <option value="social-content">Social Media Content</option>
+        </select>
+      </div>
+
+      <div style="margin-top:24px;">
+        <button onclick="saveProfile()" style="width:100%;padding:14px;background:#8deb00;border:none;border-radius:8px;font-weight:700;font-size:16px;cursor:pointer;">Save Profile →</button>
+      </div>
+      <div id="saveError" style="color:red;margin-top:12px;display:none;"></div>
+    </div>
+  </div>
+
+  <style>
+    .chip {
+      display:inline-block;
+      padding:6px 14px;
+      background:#f0f0f0;
+      border:1px solid #ddd;
+      border-radius:20px;
+      font-size:13px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .chip.selected {
+      background:#8deb00;
+      border-color:#8deb00;
+      color:#000;
+      font-weight:600;
+    }
+  </style>
+
+  <script>
+    let uid = null;
+    let userData = null;
+
+    function toggleChip(el) {
+      el.classList.toggle('selected');
+    }
+
+    function toggleChipLimit(el, max) {
+      const parent = el.parentElement;
+      const selected = parent.querySelectorAll('.chip.selected').length;
+      if (el.classList.contains('selected')) {
+        el.classList.remove('selected');
+      } else {
+        if (selected >= max) {
+          cdToast('Max ' + max + ' selections.', 'error');
+          return;
+        }
+        el.classList.add('selected');
+      }
+      // Update counter
+      const countId = parent.id.replace('Grid', 'Count');
+      const counter = document.getElementById(countId);
+      if (counter) {
+        counter.textContent = parent.querySelectorAll('.chip.selected').length;
+      }
+    }
+
+    // Get UID from URL or auth
+    const params = new URLSearchParams(window.location.search);
+    uid = params.get('uid');
+
+    if (!uid) {
+      auth.onAuthStateChanged(user => {
+        if (user) {
+          uid = user.uid;
+          loadProfile();
+        } else {
+          window.location.href = 'signup.html';
+        }
+      });
+    } else {
+      loadProfile();
+    }
+
+    function loadProfile() {
+      db.collection('users').doc(uid).get()
+        .then(doc => {
+          if (!doc.exists) {
+            cdToast('User not found.', 'error');
+            return;
+          }
+          userData = doc.data();
+
+          // Check role
+          if (userData.role !== 'Operator') {
+            const map = {
+              'Partner': 'partner-profile.html',
+              'Instructor': 'instructor-profile.html'
+            };
+            window.location.href = map[userData.role] + '?uid=' + uid;
+            return;
+          }
+
+          document.getElementById('displayName').textContent = userData.name || '—';
+          document.getElementById('displayEmail').textContent = userData.email || '—';
+          document.getElementById('displayRole').textContent = userData.role || 'Operator';
+          document.getElementById('displayTier').textContent = userData.tier === 'pro' ? 'Pro' : 'Free';
+
+          // Pre-fill existing data
+          const prefs = userData.preferences || {};
+          const lj = userData.learningJourney || {};
+
+          // Select chips
+          document.querySelectorAll('#brandsGrid .chip').forEach(el => {
+            if ((prefs.brands || []).includes(el.dataset.value)) el.classList.add('selected');
+          });
+          document.querySelectorAll('#lensesGrid .chip').forEach(el => {
+            if ((prefs.lenses || []).includes(el.dataset.value)) el.classList.add('selected');
+          });
+          document.querySelectorAll('#interestsGrid .chip').forEach(el => {
+            if ((prefs.interests || []).includes(el.dataset.value)) el.classList.add('selected');
+          });
+          document.querySelectorAll('#painPointsGrid .chip').forEach(el => {
+            if ((lj.painPoints || []).includes(el.dataset.value)) el.classList.add('selected');
+          });
+          document.getElementById('interestsCount').textContent = (prefs.interests || []).length;
+          document.getElementById('painCount').textContent = (lj.painPoints || []).length;
+
+          // Select dropdowns
+          document.getElementById('experience').value = lj.experience || '<6';
+          document.getElementById('primaryGoal').value = lj.primaryGoal || 'master-manual';
+          document.getElementById('ambition').value = lj.ambition || 'hobbyist';
+          document.getElementById('contentFormat').value = lj.contentFormat || 'video';
+          document.getElementById('deliveryChannel').value = lj.deliveryChannel || 'email';
+          document.getElementById('shootFrequency').value = lj.shootFrequency || 'weekly';
+          document.getElementById('sixMonthGoal').value = lj.sixMonthGoal || 'exposure';
+          document.getElementById('dreamProject').value = lj.dreamProject || 'portrait-series';
+
+          // Confidence slider
+          const conf = lj.confidence || 5;
+          document.getElementById('confidence').value = conf;
+          document.getElementById('confidenceDisplay').textContent = conf;
+          document.getElementById('confidence').oninput = function() {
+            document.getElementById('confidenceDisplay').textContent = this.value;
+          };
+
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('content').style.display = 'block';
+        })
+        .catch(err => {
+          document.getElementById('loading').textContent = 'Error: ' + err.message;
+        });
+    }
+
+    function saveProfile() {
+      const brands = Array.from(document.querySelectorAll('#brandsGrid .chip.selected')).map(el => el.dataset.value);
+      const lenses = Array.from(document.querySelectorAll('#lensesGrid .chip.selected')).map(el => el.dataset.value);
+      const interests = Array.from(document.querySelectorAll('#interestsGrid .chip.selected')).map(el => el.dataset.value);
+      const painPoints = Array.from(document.querySelectorAll('#painPointsGrid .chip.selected')).map(el => el.dataset.value);
+
+      const ljData = {
+        experience: document.getElementById('experience').value,
+        primaryGoal: document.getElementById('primaryGoal').value,
+        ambition: document.getElementById('ambition').value,
+        confidence: parseInt(document.getElementById('confidence').value) || 5,
+        painPoints: painPoints,
+        contentFormat: document.getElementById('contentFormat').value,
+        deliveryChannel: document.getElementById('deliveryChannel').value,
+        shootFrequency: document.getElementById('shootFrequency').value,
+        sixMonthGoal: document.getElementById('sixMonthGoal').value,
+        dreamProject: document.getElementById('dreamProject').value
+      };
+
+      db.collection('users').doc(uid).update({
+        preferences: { brands, lenses, interests },
+        learningJourney: ljData,
+        tourCompleted: true,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      })
+      .then(() => {
+        cdToast('✅ Profile saved!');
+        window.location.href = 'operator-dashboard.html?uid=' + uid;
+      })
+      .catch(err => {
+        document.getElementById('saveError').textContent = err.message;
+        document.getElementById('saveError').style.display = 'block';
+      });
+    }
+  </script>
+</body>
+</html>
