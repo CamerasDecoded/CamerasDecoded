@@ -1,135 +1,248 @@
 // ================================================================
-// BOTTOM NAV – ROLE‑AWARE (Single File – All Roles)
+// BOTTOM NAV – BULLETPROOF VERSION
 // ================================================================
-// Automatically detects user role from Firestore and updates
-// Dashboard and Profile links accordingly.
-// Works on Operator, Partner, and Instructor pages.
+// Single source of truth for role-aware routing
+// Handles Firebase async, caching, auth state changes
+// Works on every page with no race conditions
 // ================================================================
 
 (function() {
   'use strict';
 
-  // ---- HTML template (placeholders for dynamic links) ----
-  const NAV_HTML = `
-    <nav class="bottom-nav chasing-border-nav" id="bottomNav" role="navigation" aria-label="Main Navigation">
-      <!-- Home -->
-      <a href="index.html" data-page="index.html">
-        <i class="fas fa-home"></i>
-        <span>Home</span>
-        <span class="badge-dot" id="badgeHome"></span>
-      </a>
-      <!-- Dashboard (dynamic) -->
-      <a href="#" id="navDashboard" data-page="dashboard">
-        <i class="fas fa-th-large"></i>
-        <span>Dashboard</span>
-        <span class="badge-dot" id="badgeDashboard"></span>
-      </a>
-      <!-- Journey -->
-      <a href="learning-journey.html" data-page="learning-journey.html">
-        <i class="fas fa-compass"></i>
-        <span>Journey</span>
-        <span class="badge-dot" id="badgeJourney"></span>
-      </a>
-      <!-- Cynetis-7 -->
-      <a href="cynetis-7.html" data-page="cynetis-7.html">
-        <i class="fas fa-camera"></i>
-        <span>Cynetis-7</span>
-        <span class="badge-dot" id="badgeCynetis"></span>
-      </a>
-      <!-- Profile (dynamic) -->
-      <a href="#" id="navProfile" data-page="profile">
-        <i class="fas fa-user"></i>
-        <span>Profile</span>
-        <span class="badge-dot" id="badgeProfile"></span>
-      </a>
-    </nav>
-  `;
-
-  // ---- Role → URL mappings ----
-  const DASHBOARD_MAP = {
-    'Operator': 'operator-dashboard.html',
-    'Partner': 'partner-dashboard.html',
-    'Instructor': 'instructor-dashboard.html'
+  // ---- CONFIGURATION ----
+  const ROLE_MAP = {
+    Operator: {
+      dashboard: 'operator-dashboard.html',
+      profile: 'profile.html'
+    },
+    Partner: {
+      dashboard: 'partner-dashboard.html',
+      profile: 'partner-profile.html'
+    },
+    Instructor: {
+      dashboard: 'instructor-dashboard.html',
+      profile: 'instructor-profile.html'
+    }
   };
 
-  const PROFILE_MAP = {
-    'Operator': 'profile.html',
-    'Partner': 'partner-profile.html',
-    'Instructor': 'instructor-profile.html'
-  };
+  const DEFAULT_ROLE = 'Operator';
+  const CACHE_KEY = 'cameras_decoded_user_role';
+  const CACHE_TTL = 3600000; // 1 hour in ms
 
-  // ---- Fetch user role from Firestore ----
-  function getUserRole(callback) {
-    if (typeof firebase === 'undefined' || !firebase.auth) {
-      callback('Operator');
-      return;
-    }
-    const user = firebase.auth().currentUser;
-    if (!user) {
-      callback('Operator');
-      return;
-    }
-    firebase.firestore().collection('users').doc(user.uid).get()
-      .then(doc => {
-        if (doc.exists) {
-          const role = doc.data().role || 'Operator';
-          callback(role);
-        } else {
-          callback('Operator');
+  // ---- STATE ----
+  let currentRole = DEFAULT_ROLE;
+  let currentUser = null;
+  let navInjected = false;
+  let firebaseReady = false;
+  let authStateResolved = false;
+
+  // ================================================================
+  // UTILITY: Wait for Firebase to be ready
+  // ================================================================
+  function waitForFirebase(maxWaitMs = 5000) {
+    return new Promise((resolve) => {
+      if (typeof firebase !== 'undefined' && firebase.auth && firebase.firestore) {
+        firebaseReady = true;
+        resolve(true);
+        return;
+      }
+
+      let elapsed = 0;
+      const checkInterval = 100;
+      const maxAttempts = maxWaitMs / checkInterval;
+      let attempts = 0;
+
+      const interval = setInterval(() => {
+        attempts++;
+        if (typeof firebase !== 'undefined' && firebase.auth && firebase.firestore) {
+          firebaseReady = true;
+          clearInterval(interval);
+          resolve(true);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          resolve(false); // Firebase never loaded, continue anyway
         }
-      })
-      .catch(() => {
-        callback('Operator');
-      });
-  }
-
-  // ---- Update links based on role ----
-  function updateLinks(role) {
-    const dashboardUrl = DASHBOARD_MAP[role] || 'operator-dashboard.html';
-    const profileUrl = PROFILE_MAP[role] || 'profile.html';
-
-    const dashboardLink = document.getElementById('navDashboard');
-    const profileLink = document.getElementById('navProfile');
-
-    if (dashboardLink) {
-      dashboardLink.href = dashboardUrl;
-      dashboardLink.dataset.page = dashboardUrl;
-    }
-    if (profileLink) {
-      profileLink.href = profileUrl;
-      profileLink.dataset.page = profileUrl;
-    }
-
-    // Re-set active nav after updating links
-    setActiveNav();
-  }
-
-  // ---- Inject nav ----
-  function injectNav() {
-    if (document.getElementById('bottomNav')) return;
-    const container = document.getElementById('bottomNavContainer');
-    if (container) {
-      container.innerHTML = NAV_HTML;
-    } else {
-      const div = document.createElement('div');
-      div.id = 'bottomNavContainer';
-      div.innerHTML = NAV_HTML;
-      document.body.appendChild(div);
-    }
-
-    // Fetch role and update links
-    getUserRole(function(role) {
-      updateLinks(role);
+      }, checkInterval);
     });
   }
 
-  // ---- Set active link based on current URL ----
+  // ================================================================
+  // UTILITY: Get role from cache or Firestore
+  // ================================================================
+  async function getRoleFromCache() {
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { role, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_TTL) {
+          return role;
+        }
+      }
+    } catch (e) {
+      console.warn('Cache read error:', e);
+    }
+    return null;
+  }
+
+  function setCacheRole(role) {
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+        role,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      console.warn('Cache write error:', e);
+    }
+  }
+
+  // ================================================================
+  // FETCH ROLE FROM FIRESTORE (with retries)
+  // ================================================================
+  async function getRoleFromFirestore(userId, maxRetries = 3) {
+    if (!firebaseReady || !userId) return null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const doc = await firebase.firestore().collection('users').doc(userId).get();
+        if (doc.exists) {
+          const role = doc.data().role || DEFAULT_ROLE;
+          setCacheRole(role);
+          return role;
+        }
+      } catch (e) {
+        console.warn(`Firestore read attempt ${attempt + 1} failed:`, e);
+        if (attempt < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait before retry
+        }
+      }
+    }
+    return null;
+  }
+
+  // ================================================================
+  // RESOLVE USER ROLE (main logic)
+  // ================================================================
+  async function resolveUserRole() {
+    await waitForFirebase();
+
+    if (!firebaseReady) {
+      currentRole = DEFAULT_ROLE;
+      return currentRole;
+    }
+
+    // Wait for auth state to be determined
+    return new Promise((resolve) => {
+      const unsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
+        currentUser = user;
+        authStateResolved = true;
+
+        if (!user) {
+          // Not logged in – use default
+          currentRole = DEFAULT_ROLE;
+          unsubscribe();
+          resolve(currentRole);
+          return;
+        }
+
+        // User is logged in
+        // 1. Try cache first
+        let cachedRole = await getRoleFromCache();
+        if (cachedRole) {
+          currentRole = cachedRole;
+          unsubscribe();
+          resolve(currentRole);
+          return;
+        }
+
+        // 2. Fetch from Firestore
+        let firestoreRole = await getRoleFromFirestore(user.uid);
+        if (firestoreRole) {
+          currentRole = firestoreRole;
+          unsubscribe();
+          resolve(currentRole);
+          return;
+        }
+
+        // 3. Default fallback
+        currentRole = DEFAULT_ROLE;
+        unsubscribe();
+        resolve(currentRole);
+      });
+    });
+  }
+
+  // ================================================================
+  // BUILD NAV HTML (with resolved role)
+  // ================================================================
+  function buildNavHTML() {
+    const roleConfig = ROLE_MAP[currentRole] || ROLE_MAP[DEFAULT_ROLE];
+    const dashboardHref = roleConfig.dashboard;
+    const profileHref = roleConfig.profile;
+
+    return `
+      <nav class="bottom-nav chasing-border-nav" id="bottomNav" role="navigation" aria-label="Main Navigation">
+        <a href="index.html" data-page="index.html" class="nav-link">
+          <i class="fas fa-home"></i>
+          <span>Home</span>
+          <span class="badge-dot" id="badgeHome"></span>
+        </a>
+        <a href="${dashboardHref}" data-page="${dashboardHref}" class="nav-link" id="navDashboard">
+          <i class="fas fa-th-large"></i>
+          <span>Dashboard</span>
+          <span class="badge-dot" id="badgeDashboard"></span>
+        </a>
+        <a href="learning-journey.html" data-page="learning-journey.html" class="nav-link">
+          <i class="fas fa-compass"></i>
+          <span>Journey</span>
+          <span class="badge-dot" id="badgeJourney"></span>
+        </a>
+        <a href="cynetis-7.html" data-page="cynetis-7.html" class="nav-link">
+          <i class="fas fa-camera"></i>
+          <span>Cynetis-7</span>
+          <span class="badge-dot" id="badgeCynetis"></span>
+        </a>
+        <a href="${profileHref}" data-page="${profileHref}" class="nav-link" id="navProfile">
+          <i class="fas fa-user"></i>
+          <span>Profile</span>
+          <span class="badge-dot" id="badgeProfile"></span>
+        </a>
+      </nav>
+    `;
+  }
+
+  // ================================================================
+  // INJECT NAV INTO DOM
+  // ================================================================
+  function injectNav() {
+    if (navInjected) return;
+
+    let container = document.getElementById('bottomNavContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'bottomNavContainer';
+      document.body.appendChild(container);
+    }
+
+    container.innerHTML = buildNavHTML();
+    navInjected = true;
+
+    // Set active state immediately
+    setActiveNav();
+
+    // Update badges asynchronously (don't block)
+    updateBadgesAsync();
+  }
+
+  // ================================================================
+  // SET ACTIVE NAV LINK
+  // ================================================================
   function setActiveNav() {
-    const path = window.location.pathname.split('/').pop() || 'index.html';
-    document.querySelectorAll('.bottom-nav a').forEach(link => {
-      const href = link.getAttribute('href');
-      const page = link.dataset.page || href;
-      if (page === path || href === path) {
+    const currentPath = window.location.pathname.split('/').pop() || 'index.html';
+    const links = document.querySelectorAll('.bottom-nav .nav-link');
+
+    links.forEach(link => {
+      const page = link.dataset.page || link.getAttribute('href');
+      if (page === currentPath || page.endsWith(currentPath)) {
         link.classList.add('active');
       } else {
         link.classList.remove('active');
@@ -137,119 +250,139 @@
     });
   }
 
-  // ---- Update notification badges ----
-  async function updateNotificationBadges(userData) {
-    if (typeof firebase === 'undefined' || !firebase.firestore) return;
-    const db = firebase.firestore();
+  // ================================================================
+  // UPDATE BADGES (async, non-blocking)
+  // ================================================================
+  async function updateBadgesAsync() {
+    if (!firebaseReady) return;
+
     try {
-      // 1. Home – admin announcement
-      const annDoc = await db.collection('admin').doc('announcement').get();
-      const hasAnnouncement = annDoc.exists && annDoc.data().active === true;
+      // Admin announcement badge
+      const annDoc = await firebase.firestore().collection('admin').doc('announcement').get();
+      const hasAnnouncement = annDoc.exists && annDoc.data()?.active === true;
       const homeLink = document.querySelector('.bottom-nav a[href="index.html"]');
       if (homeLink) homeLink.classList.toggle('show-badge', hasAnnouncement);
 
-      // 2. Dashboard, Journey, Profile – alerts based on user data
-      if (userData) {
-        // Different alert logic per role? Keep simple: profile incomplete or low points.
-        const hasAlerts = !userData.tourCompleted ||
-                          !userData.learningJourney?.primaryGoal ||
-                          (userData.totalPoints || 0) < 10;
-        const dashboardLink = document.getElementById('navDashboard');
-        const journeyLink = document.querySelector('.bottom-nav a[href="learning-journey.html"]');
-        const profileLink = document.getElementById('navProfile');
-        if (dashboardLink) dashboardLink.classList.toggle('show-badge', hasAlerts);
-        if (journeyLink) journeyLink.classList.toggle('show-badge', hasAlerts);
-        if (profileLink) profileLink.classList.toggle('show-badge', hasAlerts);
-      }
-
-      // 3. Cynetis-7 – new features (localStorage flag)
+      // Cynetis badge (visited flag)
       const hasNewFeatures = !localStorage.getItem('cynetis_visited');
       const cynetisLink = document.querySelector('.bottom-nav a[href="cynetis-7.html"]');
       if (cynetisLink) cynetisLink.classList.toggle('show-badge', hasNewFeatures);
 
+      // User profile/journey badges
+      if (currentUser) {
+        const userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          const hasAlerts = !userData.tourCompleted ||
+                           !userData.learningJourney?.primaryGoal ||
+                           (userData.totalPoints || 0) < 10;
+
+          const dashboardLink = document.getElementById('navDashboard');
+          const journeyLink = document.querySelector('.bottom-nav a[href="learning-journey.html"]');
+          const profileLink = document.getElementById('navProfile');
+
+          if (dashboardLink) dashboardLink.classList.toggle('show-badge', hasAlerts);
+          if (journeyLink) journeyLink.classList.toggle('show-badge', hasAlerts);
+          if (profileLink) profileLink.classList.toggle('show-badge', hasAlerts);
+        }
+      }
     } catch (e) {
       console.warn('Badge update error:', e);
     }
   }
 
-  // ---- Mark Cynetis as visited when clicked ----
-  document.addEventListener('click', function(e) {
-    const link = e.target.closest('.bottom-nav a[href="cynetis-7.html"]');
-    if (link) {
-      localStorage.setItem('cynetis_visited', 'true');
-      link.classList.remove('show-badge');
-    }
-  });
+  // ================================================================
+  // REBUILD NAV ON AUTH STATE CHANGE
+  // ================================================================
+  function listenToAuthStateChanges() {
+    if (!firebaseReady) return;
 
-  // ---- Public API ----
+    firebase.auth().onAuthStateChanged(async (user) => {
+      const previousRole = currentRole;
+      const previousUser = currentUser;
+
+      currentUser = user;
+
+      if (!user) {
+        // User logged out
+        currentRole = DEFAULT_ROLE;
+        injectNav(); // Rebuild with default role
+        return;
+      }
+
+      // User logged in – resolve their role
+      let cachedRole = await getRoleFromCache();
+      if (!cachedRole) {
+        cachedRole = await getRoleFromFirestore(user.uid);
+      }
+
+      if (cachedRole) {
+        currentRole = cachedRole;
+      } else {
+        currentRole = DEFAULT_ROLE;
+      }
+
+      // Rebuild nav if role changed or user changed
+      if (currentRole !== previousRole || user.uid !== previousUser?.uid) {
+        navInjected = false; // Force re-injection
+        injectNav();
+      }
+
+      // Update badges
+      updateBadgesAsync();
+    });
+  }
+
+  // ================================================================
+  // MARK CYNETIS AS VISITED
+  // ================================================================
+  function setupCynetisVisited() {
+    document.addEventListener('click', function(e) {
+      const link = e.target.closest('.bottom-nav a[href="cynetis-7.html"]');
+      if (link) {
+        localStorage.setItem('cynetis_visited', 'true');
+        link.classList.remove('show-badge');
+      }
+    });
+  }
+
+  // ================================================================
+  // PUBLIC API
+  // ================================================================
   window.BottomNav = {
+    init: async function() {
+      await resolveUserRole();
+      injectNav();
+      listenToAuthStateChanges();
+      setupCynetisVisited();
+    },
     inject: injectNav,
     setActive: setActiveNav,
-    updateBadges: updateNotificationBadges,
-    init: function(userData) {
+    updateBadges: updateBadgesAsync,
+    getRole: () => currentRole,
+    getUser: () => currentUser,
+    rebuild: async function() {
+      navInjected = false;
+      await resolveUserRole();
       injectNav();
-      setActiveNav();
-      if (userData) {
-        updateNotificationBadges(userData);
-      } else if (typeof firebase !== 'undefined' && firebase.auth) {
-        const user = firebase.auth().currentUser;
-        if (user) {
-          firebase.firestore().collection('users').doc(user.uid).get()
-            .then(doc => {
-              if (doc.exists) {
-                updateNotificationBadges(doc.data());
-                // Re-run role detection to ensure links are correct
-                getUserRole(function(role) {
-                  updateLinks(role);
-                });
-              }
-            })
-            .catch(() => {});
-        }
-      }
     }
   };
 
-  // ---- Auto‑init when DOM is ready ----
+  // ================================================================
+  // AUTO-INIT
+  // ================================================================
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-      injectNav();
-      setActiveNav();
-      if (typeof firebase !== 'undefined' && firebase.auth) {
-        const user = firebase.auth().currentUser;
-        if (user) {
-          firebase.firestore().collection('users').doc(user.uid).get()
-            .then(doc => {
-              if (doc.exists) {
-                updateNotificationBadges(doc.data());
-                getUserRole(function(role) {
-                  updateLinks(role);
-                });
-              }
-            })
-            .catch(() => {});
-        }
-      }
+    document.addEventListener('DOMContentLoaded', () => {
+      window.BottomNav.init();
     });
   } else {
-    // DOM already ready
-    injectNav();
-    setActiveNav();
-    if (typeof firebase !== 'undefined' && firebase.auth) {
-      const user = firebase.auth().currentUser;
-      if (user) {
-        firebase.firestore().collection('users').doc(user.uid).get()
-          .then(doc => {
-            if (doc.exists) {
-              updateNotificationBadges(doc.data());
-              getUserRole(function(role) {
-                updateLinks(role);
-              });
-            }
-          })
-          .catch(() => {});
-      }
-    }
+    // DOM already loaded
+    window.BottomNav.init();
   }
+
+  // Re-set active nav on navigation
+  window.addEventListener('popstate', () => {
+    setActiveNav();
+  });
 
 })();
