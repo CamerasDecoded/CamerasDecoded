@@ -12,6 +12,7 @@
 <body>
   <div style="max-width:400px;margin:80px auto;padding:20px;font-family:sans-serif;">
     <h1>Log In (TEST)</h1>
+    
     <div style="margin:12px 0;">
       <label style="display:block;font-size:12px;color:#666;">Email</label>
       <input type="email" id="email" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="you@example.com" />
@@ -20,55 +21,78 @@
       <label style="display:block;font-size:12px;color:#666;">Password</label>
       <input type="password" id="password" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="••••••••" />
     </div>
+
+    <div id="error" style="display:none;background:#ffebee;color:#c62828;padding:10px;border-radius:6px;margin-bottom:12px;font-size:13px;"></div>
+    <div id="loading" style="display:none;text-align:center;padding:10px;color:#666;">Logging in...</div>
+
     <button onclick="login()" style="width:100%;padding:14px;background:#8deb00;border:none;border-radius:8px;font-weight:700;font-size:16px;cursor:pointer;">Log In →</button>
-    <div id="error" style="color:red;margin-top:12px;display:none;"></div>
-    <div style="margin-top:20px;font-size:14px;color:#666;text-align:center;">
-      <a href="test-signup.html" style="color:#8deb00;text-decoration:none;">Don't have an account? Sign up</a>
-    </div>
+
+    <p style="text-align:center;margin-top:16px;font-size:13px;color:#999;">
+      Don't have an account? <a href="test-signup-fixed.html" style="color:#8deb00;text-decoration:none;">Sign up</a>
+    </p>
   </div>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      window.login = function() {
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        document.getElementById('error').style.display = 'none';
-
-        if (!email || !password) {
-          document.getElementById('error').textContent = 'Please fill in all fields.';
-          document.getElementById('error').style.display = 'block';
-          return;
-        }
-
-        window.auth.signInWithEmailAndPassword(email, password)
-          .then(cred => {
-            const user = cred.user;
-            return window.db.collection('users').doc(user.uid).get();
-          })
-          .then(doc => {
-            if (doc.exists) {
-              const role = doc.data().role || 'Operator';
-              redirectToDashboard(role, doc.id);
-            } else {
-              cdToast('User data not found.', 'error');
-            }
-          })
-          .catch(err => {
-            document.getElementById('error').textContent = err.message;
-            document.getElementById('error').style.display = 'block';
-          });
-      };
-
-      // If already logged in, redirect to dashboard
-      if (window.auth && window.auth.currentUser) {
-        const user = window.auth.currentUser;
-        window.db.collection('users').doc(user.uid).get().then(doc => {
-          if (doc.exists) {
-            redirectToDashboard(doc.data().role || 'Operator', user.uid);
-          }
-        });
-      }
-    });
-  </script>
 </body>
+
+<!-- SCRIPTS MOVED TO END - After test-app.js loads -->
+<script>
+  // Login
+  window.login = function() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+
+    document.getElementById('error').style.display = 'none';
+    document.getElementById('loading').style.display = 'block';
+
+    console.log('🔐 Login attempt:', { email });
+
+    if (!email || !password) {
+      document.getElementById('error').textContent = 'Please fill in all fields.';
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('loading').style.display = 'none';
+      return;
+    }
+
+    // Use window.auth (defined in test-app.js)
+    window.auth.signInWithEmailAndPassword(email, password)
+      .then(cred => {
+        const user = cred.user;
+        console.log('✅ Logged in:', user.uid);
+        
+        // Fetch user data to get role
+        return window.db.collection('users').doc(user.uid).get().then(doc => {
+          if (!doc.exists) {
+            throw new Error('User data not found. Please sign up first.');
+          }
+          const userData = doc.data();
+          return { user, role: userData.role || 'Operator' };
+        });
+      })
+      .then(({ user, role }) => {
+        console.log('✅ User role:', role);
+        
+        document.getElementById('loading').style.display = 'none';
+        cdToast('✅ Welcome back!');
+        
+        // Cache role
+        sessionStorage.setItem('cameras_decoded_user_role', role);
+        
+        console.log('🚀 Redirecting to dashboard for role:', role, 'uid:', user.uid);
+        redirectToDashboard(role, user.uid);
+      })
+      .catch(err => {
+        console.error('❌ Login error:', err);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').textContent = err.message;
+        document.getElementById('error').style.display = 'block';
+      });
+  };
+
+  // Allow Enter key to trigger login
+  document.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      login();
+    }
+  });
+</script>
+
 </html>
