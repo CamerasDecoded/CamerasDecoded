@@ -72,22 +72,22 @@ function cdToast(message, type = 'success') {
 // ================================================================
 function redirectToDashboard(role, uid) {
   const map = {
-    'Operator': 'test-operator-dashboard.html',
-    'Partner': 'test-partner-dashboard.html',
-    'Instructor': 'test-instructor-dashboard.html'
+    'Operator': '/test-app/test-operator-dashboard.html',
+    'Partner': '/test-app/test-partner-dashboard.html',
+    'Instructor': '/test-app/test-instructor-dashboard.html'
   };
-  const url = (map[role] || 'test-operator-dashboard.html') + '?uid=' + uid;
+  const url = (map[role] || '/test-app/test-operator-dashboard.html') + '?uid=' + uid;
   console.log('🔀 Redirecting to dashboard:', url);
   window.location.href = url;
 }
 
 function redirectToProfile(role, uid) {
   const map = {
-    'Operator': 'test-profile.html',
-    'Partner': 'test-partner-profile.html',
-    'Instructor': 'test-instructor-profile.html'
+    'Operator': '/test-app/test-profile.html',
+    'Partner': '/test-app/test-partner-profile.html',
+    'Instructor': '/test-app/test-instructor-profile.html'
   };
-  const url = (map[role] || 'test-profile.html') + '?uid=' + uid;
+  const url = (map[role] || '/test-app/test-profile.html') + '?uid=' + uid;
   console.log('🔀 Redirecting to profile:', url);
   window.location.href = url;
 }
