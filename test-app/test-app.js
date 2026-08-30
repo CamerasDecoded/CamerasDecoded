@@ -14,10 +14,9 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 
-// 🔧 FIX: Force long polling to avoid QUIC errors
+// ✅ FIX: Use ONLY experimentalForceLongPolling – remove the conflicting setting
 firebase.firestore().settings({
-  experimentalForceLongPolling: true,
-  experimentalAutoDetectLongPolling: true
+  experimentalForceLongPolling: true
 });
 
 // Expose auth and db globally
@@ -25,6 +24,62 @@ window.auth = firebase.auth();
 window.db = firebase.firestore();
 
 console.log('✅ Firebase initialized, window.auth and window.db are set');
+
+// ================================================================
+// PAGE ACCESS CONTROL – defined early
+// ================================================================
+
+// Map exact page paths to allowed roles
+const PAGE_ACCESS = {
+  '/test-app/test-operator-dashboard.html': ['Operator'],
+  '/test-app/test-partner-dashboard.html': ['Partner'],
+  '/test-app/test-instructor-dashboard.html': ['Instructor'],
+  '/test-app/test-profile.html': ['Operator'],
+  '/test-app/test-partner-profile.html': ['Partner'],
+  '/test-app/test-instructor-profile.html': ['Instructor']
+};
+
+function getDashboardUrl(role) {
+  const map = {
+    'Operator': '/test-app/test-operator-dashboard.html',
+    'Partner': '/test-app/test-partner-dashboard.html',
+    'Instructor': '/test-app/test-instructor-dashboard.html'
+  };
+  return map[role] || '/test-app/test-operator-dashboard.html';
+}
+
+function checkPageAccess() {
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    window.location.href = '/test-app/test-login.html';
+    return false;
+  }
+
+  // Use window.USER if available, else fallback to a safe redirect
+  let role = null;
+  if (window.USER && window.USER.isLoggedIn) {
+    role = window.USER.role;
+  } else {
+    console.warn('window.USER not ready, redirecting to login');
+    window.location.href = '/test-app/test-login.html';
+    return false;
+  }
+
+  const currentPath = window.location.pathname;
+  const allowedRoles = PAGE_ACCESS[currentPath];
+  if (!allowedRoles) {
+    // Page not in the map – treat as public
+    return true;
+  }
+
+  if (!allowedRoles.includes(role)) {
+    const dashboardUrl = getDashboardUrl(role);
+    window.location.href = dashboardUrl;
+    return false;
+  }
+
+  return true;
+}
 
 // ================================================================
 // TOAST NOTIFICATION
@@ -67,7 +122,7 @@ function cdToast(message, type = 'success') {
 }
 
 // ================================================================
-// REDIRECT HELPERS – NO ?uid= 
+// REDIRECT HELPERS
 // ================================================================
 function redirectToDashboard(role) {
   const map = {
@@ -134,64 +189,6 @@ async function getUniqueReferralCode(attempts = 0) {
     console.error('Error checking referral code:', err);
     return code;
   }
-}
-
-// ================================================================
-// PAGE ACCESS CONTROL
-// ================================================================
-
-// Map exact page paths to allowed roles
-const PAGE_ACCESS = {
-  '/test-app/test-operator-dashboard.html': ['Operator'],
-  '/test-app/test-partner-dashboard.html': ['Partner'],
-  '/test-app/test-instructor-dashboard.html': ['Instructor'],
-  '/test-app/test-profile.html': ['Operator'],
-  '/test-app/test-partner-profile.html': ['Partner'],
-  '/test-app/test-instructor-profile.html': ['Instructor']
-};
-
-function getDashboardUrl(role) {
-  const map = {
-    'Operator': '/test-app/test-operator-dashboard.html',
-    'Partner': '/test-app/test-partner-dashboard.html',
-    'Instructor': '/test-app/test-instructor-dashboard.html'
-  };
-  return map[role] || '/test-app/test-operator-dashboard.html';
-}
-
-function checkPageAccess() {
-  const user = firebase.auth().currentUser;
-  if (!user) {
-    window.location.href = '/test-app/test-login.html';
-    return false;
-  }
-
-  // Use window.USER if available, else fallback to Firestore (but we assume it's loaded)
-  let role = null;
-  if (window.USER && window.USER.isLoggedIn) {
-    role = window.USER.role;
-  } else {
-    // If window.USER not ready, we can still get the role from Firestore synchronously?
-    // We'll redirect to login as safe fallback.
-    console.warn('window.USER not ready, redirecting to login');
-    window.location.href = '/test-app/test-login.html';
-    return false;
-  }
-
-  const currentPath = window.location.pathname;
-  const allowedRoles = PAGE_ACCESS[currentPath];
-  if (!allowedRoles) {
-    // Page not in the map – treat as public (allow all)
-    return true;
-  }
-
-  if (!allowedRoles.includes(role)) {
-    const dashboardUrl = getDashboardUrl(role);
-    window.location.href = dashboardUrl;
-    return false;
-  }
-
-  return true;
 }
 
 // ================================================================
