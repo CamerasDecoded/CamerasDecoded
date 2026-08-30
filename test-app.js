@@ -22,6 +22,57 @@ window.db = firebase.firestore();
 console.log('✅ Firebase initialized, window.auth and window.db are set');
 
 // ================================================================
+// REFERRAL CODE GENERATION
+// ================================================================
+
+/**
+ * Generate a unique referral code
+ * Format: 8 characters alphanumeric (e.g., "X7K9M2P4")
+ */
+function generateReferralCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+/**
+ * Check if a referral code already exists in Firestore
+ * If it does, generate a new one and check again (recursive)
+ * Max 10 attempts to avoid infinite loops
+ */
+async function getUniqueReferralCode(attempts = 0) {
+  if (attempts > 10) {
+    throw new Error('Failed to generate unique referral code after 10 attempts');
+  }
+  
+  const code = generateReferralCode();
+  
+  try {
+    // Query Firestore to see if this code already exists
+    const querySnapshot = await window.db.collection('users')
+      .where('referralCode', '==', code)
+      .get();
+    
+    if (querySnapshot.empty) {
+      // Code is unique – return it
+      return code;
+    } else {
+      // Code already exists – try again
+      console.log('⚠️ Referral code collision:', code, '- retrying...');
+      return getUniqueReferralCode(attempts + 1);
+    }
+  } catch (err) {
+    console.error('Error checking referral code uniqueness:', err);
+    // If query fails, still return a code to avoid breaking signup
+    // But log the error for debugging
+    return code;
+  }
+}
+
+// ================================================================
 // SIGNUP/LOGIN STATE
 // ================================================================
 let selectedRole = 'Operator';
@@ -192,6 +243,17 @@ async function signUp() {
 
     console.log('✅ Profile updated');
 
+    // === NEW: Generate unique referral code ===
+    let referralCode = null;
+    try {
+      referralCode = await getUniqueReferralCode();
+      console.log('✅ Generated referral code:', referralCode);
+    } catch (err) {
+      console.warn('⚠️ Referral code generation failed:', err.message);
+      // Still allow signup – we'll store a fallback
+      referralCode = generateReferralCode() + 'X'; // Add a letter to make it unique-ish
+    }
+
     // Save to Firestore
     const userData = {
       uid,
@@ -200,6 +262,7 @@ async function signUp() {
       username,
       role: selectedRole,
       tier: selectedTier,
+      referralCode: referralCode, // NEW: Store the referral code
       createdAt: new Date().toISOString()
     };
 
