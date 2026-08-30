@@ -1,4 +1,4 @@
-// test-app.js – Complete Firebase init + signup + login + helpers
+// test-app.js – Complete Firebase init + signup + login + helpers + access control
 console.log('✅ test-app.js loading...');
 
 const firebaseConfig = {
@@ -13,19 +13,18 @@ const firebaseConfig = {
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-firebase.firestore().settings({ experimentalForceLongPolling: true });
+
+// 🔧 FIX: Force long polling to avoid QUIC errors
+firebase.firestore().settings({
+  experimentalForceLongPolling: true,
+  experimentalAutoDetectLongPolling: true
+});
 
 // Expose auth and db globally
 window.auth = firebase.auth();
 window.db = firebase.firestore();
 
 console.log('✅ Firebase initialized, window.auth and window.db are set');
-
-// ================================================================
-// SIGNUP/LOGIN STATE
-// ================================================================
-let selectedRole = 'Operator';
-let selectedTier = 'free';
 
 // ================================================================
 // TOAST NOTIFICATION
@@ -68,26 +67,26 @@ function cdToast(message, type = 'success') {
 }
 
 // ================================================================
-// REDIRECT HELPERS
+// REDIRECT HELPERS – NO ?uid= 
 // ================================================================
-function redirectToDashboard(role, uid) {
+function redirectToDashboard(role) {
   const map = {
-    'Operator': 'test-operator-dashboard.html',
-    'Partner': 'test-partner-dashboard.html',
-    'Instructor': 'test-instructor-dashboard.html'
+    'Operator': '/test-app/test-operator-dashboard.html',
+    'Partner': '/test-app/test-partner-dashboard.html',
+    'Instructor': '/test-app/test-instructor-dashboard.html'
   };
-  const url = (map[role] || 'test-operator-dashboard.html') + '?uid=' + uid;
+  const url = map[role] || '/test-app/test-operator-dashboard.html';
   console.log('🔀 Redirecting to dashboard:', url);
   window.location.href = url;
 }
 
-function redirectToProfile(role, uid) {
+function redirectToProfile(role) {
   const map = {
-    'Operator': 'test-profile.html',
-    'Partner': 'test-partner-profile.html',
-    'Instructor': 'test-instructor-profile.html'
+    'Operator': '/test-app/test-profile.html',
+    'Partner': '/test-app/test-partner-profile.html',
+    'Instructor': '/test-app/test-instructor-profile.html'
   };
-  const url = (map[role] || 'test-profile.html') + '?uid=' + uid;
+  const url = map[role] || '/test-app/test-profile.html';
   console.log('🔀 Redirecting to profile:', url);
   window.location.href = url;
 }
@@ -97,7 +96,7 @@ function redirectToProfile(role, uid) {
 // ================================================================
 function handleLogout() {
   window.auth.signOut().then(() => {
-    window.location.href = 'test-index.html';
+    window.location.href = '/test-app/test-index.html';
   }).catch(err => {
     console.error('Logout error:', err);
     cdToast('Logout failed', 'error');
@@ -105,48 +104,131 @@ function handleLogout() {
 }
 
 // ================================================================
-// SIGNUP PAGE: SELECT ROLE
+// REFERRAL CODE GENERATION (used on signup)
 // ================================================================
+function generateReferralCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+async function getUniqueReferralCode(attempts = 0) {
+  if (attempts > 10) {
+    console.warn('⚠️ Could not generate unique code after 10 attempts');
+    return generateReferralCode() + 'X';
+  }
+  const code = generateReferralCode();
+  try {
+    const snapshot = await window.db.collection('users')
+      .where('referralCode', '==', code)
+      .get();
+    if (snapshot.empty) {
+      return code;
+    } else {
+      return getUniqueReferralCode(attempts + 1);
+    }
+  } catch (err) {
+    console.error('Error checking referral code:', err);
+    return code;
+  }
+}
+
+// ================================================================
+// PAGE ACCESS CONTROL
+// ================================================================
+
+// Map exact page paths to allowed roles
+const PAGE_ACCESS = {
+  '/test-app/test-operator-dashboard.html': ['Operator'],
+  '/test-app/test-partner-dashboard.html': ['Partner'],
+  '/test-app/test-instructor-dashboard.html': ['Instructor'],
+  '/test-app/test-profile.html': ['Operator'],
+  '/test-app/test-partner-profile.html': ['Partner'],
+  '/test-app/test-instructor-profile.html': ['Instructor']
+};
+
+function getDashboardUrl(role) {
+  const map = {
+    'Operator': '/test-app/test-operator-dashboard.html',
+    'Partner': '/test-app/test-partner-dashboard.html',
+    'Instructor': '/test-app/test-instructor-dashboard.html'
+  };
+  return map[role] || '/test-app/test-operator-dashboard.html';
+}
+
+function checkPageAccess() {
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    window.location.href = '/test-app/test-login.html';
+    return false;
+  }
+
+  // Use window.USER if available, else fallback to Firestore (but we assume it's loaded)
+  let role = null;
+  if (window.USER && window.USER.isLoggedIn) {
+    role = window.USER.role;
+  } else {
+    // If window.USER not ready, we can still get the role from Firestore synchronously?
+    // We'll redirect to login as safe fallback.
+    console.warn('window.USER not ready, redirecting to login');
+    window.location.href = '/test-app/test-login.html';
+    return false;
+  }
+
+  const currentPath = window.location.pathname;
+  const allowedRoles = PAGE_ACCESS[currentPath];
+  if (!allowedRoles) {
+    // Page not in the map – treat as public (allow all)
+    return true;
+  }
+
+  if (!allowedRoles.includes(role)) {
+    const dashboardUrl = getDashboardUrl(role);
+    window.location.href = dashboardUrl;
+    return false;
+  }
+
+  return true;
+}
+
+// ================================================================
+// SIGNUP STATE (UI)
+// ================================================================
+let selectedRole = 'Operator';
+let selectedTier = 'free';
+
 function selectRole(role) {
   console.log('📝 Selected role:', role);
   selectedRole = role;
-  
-  // Update button styling
   const buttons = document.querySelectorAll('#roleOperator, #rolePartner, #roleInstructor');
   buttons.forEach(btn => {
     btn.style.background = '#333';
     btn.style.color = '#fff';
   });
-  
   const selectedBtn = document.getElementById('role' + role);
   if (selectedBtn) {
     selectedBtn.style.background = '#8deb00';
     selectedBtn.style.color = '#000';
   }
-  
   cdToast(`Selected ${role}`, 'success');
 }
 
-// ================================================================
-// SIGNUP PAGE: SELECT TIER
-// ================================================================
 function selectTier(tier) {
   console.log('💳 Selected tier:', tier);
   selectedTier = tier;
-  
-  // Update button styling
   const buttons = document.querySelectorAll('#tierFree, #tierPro');
   buttons.forEach(btn => {
     btn.style.background = '#333';
     btn.style.color = '#fff';
   });
-  
   const selectedBtn = document.getElementById('tier' + (tier === 'free' ? 'Free' : 'Pro'));
   if (selectedBtn) {
     selectedBtn.style.background = '#8deb00';
     selectedBtn.style.color = '#000';
   }
-  
   cdToast(`Selected ${tier.toUpperCase()} plan`, 'success');
 }
 
@@ -155,24 +237,20 @@ function selectTier(tier) {
 // ================================================================
 async function signUp() {
   try {
-    // Get form values
     const name = document.getElementById('name')?.value?.trim();
     const email = document.getElementById('email')?.value?.trim();
     const username = document.getElementById('username')?.value?.trim();
     const password = document.getElementById('password')?.value?.trim();
     const confirmPassword = document.getElementById('confirmPassword')?.value?.trim();
 
-    // Validation
     if (!name || !email || !username || !password || !confirmPassword) {
       cdToast('Please fill in all fields', 'error');
       return;
     }
-
     if (password.length < 6) {
       cdToast('Password must be at least 6 characters', 'error');
       return;
     }
-
     if (password !== confirmPassword) {
       cdToast('Passwords do not match', 'error');
       return;
@@ -180,19 +258,16 @@ async function signUp() {
 
     console.log('🔐 Creating account:', { name, email, username, role: selectedRole, tier: selectedTier });
 
-    // Create Firebase user
     const cred = await window.auth.createUserWithEmailAndPassword(email, password);
     const user = cred.user;
     const uid = user.uid;
 
-    console.log('✅ Firebase user created:', uid);
-
-    // Update profile display name
     await user.updateProfile({ displayName: name });
 
-    console.log('✅ Profile updated');
+    // Generate unique referral code
+    let referralCode = await getUniqueReferralCode();
+    console.log('✅ Generated referral code:', referralCode);
 
-    // Save to Firestore
     const userData = {
       uid,
       name,
@@ -200,26 +275,23 @@ async function signUp() {
       username,
       role: selectedRole,
       tier: selectedTier,
+      referralCode: referralCode,
       createdAt: new Date().toISOString()
     };
 
     await window.db.collection('users').doc(uid).set(userData);
     console.log('✅ User document saved to Firestore');
 
-    // Cache role in sessionStorage
     sessionStorage.setItem('cameras_decoded_user_role', selectedRole);
-
     cdToast(`Account created! Welcome, ${name}!`, 'success');
 
-    // Redirect to dashboard after short delay
     setTimeout(() => {
-      redirectToDashboard(selectedRole, uid);
+      redirectToDashboard(selectedRole);
     }, 1500);
 
   } catch (err) {
     console.error('❌ Signup error:', err);
     let message = err.message;
-    
     if (err.code === 'auth/email-already-in-use') {
       message = 'Email already registered. Try logging in instead.';
     } else if (err.code === 'auth/weak-password') {
@@ -227,7 +299,6 @@ async function signUp() {
     } else if (err.code === 'auth/invalid-email') {
       message = 'Invalid email address.';
     }
-    
     cdToast(message, 'error');
   }
 }
@@ -237,11 +308,9 @@ async function signUp() {
 // ================================================================
 async function login() {
   try {
-    // Get form values
     const email = document.getElementById('email')?.value?.trim();
     const password = document.getElementById('password')?.value?.trim();
 
-    // Validation
     if (!email || !password) {
       cdToast('Please fill in all fields', 'error');
       return;
@@ -249,16 +318,11 @@ async function login() {
 
     console.log('🔐 Logging in:', { email });
 
-    // Sign in with Firebase
     const cred = await window.auth.signInWithEmailAndPassword(email, password);
     const user = cred.user;
     const uid = user.uid;
 
-    console.log('✅ Logged in:', uid);
-
-    // Fetch user data from Firestore to get role
     const userDoc = await window.db.collection('users').doc(uid).get();
-    
     if (!userDoc.exists) {
       cdToast('User data not found. Please sign up first.', 'error');
       return;
@@ -267,22 +331,16 @@ async function login() {
     const userData = userDoc.data();
     const role = userData.role || 'Operator';
 
-    console.log('✅ User role:', role);
-
-    // Cache role in sessionStorage
     sessionStorage.setItem('cameras_decoded_user_role', role);
-
     cdToast(`Welcome back, ${userData.name}!`, 'success');
 
-    // Redirect to dashboard after short delay
     setTimeout(() => {
-      redirectToDashboard(role, uid);
+      redirectToDashboard(role);
     }, 1500);
 
   } catch (err) {
     console.error('❌ Login error:', err);
     let message = err.message;
-    
     if (err.code === 'auth/user-not-found') {
       message = 'Email not found. Please sign up first.';
     } else if (err.code === 'auth/wrong-password') {
@@ -290,18 +348,16 @@ async function login() {
     } else if (err.code === 'auth/invalid-email') {
       message = 'Invalid email address.';
     }
-    
     cdToast(message, 'error');
   }
 }
 
 // ================================================================
-// CHECK AUTH STATE ON PAGE LOAD
+// AUTH STATE OBSERVER
 // ================================================================
 window.auth.onAuthStateChanged((user) => {
   if (user) {
     console.log('✅ User already logged in:', user.uid);
-    // Optionally redirect to dashboard on already-logged-in pages
   } else {
     console.log('⭕ No user logged in');
   }

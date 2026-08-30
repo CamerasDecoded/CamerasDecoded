@@ -11,7 +11,6 @@
   <script src="test-app.js"></script>
   <script src="/test-app/user-state.js"></script>
   <script src="/test-app/nav-header.js"></script>
-  <!-- Sidebar & Announcement -->
   <link rel="stylesheet" href="/test-app/sidebar.css">
   <link rel="stylesheet" href="/test-app/announcement.css">
   <script src="/test-app/announcement.js"></script>
@@ -50,6 +49,7 @@
     </div>
   </div>
 
+  <!-- Bottom Nav -->
   <div id="bottomNavContainer">
     <nav class="bottom-nav chasing-border-nav">
       <a href="test-index.html">Home</a>
@@ -63,6 +63,7 @@
 
   <script>
     let uid = null;
+
     function loadDashboard() {
       db.collection('users').doc(uid).get()
         .then(doc => {
@@ -86,10 +87,29 @@
           document.getElementById('loading').textContent = 'Error: ' + err.message;
         });
     }
+
+    // ---- Auth + Access Control ----
     firebase.auth().onAuthStateChanged((user) => {
-      if (user) { uid = user.uid; loadDashboard(); }
-      else { window.location.href = '/test-app/test-login.html'; }
+      if (user) {
+        // 🔒 Check if this page is allowed for this role
+        if (!checkPageAccess()) return;
+        uid = user.uid;
+        loadDashboard();
+      } else {
+        window.location.href = '/test-app/test-login.html';
+      }
     });
+
+    // Fallback: if auth state was already resolved before this script runs
+    const immediateUser = firebase.auth().currentUser;
+    if (immediateUser) {
+      if (checkPageAccess()) {
+        uid = immediateUser.uid;
+        loadDashboard();
+      }
+    }
+
+    // ---- Copy referral ----
     function copyReferral() {
       const link = document.getElementById('userReferral').textContent;
       if (!link || link === '—') { cdToast('Referral code not available.', 'error'); return; }

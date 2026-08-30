@@ -11,15 +11,12 @@
   <script src="test-app.js"></script>
   <script src="/test-app/user-state.js"></script>
   <script src="/test-app/nav-header.js"></script>
-  <!-- Sidebar & Announcement -->
   <link rel="stylesheet" href="/test-app/sidebar.css">
   <link rel="stylesheet" href="/test-app/announcement.css">
   <script src="/test-app/announcement.js"></script>
   <script src="/test-app/sidebar.js"></script>
-  <!-- bottom nav styles (keep) -->
   <link rel="stylesheet" href="test-bottom-nav.css">
   <style>
-    /* Main content wrapper – leave space for sidebar */
     .main-content {
       margin-left: 260px;
       padding: 20px;
@@ -32,12 +29,8 @@
 </head>
 <body>
   <div id="app-nav-container"></div>
-  <!-- Announcement banner will be injected here -->
-
-  <!-- Sidebar container -->
   <div id="sidebarContainer"></div>
 
-  <!-- Main content -->
   <div class="main-content">
     <h1>📡 Operator Dashboard (TEST)</h1>
     <div id="loading">Loading...</div>
@@ -68,9 +61,9 @@
   </div>
   <script src="test-bottom-nav.js"></script>
 
-  <!-- Dashboard script (unchanged) -->
   <script>
     let uid = null;
+
     function loadDashboard() {
       db.collection('users').doc(uid).get()
         .then(doc => {
@@ -94,10 +87,29 @@
           document.getElementById('loading').textContent = 'Error: ' + err.message;
         });
     }
+
+    // ---- Auth + Access Control ----
     firebase.auth().onAuthStateChanged((user) => {
-      if (user) { uid = user.uid; loadDashboard(); }
-      else { window.location.href = '/test-app/test-login.html'; }
+      if (user) {
+        // 🔒 Check if this page is allowed for this role
+        if (!checkPageAccess()) return;
+        uid = user.uid;
+        loadDashboard();
+      } else {
+        window.location.href = '/test-app/test-login.html';
+      }
     });
+
+    // Fallback: if auth state was already resolved before this script runs
+    const immediateUser = firebase.auth().currentUser;
+    if (immediateUser) {
+      if (checkPageAccess()) {
+        uid = immediateUser.uid;
+        loadDashboard();
+      }
+    }
+
+    // ---- Copy referral ----
     function copyReferral() {
       const link = document.getElementById('userReferral').textContent;
       if (!link || link === '—') { cdToast('Referral code not available.', 'error'); return; }
