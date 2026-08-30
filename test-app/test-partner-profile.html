@@ -26,11 +26,26 @@
       padding: 4px 12px;
       border-radius: 4px;
       letter-spacing: 1px;
+      display: inline-block;
     }
-    .referral-status { font-size: 13px; margin-top: 6px; }
+    .referral-status {
+      font-size: 13px;
+      margin-top: 6px;
+    }
     .referral-status.available { color: #2e7d32; }
     .referral-status.taken { color: #c62828; }
     .referral-status.error { color: #e65100; }
+    .copy-btn {
+      margin-left: 8px;
+      padding: 4px 12px;
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .copy-btn:hover { background: #555; }
   </style>
 </head>
 <body>
@@ -44,23 +59,23 @@
         <p><strong>Email:</strong> <span id="displayEmail">—</span></p>
       </div>
 
-      <!-- Referral Code Section (identical) -->
+      <!-- Referral Section (identical) -->
       <div class="referral-section" id="referralSection">
         <p style="font-weight:600;margin:0 0 8px 0;">🔗 Your Referral Code</p>
         <div id="referralDisplay">
-          <span id="existingCodeDisplay" style="display:none;">
+          <div id="existingCodeDisplay" style="display:none;">
             <span class="referral-code-display" id="userReferralCode">—</span>
-            <span style="font-size:13px;color:#666;margin-left:10px;">✅ Permanent – used for commissions</span>
-          </span>
+            <button class="copy-btn" onclick="copyReferralCode()">Copy</button>
+          </div>
           <div id="referralSetup" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
-            <input type="text" id="newReferralCode" placeholder="e.g., PARTNERPRO" style="padding:8px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:150px;" />
+            <input type="text" id="newReferralCode" placeholder="Set your permanent referral code" style="padding:8px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:150px;" />
             <button id="setReferralBtn" onclick="setReferralCode()" style="padding:8px 16px;background:#8deb00;border:none;border-radius:4px;cursor:pointer;font-weight:600;">Set Code</button>
           </div>
           <div id="referralStatus" class="referral-status"></div>
         </div>
       </div>
 
-      <!-- Partner-specific fields -->
+      <!-- Partner fields -->
       <div style="margin:12px 0;">
         <label>Company Name</label>
         <input type="text" id="companyName" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Your Camera Store" />
@@ -113,14 +128,15 @@
 
           const existingCode = userData.referralCode || null;
           if (existingCode) {
-            document.getElementById('existingCodeDisplay').style.display = 'inline';
+            document.getElementById('existingCodeDisplay').style.display = 'block';
             document.getElementById('userReferralCode').textContent = existingCode;
             document.getElementById('referralSetup').style.display = 'none';
+            document.getElementById('referralStatus').textContent = '';
           } else {
             document.getElementById('existingCodeDisplay').style.display = 'none';
             document.getElementById('referralSetup').style.display = 'flex';
+            document.getElementById('referralStatus').textContent = '';
           }
-          document.getElementById('referralStatus').textContent = '';
 
           document.getElementById('companyName').value = userData.companyName || '';
           document.getElementById('partnerTier').value = userData.partnerTier || 'signal';
@@ -144,7 +160,7 @@
       const status = document.getElementById('referralStatus');
       if (!code) { status.textContent = ''; status.className = 'referral-status'; return; }
       if (!/^[A-Z0-9]{3,20}$/.test(code)) {
-        status.textContent = '❌ Only letters & numbers, 3-20 characters';
+        status.textContent = '⚠️ Only letters & numbers, 3-20 characters';
         status.className = 'referral-status error';
         return;
       }
@@ -164,7 +180,7 @@
       const status = document.getElementById('referralStatus');
       const btn = document.getElementById('setReferralBtn');
       if (!code || !/^[A-Z0-9]{3,20}$/.test(code)) {
-        status.textContent = 'Invalid code. Use 3-20 letters/numbers.';
+        status.textContent = '⚠️ Use 3-20 letters/numbers.';
         status.className = 'referral-status error';
         return;
       }
@@ -188,17 +204,32 @@
           referralCodeSetAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         userData.referralCode = code;
-        document.getElementById('existingCodeDisplay').style.display = 'inline';
+        document.getElementById('existingCodeDisplay').style.display = 'block';
         document.getElementById('userReferralCode').textContent = code;
         document.getElementById('referralSetup').style.display = 'none';
-        status.textContent = '✅ Permanent code set!';
+        status.textContent = '✅ Referral code set!';
         status.className = 'referral-status available';
-        cdToast('Referral code set: ' + code);
+        cdToast('Referral code set!');
       } catch (err) {
         status.textContent = '❌ Error saving.';
         status.className = 'referral-status error';
         btn.disabled = false;
       }
+    };
+
+    window.copyReferralCode = function() {
+      const code = document.getElementById('userReferralCode').textContent;
+      if (!code || code === '—') return;
+      navigator.clipboard.writeText(code).then(() => cdToast('✅ Copied!'))
+        .catch(() => {
+          const input = document.createElement('input');
+          input.value = code;
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand('copy');
+          document.body.removeChild(input);
+          cdToast('✅ Copied!');
+        });
     };
 
     window.saveProfile = function() {

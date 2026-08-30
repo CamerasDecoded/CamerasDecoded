@@ -42,6 +42,7 @@
       padding: 4px 12px;
       border-radius: 4px;
       letter-spacing: 1px;
+      display: inline-block;
     }
     .referral-status {
       font-size: 13px;
@@ -50,6 +51,17 @@
     .referral-status.available { color: #2e7d32; }
     .referral-status.taken { color: #c62828; }
     .referral-status.error { color: #e65100; }
+    .copy-btn {
+      margin-left: 8px;
+      padding: 4px 12px;
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .copy-btn:hover { background: #555; }
   </style>
 </head>
 <body>
@@ -69,14 +81,14 @@
       <div class="referral-section" id="referralSection">
         <p style="font-weight:600;margin:0 0 8px 0;">🔗 Your Referral Code</p>
         <div id="referralDisplay">
-          <!-- If code exists: show read-only -->
-          <span id="existingCodeDisplay" style="display:none;">
+          <!-- If code exists: show code + copy -->
+          <div id="existingCodeDisplay" style="display:none;">
             <span class="referral-code-display" id="userReferralCode">—</span>
-            <span style="font-size:13px;color:#666;margin-left:10px;">✅ Permanent – used for commissions</span>
-          </span>
+            <button class="copy-btn" onclick="copyReferralCode()">Copy</button>
+          </div>
           <!-- If no code: show input + set button -->
           <div id="referralSetup" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
-            <input type="text" id="newReferralCode" placeholder="e.g., ALEXCAM" style="padding:8px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:150px;" />
+            <input type="text" id="newReferralCode" placeholder="Set your permanent referral code" style="padding:8px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:150px;" />
             <button id="setReferralBtn" onclick="setReferralCode()" style="padding:8px 16px;background:#8deb00;border:none;border-radius:4px;cursor:pointer;font-weight:600;">Set Code</button>
           </div>
           <div id="referralStatus" class="referral-status"></div>
@@ -129,7 +141,6 @@
     let uid = null;
     let userData = null;
 
-    // ---- Check uniqueness ----
     async function isReferralCodeUnique(code) {
       if (!code) return false;
       try {
@@ -137,13 +148,9 @@
           .where('referralCode', '==', code.toUpperCase())
           .get();
         return snapshot.empty;
-      } catch (err) {
-        console.error('Error checking referral code:', err);
-        return false;
-      }
+      } catch (err) { return false; }
     }
 
-    // ---- Load profile ----
     function loadProfile() {
       window.db.collection('users').doc(uid).get()
         .then(doc => {
@@ -153,15 +160,13 @@
             redirectToDashboard(userData.role);
             return;
           }
-
-          // Fill basic info
           document.getElementById('displayName').textContent = userData.name || '—';
           document.getElementById('displayEmail').textContent = userData.email || '—';
 
-          // ---- Handle referral code ----
+          // Referral code UI
           const existingCode = userData.referralCode || null;
           if (existingCode) {
-            document.getElementById('existingCodeDisplay').style.display = 'inline';
+            document.getElementById('existingCodeDisplay').style.display = 'block';
             document.getElementById('userReferralCode').textContent = existingCode;
             document.getElementById('referralSetup').style.display = 'none';
             document.getElementById('referralStatus').textContent = '';
@@ -203,7 +208,7 @@
       else { window.location.href = '/test-app/test-login.html'; }
     });
 
-    // ---- Real-time uniqueness check on input ----
+    // Real-time uniqueness check
     document.getElementById('newReferralCode')?.addEventListener('input', async function() {
       const code = this.value.trim().toUpperCase();
       const status = document.getElementById('referralStatus');
@@ -213,7 +218,7 @@
         return;
       }
       if (!/^[A-Z0-9]{3,20}$/.test(code)) {
-        status.textContent = '❌ Only letters & numbers, 3-20 characters';
+        status.textContent = '⚠️ Only letters & numbers, 3-20 characters';
         status.className = 'referral-status error';
         return;
       }
@@ -232,65 +237,72 @@
       }
     });
 
-    // ---- Set referral code (permanent) ----
+    // Set referral code
     window.setReferralCode = async function() {
       const input = document.getElementById('newReferralCode');
       const code = input.value.trim().toUpperCase();
       const status = document.getElementById('referralStatus');
       const btn = document.getElementById('setReferralBtn');
 
-      if (!code) {
-        status.textContent = 'Please enter a code.';
+      if (!code || !/^[A-Z0-9]{3,20}$/.test(code)) {
+        status.textContent = '⚠️ Use 3-20 letters/numbers.';
         status.className = 'referral-status error';
         return;
       }
-      if (!/^[A-Z0-9]{3,20}$/.test(code)) {
-        status.textContent = 'Only letters & numbers, 3-20 characters.';
-        status.className = 'referral-status error';
-        return;
-      }
-
-      // Check uniqueness again
       try {
         const unique = await isReferralCodeUnique(code);
         if (!unique) {
-          status.textContent = '❌ Code already taken. Choose another.';
+          status.textContent = '❌ Already taken.';
           status.className = 'referral-status taken';
           return;
         }
       } catch (err) {
-        status.textContent = '⚠️ Error checking code. Try again.';
+        status.textContent = '⚠️ Error checking.';
         status.className = 'referral-status error';
         return;
       }
 
-      // Save code to Firestore
       btn.disabled = true;
       status.textContent = 'Saving...';
-      status.className = 'referral-status';
       try {
         await window.db.collection('users').doc(uid).update({
           referralCode: code,
           referralCodeSetAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        // Update local userData
         userData.referralCode = code;
         // Switch to read-only display
-        document.getElementById('existingCodeDisplay').style.display = 'inline';
+        document.getElementById('existingCodeDisplay').style.display = 'block';
         document.getElementById('userReferralCode').textContent = code;
         document.getElementById('referralSetup').style.display = 'none';
-        status.textContent = '✅ Permanent code set!';
+        status.textContent = '✅ Referral code set!';
         status.className = 'referral-status available';
-        cdToast('Referral code set: ' + code);
+        cdToast('Referral code set!');
       } catch (err) {
-        console.error('Error saving referral code:', err);
-        status.textContent = '❌ Error saving. Try again.';
+        status.textContent = '❌ Error saving.';
         status.className = 'referral-status error';
         btn.disabled = false;
       }
     };
 
-    // ---- Chip functions ----
+    // Copy referral code
+    window.copyReferralCode = function() {
+      const code = document.getElementById('userReferralCode').textContent;
+      if (!code || code === '—') return;
+      navigator.clipboard.writeText(code).then(() => {
+        cdToast('✅ Copied!');
+      }).catch(() => {
+        // Fallback
+        const input = document.createElement('input');
+        input.value = code;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        cdToast('✅ Copied!');
+      });
+    };
+
+    // Chip toggles
     window.toggleChip = function(el) { el.classList.toggle('selected'); };
     window.toggleChipLimit = function(el, max) {
       const parent = el.parentElement;
@@ -304,7 +316,7 @@
       document.getElementById('interestCount').textContent = parent.querySelectorAll('.chip.selected').length;
     };
 
-    // ---- Save profile (other fields) ----
+    // Save profile (other fields)
     window.saveProfile = function() {
       const brands = Array.from(document.querySelectorAll('#brands .chip.selected')).map(el => el.dataset.val);
       const interests = Array.from(document.querySelectorAll('#interests .chip.selected')).map(el => el.dataset.val);
