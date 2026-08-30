@@ -1,10 +1,18 @@
 // ================================================================
-// SHARED SIDEBAR – auth‑aware (hides Dashboard/Profile/Settings/Billing/Logout for guests)
+// SHARED SIDEBAR – auth‑aware + role‑based access control
 // ================================================================
 
 (function() {
   'use strict';
 
+  // ---- Role‑based dashboard mapping ----
+  const DASHBOARD_MAP = {
+    'Operator': '/test-app/test-operator-dashboard.html',
+    'Partner': '/test-app/test-partner-dashboard.html',
+    'Instructor': '/test-app/test-instructor-dashboard.html'
+  };
+
+  // ---- HTML template (with data‑role attributes for access control) ----
   const SIDEBAR_HTML = `
     <aside class="sidebar" id="sidebar">
       <div class="logo"><a href="index.html"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a></div>
@@ -14,7 +22,7 @@
         <div class="profile-email" id="sidebarEmail">loading...</div>
       </div>
       <nav class="sidebar-nav">
-        <!-- Group 1: Public -->
+        <!-- Group 1: Public (visible to everyone) -->
         <div class="nav-group">
           <a href="index.html" class="nav-item" data-page="index.html"><i class="fa-regular fa-house"></i> Home</a>
           <a href="operators.html" class="nav-item" data-page="operators.html"><i class="fa-regular fa-user"></i> Operators</a>
@@ -24,7 +32,7 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- Group 2: Mixed -->
+        <!-- Group 2: Mixed (visible to all, but we can hide per role if needed) -->
         <div class="nav-group">
           <a href="journey.html" class="nav-item" data-page="journey.html"><i class="fa-regular fa-route"></i> Journey</a>
           <a href="learning-journey.html" class="nav-item" data-page="learning-journey.html"><i class="fa-regular fa-graduation-cap"></i> Learning Modules</a>
@@ -43,22 +51,23 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- PRIVATE LINKS -->
+        <!-- PRIVATE LINKS (visible only when logged in) -->
         <div class="nav-group private-links" id="privateLinks" style="display:none;">
-          <a href="operator-dashboard.html" class="nav-item" data-page="operator-dashboard.html"><i class="fa-regular fa-chart-simple"></i> Dashboard</a>
+          <!-- Dashboard – href will be updated dynamically -->
+          <a href="#" class="nav-item" id="dashboardLink" data-page="dashboard"><i class="fa-regular fa-chart-simple"></i> Dashboard</a>
           <a href="profile.html" class="nav-item" data-page="profile.html"><i class="fa-regular fa-id-card"></i> Profile</a>
           <a href="#" class="nav-item" data-page="settings.html"><i class="fa-regular fa-gear"></i> Settings</a>
           <a href="#" class="nav-item" data-page="billing.html"><i class="fa-regular fa-credit-card"></i> Billing</a>
           <a href="#" class="nav-item" onclick="handleLogout(); return false;" style="color:#ff4a4a;"><i class="fa-regular fa-right-from-bracket"></i> Logout</a>
         </div>
 
-        <!-- AUTH CTA -->
+        <!-- AUTH CTA (visible only when logged out) -->
         <div class="nav-group auth-cta" id="authCta" style="display:flex; flex-direction:column; gap:8px; padding-top:4px;">
           <a href="login.html" class="nav-item" style="border:1px solid var(--green); border-radius:30px; justify-content:center; color:var(--green);"><i class="fa-regular fa-right-to-bracket"></i> Log in</a>
           <a href="signup.html" class="nav-item" style="border:1px solid var(--green); border-radius:30px; justify-content:center; background:var(--green); color:#000;"><i class="fa-regular fa-user-plus"></i> Sign Up</a>
         </div>
 
-        <!-- Admin-only -->
+        <!-- Admin‑only links (hidden by default) -->
         <hr class="sidebar-divider admin-only" style="display:none;">
         <div class="nav-group admin-only" style="display:none;">
           <a href="admin-dashboard.html" class="nav-item" data-page="admin-dashboard.html"><i class="fa-regular fa-chart-pie"></i> Admin Dashboard</a>
@@ -102,11 +111,13 @@
       }
     });
 
+    // Initial visibility (will be refined by access control)
     updateAuthVisibility();
+    applyAccessControl();
     checkAndShowAdminLinks();
   }
 
-  // ---- Toggle visibility ----
+  // ---- Toggle auth visibility (private vs public) ----
   function updateAuthVisibility() {
     const user = firebase.auth().currentUser;
     const privateLinks = document.getElementById('privateLinks');
@@ -127,6 +138,76 @@
     }
   }
 
+  // ---- Access Control: Role‑based visibility of nav items ----
+  function applyAccessControl() {
+    // Get user role from window.USER (or fallback to guest)
+    const role = window.USER && window.USER.isLoggedIn ? window.USER.role : null;
+
+    // Define which roles can see each nav item (by data‑role attribute)
+    // We'll add data‑role="operator,partner,instructor" to items that are role‑specific.
+    // For now, we only restrict the "Dashboard" link (dynamic href) and future items.
+    // All public items remain visible.
+
+    // Update Dashboard link href based on role
+    const dashboardLink = document.getElementById('dashboardLink');
+    if (dashboardLink) {
+      if (role && DASHBOARD_MAP[role]) {
+        dashboardLink.href = DASHBOARD_MAP[role];
+        dashboardLink.style.display = 'flex'; // ensure visible
+      } else {
+        // If no role, hide dashboard link (should be hidden by privateLinks anyway)
+        dashboardLink.style.display = 'none';
+      }
+    }
+
+    // Example: hide "Cynetis-7" for Partners and Instructors (if needed)
+    // We'll target by data‑page or class.
+    // Using data‑page="cynetis-7.html"
+    const cynetisLink = document.querySelector('.sidebar-nav a[data-page="cynetis-7.html"]');
+    if (cynetisLink) {
+      if (role === 'Partner' || role === 'Instructor') {
+        cynetisLink.style.display = 'none';
+      } else {
+        cynetisLink.style.display = 'flex';
+      }
+    }
+
+    // Example: hide "Products" for Partners and Instructors
+    const productsLink = document.querySelector('.sidebar-nav a[data-page="products.html"]');
+    if (productsLink) {
+      if (role === 'Partner' || role === 'Instructor') {
+        productsLink.style.display = 'none';
+      } else {
+        productsLink.style.display = 'flex';
+      }
+    }
+
+    // Example: hide "Protocols" for Partners and Instructors
+    const protocolsLink = document.querySelector('.sidebar-nav a[data-page="protocols.html"]');
+    if (protocolsLink) {
+      if (role === 'Partner' || role === 'Instructor') {
+        protocolsLink.style.display = 'none';
+      } else {
+        protocolsLink.style.display = 'flex';
+      }
+    }
+
+    // Example: hide "Snapshot Cards" for Partners and Instructors
+    const snapshotLink = document.querySelector('.sidebar-nav a[data-page="snapshot-library.html"]');
+    if (snapshotLink) {
+      if (role === 'Partner' || role === 'Instructor') {
+        snapshotLink.style.display = 'none';
+      } else {
+        snapshotLink.style.display = 'flex';
+      }
+    }
+
+    // Keep "Learning Modules" visible for all? We'll leave as is.
+
+    // You can add more as needed.
+  }
+
+  // ---- Admin links ----
   async function checkAndShowAdminLinks() {
     try {
       const user = firebase.auth().currentUser;
@@ -141,6 +222,7 @@
     }
   }
 
+  // ---- Profile info ----
   async function loadSidebarProfile() {
     try {
       const user = firebase.auth().currentUser;
@@ -157,11 +239,14 @@
         if (data.photoURL) avatar.style.backgroundImage = `url(${data.photoURL})`;
       }
       updateAuthVisibility();
+      // Re‑apply access control after profile loads (role may be updated)
+      applyAccessControl();
     } catch (e) {
       console.warn('Could not load profile:', e);
     }
   }
 
+  // ---- Announcement listener ----
   function loadAndListenToAnnouncement() {
     try {
       const db = firebase.firestore();
@@ -197,6 +282,7 @@
     }
   }
 
+  // ---- Logout ----
   window.handleLogout = function() {
     firebase.auth().signOut().then(() => {
       window.location.href = 'login.html';
@@ -205,10 +291,7 @@
     });
   };
 
-  // ============================================================
-  // MOBILE BOTTOM SHEET
-  // ============================================================
-
+  // ---- Mobile bottom sheet (unchanged) ----
   function buildMobileSheet() {
     let overlay = document.getElementById('mobileOverlay');
     if (!overlay) {
@@ -224,14 +307,12 @@
       document.body.appendChild(sheet);
     }
 
-    // Clone the sidebar-nav from the desktop sidebar
     const sidebar = document.getElementById('sidebar');
     let navHTML = '';
     if (sidebar) {
       const nav = sidebar.querySelector('.sidebar-nav');
       if (nav) navHTML = nav.outerHTML;
     } else {
-      // Fallback: use the raw nav from SIDEBAR_HTML
       const temp = document.createElement('div');
       temp.innerHTML = SIDEBAR_HTML;
       const nav = temp.querySelector('.sidebar-nav');
@@ -245,7 +326,6 @@
       ${navHTML}
     `;
 
-    // Update nav-item hrefs and active state
     const path = window.location.pathname.split('/').pop() || 'index.html';
     sheet.querySelectorAll('.sidebar-nav .nav-item').forEach(link => {
       const href = link.getAttribute('data-page');
@@ -256,7 +336,6 @@
       }
     });
 
-    // Close handlers
     const closeBtn = sheet.querySelector('#sheetClose');
     if (closeBtn) {
       closeBtn.addEventListener('click', closeMobileSheet);
@@ -301,7 +380,6 @@
   // ---- Auto‑init ----
   document.addEventListener('DOMContentLoaded', function() {
     injectSidebar();
-    // Setup mobile if on small screen
     if (window.innerWidth <= 768) {
       createFloatingButton();
       buildMobileSheet();
@@ -313,15 +391,22 @@
           loadSidebarProfile();
           loadAndListenToAnnouncement();
           checkAndShowAdminLinks();
+          // After profile loads, apply access control
+          // loadSidebarProfile calls applyAccessControl internally
         } else {
           updateAuthVisibility();
+          applyAccessControl();
           loadAndListenToAnnouncement();
         }
       });
     }
+
+    // Also listen to userStateReady to re‑apply when window.USER updates
+    window.addEventListener('userStateReady', (e) => {
+      applyAccessControl();
+    });
   });
 
-  // On resize, toggle FAB visibility
   window.addEventListener('resize', function() {
     const fab = document.getElementById('fabToggle');
     if (window.innerWidth <= 768) {
@@ -338,6 +423,7 @@
     loadAnnouncement: loadAndListenToAnnouncement,
     openMobileSheet: openMobileSheet,
     closeMobileSheet: closeMobileSheet,
-    buildMobileSheet: buildMobileSheet
+    buildMobileSheet: buildMobileSheet,
+    applyAccessControl: applyAccessControl
   };
 })();
