@@ -68,32 +68,32 @@ function cdToast(message, type = 'success') {
 }
 
 // ================================================================
-// REDIRECT HELPERS
+// REDIRECT HELPERS – NO MORE ?uid= 
 // ================================================================
-function redirectToDashboard(role, uid) {
+function redirectToDashboard(role) {
   const map = {
     'Operator': '/test-app/test-operator-dashboard.html',
     'Partner': '/test-app/test-partner-dashboard.html',
     'Instructor': '/test-app/test-instructor-dashboard.html'
   };
-  const url = (map[role] || '/test-app/test-operator-dashboard.html') + '?uid=' + uid;
+  const url = map[role] || '/test-app/test-operator-dashboard.html';
   console.log('🔀 Redirecting to dashboard:', url);
   window.location.href = url;
 }
 
-function redirectToProfile(role, uid) {
+function redirectToProfile(role) {
   const map = {
     'Operator': '/test-app/test-profile.html',
     'Partner': '/test-app/test-partner-profile.html',
     'Instructor': '/test-app/test-instructor-profile.html'
   };
-  const url = (map[role] || '/test-app/test-profile.html') + '?uid=' + uid;
+  const url = map[role] || '/test-app/test-profile.html';
   console.log('🔀 Redirecting to profile:', url);
   window.location.href = url;
 }
 
 // ================================================================
-// LOGOUT – updated to use absolute path
+// LOGOUT
 // ================================================================
 function handleLogout() {
   window.auth.signOut().then(() => {
@@ -211,9 +211,9 @@ async function signUp() {
 
     cdToast(`Account created! Welcome, ${name}!`, 'success');
 
-    // Redirect to dashboard after short delay
+    // Redirect to dashboard after short delay – NO UID in URL
     setTimeout(() => {
-      redirectToDashboard(selectedRole, uid);
+      redirectToDashboard(selectedRole);
     }, 1500);
 
   } catch (err) {
@@ -274,9 +274,9 @@ async function login() {
 
     cdToast(`Welcome back, ${userData.name}!`, 'success');
 
-    // Redirect to dashboard after short delay
+    // Redirect to dashboard after short delay – NO UID in URL
     setTimeout(() => {
-      redirectToDashboard(role, uid);
+      redirectToDashboard(role);
     }, 1500);
 
   } catch (err) {
