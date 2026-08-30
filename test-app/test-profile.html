@@ -183,7 +183,6 @@
     window.forceLoadProfile = function() {
       console.log('🔄 Manual forceLoad triggered');
       if (window.USER && window.USER.isLoggedIn) {
-        // Access control check before loading
         if (!checkPageAccess()) return;
         fetchAndRenderProfile(window.USER.uid);
       } else {
@@ -193,10 +192,9 @@
     };
 
     // ---- Auto‑load using window.USER ----
-    function autoLoad() {
+    function init() {
       if (window.USER && window.USER.isLoggedIn) {
         console.log('👤 Auto‑load using window.USER');
-        // 🔒 Access control
         if (!checkPageAccess()) return;
         fetchAndRenderProfile(window.USER.uid);
       } else {
@@ -204,7 +202,6 @@
         window.addEventListener('userStateReady', (e) => {
           if (e.detail.isLoggedIn) {
             console.log('👤 userStateReady fired');
-            // 🔒 Access control
             if (!checkPageAccess()) return;
             fetchAndRenderProfile(e.detail.uid);
           } else {
@@ -214,20 +211,10 @@
       }
     }
 
-    // Also try immediate auth check (in case user is already logged in)
-    const immediateUser = firebase.auth().currentUser;
-    if (immediateUser) {
-      console.log('👤 Immediate auth check: logged in');
-      if (checkPageAccess()) {
-        fetchAndRenderProfile(immediateUser.uid);
-      }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
     } else {
-      // Start normal flow
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', autoLoad);
-      } else {
-        autoLoad();
-      }
+      init();
     }
 
     // ---- Referral functions ----
@@ -323,7 +310,6 @@
         cdToast('Not logged in.', 'error');
         return;
       }
-      // Access control check before saving (though should already be on page)
       if (!checkPageAccess()) return;
 
       const brands = Array.from(document.querySelectorAll('#brands .chip.selected')).map(el => el.dataset.val);
