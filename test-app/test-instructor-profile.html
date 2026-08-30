@@ -13,16 +13,16 @@
   <!-- Your existing Firebase init + auth/db globals -->
   <script src="test-app.js"></script>
 
-  <!-- NEW: user state and nav components -->
+  <!-- user state and nav components -->
   <script src="/test-app/user-state.js"></script>
   <script src="/test-app/nav-header.js"></script>
 </head>
 <body>
 
-  <!-- NEW: nav container -->
+  <!-- Nav container -->
   <div id="app-nav-container"></div>
 
-  <!-- Your existing profile content -->
+  <!-- Profile content -->
   <div style="max-width:400px;margin:40px auto;padding:20px;font-family:sans-serif;">
     <h1>📡 Instructor Profile (TEST)</h1>
     <div id="loading">Loading...</div>
@@ -56,23 +56,10 @@
     </div>
   </div>
 
-  <!-- ===== YOUR EXISTING PROFILE SCRIPT ===== -->
+  <!-- ===== PROFILE SCRIPT (FIXED) ===== -->
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    (function() {
       let uid = null;
-      const params = new URLSearchParams(window.location.search);
-      uid = params.get('uid');
-
-      if (!uid) {
-        if (window.auth && window.auth.currentUser) {
-          uid = window.auth.currentUser.uid;
-          loadProfile();
-        } else {
-          window.location.href = 'test-signup.html';
-        }
-      } else {
-        loadProfile();
-      }
 
       function loadProfile() {
         window.db.collection('users').doc(uid).get()
@@ -82,21 +69,58 @@
               return;
             }
             const data = doc.data();
+
             if (data.role !== 'Instructor') {
-              // Redirect to the correct dashboard using our fixed function
               redirectToDashboard(data.role, uid);
               return;
             }
+
             document.getElementById('displayName').textContent = data.name || '—';
             document.getElementById('displayEmail').textContent = data.email || '—';
             document.getElementById('teachingExperience').value = data.teachingExperience || '';
             document.getElementById('billingInterval').value = data.billingInterval || 'annual';
+
             document.getElementById('loading').style.display = 'none';
             document.getElementById('content').style.display = 'block';
           })
           .catch(err => {
             document.getElementById('loading').textContent = 'Error: ' + err.message;
           });
+      }
+
+      function initializeProfile() {
+        if (window.USER && window.USER.isLoggedIn) {
+          uid = window.USER.uid;
+          loadProfile();
+          return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const urlUid = params.get('uid');
+        if (urlUid) {
+          const currentUser = firebase.auth().currentUser;
+          if (currentUser && currentUser.uid === urlUid) {
+            uid = urlUid;
+            loadProfile();
+            return;
+          }
+        }
+
+        window.addEventListener('userStateReady', (e) => {
+          const user = e.detail;
+          if (user.isLoggedIn) {
+            uid = user.uid;
+            loadProfile();
+          } else {
+            window.location.href = '/test-app/test-login.html';
+          }
+        });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeProfile);
+      } else {
+        initializeProfile();
       }
 
       window.saveProfile = function() {
@@ -118,10 +142,10 @@
           document.getElementById('saveError').style.display = 'block';
         });
       };
-    });
+    })();
   </script>
 
-  <!-- ===== NEW: FIXED REDIRECT FUNCTIONS (with /test-app/ prefix) ===== -->
+  <!-- ===== REDIRECT FUNCTIONS (fallback) ===== -->
   <script>
     window.redirectToDashboard = function(role, uid) {
       const map = {
@@ -133,7 +157,6 @@
       window.location.href = url;
     };
 
-    // Fallback redirect to profile (for completeness)
     window.redirectToProfile = function(role, uid) {
       const map = {
         'Operator': '/test-app/test-profile.html',
@@ -144,7 +167,6 @@
       window.location.href = url;
     };
 
-    // Logout function (nav header also provides logout)
     window.handleLogout = function() {
       auth.signOut().then(() => {
         sessionStorage.removeItem('cameras_decoded_user_role');

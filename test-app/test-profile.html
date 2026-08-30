@@ -38,10 +38,10 @@
 </head>
 <body>
 
-  <!-- NEW: nav container -->
+  <!-- Nav container -->
   <div id="app-nav-container"></div>
 
-  <!-- Your existing profile content -->
+  <!-- Profile content -->
   <div style="max-width:600px;margin:40px auto;padding:20px;font-family:sans-serif;">
     <h1>📡 Complete Your Operator Profile (TEST)</h1>
 
@@ -95,12 +95,101 @@
     </div>
   </div>
 
-  <!-- ===== YOUR EXISTING PROFILE SCRIPT ===== -->
+  <!-- ===== PROFILE SCRIPT (FIXED) ===== -->
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    (function() {
       let uid = null;
-      let userData = null;
 
+      // ---- Helper: load profile data ----
+      function loadProfile() {
+        window.db.collection('users').doc(uid).get()
+          .then(doc => {
+            if (!doc.exists) {
+              cdToast('User not found.', 'error');
+              return;
+            }
+            const data = doc.data();
+
+            // Redirect if wrong role
+            if (data.role !== 'Operator') {
+              redirectToDashboard(data.role, uid);
+              return;
+            }
+
+            // Populate fields
+            document.getElementById('displayName').textContent = data.name || '—';
+            document.getElementById('displayEmail').textContent = data.email || '—';
+
+            const prefs = data.preferences || {};
+            document.querySelectorAll('#brands .chip').forEach(el => {
+              if ((prefs.brands || []).includes(el.dataset.val)) el.classList.add('selected');
+            });
+            document.querySelectorAll('#interests .chip').forEach(el => {
+              if ((prefs.interests || []).includes(el.dataset.val)) el.classList.add('selected');
+            });
+            document.getElementById('interestCount').textContent = (prefs.interests || []).length;
+
+            const lj = data.learningJourney || {};
+            document.getElementById('primaryGoal').value = lj.primaryGoal || 'master-manual';
+            const conf = lj.confidence || 5;
+            document.getElementById('confidence').value = conf;
+            document.getElementById('confDisplay').textContent = conf;
+            document.getElementById('confidence').oninput = function() {
+              document.getElementById('confDisplay').textContent = this.value;
+            };
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+          })
+          .catch(err => {
+            document.getElementById('loading').textContent = 'Error: ' + err.message;
+          });
+      }
+
+      // ---- Determine UID and load ----
+      function initializeProfile() {
+        // 1. If window.USER is already available and logged in
+        if (window.USER && window.USER.isLoggedIn) {
+          uid = window.USER.uid;
+          loadProfile();
+          return;
+        }
+
+        // 2. If URL has a uid parameter (e.g., from signup redirect)
+        const params = new URLSearchParams(window.location.search);
+        const urlUid = params.get('uid');
+        if (urlUid) {
+          // Check if we have a valid auth session
+          const currentUser = firebase.auth().currentUser;
+          if (currentUser && currentUser.uid === urlUid) {
+            uid = urlUid;
+            loadProfile();
+            return;
+          }
+          // Fallback: wait for userStateReady to validate
+        }
+
+        // 3. Wait for user-state.js to resolve
+        window.addEventListener('userStateReady', (e) => {
+          const user = e.detail;
+          if (user.isLoggedIn) {
+            uid = user.uid;
+            loadProfile();
+          } else {
+            // Not logged in – redirect to login
+            window.location.href = '/test-app/test-login.html';
+          }
+        });
+      }
+
+      // Start when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeProfile);
+      } else {
+        initializeProfile();
+      }
+
+      // ---- Expose chip toggles ----
       window.toggleChip = function(el) {
         el.classList.toggle('selected');
       };
@@ -121,62 +210,7 @@
         if (countEl) countEl.textContent = parent.querySelectorAll('.chip.selected').length;
       };
 
-      const params = new URLSearchParams(window.location.search);
-      uid = params.get('uid');
-
-      if (!uid) {
-        if (window.auth && window.auth.currentUser) {
-          uid = window.auth.currentUser.uid;
-          loadProfile();
-        } else {
-          window.location.href = 'test-signup.html';
-        }
-      } else {
-        loadProfile();
-      }
-
-      function loadProfile() {
-        window.db.collection('users').doc(uid).get()
-          .then(doc => {
-            if (!doc.exists) {
-              cdToast('User not found.', 'error');
-              return;
-            }
-            userData = doc.data();
-            if (userData.role !== 'Operator') {
-              // Redirect to the correct dashboard using our fixed function
-              redirectToDashboard(userData.role, uid);
-              return;
-            }
-            document.getElementById('displayName').textContent = userData.name || '—';
-            document.getElementById('displayEmail').textContent = userData.email || '—';
-
-            const prefs = userData.preferences || {};
-            document.querySelectorAll('#brands .chip').forEach(el => {
-              if ((prefs.brands || []).includes(el.dataset.val)) el.classList.add('selected');
-            });
-            document.querySelectorAll('#interests .chip').forEach(el => {
-              if ((prefs.interests || []).includes(el.dataset.val)) el.classList.add('selected');
-            });
-            document.getElementById('interestCount').textContent = (prefs.interests || []).length;
-
-            const lj = userData.learningJourney || {};
-            document.getElementById('primaryGoal').value = lj.primaryGoal || 'master-manual';
-            const conf = lj.confidence || 5;
-            document.getElementById('confidence').value = conf;
-            document.getElementById('confDisplay').textContent = conf;
-            document.getElementById('confidence').oninput = function() {
-              document.getElementById('confDisplay').textContent = this.value;
-            };
-
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('content').style.display = 'block';
-          })
-          .catch(err => {
-            document.getElementById('loading').textContent = 'Error: ' + err.message;
-          });
-      }
-
+      // ---- Save profile ----
       window.saveProfile = function() {
         const brands = Array.from(document.querySelectorAll('#brands .chip.selected')).map(el => el.dataset.val);
         const interests = Array.from(document.querySelectorAll('#interests .chip.selected')).map(el => el.dataset.val);
@@ -202,10 +236,10 @@
             document.getElementById('saveError').style.display = 'block';
           });
       };
-    });
+    })();
   </script>
 
-  <!-- ===== NEW: FIXED REDIRECT FUNCTIONS (with /test-app/ prefix) ===== -->
+  <!-- ===== FIXED REDIRECT FUNCTIONS (fallback) ===== -->
   <script>
     window.redirectToDashboard = function(role, uid) {
       const map = {
@@ -217,9 +251,7 @@
       window.location.href = url;
     };
 
-    // Fallback redirect to profile (used in case of role mismatch, though we redirect to dashboard)
     window.redirectToProfile = function(role, uid) {
-      // For Operator, we go to test-profile.html; for others, their specific profile pages
       const map = {
         'Operator': '/test-app/test-profile.html',
         'Partner': '/test-app/test-partner-profile.html',
@@ -229,7 +261,6 @@
       window.location.href = url;
     };
 
-    // Logout function (for completeness; nav header also provides logout)
     window.handleLogout = function() {
       auth.signOut().then(() => {
         sessionStorage.removeItem('cameras_decoded_user_role');
