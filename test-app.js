@@ -93,11 +93,11 @@ function redirectToProfile(role, uid) {
 }
 
 // ================================================================
-// LOGOUT
+// LOGOUT – updated to use absolute path
 // ================================================================
 function handleLogout() {
   window.auth.signOut().then(() => {
-    window.location.href = 'test-index.html';
+    window.location.href = '/test-app/test-index.html';
   }).catch(err => {
     console.error('Logout error:', err);
     cdToast('Logout failed', 'error');
