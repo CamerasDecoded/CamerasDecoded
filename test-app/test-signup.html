@@ -4,12 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign Up (Test)</title>
+
+  <!-- Firebase CDN -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- Your existing Firebase init + global auth/db -->
   <script src="test-app.js"></script>
+
+  <!-- NEW: user state and nav components -->
+  <script src="/test-app/user-state.js"></script>
+  <script src="/test-app/nav-header.js"></script>
 </head>
 <body>
+
+  <!-- NEW: nav container -->
+  <div id="app-nav-container"></div>
+
+  <!-- Your existing signup form -->
   <div style="max-width:400px;margin:40px auto;padding:20px;font-family:sans-serif;">
     <h1>Create Account (TEST)</h1>
     <p style="color:#666;">Choose your path and join the network.</p>
@@ -25,23 +38,27 @@
 
     <div style="margin:12px 0;">
       <label style="display:block;font-size:12px;color:#666;">Full Name</label>
-      <input type="text" id="name" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Alex Rivera" />
+      <input type="text" id="name" placeholder="Alex Rivera" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" />
     </div>
+
     <div style="margin:12px 0;">
       <label style="display:block;font-size:12px;color:#666;">Email</label>
-      <input type="email" id="email" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="you@example.com" />
+      <input type="email" id="email" placeholder="you@example.com" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" />
     </div>
+
     <div style="margin:12px 0;">
       <label style="display:block;font-size:12px;color:#666;">Username</label>
-      <input type="text" id="username" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="alexrivera" />
+      <input type="text" id="username" placeholder="alexrivera" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" />
     </div>
+
     <div style="margin:12px 0;">
       <label style="display:block;font-size:12px;color:#666;">Password (min 6)</label>
-      <input type="password" id="password" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="••••••••" />
+      <input type="password" id="password" placeholder="••••••••" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" />
     </div>
+
     <div style="margin:12px 0;">
       <label style="display:block;font-size:12px;color:#666;">Confirm Password</label>
-      <input type="password" id="confirmPassword" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="••••••••" />
+      <input type="password" id="confirmPassword" placeholder="••••••••" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" />
     </div>
 
     <div style="margin:16px 0;">
@@ -53,121 +70,112 @@
     </div>
 
     <div id="error" style="display:none;background:#ffebee;color:#c62828;padding:10px;border-radius:6px;margin-bottom:12px;font-size:13px;"></div>
+
     <div id="loading" style="display:none;text-align:center;padding:10px;color:#666;">Creating account...</div>
 
     <button type="button" onclick="signUp()" style="width:100%;padding:14px;background:#8deb00;border:none;border-radius:8px;font-weight:700;font-size:16px;cursor:pointer;">Create Account →</button>
 
-    <p style="text-align:center;margin-top:16px;font-size:13px;color:#999;">
-      Already have an account? <a href="test-login.html" style="color:#8deb00;text-decoration:none;">Log in</a>
-    </p>
+    <p style="text-align:center;margin-top:16px;font-size:13px;color:#999;">Already have an account? <a href="test-login.html" style="color:#8deb00;text-decoration:none;">Log in</a></p>
   </div>
-</body>
 
-<script>
-let selectedRole = 'Operator';
-let selectedTier = 'free';
+  <!-- ===== YOUR EXISTING SIGNUP SCRIPT ===== -->
+  <script>
+    let selectedRole = 'Operator';
+    let selectedTier = 'free';
 
-window.selectRole = function(role) {
-  console.log('📝 Selected role:', role);
-  selectedRole = role;
-  
-  const buttons = document.querySelectorAll('#roleOperator, #rolePartner, #roleInstructor');
-  buttons.forEach(btn => {
-    btn.style.background = '#333';
-    btn.style.color = '#fff';
-  });
-  
-  const selectedBtn = document.getElementById('role' + role);
-  if (selectedBtn) {
-    selectedBtn.style.background = '#8deb00';
-    selectedBtn.style.color = '#000';
-  }
-};
+    window.selectRole = function(role) {
+      selectedRole = role;
+      const btns = document.querySelectorAll('#roleOperator, #rolePartner, #roleInstructor');
+      btns.forEach(b => b.style.background = '#333');
+      const btn = document.getElementById('role' + role);
+      if (btn) btn.style.background = '#8deb00';
+    };
 
-window.selectTier = function(tier) {
-  console.log('💳 Selected tier:', tier);
-  selectedTier = tier;
-  
-  const buttons = document.querySelectorAll('#tierFree, #tierPro');
-  buttons.forEach(btn => {
-    btn.style.background = '#333';
-    btn.style.color = '#fff';
-  });
-  
-  const selectedBtn = document.getElementById('tier' + (tier === 'free' ? 'Free' : 'Pro'));
-  if (selectedBtn) {
-    selectedBtn.style.background = '#8deb00';
-    selectedBtn.style.color = '#000';
-  }
-};
+    window.selectTier = function(tier) {
+      selectedTier = tier;
+      const btns = document.querySelectorAll('#tierFree, #tierPro');
+      btns.forEach(b => b.style.background = '#333');
+      const btn = document.getElementById('tier' + (tier === 'free' ? 'Free' : 'Pro'));
+      if (btn) btn.style.background = '#8deb00';
+    };
 
-window.signUp = function() {
-  const name = document.getElementById('name').value.trim();
-  const email = document.getElementById('email').value.trim();
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-  const confirmPassword = document.getElementById('confirmPassword').value;
+    window.signUp = function() {
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
 
-  document.getElementById('error').style.display = 'none';
-  document.getElementById('loading').style.display = 'block';
+      document.getElementById('error').style.display = 'none';
+      document.getElementById('loading').style.display = 'block';
 
-  console.log('📝 Sign-up attempt:', { name, email, username, role: selectedRole, tier: selectedTier });
+      if (!name || !email || !username || !password) {
+        document.getElementById('error').textContent = 'Fill all fields';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('loading').style.display = 'none';
+        return;
+      }
 
-  if (!name || !email || !username || !password) {
-    document.getElementById('error').textContent = 'Please fill in all fields.';
-    document.getElementById('error').style.display = 'block';
-    document.getElementById('loading').style.display = 'none';
-    return;
-  }
-  if (password.length < 6) {
-    document.getElementById('error').textContent = 'Password must be at least 6 characters.';
-    document.getElementById('error').style.display = 'block';
-    document.getElementById('loading').style.display = 'none';
-    return;
-  }
-  if (password !== confirmPassword) {
-    document.getElementById('error').textContent = 'Passwords do not match.';
-    document.getElementById('error').style.display = 'block';
-    document.getElementById('loading').style.display = 'none';
-    return;
-  }
+      if (password.length < 6) {
+        document.getElementById('error').textContent = 'Password min 6 chars';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('loading').style.display = 'none';
+        return;
+      }
 
-  const referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
-  console.log('🔑 Referral code:', referralCode);
+      if (password !== confirmPassword) {
+        document.getElementById('error').textContent = 'Passwords do not match';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('loading').style.display = 'none';
+        return;
+      }
 
-  window.auth.createUserWithEmailAndPassword(email, password)
-    .then(cred => {
-      const user = cred.user;
-      console.log('✅ Auth user created:', user.uid);
-      return user.updateProfile({ displayName: name }).then(() => user);
-    })
-    .then(user => {
-      console.log('✅ User profile updated');
-      const userData = {
-        uid: user.uid,
-        name,
-        email,
-        username,
-        role: selectedRole,
-        tier: selectedTier,
-        createdAt: new Date().toISOString()
+      window.auth.createUserWithEmailAndPassword(email, password)
+        .then(cred => {
+          const user = cred.user;
+          return user.updateProfile({ displayName: name }).then(() => user);
+        })
+        .then(user => {
+          const userData = {
+            uid: user.uid,
+            name,
+            email,
+            username,
+            role: selectedRole,
+            tier: selectedTier,
+            createdAt: new Date().toISOString()
+          };
+          return window.db.collection('users').doc(user.uid).set(userData).then(() => user);
+        })
+        .then(user => {
+          document.getElementById('loading').style.display = 'none';
+          cdToast('Account created!');
+          sessionStorage.setItem('cameras_decoded_user_role', selectedRole);
+          // Use the fixed redirect function (defined below)
+          redirectToDashboard(selectedRole, user.uid);
+        })
+        .catch(err => {
+          console.error('Signup error:', err);
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('error').textContent = err.message;
+          document.getElementById('error').style.display = 'block';
+        });
+    };
+  </script>
+
+  <!-- ===== NEW: FIXED REDIRECT FUNCTION (with /test-app/ prefix) ===== -->
+  <script>
+    // This overrides any existing redirectToDashboard to use the correct subfolder
+    window.redirectToDashboard = function(role, uid) {
+      const map = {
+        'Operator': '/test-app/test-operator-dashboard.html',
+        'Partner': '/test-app/test-partner-dashboard.html',
+        'Instructor': '/test-app/test-instructor-dashboard.html'
       };
-      return window.db.collection('users').doc(user.uid).set(userData).then(() => user);
-    })
-    .then(user => {
-      console.log('✅ User doc saved');
-      document.getElementById('loading').style.display = 'none';
-      cdToast('✅ Account created!');
-      sessionStorage.setItem('cameras_decoded_user_role', selectedRole);
-      redirectToDashboard(selectedRole, user.uid);
-    })
-    .catch(err => {
-      console.error('❌ Signup error:', err);
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('error').textContent = err.message;
-      document.getElementById('error').style.display = 'block';
-    });
-};
-</script>
+      const url = (map[role] || '/test-app/test-operator-dashboard.html') + '?uid=' + uid;
+      window.location.href = url;
+    };
+  </script>
 
+</body>
 </html>

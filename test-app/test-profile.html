@@ -4,12 +4,44 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Operator Profile (Test)</title>
+
+  <!-- Firebase CDN -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- Your existing Firebase init + auth/db globals -->
   <script src="test-app.js"></script>
+
+  <!-- NEW: user state and nav components -->
+  <script src="/test-app/user-state.js"></script>
+  <script src="/test-app/nav-header.js"></script>
+
+  <style>
+    .chip {
+      display: inline-block;
+      padding: 6px 14px;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .chip.selected {
+      background: #8deb00;
+      border-color: #8deb00;
+      color: #000;
+      font-weight: 600;
+    }
+  </style>
 </head>
 <body>
+
+  <!-- NEW: nav container -->
+  <div id="app-nav-container"></div>
+
+  <!-- Your existing profile content -->
   <div style="max-width:600px;margin:40px auto;padding:20px;font-family:sans-serif;">
     <h1>📡 Complete Your Operator Profile (TEST)</h1>
 
@@ -63,19 +95,15 @@
     </div>
   </div>
 
-  <style>
-    .chip {
-      display:inline-block; padding:6px 14px; background:#f0f0f0; border:1px solid #ddd; border-radius:20px; font-size:13px; cursor:pointer; user-select:none;
-    }
-    .chip.selected { background:#8deb00; border-color:#8deb00; color:#000; font-weight:600; }
-  </style>
-
+  <!-- ===== YOUR EXISTING PROFILE SCRIPT ===== -->
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       let uid = null;
       let userData = null;
 
-      window.toggleChip = function(el) { el.classList.toggle('selected'); };
+      window.toggleChip = function(el) {
+        el.classList.toggle('selected');
+      };
 
       window.toggleChipLimit = function(el, max) {
         const parent = el.parentElement;
@@ -83,7 +111,10 @@
         if (el.classList.contains('selected')) {
           el.classList.remove('selected');
         } else {
-          if (selected >= max) { cdToast('Max ' + max + ' selections.', 'error'); return; }
+          if (selected >= max) {
+            cdToast('Max ' + max + ' selections.', 'error');
+            return;
+          }
           el.classList.add('selected');
         }
         const countEl = document.getElementById('interestCount');
@@ -107,10 +138,14 @@
       function loadProfile() {
         window.db.collection('users').doc(uid).get()
           .then(doc => {
-            if (!doc.exists) { cdToast('User not found.', 'error'); return; }
+            if (!doc.exists) {
+              cdToast('User not found.', 'error');
+              return;
+            }
             userData = doc.data();
             if (userData.role !== 'Operator') {
-              redirectToProfile(userData.role, uid);
+              // Redirect to the correct dashboard using our fixed function
+              redirectToDashboard(userData.role, uid);
               return;
             }
             document.getElementById('displayName').textContent = userData.name || '—';
@@ -169,5 +204,39 @@
       };
     });
   </script>
+
+  <!-- ===== NEW: FIXED REDIRECT FUNCTIONS (with /test-app/ prefix) ===== -->
+  <script>
+    window.redirectToDashboard = function(role, uid) {
+      const map = {
+        'Operator': '/test-app/test-operator-dashboard.html',
+        'Partner': '/test-app/test-partner-dashboard.html',
+        'Instructor': '/test-app/test-instructor-dashboard.html'
+      };
+      const url = (map[role] || '/test-app/test-operator-dashboard.html') + '?uid=' + uid;
+      window.location.href = url;
+    };
+
+    // Fallback redirect to profile (used in case of role mismatch, though we redirect to dashboard)
+    window.redirectToProfile = function(role, uid) {
+      // For Operator, we go to test-profile.html; for others, their specific profile pages
+      const map = {
+        'Operator': '/test-app/test-profile.html',
+        'Partner': '/test-app/test-partner-profile.html',
+        'Instructor': '/test-app/test-instructor-profile.html'
+      };
+      const url = (map[role] || '/test-app/test-profile.html') + '?uid=' + uid;
+      window.location.href = url;
+    };
+
+    // Logout function (for completeness; nav header also provides logout)
+    window.handleLogout = function() {
+      auth.signOut().then(() => {
+        sessionStorage.removeItem('cameras_decoded_user_role');
+        window.location.href = '/test-app/test-index.html';
+      });
+    };
+  </script>
+
 </body>
 </html>
