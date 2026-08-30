@@ -34,6 +34,25 @@
       color: #000;
       font-weight: 600;
     }
+    .referral-box {
+      margin-top: 20px;
+      padding: 16px;
+      background: #f0f0f0;
+      border-radius: 8px;
+    }
+    .referral-box code {
+      background: #222;
+      color: #8deb00;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 18px;
+      letter-spacing: 1px;
+    }
+    .referral-status {
+      font-size: 13px;
+      color: #666;
+      margin-left: 12px;
+    }
   </style>
 </head>
 <body>
@@ -54,6 +73,16 @@
         <p><strong>Role:</strong> Operator</p>
       </div>
 
+      <!-- Referral Code Section -->
+      <div class="referral-box">
+        <p><strong>Referral Code:</strong> <span id="userReferral">—</span></p>
+        <div id="referralAction">
+          <button id="generateReferralBtn" onclick="generateReferral()" style="padding:6px 16px;background:#8deb00;border:none;border-radius:4px;cursor:pointer;">Generate Referral Code</button>
+          <span id="referralStatus" class="referral-status"></span>
+        </div>
+      </div>
+
+      <!-- Profile form fields -->
       <div>
         <label>Brands (click to select)</label>
         <div id="brands" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0;">
@@ -95,9 +124,10 @@
     </div>
   </div>
 
-  <!-- ===== PROFILE SCRIPT (NO URL PARAMS) ===== -->
+  <!-- ===== PROFILE SCRIPT ===== -->
   <script>
     let uid = null;
+    let userData = null;
 
     function loadProfile() {
       window.db.collection('users').doc(uid).get()
@@ -106,17 +136,30 @@
             cdToast('User not found.', 'error');
             return;
           }
-          const data = doc.data();
+          userData = doc.data();
 
-          if (data.role !== 'Operator') {
-            redirectToDashboard(data.role);
+          if (userData.role !== 'Operator') {
+            redirectToDashboard(userData.role);
             return;
           }
 
-          document.getElementById('displayName').textContent = data.name || '—';
-          document.getElementById('displayEmail').textContent = data.email || '—';
+          // Display basic info
+          document.getElementById('displayName').textContent = userData.name || '—';
+          document.getElementById('displayEmail').textContent = userData.email || '—';
 
-          const prefs = data.preferences || {};
+          // Handle referral code
+          const referralCode = userData.referralCode || null;
+          document.getElementById('userReferral').textContent = referralCode || '—';
+          if (referralCode) {
+            document.getElementById('generateReferralBtn').style.display = 'none';
+            document.getElementById('referralStatus').textContent = '✅ Permanent code set';
+          } else {
+            document.getElementById('generateReferralBtn').style.display = 'inline-block';
+            document.getElementById('referralStatus').textContent = '';
+          }
+
+          // Populate preferences
+          const prefs = userData.preferences || {};
           document.querySelectorAll('#brands .chip').forEach(el => {
             if ((prefs.brands || []).includes(el.dataset.val)) el.classList.add('selected');
           });
@@ -125,7 +168,7 @@
           });
           document.getElementById('interestCount').textContent = (prefs.interests || []).length;
 
-          const lj = data.learningJourney || {};
+          const lj = userData.learningJourney || {};
           document.getElementById('primaryGoal').value = lj.primaryGoal || 'master-manual';
           const conf = lj.confidence || 5;
           document.getElementById('confidence').value = conf;
@@ -151,6 +194,26 @@
         window.location.href = '/test-app/test-login.html';
       }
     });
+
+    // ---- Generate referral code (only once) ----
+    window.generateReferral = async function() {
+      const btn = document.getElementById('generateReferralBtn');
+      const status = document.getElementById('referralStatus');
+      btn.disabled = true;
+      status.textContent = 'Generating...';
+      try {
+        // Call the global function from test-app.js
+        const code = await generateAndSaveReferralCode(uid);
+        document.getElementById('userReferral').textContent = code;
+        status.textContent = '✅ Code generated and saved!';
+        btn.style.display = 'none';
+        // Update the userData object for consistency
+        userData.referralCode = code;
+      } catch (err) {
+        status.textContent = '❌ ' + err.message;
+        btn.disabled = false;
+      }
+    };
 
     // ---- Chip toggles ----
     window.toggleChip = function(el) {

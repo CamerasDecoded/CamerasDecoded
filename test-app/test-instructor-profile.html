@@ -16,6 +16,28 @@
   <!-- user state and nav components -->
   <script src="/test-app/user-state.js"></script>
   <script src="/test-app/nav-header.js"></script>
+
+  <style>
+    .referral-box {
+      margin-top: 20px;
+      padding: 16px;
+      background: #f0f0f0;
+      border-radius: 8px;
+    }
+    .referral-box code {
+      background: #222;
+      color: #8deb00;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 18px;
+      letter-spacing: 1px;
+    }
+    .referral-status {
+      font-size: 13px;
+      color: #666;
+      margin-left: 12px;
+    }
+  </style>
 </head>
 <body>
 
@@ -31,6 +53,15 @@
         <p><strong>Name:</strong> <span id="displayName">—</span></p>
         <p><strong>Email:</strong> <span id="displayEmail">—</span></p>
         <p><strong>License:</strong> Educator</p>
+      </div>
+
+      <!-- Referral Code Section -->
+      <div class="referral-box">
+        <p><strong>Referral Code:</strong> <span id="userReferral">—</span></p>
+        <div id="referralAction">
+          <button id="generateReferralBtn" onclick="generateReferral()" style="padding:6px 16px;background:#8deb00;border:none;border-radius:4px;cursor:pointer;">Generate Referral Code</button>
+          <span id="referralStatus" class="referral-status"></span>
+        </div>
       </div>
 
       <div style="margin:12px 0;">
@@ -56,9 +87,10 @@
     </div>
   </div>
 
-  <!-- ===== PROFILE SCRIPT (NO URL PARAMS) ===== -->
+  <!-- ===== PROFILE SCRIPT ===== -->
   <script>
     let uid = null;
+    let userData = null;
 
     function loadProfile() {
       window.db.collection('users').doc(uid).get()
@@ -67,17 +99,29 @@
             cdToast('User not found.', 'error');
             return;
           }
-          const data = doc.data();
+          userData = doc.data();
 
-          if (data.role !== 'Instructor') {
-            redirectToDashboard(data.role);
+          if (userData.role !== 'Instructor') {
+            redirectToDashboard(userData.role);
             return;
           }
 
-          document.getElementById('displayName').textContent = data.name || '—';
-          document.getElementById('displayEmail').textContent = data.email || '—';
-          document.getElementById('teachingExperience').value = data.teachingExperience || '';
-          document.getElementById('billingInterval').value = data.billingInterval || 'annual';
+          document.getElementById('displayName').textContent = userData.name || '—';
+          document.getElementById('displayEmail').textContent = userData.email || '—';
+
+          // Referral code
+          const referralCode = userData.referralCode || null;
+          document.getElementById('userReferral').textContent = referralCode || '—';
+          if (referralCode) {
+            document.getElementById('generateReferralBtn').style.display = 'none';
+            document.getElementById('referralStatus').textContent = '✅ Permanent code set';
+          } else {
+            document.getElementById('generateReferralBtn').style.display = 'inline-block';
+            document.getElementById('referralStatus').textContent = '';
+          }
+
+          document.getElementById('teachingExperience').value = userData.teachingExperience || '';
+          document.getElementById('billingInterval').value = userData.billingInterval || 'annual';
 
           document.getElementById('loading').style.display = 'none';
           document.getElementById('content').style.display = 'block';
@@ -87,7 +131,6 @@
         });
     }
 
-    // Wait for auth state to get UID
     firebase.auth().onAuthStateChanged((user) => {
       if (user) {
         uid = user.uid;
@@ -96,6 +139,24 @@
         window.location.href = '/test-app/test-login.html';
       }
     });
+
+    // Generate referral code
+    window.generateReferral = async function() {
+      const btn = document.getElementById('generateReferralBtn');
+      const status = document.getElementById('referralStatus');
+      btn.disabled = true;
+      status.textContent = 'Generating...';
+      try {
+        const code = await generateAndSaveReferralCode(uid);
+        document.getElementById('userReferral').textContent = code;
+        status.textContent = '✅ Code generated and saved!';
+        btn.style.display = 'none';
+        userData.referralCode = code;
+      } catch (err) {
+        status.textContent = '❌ ' + err.message;
+        btn.disabled = false;
+      }
+    };
 
     window.saveProfile = function() {
       const teachingExperience = document.getElementById('teachingExperience').value;
