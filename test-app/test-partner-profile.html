@@ -59,129 +59,72 @@
     </div>
   </div>
 
-  <!-- ===== PROFILE SCRIPT (FIXED) ===== -->
+  <!-- ===== PROFILE SCRIPT (NO URL PARAMS) ===== -->
   <script>
-    (function() {
-      let uid = null;
+    let uid = null;
 
-      function loadProfile() {
-        window.db.collection('users').doc(uid).get()
-          .then(doc => {
-            if (!doc.exists) {
-              cdToast('User not found.', 'error');
-              return;
-            }
-            const data = doc.data();
-
-            if (data.role !== 'Partner') {
-              redirectToDashboard(data.role, uid);
-              return;
-            }
-
-            document.getElementById('displayName').textContent = data.name || '—';
-            document.getElementById('displayEmail').textContent = data.email || '—';
-            document.getElementById('companyName').value = data.companyName || '';
-            document.getElementById('partnerTier').value = data.partnerTier || 'signal';
-            document.getElementById('billingInterval').value = data.billingInterval || 'monthly';
-
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('content').style.display = 'block';
-          })
-          .catch(err => {
-            document.getElementById('loading').textContent = 'Error: ' + err.message;
-          });
-      }
-
-      function initializeProfile() {
-        if (window.USER && window.USER.isLoggedIn) {
-          uid = window.USER.uid;
-          loadProfile();
-          return;
-        }
-
-        const params = new URLSearchParams(window.location.search);
-        const urlUid = params.get('uid');
-        if (urlUid) {
-          const currentUser = firebase.auth().currentUser;
-          if (currentUser && currentUser.uid === urlUid) {
-            uid = urlUid;
-            loadProfile();
+    function loadProfile() {
+      window.db.collection('users').doc(uid).get()
+        .then(doc => {
+          if (!doc.exists) {
+            cdToast('User not found.', 'error');
             return;
           }
-        }
+          const data = doc.data();
 
-        window.addEventListener('userStateReady', (e) => {
-          const user = e.detail;
-          if (user.isLoggedIn) {
-            uid = user.uid;
-            loadProfile();
-          } else {
-            window.location.href = '/test-app/test-login.html';
+          if (data.role !== 'Partner') {
+            redirectToDashboard(data.role);
+            return;
           }
-        });
-      }
 
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeProfile);
-      } else {
-        initializeProfile();
-      }
+          document.getElementById('displayName').textContent = data.name || '—';
+          document.getElementById('displayEmail').textContent = data.email || '—';
+          document.getElementById('companyName').value = data.companyName || '';
+          document.getElementById('partnerTier').value = data.partnerTier || 'signal';
+          document.getElementById('billingInterval').value = data.billingInterval || 'monthly';
 
-      window.saveProfile = function() {
-        const companyName = document.getElementById('companyName').value.trim();
-        if (!companyName) {
-          document.getElementById('saveError').textContent = 'Please enter a company name.';
-          document.getElementById('saveError').style.display = 'block';
-          return;
-        }
-        const partnerTier = document.getElementById('partnerTier').value;
-        const billingInterval = document.getElementById('billingInterval').value;
-
-        window.db.collection('users').doc(uid).update({
-          companyName: companyName,
-          partnerTier: partnerTier,
-          billingInterval: billingInterval,
-          tourCompleted: true,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        })
-        .then(() => {
-          cdToast('✅ Profile saved!');
-          redirectToDashboard('Partner', uid);
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('content').style.display = 'block';
         })
         .catch(err => {
-          document.getElementById('saveError').textContent = err.message;
-          document.getElementById('saveError').style.display = 'block';
+          document.getElementById('loading').textContent = 'Error: ' + err.message;
         });
-      };
-    })();
-  </script>
+    }
 
-  <!-- ===== REDIRECT FUNCTIONS (fallback) ===== -->
-  <script>
-    window.redirectToDashboard = function(role, uid) {
-      const map = {
-        'Operator': '/test-app/test-operator-dashboard.html',
-        'Partner': '/test-app/test-partner-dashboard.html',
-        'Instructor': '/test-app/test-instructor-dashboard.html'
-      };
-      const url = (map[role] || '/test-app/test-operator-dashboard.html') + '?uid=' + uid;
-      window.location.href = url;
-    };
+    // Wait for auth state to get UID
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        uid = user.uid;
+        loadProfile();
+      } else {
+        window.location.href = '/test-app/test-login.html';
+      }
+    });
 
-    window.redirectToProfile = function(role, uid) {
-      const map = {
-        'Operator': '/test-app/test-profile.html',
-        'Partner': '/test-app/test-partner-profile.html',
-        'Instructor': '/test-app/test-instructor-profile.html'
-      };
-      const url = (map[role] || '/test-app/test-profile.html') + '?uid=' + uid;
-      window.location.href = url;
-    };
+    window.saveProfile = function() {
+      const companyName = document.getElementById('companyName').value.trim();
+      if (!companyName) {
+        document.getElementById('saveError').textContent = 'Please enter a company name.';
+        document.getElementById('saveError').style.display = 'block';
+        return;
+      }
+      const partnerTier = document.getElementById('partnerTier').value;
+      const billingInterval = document.getElementById('billingInterval').value;
 
-    window.handleLogout = function() {
-      auth.signOut().then(() => {
-        sessionStorage.removeItem('cameras_decoded_user_role');
-        window.location.href = '/test-app/test-index.html';
+      window.db.collection('users').doc(uid).update({
+        companyName: companyName,
+        partnerTier: partnerTier,
+        billingInterval: billingInterval,
+        tourCompleted: true,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      })
+      .then(() => {
+        cdToast('✅ Profile saved!');
+        redirectToDashboard('Partner');
+      })
+      .catch(err => {
+        document.getElementById('saveError').textContent = err.message;
+        document.getElementById('saveError').style.display = 'block';
       });
     };
   </script>

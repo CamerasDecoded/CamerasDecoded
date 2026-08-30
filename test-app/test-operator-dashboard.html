@@ -15,13 +15,13 @@
   <!-- Your existing Firebase init + auth/db globals -->
   <script src="test-app.js"></script>
 
-  <!-- NEW: user state and nav components -->
+  <!-- user state and nav components -->
   <script src="/test-app/user-state.js"></script>
   <script src="/test-app/nav-header.js"></script>
 </head>
 <body>
 
-  <!-- NEW: nav container -->
+  <!-- Nav container -->
   <div id="app-nav-container"></div>
 
   <!-- Your existing dashboard content -->
@@ -56,19 +56,9 @@
 
   <script src="test-bottom-nav.js"></script>
 
-  <!-- ===== YOUR EXISTING DASHBOARD SCRIPT ===== -->
+  <!-- ===== DASHBOARD SCRIPT (NO URL PARAMS) ===== -->
   <script>
     let uid = null;
-    const params = new URLSearchParams(window.location.search);
-    uid = params.get('uid');
-    if (!uid) {
-      auth.onAuthStateChanged(user => {
-        if (user) { uid = user.uid; loadDashboard(); }
-        else { window.location.href = 'test-signup.html'; }
-      });
-    } else {
-      loadDashboard();
-    }
 
     function loadDashboard() {
       db.collection('users').doc(uid).get()
@@ -76,7 +66,7 @@
           if (!doc.exists) { cdToast('User not found.', 'error'); return; }
           const data = doc.data();
           if (data.role !== 'Operator') {
-            redirectToDashboard(data.role, uid);
+            redirectToDashboard(data.role);
             return;
           }
           document.getElementById('userName').textContent = data.name || '—';
@@ -94,6 +84,16 @@
         });
     }
 
+    // Wait for auth state to get UID
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        uid = user.uid;
+        loadDashboard();
+      } else {
+        window.location.href = '/test-app/test-login.html';
+      }
+    });
+
     function copyReferral() {
       const link = document.getElementById('userReferral').textContent;
       if (!link || link === '—') { cdToast('Referral code not available.', 'error'); return; }
@@ -109,27 +109,6 @@
           cdToast('✅ Copied!');
         });
     }
-
-    // Logout function (preserved – nav also provides logout)
-    window.handleLogout = function() {
-      auth.signOut().then(() => {
-        sessionStorage.removeItem('cameras_decoded_user_role');
-        window.location.href = '/test-app/test-index.html';
-      });
-    };
-  </script>
-
-  <!-- ===== NEW: FIXED REDIRECT FUNCTION (with /test-app/ prefix) ===== -->
-  <script>
-    window.redirectToDashboard = function(role, uid) {
-      const map = {
-        'Operator': '/test-app/test-operator-dashboard.html',
-        'Partner': '/test-app/test-partner-dashboard.html',
-        'Instructor': '/test-app/test-instructor-dashboard.html'
-      };
-      const url = (map[role] || '/test-app/test-operator-dashboard.html') + '?uid=' + uid;
-      window.location.href = url;
-    };
   </script>
 
 </body>

@@ -10,19 +10,19 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <!-- Your existing Firebase init + global auth/db -->
+  <!-- Your existing Firebase init + auth/db globals -->
   <script src="test-app.js"></script>
 
-  <!-- NEW: user state and nav components -->
+  <!-- user state and nav components -->
   <script src="/test-app/user-state.js"></script>
   <script src="/test-app/nav-header.js"></script>
 </head>
 <body>
 
-  <!-- NEW: nav container -->
+  <!-- Nav container -->
   <div id="app-nav-container"></div>
 
-  <!-- Your existing login form -->
+  <!-- Login form -->
   <div style="max-width:400px;margin:80px auto;padding:20px;font-family:sans-serif;">
     <h1>Log In (TEST)</h1>
     
@@ -41,13 +41,12 @@
     <button onclick="login()" style="width:100%;padding:14px;background:#8deb00;border:none;border-radius:8px;font-weight:700;font-size:16px;cursor:pointer;">Log In →</button>
 
     <p style="text-align:center;margin-top:16px;font-size:13px;color:#999;">
-      Don't have an account? <a href="test-signup-fixed.html" style="color:#8deb00;text-decoration:none;">Sign up</a>
+      Don't have an account? <a href="test-signup.html" style="color:#8deb00;text-decoration:none;">Sign up</a>
     </p>
   </div>
 
-  <!-- ===== YOUR EXISTING LOGIN SCRIPT ===== -->
+  <!-- ===== LOGIN SCRIPT (no inline redirect override) ===== -->
   <script>
-    // Login
     window.login = function() {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value.trim();
@@ -64,13 +63,11 @@
         return;
       }
 
-      // Use window.auth (defined in test-app.js)
       window.auth.signInWithEmailAndPassword(email, password)
         .then(cred => {
           const user = cred.user;
           console.log('✅ Logged in:', user.uid);
           
-          // Fetch user data to get role
           return window.db.collection('users').doc(user.uid).get().then(doc => {
             if (!doc.exists) {
               throw new Error('User data not found. Please sign up first.');
@@ -85,11 +82,10 @@
           document.getElementById('loading').style.display = 'none';
           cdToast('✅ Welcome back!');
           
-          // Cache role
           sessionStorage.setItem('cameras_decoded_user_role', role);
           
-          console.log('🚀 Redirecting to dashboard for role:', role, 'uid:', user.uid);
-          redirectToDashboard(role, user.uid);
+          // Use redirect function from test-app.js – NO UID
+          redirectToDashboard(role);
         })
         .catch(err => {
           console.error('❌ Login error:', err);
@@ -99,26 +95,12 @@
         });
     };
 
-    // Allow Enter key to trigger login
+    // Allow Enter key
     document.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
         login();
       }
     });
-  </script>
-
-  <!-- ===== NEW: FIXED REDIRECT FUNCTION (with /test-app/ prefix) ===== -->
-  <script>
-    // This overrides any existing redirectToDashboard to use the correct subfolder
-    window.redirectToDashboard = function(role, uid) {
-      const map = {
-        'Operator': '/test-app/test-operator-dashboard.html',
-        'Partner': '/test-app/test-partner-dashboard.html',
-        'Instructor': '/test-app/test-instructor-dashboard.html'
-      };
-      const url = (map[role] || '/test-app/test-operator-dashboard.html') + '?uid=' + uid;
-      window.location.href = url;
-    };
   </script>
 
 </body>
