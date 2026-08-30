@@ -78,10 +78,42 @@
     <p style="text-align:center;margin-top:16px;font-size:13px;color:#999;">Already have an account? <a href="test-login.html" style="color:#8deb00;text-decoration:none;">Log in</a></p>
   </div>
 
-  <!-- ===== SIGNUP SCRIPT (no inline redirect override) ===== -->
+  <!-- ===== SIGNUP SCRIPT WITH REFERRAL CODE GENERATION ===== -->
   <script>
     let selectedRole = 'Operator';
     let selectedTier = 'free';
+
+    // ---- Helper: generate a random referral code (8 chars) ----
+    function generateReferralCode() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let code = '';
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    }
+
+    // ---- Helper: ensure the code is unique in Firestore ----
+    async function getUniqueReferralCode(attempts = 0) {
+      if (attempts > 10) {
+        console.warn('⚠️ Could not generate unique code after 10 attempts');
+        return generateReferralCode() + 'X'; // fallback
+      }
+      const code = generateReferralCode();
+      try {
+        const snapshot = await window.db.collection('users')
+          .where('referralCode', '==', code)
+          .get();
+        if (snapshot.empty) {
+          return code;
+        } else {
+          return getUniqueReferralCode(attempts + 1);
+        }
+      } catch (err) {
+        console.error('Error checking referral code:', err);
+        return code; // still return something
+      }
+    }
 
     window.selectRole = function(role) {
       selectedRole = role;
@@ -99,7 +131,7 @@
       if (btn) btn.style.background = '#8deb00';
     };
 
-    window.signUp = function() {
+    window.signUp = async function() {
       const name = document.getElementById('name').value.trim();
       const email = document.getElementById('email').value.trim();
       const username = document.getElementById('username').value.trim();
@@ -130,36 +162,44 @@
         return;
       }
 
-      window.auth.createUserWithEmailAndPassword(email, password)
-        .then(cred => {
-          const user = cred.user;
-          return user.updateProfile({ displayName: name }).then(() => user);
-        })
-        .then(user => {
-          const userData = {
-            uid: user.uid,
-            name,
-            email,
-            username,
-            role: selectedRole,
-            tier: selectedTier,
-            createdAt: new Date().toISOString()
-          };
-          return window.db.collection('users').doc(user.uid).set(userData).then(() => user);
-        })
-        .then(user => {
-          document.getElementById('loading').style.display = 'none';
-          cdToast('Account created!');
-          sessionStorage.setItem('cameras_decoded_user_role', selectedRole);
-          // Use the redirect function from test-app.js – NO UID
-          redirectToDashboard(selectedRole);
-        })
-        .catch(err => {
-          console.error('Signup error:', err);
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('error').textContent = err.message;
-          document.getElementById('error').style.display = 'block';
-        });
+      try {
+        // 1. Create Firebase user
+        const cred = await window.auth.createUserWithEmailAndPassword(email, password);
+        const user = cred.user;
+        await user.updateProfile({ displayName: name });
+
+        // 2. Generate unique referral code
+        const referralCode = await getUniqueReferralCode();
+        console.log('✅ Generated referral code:', referralCode);
+
+        // 3. Save user data to Firestore
+        const userData = {
+          uid: user.uid,
+          name,
+          email,
+          username,
+          role: selectedRole,
+          tier: selectedTier,
+          referralCode: referralCode, // <-- NEW!
+          createdAt: new Date().toISOString()
+        };
+
+        await window.db.collection('users').doc(user.uid).set(userData);
+        console.log('✅ User document saved with referral code');
+
+        document.getElementById('loading').style.display = 'none';
+        cdToast('Account created!');
+        sessionStorage.setItem('cameras_decoded_user_role', selectedRole);
+
+        // Redirect to dashboard (using global function from test-app.js)
+        redirectToDashboard(selectedRole);
+
+      } catch (err) {
+        console.error('Signup error:', err);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').textContent = err.message;
+        document.getElementById('error').style.display = 'block';
+      }
     };
   </script>
 
