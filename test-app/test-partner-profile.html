@@ -4,47 +4,37 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Partner Profile (Test)</title>
-
-  <!-- Firebase CDN -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
-  <!-- Your existing Firebase init + auth/db globals -->
   <script src="test-app.js"></script>
-
-  <!-- user state and nav components -->
   <script src="/test-app/user-state.js"></script>
   <script src="/test-app/nav-header.js"></script>
-
   <style>
-    .referral-box {
-      margin-top: 20px;
+    .referral-section {
+      margin: 20px 0;
       padding: 16px;
-      background: #f0f0f0;
+      background: #f5f5f5;
       border-radius: 8px;
+      border-left: 4px solid #8deb00;
     }
-    .referral-box code {
+    .referral-code-display {
+      font-size: 20px;
+      font-weight: bold;
       background: #222;
       color: #8deb00;
-      padding: 4px 8px;
+      padding: 4px 12px;
       border-radius: 4px;
-      font-size: 18px;
       letter-spacing: 1px;
     }
-    .referral-status {
-      font-size: 13px;
-      color: #666;
-      margin-left: 12px;
-    }
+    .referral-status { font-size: 13px; margin-top: 6px; }
+    .referral-status.available { color: #2e7d32; }
+    .referral-status.taken { color: #c62828; }
+    .referral-status.error { color: #e65100; }
   </style>
 </head>
 <body>
-
-  <!-- Nav container -->
   <div id="app-nav-container"></div>
-
-  <!-- Profile content -->
   <div style="max-width:400px;margin:40px auto;padding:20px;font-family:sans-serif;">
     <h1>📡 Partner Profile (TEST)</h1>
     <div id="loading">Loading...</div>
@@ -54,20 +44,27 @@
         <p><strong>Email:</strong> <span id="displayEmail">—</span></p>
       </div>
 
-      <!-- Referral Code Section -->
-      <div class="referral-box">
-        <p><strong>Referral Code:</strong> <span id="userReferral">—</span></p>
-        <div id="referralAction">
-          <button id="generateReferralBtn" onclick="generateReferral()" style="padding:6px 16px;background:#8deb00;border:none;border-radius:4px;cursor:pointer;">Generate Referral Code</button>
-          <span id="referralStatus" class="referral-status"></span>
+      <!-- Referral Code Section (identical) -->
+      <div class="referral-section" id="referralSection">
+        <p style="font-weight:600;margin:0 0 8px 0;">🔗 Your Referral Code</p>
+        <div id="referralDisplay">
+          <span id="existingCodeDisplay" style="display:none;">
+            <span class="referral-code-display" id="userReferralCode">—</span>
+            <span style="font-size:13px;color:#666;margin-left:10px;">✅ Permanent – used for commissions</span>
+          </span>
+          <div id="referralSetup" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+            <input type="text" id="newReferralCode" placeholder="e.g., PARTNERPRO" style="padding:8px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:150px;" />
+            <button id="setReferralBtn" onclick="setReferralCode()" style="padding:8px 16px;background:#8deb00;border:none;border-radius:4px;cursor:pointer;font-weight:600;">Set Code</button>
+          </div>
+          <div id="referralStatus" class="referral-status"></div>
         </div>
       </div>
 
+      <!-- Partner-specific fields -->
       <div style="margin:12px 0;">
         <label>Company Name</label>
         <input type="text" id="companyName" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Your Camera Store" />
       </div>
-
       <div style="margin:12px 0;">
         <label>License Tier</label>
         <select id="partnerTier" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
@@ -76,7 +73,6 @@
           <option value="enterprise">Enterprise – $725/mo</option>
         </select>
       </div>
-
       <div style="margin:12px 0;">
         <label>Billing</label>
         <select id="billingInterval" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
@@ -84,44 +80,47 @@
           <option value="annual">Annual (save 20-30%)</option>
         </select>
       </div>
-
       <button onclick="saveProfile()" style="width:100%;padding:14px;background:#8deb00;border:none;border-radius:8px;font-weight:700;font-size:16px;cursor:pointer;">Save Profile →</button>
       <div id="saveError" style="color:red;margin-top:12px;display:none;"></div>
     </div>
   </div>
 
-  <!-- ===== PROFILE SCRIPT ===== -->
   <script>
     let uid = null;
     let userData = null;
 
+    async function isReferralCodeUnique(code) {
+      if (!code) return false;
+      try {
+        const snapshot = await window.db.collection('users')
+          .where('referralCode', '==', code.toUpperCase())
+          .get();
+        return snapshot.empty;
+      } catch (err) { return false; }
+    }
+
     function loadProfile() {
       window.db.collection('users').doc(uid).get()
         .then(doc => {
-          if (!doc.exists) {
-            cdToast('User not found.', 'error');
-            return;
-          }
+          if (!doc.exists) { cdToast('User not found.', 'error'); return; }
           userData = doc.data();
-
           if (userData.role !== 'Partner') {
             redirectToDashboard(userData.role);
             return;
           }
-
           document.getElementById('displayName').textContent = userData.name || '—';
           document.getElementById('displayEmail').textContent = userData.email || '—';
 
-          // Referral code
-          const referralCode = userData.referralCode || null;
-          document.getElementById('userReferral').textContent = referralCode || '—';
-          if (referralCode) {
-            document.getElementById('generateReferralBtn').style.display = 'none';
-            document.getElementById('referralStatus').textContent = '✅ Permanent code set';
+          const existingCode = userData.referralCode || null;
+          if (existingCode) {
+            document.getElementById('existingCodeDisplay').style.display = 'inline';
+            document.getElementById('userReferralCode').textContent = existingCode;
+            document.getElementById('referralSetup').style.display = 'none';
           } else {
-            document.getElementById('generateReferralBtn').style.display = 'inline-block';
-            document.getElementById('referralStatus').textContent = '';
+            document.getElementById('existingCodeDisplay').style.display = 'none';
+            document.getElementById('referralSetup').style.display = 'flex';
           }
+          document.getElementById('referralStatus').textContent = '';
 
           document.getElementById('companyName').value = userData.companyName || '';
           document.getElementById('partnerTier').value = userData.partnerTier || 'signal';
@@ -136,28 +135,68 @@
     }
 
     firebase.auth().onAuthStateChanged((user) => {
-      if (user) {
-        uid = user.uid;
-        loadProfile();
-      } else {
-        window.location.href = '/test-app/test-login.html';
+      if (user) { uid = user.uid; loadProfile(); }
+      else { window.location.href = '/test-app/test-login.html'; }
+    });
+
+    document.getElementById('newReferralCode')?.addEventListener('input', async function() {
+      const code = this.value.trim().toUpperCase();
+      const status = document.getElementById('referralStatus');
+      if (!code) { status.textContent = ''; status.className = 'referral-status'; return; }
+      if (!/^[A-Z0-9]{3,20}$/.test(code)) {
+        status.textContent = '❌ Only letters & numbers, 3-20 characters';
+        status.className = 'referral-status error';
+        return;
+      }
+      try {
+        const unique = await isReferralCodeUnique(code);
+        if (unique) { status.textContent = '✅ Available'; status.className = 'referral-status available'; }
+        else { status.textContent = '❌ Already taken'; status.className = 'referral-status taken'; }
+      } catch (err) {
+        status.textContent = '⚠️ Error checking';
+        status.className = 'referral-status error';
       }
     });
 
-    // Generate referral code
-    window.generateReferral = async function() {
-      const btn = document.getElementById('generateReferralBtn');
+    window.setReferralCode = async function() {
+      const input = document.getElementById('newReferralCode');
+      const code = input.value.trim().toUpperCase();
       const status = document.getElementById('referralStatus');
-      btn.disabled = true;
-      status.textContent = 'Generating...';
+      const btn = document.getElementById('setReferralBtn');
+      if (!code || !/^[A-Z0-9]{3,20}$/.test(code)) {
+        status.textContent = 'Invalid code. Use 3-20 letters/numbers.';
+        status.className = 'referral-status error';
+        return;
+      }
       try {
-        const code = await generateAndSaveReferralCode(uid);
-        document.getElementById('userReferral').textContent = code;
-        status.textContent = '✅ Code generated and saved!';
-        btn.style.display = 'none';
-        userData.referralCode = code;
+        const unique = await isReferralCodeUnique(code);
+        if (!unique) {
+          status.textContent = '❌ Already taken.';
+          status.className = 'referral-status taken';
+          return;
+        }
       } catch (err) {
-        status.textContent = '❌ ' + err.message;
+        status.textContent = '⚠️ Error checking.';
+        status.className = 'referral-status error';
+        return;
+      }
+      btn.disabled = true;
+      status.textContent = 'Saving...';
+      try {
+        await window.db.collection('users').doc(uid).update({
+          referralCode: code,
+          referralCodeSetAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        userData.referralCode = code;
+        document.getElementById('existingCodeDisplay').style.display = 'inline';
+        document.getElementById('userReferralCode').textContent = code;
+        document.getElementById('referralSetup').style.display = 'none';
+        status.textContent = '✅ Permanent code set!';
+        status.className = 'referral-status available';
+        cdToast('Referral code set: ' + code);
+      } catch (err) {
+        status.textContent = '❌ Error saving.';
+        status.className = 'referral-status error';
         btn.disabled = false;
       }
     };
@@ -171,24 +210,17 @@
       }
       const partnerTier = document.getElementById('partnerTier').value;
       const billingInterval = document.getElementById('billingInterval').value;
-
       window.db.collection('users').doc(uid).update({
-        companyName: companyName,
-        partnerTier: partnerTier,
-        billingInterval: billingInterval,
+        companyName, partnerTier, billingInterval,
         tourCompleted: true,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       })
-      .then(() => {
-        cdToast('✅ Profile saved!');
-        redirectToDashboard('Partner');
-      })
+      .then(() => { cdToast('✅ Profile saved!'); redirectToDashboard('Partner'); })
       .catch(err => {
         document.getElementById('saveError').textContent = err.message;
         document.getElementById('saveError').style.display = 'block';
       });
     };
   </script>
-
 </body>
 </html>
