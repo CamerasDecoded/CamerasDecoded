@@ -3,31 +3,122 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cameras Decoded (Test)</title>
+  <title>Home (Test)</title>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="test-app.js"></script>
+  <script src="user-state.js"></script>
+  <script src="nav-header.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      background: #050705;
+      color: #fff;
+    }
+    #app-nav-container {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    .content {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 32px;
+      color: #8deb00;
+      margin-bottom: 16px;
+    }
+    p {
+      color: #999;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .button-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 30px;
+    }
+    a, button {
+      padding: 12px 24px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: none;
+      font-weight: 600;
+    }
+    .btn-primary {
+      background: #8deb00;
+      color: #000;
+    }
+    .btn-primary:hover {
+      background: #a0f520;
+    }
+    .btn-secondary {
+      background: transparent;
+      color: #8deb00;
+      border: 1px solid #8deb00;
+    }
+    .btn-secondary:hover {
+      background: rgba(141,235,0,0.1);
+    }
+    .user-status {
+      background: rgba(141,235,0,0.1);
+      border: 1px solid #8deb00;
+      padding: 20px;
+      border-radius: 6px;
+      margin-top: 30px;
+      display: none;
+    }
+    .user-status.show {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-  <div style="max-width:400px;margin:80px auto;padding:20px;text-align:center;font-family:sans-serif;">
-    <h1>📡 Cameras Decoded</h1>
-    <p style="color:#666;">TEST ENVIRONMENT</p>
-    <div style="margin-top:30px;display:flex;flex-direction:column;gap:12px;">
-      <a href="test-signup.html" style="padding:12px 24px;background:#8deb00;color:#000;text-decoration:none;border-radius:8px;font-weight:700;">Sign Up</a>
-      <a href="test-login.html" style="padding:12px 24px;background:transparent;color:#8deb00;text-decoration:none;border:1px solid #8deb00;border-radius:8px;">Log In</a>
+  <div id="app-nav-container"></div>
+
+  <div class="content">
+    <h1>Cameras Decoded (Test)</h1>
+    <p>This is the test home page. Choose a pathway below or log in to continue.</p>
+
+    <div id="guestContent" class="button-group">
+      <a href="/test-app/test-signup.html" class="btn-primary">Create Account →</a>
+      <a href="/test-app/test-login.html" class="btn-secondary">Log In</a>
+    </div>
+
+    <div id="userContent" class="user-status">
+      <h2 style="margin-top:0;">Welcome back!</h2>
+      <p id="userInfo"></p>
+      <p style="font-size:13px;color:#666;">Use the navigation above to explore the dashboard and profile.</p>
     </div>
   </div>
+
   <script>
-    // Use window.auth (defined in test-app.js)
-    document.addEventListener('DOMContentLoaded', function() {
-      if (window.auth && window.auth.currentUser) {
-        const user = window.auth.currentUser;
-        window.db.collection('users').doc(user.uid).get().then(doc => {
-          if (doc.exists) {
-            redirectToDashboard(doc.data().role || 'Operator', user.uid);
-          }
-        });
+    // Show/hide content based on user state
+    window.addEventListener('userStateReady', (e) => {
+      const user = e.detail;
+      const guestContent = document.getElementById('guestContent');
+      const userContent = document.getElementById('userContent');
+
+      if (user.isLoggedIn) {
+        guestContent.style.display = 'none';
+        userContent.classList.add('show');
+        document.getElementById('userInfo').innerHTML = `
+          You're logged in as <strong>${user.name}</strong><br>
+          Role: <span style="color:#8deb00;">${user.role}</span> | Plan: <span style="color:#8deb00;">${user.tier}</span>
+        `;
+      } else {
+        guestContent.style.display = 'flex';
+        userContent.classList.remove('show');
       }
     });
   </script>
