@@ -89,7 +89,6 @@
 
     let userData = null;
 
-    // ---- Helpers ----
     async function isReferralCodeUnique(code) {
       if (!code) return false;
       try {
@@ -98,7 +97,6 @@
       } catch (err) { return false; }
     }
 
-    // ---- Core fetch + render ----
     function fetchAndRenderProfile(uid) {
       console.log('📥 fetchAndRenderProfile called for uid:', uid);
       window.db.collection('users').doc(uid).get()
@@ -111,7 +109,6 @@
           }
           userData = doc.data();
           if (userData.role !== 'Partner') {
-            console.log('🔀 Redirecting to dashboard for role:', userData.role);
             redirectToDashboard(userData.role);
             return;
           }
@@ -144,11 +141,9 @@
         });
     }
 
-    // ---- Manual force load ----
     window.forceLoadProfile = function() {
       console.log('🔄 Manual forceLoad triggered');
       if (window.USER && window.USER.isLoggedIn) {
-        if (!checkPageAccess()) return;
         fetchAndRenderProfile(window.USER.uid);
       } else {
         document.getElementById('loading').textContent = 'Not logged in. Please log in.';
@@ -156,18 +151,15 @@
       }
     };
 
-    // ---- Auto‑load using window.USER ----
     function init() {
       if (window.USER && window.USER.isLoggedIn) {
         console.log('👤 Auto‑load using window.USER');
-        if (!checkPageAccess()) return;
         fetchAndRenderProfile(window.USER.uid);
       } else {
         console.log('⏳ Waiting for userStateReady...');
         window.addEventListener('userStateReady', (e) => {
           if (e.detail.isLoggedIn) {
             console.log('👤 userStateReady fired');
-            if (!checkPageAccess()) return;
             fetchAndRenderProfile(e.detail.uid);
           } else {
             window.location.href = '/test-app/test-login.html';
@@ -182,7 +174,6 @@
       init();
     }
 
-    // ---- Referral code ----
     window.setReferralCode = async function() {
       const input = document.getElementById('newReferralCode');
       const code = input.value.trim().toUpperCase();
@@ -254,14 +245,12 @@
         });
     };
 
-    // ---- Save profile ----
     window.saveProfile = function() {
       const uid = window.USER?.uid;
       if (!uid) {
         cdToast('Not logged in.', 'error');
         return;
       }
-      if (!checkPageAccess()) return;
 
       const companyName = document.getElementById('companyName').value.trim();
       if (!companyName) {
