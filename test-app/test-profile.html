@@ -2,37 +2,55 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Operator Profile (Test)</title>
-  <!-- Firebase -->
+  <title>Profile Debug</title>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="test-app.js"></script>
   <script src="/test-app/user-state.js"></script>
   <script src="/test-app/nav-header.js"></script>
-  <!-- Sidebar only (no announcement) -->
   <link rel="stylesheet" href="/test-app/sidebar.css">
   <script src="/test-app/sidebar.js"></script>
-  <style>
-    .chip { display:inline-block; padding:6px 14px; background:#f0f0f0; border:1px solid #ddd; border-radius:20px; font-size:13px; cursor:pointer; user-select:none; }
-    .chip.selected { background:#8deb00; border-color:#8deb00; color:#000; font-weight:600; }
-    .main-content { margin-left:260px; padding:20px; max-width:600px; }
-    @media (max-width:768px) { .main-content { margin-left:0; padding:16px; } }
-  </style>
 </head>
 <body>
   <div id="app-nav-container"></div>
   <div id="sidebarContainer"></div>
-  <div class="main-content">
-    <h1>📡 Complete Your Operator Profile (TEST)</h1>
-    <div id="loading">Loading...</div>
-    <div id="content" style="display:none;">
-      <!-- profile fields -->
-    </div>
+
+  <div style="margin-left:260px;padding:20px;">
+    <h1>Profile Debug</h1>
+    <div id="output">Loading...</div>
+    <button onclick="loadData()">Load Data</button>
   </div>
+
   <script>
-    // profile script (unchanged)
+    console.log('🔥 DEBUG SCRIPT EXECUTED');
+
+    function loadData() {
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        document.getElementById('output').textContent = 'Not logged in';
+        return;
+      }
+      document.getElementById('output').textContent = 'UID: ' + user.uid;
+      firebase.firestore().collection('users').doc(user.uid).get()
+        .then(doc => {
+          if (doc.exists) {
+            document.getElementById('output').textContent = 'Data: ' + JSON.stringify(doc.data(), null, 2);
+          } else {
+            document.getElementById('output').textContent = 'User doc not found';
+          }
+        })
+        .catch(err => {
+          document.getElementById('output').textContent = 'Error: ' + err.message;
+        });
+    }
+
+    // Auto-load on page load
+    if (document.readyState === 'complete') {
+      loadData();
+    } else {
+      window.addEventListener('load', loadData);
+    }
   </script>
 </body>
 </html>
