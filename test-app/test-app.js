@@ -13,13 +13,10 @@ const firebaseConfig = {
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-
-// ✅ FIX: Use only experimentalForceLongPolling – remove the conflicting setting
 firebase.firestore().settings({
   experimentalForceLongPolling: true
 });
 
-// Expose auth and db globally
 window.auth = firebase.auth();
 window.db = firebase.firestore();
 
@@ -29,7 +26,6 @@ console.log('✅ Firebase initialized, window.auth and window.db are set');
 // PAGE ACCESS CONTROL – defined early
 // ================================================================
 
-// Map exact page paths to allowed roles
 const PAGE_ACCESS = {
   '/test-app/test-operator-dashboard.html': ['Operator'],
   '/test-app/test-partner-dashboard.html': ['Partner'],
@@ -37,8 +33,8 @@ const PAGE_ACCESS = {
   '/test-app/test-profile.html': ['Operator'],
   '/test-app/test-partner-profile.html': ['Partner'],
   '/test-app/test-instructor-profile.html': ['Instructor'],
-  '/test-app/test-admin-dashboard.html': ['Admin'],
-  '/test-app/test-admin-profile.html': ['Admin']
+  '/test-app/test-admin-dashboard.html': ['Admin', 'admin'],   // <-- added
+  '/test-app/test-admin-profile.html': ['Admin', 'admin']      // <-- added
 };
 
 function getDashboardUrl(role) {
@@ -46,7 +42,8 @@ function getDashboardUrl(role) {
     'Operator': '/test-app/test-operator-dashboard.html',
     'Partner': '/test-app/test-partner-dashboard.html',
     'Instructor': '/test-app/test-instructor-dashboard.html',
-    'Admin': '/test-app/test-admin-dashboard.html'
+    'Admin': '/test-app/test-admin-dashboard.html',
+    'admin': '/test-app/test-admin-dashboard.html'   // <-- added
   };
   return map[role] || '/test-app/test-operator-dashboard.html';
 }
@@ -58,7 +55,6 @@ function checkPageAccess() {
     return false;
   }
 
-  // Use window.USER if available, else fallback to a safe redirect
   let role = null;
   if (window.USER && window.USER.isLoggedIn) {
     role = window.USER.role;
@@ -70,10 +66,7 @@ function checkPageAccess() {
 
   const currentPath = window.location.pathname;
   const allowedRoles = PAGE_ACCESS[currentPath];
-  if (!allowedRoles) {
-    // Page not in the map – treat as public
-    return true;
-  }
+  if (!allowedRoles) return true;
 
   if (!allowedRoles.includes(role)) {
     const dashboardUrl = getDashboardUrl(role);
@@ -125,14 +118,15 @@ function cdToast(message, type = 'success') {
 }
 
 // ================================================================
-// REDIRECT HELPERS – with Admin support
+// REDIRECT HELPERS – with Admin support (both cases)
 // ================================================================
 function redirectToDashboard(role) {
   const map = {
     'Operator': '/test-app/test-operator-dashboard.html',
     'Partner': '/test-app/test-partner-dashboard.html',
     'Instructor': '/test-app/test-instructor-dashboard.html',
-    'Admin': '/test-app/test-admin-dashboard.html'   // <-- ADDED
+    'Admin': '/test-app/test-admin-dashboard.html',
+    'admin': '/test-app/test-admin-dashboard.html'   // <-- added
   };
   const url = map[role] || '/test-app/test-operator-dashboard.html';
   console.log('🔀 Redirecting to dashboard:', url);
@@ -144,7 +138,8 @@ function redirectToProfile(role) {
     'Operator': '/test-app/test-profile.html',
     'Partner': '/test-app/test-partner-profile.html',
     'Instructor': '/test-app/test-instructor-profile.html',
-    'Admin': '/test-app/test-admin-profile.html'   // <-- ADDED
+    'Admin': '/test-app/test-admin-profile.html',
+    'admin': '/test-app/test-admin-profile.html'   // <-- added
   };
   const url = map[role] || '/test-app/test-profile.html';
   console.log('🔀 Redirecting to profile:', url);
@@ -164,7 +159,7 @@ function handleLogout() {
 }
 
 // ================================================================
-// REFERRAL CODE GENERATION (used on signup)
+// REFERRAL CODE GENERATION
 // ================================================================
 function generateReferralCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -266,7 +261,6 @@ async function signUp() {
 
     await user.updateProfile({ displayName: name });
 
-    // Generate unique referral code
     let referralCode = await getUniqueReferralCode();
     console.log('✅ Generated referral code:', referralCode);
 
