@@ -5,11 +5,28 @@
 (function() {
   'use strict';
 
-  // ---- Role‑based dashboard mapping ----
-  const DASHBOARD_MAP = {
-    'Operator': '/test-app/test-operator-dashboard.html',
-    'Partner': '/test-app/test-partner-dashboard.html',
-    'Instructor': '/test-app/test-instructor-dashboard.html'
+  // ---- Role‑based dashboard + profile mapping ----
+  const ROLE_MAP = {
+    'Operator': {
+      dashboard: '/test-app/test-operator-dashboard.html',
+      profile: '/test-app/test-profile.html'
+    },
+    'Partner': {
+      dashboard: '/test-app/test-partner-dashboard.html',
+      profile: '/test-app/test-partner-profile.html'
+    },
+    'Instructor': {
+      dashboard: '/test-app/test-instructor-dashboard.html',
+      profile: '/test-app/test-instructor-profile.html'
+    },
+    'Admin': {
+      dashboard: '/test-app/test-admin-dashboard.html',
+      profile: '/test-app/test-admin-profile.html'
+    },
+    'admin': {
+      dashboard: '/test-app/test-admin-dashboard.html',
+      profile: '/test-app/test-admin-profile.html'
+    }
   };
 
   // ---- HTML template (with data‑role attributes for access control) ----
@@ -32,7 +49,7 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- Group 2: Mixed (visible to all, but we can hide per role if needed) -->
+        <!-- Group 2: Mixed (visible to all) -->
         <div class="nav-group">
           <a href="journey.html" class="nav-item" data-page="journey.html"><i class="fa-regular fa-route"></i> Journey</a>
           <a href="learning-journey.html" class="nav-item" data-page="learning-journey.html"><i class="fa-regular fa-graduation-cap"></i> Learning Modules</a>
@@ -55,7 +72,7 @@
         <div class="nav-group private-links" id="privateLinks" style="display:none;">
           <!-- Dashboard – href will be updated dynamically -->
           <a href="#" class="nav-item" id="dashboardLink" data-page="dashboard"><i class="fa-regular fa-chart-simple"></i> Dashboard</a>
-          <a href="profile.html" class="nav-item" data-page="profile.html"><i class="fa-regular fa-id-card"></i> Profile</a>
+          <a href="profile.html" class="nav-item" id="profileLink" data-page="profile"><i class="fa-regular fa-id-card"></i> Profile</a>
           <a href="#" class="nav-item" data-page="settings.html"><i class="fa-regular fa-gear"></i> Settings</a>
           <a href="#" class="nav-item" data-page="billing.html"><i class="fa-regular fa-credit-card"></i> Billing</a>
           <a href="#" class="nav-item" onclick="handleLogout(); return false;" style="color:#ff4a4a;"><i class="fa-regular fa-right-from-bracket"></i> Logout</a>
@@ -111,7 +128,7 @@
       }
     });
 
-    // Initial visibility (will be refined by access control)
+    // Initial visibility
     updateAuthVisibility();
     applyAccessControl();
     checkAndShowAdminLinks();
@@ -140,71 +157,64 @@
 
   // ---- Access Control: Role‑based visibility of nav items ----
   function applyAccessControl() {
-    // Get user role from window.USER (or fallback to guest)
     const role = window.USER && window.USER.isLoggedIn ? window.USER.role : null;
-
-    // Define which roles can see each nav item (by data‑role attribute)
-    // We'll add data‑role="operator,partner,instructor" to items that are role‑specific.
-    // For now, we only restrict the "Dashboard" link (dynamic href) and future items.
-    // All public items remain visible.
 
     // Update Dashboard link href based on role
     const dashboardLink = document.getElementById('dashboardLink');
+    const profileLink = document.getElementById('profileLink');
     if (dashboardLink) {
-      if (role && DASHBOARD_MAP[role]) {
-        dashboardLink.href = DASHBOARD_MAP[role];
-        dashboardLink.style.display = 'flex'; // ensure visible
+      if (role && ROLE_MAP[role]) {
+        dashboardLink.href = ROLE_MAP[role].dashboard;
+        dashboardLink.style.display = 'flex';
       } else {
-        // If no role, hide dashboard link (should be hidden by privateLinks anyway)
         dashboardLink.style.display = 'none';
       }
     }
+    if (profileLink) {
+      if (role && ROLE_MAP[role]) {
+        profileLink.href = ROLE_MAP[role].profile;
+        profileLink.style.display = 'flex';
+      } else {
+        profileLink.style.display = 'none';
+      }
+    }
 
-    // Example: hide "Cynetis-7" for Partners and Instructors (if needed)
-    // We'll target by data‑page or class.
-    // Using data‑page="cynetis-7.html"
+    // Hide/show Cynetis, Products, Protocols, Snapshot Cards for Partners/Instructors
     const cynetisLink = document.querySelector('.sidebar-nav a[data-page="cynetis-7.html"]');
     if (cynetisLink) {
-      if (role === 'Partner' || role === 'Instructor') {
+      if (role === 'Partner' || role === 'Instructor' || role === 'admin' || role === 'Admin') {
         cynetisLink.style.display = 'none';
       } else {
         cynetisLink.style.display = 'flex';
       }
     }
 
-    // Example: hide "Products" for Partners and Instructors
     const productsLink = document.querySelector('.sidebar-nav a[data-page="products.html"]');
     if (productsLink) {
-      if (role === 'Partner' || role === 'Instructor') {
+      if (role === 'Partner' || role === 'Instructor' || role === 'admin' || role === 'Admin') {
         productsLink.style.display = 'none';
       } else {
         productsLink.style.display = 'flex';
       }
     }
 
-    // Example: hide "Protocols" for Partners and Instructors
     const protocolsLink = document.querySelector('.sidebar-nav a[data-page="protocols.html"]');
     if (protocolsLink) {
-      if (role === 'Partner' || role === 'Instructor') {
+      if (role === 'Partner' || role === 'Instructor' || role === 'admin' || role === 'Admin') {
         protocolsLink.style.display = 'none';
       } else {
         protocolsLink.style.display = 'flex';
       }
     }
 
-    // Example: hide "Snapshot Cards" for Partners and Instructors
     const snapshotLink = document.querySelector('.sidebar-nav a[data-page="snapshot-library.html"]');
     if (snapshotLink) {
-      if (role === 'Partner' || role === 'Instructor') {
+      if (role === 'Partner' || role === 'Instructor' || role === 'admin' || role === 'Admin') {
         snapshotLink.style.display = 'none';
       } else {
         snapshotLink.style.display = 'flex';
       }
     }
-
-    // Keep "Learning Modules" visible for all? We'll leave as is.
-
-    // You can add more as needed.
   }
 
   // ---- Admin links ----
@@ -213,9 +223,14 @@
       const user = firebase.auth().currentUser;
       if (!user) return;
       const doc = await firebase.firestore().collection('users').doc(user.uid).get();
-      if (doc.exists && doc.data().role === 'admin') {
+      if (doc.exists && (doc.data().role === 'admin' || doc.data().role === 'Admin')) {
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
         document.querySelectorAll('.admin-only .nav-item').forEach(el => el.style.display = 'flex');
+        // Also update the admin-only links to point to test-app versions if needed
+        const adminDash = document.querySelector('.admin-only a[data-page="admin-dashboard.html"]');
+        const adminProf = document.querySelector('.admin-only a[data-page="admin-profile.html"]');
+        if (adminDash) adminDash.href = '/test-app/test-admin-dashboard.html';
+        if (adminProf) adminProf.href = '/test-app/test-admin-profile.html';
       }
     } catch (e) {
       console.warn('Admin check error:', e);
@@ -233,13 +248,12 @@
       const doc = await firebase.firestore().collection('users').doc(user.uid).get();
       if (doc.exists) {
         const data = doc.data();
-        document.getElementById('sidebarUsername').textContent = data.username || 'Operator';
+        document.getElementById('sidebarUsername').textContent = data.username || data.name || 'Operator';
         document.getElementById('sidebarEmail').textContent = data.email || '';
         const avatar = document.querySelector('.profile-avatar');
         if (data.photoURL) avatar.style.backgroundImage = `url(${data.photoURL})`;
       }
       updateAuthVisibility();
-      // Re‑apply access control after profile loads (role may be updated)
       applyAccessControl();
     } catch (e) {
       console.warn('Could not load profile:', e);
@@ -291,7 +305,7 @@
     });
   };
 
-  // ---- Mobile bottom sheet (unchanged) ----
+  // ---- Mobile bottom sheet ----
   function buildMobileSheet() {
     let overlay = document.getElementById('mobileOverlay');
     if (!overlay) {
@@ -391,8 +405,6 @@
           loadSidebarProfile();
           loadAndListenToAnnouncement();
           checkAndShowAdminLinks();
-          // After profile loads, apply access control
-          // loadSidebarProfile calls applyAccessControl internally
         } else {
           updateAuthVisibility();
           applyAccessControl();
@@ -401,9 +413,9 @@
       });
     }
 
-    // Also listen to userStateReady to re‑apply when window.USER updates
     window.addEventListener('userStateReady', (e) => {
       applyAccessControl();
+      checkAndShowAdminLinks();
     });
   });
 
