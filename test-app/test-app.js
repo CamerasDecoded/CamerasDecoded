@@ -33,8 +33,8 @@ const PAGE_ACCESS = {
   '/test-app/test-profile.html': ['Operator'],
   '/test-app/test-partner-profile.html': ['Partner'],
   '/test-app/test-instructor-profile.html': ['Instructor'],
-  '/test-app/test-admin-dashboard.html': ['Admin', 'admin'],   // <-- added
-  '/test-app/test-admin-profile.html': ['Admin', 'admin']      // <-- added
+  '/test-app/test-admin-dashboard.html': ['Admin', 'admin'],
+  '/test-app/test-admin-profile.html': ['Admin', 'admin']
 };
 
 function getDashboardUrl(role) {
@@ -43,7 +43,7 @@ function getDashboardUrl(role) {
     'Partner': '/test-app/test-partner-dashboard.html',
     'Instructor': '/test-app/test-instructor-dashboard.html',
     'Admin': '/test-app/test-admin-dashboard.html',
-    'admin': '/test-app/test-admin-dashboard.html'   // <-- added
+    'admin': '/test-app/test-admin-dashboard.html'
   };
   return map[role] || '/test-app/test-operator-dashboard.html';
 }
@@ -118,7 +118,7 @@ function cdToast(message, type = 'success') {
 }
 
 // ================================================================
-// REDIRECT HELPERS – with Admin support (both cases)
+// REDIRECT HELPERS
 // ================================================================
 function redirectToDashboard(role) {
   const map = {
@@ -126,7 +126,7 @@ function redirectToDashboard(role) {
     'Partner': '/test-app/test-partner-dashboard.html',
     'Instructor': '/test-app/test-instructor-dashboard.html',
     'Admin': '/test-app/test-admin-dashboard.html',
-    'admin': '/test-app/test-admin-dashboard.html'   // <-- added
+    'admin': '/test-app/test-admin-dashboard.html'
   };
   const url = map[role] || '/test-app/test-operator-dashboard.html';
   console.log('🔀 Redirecting to dashboard:', url);
@@ -139,7 +139,7 @@ function redirectToProfile(role) {
     'Partner': '/test-app/test-partner-profile.html',
     'Instructor': '/test-app/test-instructor-profile.html',
     'Admin': '/test-app/test-admin-profile.html',
-    'admin': '/test-app/test-admin-profile.html'   // <-- added
+    'admin': '/test-app/test-admin-profile.html'
   };
   const url = map[role] || '/test-app/test-profile.html';
   console.log('🔀 Redirecting to profile:', url);
@@ -149,14 +149,14 @@ function redirectToProfile(role) {
 // ================================================================
 // LOGOUT
 // ================================================================
-function handleLogout() {
+window.handleLogout = function() {
   window.auth.signOut().then(() => {
     window.location.href = '/test-app/test-index.html';
   }).catch(err => {
     console.error('Logout error:', err);
     cdToast('Logout failed', 'error');
   });
-}
+};
 
 // ================================================================
 // REFERRAL CODE GENERATION
@@ -197,7 +197,8 @@ async function getUniqueReferralCode(attempts = 0) {
 let selectedRole = 'Operator';
 let selectedTier = 'free';
 
-function selectRole(role) {
+// MUST have window. prefix for onclick handlers to work
+window.selectRole = function(role) {
   console.log('📝 Selected role:', role);
   selectedRole = role;
   const buttons = document.querySelectorAll('#roleOperator, #rolePartner, #roleInstructor');
@@ -211,9 +212,10 @@ function selectRole(role) {
     selectedBtn.style.color = '#000';
   }
   cdToast(`Selected ${role}`, 'success');
-}
+};
 
-function selectTier(tier) {
+// MUST have window. prefix for onclick handlers to work
+window.selectTier = function(tier) {
   console.log('💳 Selected tier:', tier);
   selectedTier = tier;
   const buttons = document.querySelectorAll('#tierFree, #tierPro');
@@ -227,12 +229,13 @@ function selectTier(tier) {
     selectedBtn.style.color = '#000';
   }
   cdToast(`Selected ${tier.toUpperCase()} plan`, 'success');
-}
+};
 
 // ================================================================
 // SIGNUP FUNCTION
 // ================================================================
-async function signUp() {
+// MUST have window. prefix for onclick handlers to work
+window.signUp = async function() {
   try {
     const name = document.getElementById('name')?.value?.trim();
     const email = document.getElementById('email')?.value?.trim();
@@ -297,12 +300,13 @@ async function signUp() {
     }
     cdToast(message, 'error');
   }
-}
+};
 
 // ================================================================
 // LOGIN FUNCTION
 // ================================================================
-async function login() {
+// MUST have window. prefix for onclick handlers to work
+window.login = async function() {
   try {
     const email = document.getElementById('email')?.value?.trim();
     const password = document.getElementById('password')?.value?.trim();
@@ -346,7 +350,7 @@ async function login() {
     }
     cdToast(message, 'error');
   }
-}
+};
 
 // ================================================================
 // AUTH STATE OBSERVER
