@@ -14,7 +14,7 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 
-// ✅ FIX: Use ONLY experimentalForceLongPolling – remove the conflicting setting
+// ✅ FIX: Use only experimentalForceLongPolling – remove the conflicting setting
 firebase.firestore().settings({
   experimentalForceLongPolling: true
 });
@@ -36,14 +36,17 @@ const PAGE_ACCESS = {
   '/test-app/test-instructor-dashboard.html': ['Instructor'],
   '/test-app/test-profile.html': ['Operator'],
   '/test-app/test-partner-profile.html': ['Partner'],
-  '/test-app/test-instructor-profile.html': ['Instructor']
+  '/test-app/test-instructor-profile.html': ['Instructor'],
+  '/test-app/test-admin-dashboard.html': ['Admin'],
+  '/test-app/test-admin-profile.html': ['Admin']
 };
 
 function getDashboardUrl(role) {
   const map = {
     'Operator': '/test-app/test-operator-dashboard.html',
     'Partner': '/test-app/test-partner-dashboard.html',
-    'Instructor': '/test-app/test-instructor-dashboard.html'
+    'Instructor': '/test-app/test-instructor-dashboard.html',
+    'Admin': '/test-app/test-admin-dashboard.html'
   };
   return map[role] || '/test-app/test-operator-dashboard.html';
 }
@@ -122,13 +125,14 @@ function cdToast(message, type = 'success') {
 }
 
 // ================================================================
-// REDIRECT HELPERS
+// REDIRECT HELPERS – with Admin support
 // ================================================================
 function redirectToDashboard(role) {
   const map = {
     'Operator': '/test-app/test-operator-dashboard.html',
     'Partner': '/test-app/test-partner-dashboard.html',
-    'Instructor': '/test-app/test-instructor-dashboard.html'
+    'Instructor': '/test-app/test-instructor-dashboard.html',
+    'Admin': '/test-app/test-admin-dashboard.html'   // <-- ADDED
   };
   const url = map[role] || '/test-app/test-operator-dashboard.html';
   console.log('🔀 Redirecting to dashboard:', url);
@@ -139,7 +143,8 @@ function redirectToProfile(role) {
   const map = {
     'Operator': '/test-app/test-profile.html',
     'Partner': '/test-app/test-partner-profile.html',
-    'Instructor': '/test-app/test-instructor-profile.html'
+    'Instructor': '/test-app/test-instructor-profile.html',
+    'Admin': '/test-app/test-admin-profile.html'   // <-- ADDED
   };
   const url = map[role] || '/test-app/test-profile.html';
   console.log('🔀 Redirecting to profile:', url);
