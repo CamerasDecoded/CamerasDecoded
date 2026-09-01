@@ -8,12 +8,16 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="test-app.js"></script>
+  <script src="/test-app/test-app.js"></script>
   <script src="/test-app/user-state.js"></script>
   <script src="/test-app/nav-header.js"></script>
   <link rel="stylesheet" href="/test-app/sidebar.css">
   <script src="/test-app/sidebar.js"></script>
+  <!-- Bottom Nav CSS -->
+  <link rel="stylesheet" href="/test-app/test-bottom-nav.css">
   <style>
+    .chip { display:inline-block; padding:6px 14px; background:#f0f0f0; border:1px solid #ddd; border-radius:20px; font-size:13px; cursor:pointer; user-select:none; }
+    .chip.selected { background:#8deb00; border-color:#8deb00; color:#000; font-weight:600; }
     .main-content { margin-left:260px; padding:20px; max-width:600px; }
     @media (max-width:768px) { .main-content { margin-left:0; padding:16px; } }
     .referral-section { margin:20px 0; padding:16px; background:#f5f5f5; border-radius:8px; border-left:4px solid #8deb00; }
@@ -32,7 +36,7 @@
   <div id="sidebarContainer"></div>
 
   <div class="main-content">
-    <h1>📡 Partner Profile (TEST)</h1>
+    <h1>📡 Complete Your Partner Profile (TEST)</h1>
     <div id="loading">
       Loading...
       <button class="btn-reload" onclick="forceLoadProfile()">↻ Load Now</button>
@@ -41,6 +45,28 @@
       <div style="padding:16px;background:#f5f5f5;border-radius:8px;margin-bottom:20px;">
         <p><strong>Name:</strong> <span id="displayName">—</span></p>
         <p><strong>Email:</strong> <span id="displayEmail">—</span></p>
+        <p><strong>Role:</strong> Partner</p>
+      </div>
+
+      <!-- Partner-specific fields -->
+      <div style="margin:12px 0;">
+        <label>Company Name</label>
+        <input type="text" id="companyName" placeholder="Your company name" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+      </div>
+      <div style="margin:12px 0;">
+        <label>Partner Tier</label>
+        <select id="partnerTier" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="signal">Signal</option>
+          <option value="operator">Operator</option>
+          <option value="enterprise">Enterprise</option>
+        </select>
+      </div>
+      <div style="margin:12px 0;">
+        <label>Billing Interval</label>
+        <select id="billingInterval" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+          <option value="monthly">Monthly</option>
+          <option value="annual">Annual</option>
+        </select>
       </div>
 
       <!-- Referral Code Section -->
@@ -59,30 +85,14 @@
         </div>
       </div>
 
-      <!-- Partner fields -->
-      <div style="margin:12px 0;">
-        <label>Company Name</label>
-        <input type="text" id="companyName" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Your Camera Store" />
-      </div>
-      <div style="margin:12px 0;">
-        <label>License Tier</label>
-        <select id="partnerTier" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
-          <option value="signal">Signal – $175/mo</option>
-          <option value="operator">Operator – $350/mo</option>
-          <option value="enterprise">Enterprise – $725/mo</option>
-        </select>
-      </div>
-      <div style="margin:12px 0;">
-        <label>Billing</label>
-        <select id="billingInterval" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
-          <option value="monthly">Monthly</option>
-          <option value="annual">Annual (save 20-30%)</option>
-        </select>
-      </div>
       <button onclick="saveProfile()" style="width:100%;padding:14px;background:#8deb00;border:none;border-radius:8px;font-weight:700;font-size:16px;cursor:pointer;">Save Profile →</button>
       <div id="saveError" style="color:red;margin-top:12px;display:none;"></div>
     </div>
   </div>
+
+  <!-- Bottom Nav -->
+  <div id="bottomNavContainer"></div>
+  <script src="/test-app/test-bottom-nav.js"></script>
 
   <script>
     console.log('🔍 Partner profile script loaded');
@@ -115,6 +125,11 @@
           document.getElementById('displayName').textContent = userData.name || '—';
           document.getElementById('displayEmail').textContent = userData.email || '—';
 
+          // Partner fields
+          document.getElementById('companyName').value = userData.companyName || '';
+          document.getElementById('partnerTier').value = userData.partnerTier || 'signal';
+          document.getElementById('billingInterval').value = userData.billingInterval || 'monthly';
+
           const existingCode = userData.referralCode || null;
           if (existingCode) {
             document.getElementById('existingCodeDisplay').style.display = 'block';
@@ -126,10 +141,6 @@
             document.getElementById('referralSetup').style.display = 'flex';
             document.getElementById('referralStatus').textContent = '';
           }
-
-          document.getElementById('companyName').value = userData.companyName || '';
-          document.getElementById('partnerTier').value = userData.partnerTier || 'signal';
-          document.getElementById('billingInterval').value = userData.billingInterval || 'monthly';
 
           document.getElementById('loading').style.display = 'none';
           document.getElementById('content').style.display = 'block';
@@ -179,7 +190,6 @@
       const code = input.value.trim().toUpperCase();
       const status = document.getElementById('referralStatus');
       const btn = document.getElementById('setReferralBtn');
-
       if (!code || !/^[A-Z0-9]{3,20}$/.test(code)) {
         status.textContent = '⚠️ Use 3-20 letters/numbers.';
         status.className = 'referral-status error';
@@ -192,7 +202,6 @@
         return;
       }
       const uid = window.USER.uid;
-
       try {
         const unique = await isReferralCodeUnique(code);
         if (!unique) {
@@ -205,7 +214,6 @@
         status.className = 'referral-status error';
         return;
       }
-
       btn.disabled = true;
       status.textContent = 'Saving...';
       try {
@@ -251,18 +259,14 @@
         cdToast('Not logged in.', 'error');
         return;
       }
-
       const companyName = document.getElementById('companyName').value.trim();
-      if (!companyName) {
-        document.getElementById('saveError').textContent = 'Please enter a company name.';
-        document.getElementById('saveError').style.display = 'block';
-        return;
-      }
       const partnerTier = document.getElementById('partnerTier').value;
       const billingInterval = document.getElementById('billingInterval').value;
 
       window.db.collection('users').doc(uid).update({
-        companyName, partnerTier, billingInterval,
+        companyName,
+        partnerTier,
+        billingInterval,
         tourCompleted: true,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       })
