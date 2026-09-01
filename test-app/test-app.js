@@ -177,12 +177,16 @@ async function getUniqueReferralCode(attempts = 0) {
   }
   const code = generateReferralCode();
   try {
-    const snapshot = await window.db.collection('users')
-      .where('referralCode', '==', code)
-      .get();
-    if (snapshot.empty) {
+    const doc = await window.db.collection('referralCodesUsed').doc(code).get();
+    if (!doc.exists) {
+      // Code is available, reserve it
+      await window.db.collection('referralCodesUsed').doc(code).set({
+        uid: window.auth.currentUser.uid,
+        createdAt: new Date().toISOString()
+      });
       return code;
     } else {
+      // Code taken, try again
       return getUniqueReferralCode(attempts + 1);
     }
   } catch (err) {
