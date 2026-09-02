@@ -289,7 +289,7 @@ window.signUp = async function() {
     cdToast(`Account created! Welcome, ${name}!`, 'success');
 
     setTimeout(() => {
-      redirectToDashboard(selectedRole);
+      redirectToProfile(selectedRole);
     }, 1500);
 
   } catch (err) {
@@ -339,7 +339,7 @@ window.login = async function() {
     cdToast(`Welcome back, ${userData.name}!`, 'success');
 
     setTimeout(() => {
-      redirectToDashboard(role);
+      redirectToProfile(role);
     }, 1500);
 
   } catch (err) {
