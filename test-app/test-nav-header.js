@@ -1,9 +1,9 @@
-// nav-header.js – Global navigation header
+// test-nav-header.js – Global navigation header
 // Injects on every page, shows user info, logout button, and role-aware links
 
-console.log('✅ nav-header.js loading...');
+console.log('✅ test-nav-header.js loading...');
 
-// Role to dashboard/profile mapping
+// Role to dashboard/profile mapping – includes Admin
 const ROLE_MAP = {
   'Operator': {
     dashboard: '/test-app/test-operator-dashboard.html',
@@ -16,13 +16,21 @@ const ROLE_MAP = {
   'Instructor': {
     dashboard: '/test-app/test-instructor-dashboard.html',
     profile: '/test-app/test-instructor-profile.html'
+  },
+  'Admin': {
+    dashboard: '/test-app/test-admin-dashboard.html',
+    profile: '/test-app/test-admin-profile.html'
+  },
+  'admin': {
+    dashboard: '/test-app/test-admin-dashboard.html',
+    profile: '/test-app/test-admin-profile.html'
   }
 };
 
 // Build nav HTML based on user state
 function buildNavHTML(user) {
   if (!user.isLoggedIn) {
-    // Not logged in - minimal nav
+    // Not logged in – minimal nav with login/signup links
     return `
       <header id="app-nav-header" style="background:#0A0A0A;border-bottom:1px solid #1A1A1A;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;">
         <a href="/test-app/test-index.html" title="Home" style="font-size:24px;color:#8deb00;text-decoration:none;">🏠</a>
@@ -35,7 +43,7 @@ function buildNavHTML(user) {
     `;
   }
 
-  // Logged in - full nav
+  // Logged in – full nav with role-aware dashboard/profile links
   const roleConfig = ROLE_MAP[user.role] || ROLE_MAP['Operator'];
   const dashboardLink = roleConfig.dashboard;
   const profileLink = roleConfig.profile;
@@ -46,9 +54,9 @@ function buildNavHTML(user) {
       
       <div style="flex:1;margin-left:20px;display:flex;gap:16px;align-items:center;">
         <span style="color:#999;font-size:13px;">
-          👤 <strong style="color:#fff;">${user.name}</strong> 
+          👤 <strong style="color:#fff;">${user.name || 'User'}</strong> 
           <span style="color:#666;margin-left:8px;">${user.role}</span>
-          <span style="color:#666;margin-left:4px;">• ${user.tier}</span>
+          <span style="color:#666;margin-left:4px;">• ${user.tier || 'free'}</span>
         </span>
       </div>
       
@@ -73,7 +81,7 @@ window.appLogout = function() {
   }
 };
 
-// Inject nav into page
+// Inject nav into page (idempotent – replaces existing header)
 function injectNav(user) {
   let container = document.getElementById('app-nav-container');
   
@@ -84,7 +92,7 @@ function injectNav(user) {
     document.body.insertBefore(container, document.body.firstChild);
   }
 
-  // Inject nav HTML
+  // Always replace innerHTML to reflect latest user state
   container.innerHTML = buildNavHTML(user);
   console.log('✅ Nav injected for user:', user.isLoggedIn ? user.name : 'guest');
 }
@@ -99,7 +107,7 @@ window.addEventListener('userStateReady', (e) => {
 if (window.USER && window.USER.uid) {
   injectNav(window.USER);
 } else if (!window.USER) {
-  // Fallback: inject with empty user state
+  // Fallback: initialize empty user state
   window.USER = {
     isLoggedIn: false,
     uid: null,
@@ -113,4 +121,4 @@ if (window.USER && window.USER.uid) {
   injectNav(window.USER);
 }
 
-console.log('✅ nav-header.js loaded');
+console.log('✅ test-nav-header.js loaded');
