@@ -16,6 +16,14 @@
     Instructor: {
       dashboard: '/test-app/test-instructor-dashboard.html',
       profile: '/test-app/test-instructor-profile.html'
+    },
+    Admin: {
+      dashboard: '/test-app/test-admin-dashboard.html',
+      profile: '/test-app/test-admin-profile.html'
+    },
+    admin: {
+      dashboard: '/test-app/test-admin-dashboard.html',
+      profile: '/test-app/test-admin-profile.html'
     }
   };
 
@@ -131,12 +139,12 @@
           <span>Dashboard</span>
           <span class="badge-dot" id="badgeDashboard"></span>
         </a>
-        <a href="/test-app/journey.html" data-page="journey.html" class="nav-link">
+        <a href="/test-app/test-journey.html" data-page="test-journey.html" class="nav-link">
           <i class="fas fa-compass"></i>
           <span>Journey</span>
           <span class="badge-dot" id="badgeJourney"></span>
         </a>
-        <a href="/test-app/cynetis-7.html" data-page="cynetis-7.html" class="nav-link">
+        <a href="/test-app/test-cynetis-7.html" data-page="test-cynetis-7.html" class="nav-link">
           <i class="fas fa-camera"></i>
           <span>Cynetis-7</span>
           <span class="badge-dot" id="badgeCynetis"></span>
@@ -184,7 +192,7 @@
       if (homeLink) homeLink.classList.toggle('show-badge', hasAnnouncement);
 
       const hasNewFeatures = !localStorage.getItem('cynetis_visited');
-      const cynetisLink = document.querySelector('.bottom-nav a[href="/test-app/cynetis-7.html"]');
+      const cynetisLink = document.querySelector('.bottom-nav a[href="/test-app/test-cynetis-7.html"]');
       if (cynetisLink) cynetisLink.classList.toggle('show-badge', hasNewFeatures);
 
       if (currentUser) {
@@ -196,7 +204,7 @@
             const el = document.getElementById(id);
             if (el) el.classList.toggle('show-badge', hasAlerts);
           });
-          const journeyLink = document.querySelector('.bottom-nav a[href="/test-app/journey.html"]');
+          const journeyLink = document.querySelector('.bottom-nav a[href="/test-app/test-journey.html"]');
           if (journeyLink) journeyLink.classList.toggle('show-badge', hasAlerts);
         }
       }
@@ -233,7 +241,7 @@
   // ---- Mark Cynetis visited ----
   function setupCynetisVisited() {
     document.addEventListener('click', (e) => {
-      const link = e.target.closest('.bottom-nav a[href="/test-app/cynetis-7.html"]');
+      const link = e.target.closest('.bottom-nav a[href="/test-app/test-cynetis-7.html"]');
       if (link) {
         localStorage.setItem('cynetis_visited', 'true');
         link.classList.remove('show-badge');
