@@ -19,10 +19,8 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Stripe placeholder URL (replace with real Checkout Session URL later)
 const STRIPE_CHECKOUT_URL = 'https://checkout.stripe.com/pay/placeholder';
 
-// Toast
 function cdToast(message, type = 'success') {
   const container = document.getElementById('toast-container');
   if (!container) return;
@@ -142,7 +140,6 @@ function handleSocialUser(user) {
             return Promise.resolve();
           })
           .then(() => {
-            // If Pro plan, redirect to Stripe placeholder
             if (selectedTier === 'pro') {
               handleProPlanRedirect(uid);
               return;
@@ -157,7 +154,6 @@ function handleSocialUser(user) {
         const data = doc.data();
         const userData = { uid, ...data };
         storeUserData(userData);
-        // If user already exists, just redirect
         if (selectedTier === 'pro') {
           handleProPlanRedirect(uid);
         } else {
@@ -171,21 +167,15 @@ function handleSocialUser(user) {
     });
 }
 
-// Redirect to Stripe placeholder for Pro plans
 function handleProPlanRedirect(uid) {
-  // Store pending upgrade info
   const pending = {
     uid,
     tier: 'pro',
     billingInterval: isWeekly ? 'weekly' : isAnnual ? 'annual' : 'monthly'
   };
   localStorage.setItem('pending_pro_upgrade', JSON.stringify(pending));
-
-  // Build return URL (where Stripe will redirect after payment)
   const returnUrl = window.location.origin + '/profile.html?payment=success';
   const stripeUrl = `${STRIPE_CHECKOUT_URL}?client_reference_id=${uid}&return_url=${encodeURIComponent(returnUrl)}`;
-
-  // Redirect to Stripe
   window.location.href = stripeUrl;
 }
 
@@ -444,11 +434,10 @@ window.createAccount = function() {
       spinner.style.display = 'none';
       localStorage.removeItem('signup_referral');
 
-      // If Pro plan, redirect to Stripe placeholder
       if (selectedTier === 'pro') {
         handleProPlanRedirect(auth.currentUser.uid);
       } else {
-        cdToast('✅ Account created! Redirecting...');
+        cdToast('Account created! Redirecting...');
         window.location.href = 'profile.html?welcome=onboarding';
       }
     })
@@ -464,16 +453,16 @@ window.createAccount = function() {
       } else if (err.code === 'auth/invalid-email') {
         msg = 'Invalid email address.';
       }
-      errorEl.innerHTML = '❌ ' + msg;
+      errorEl.innerHTML = msg;
       errorEl.style.display = 'block';
     });
 };
 
 // ================================================================
-// AUTH STATE OBSERVER
+// AUTH STATE OBSERVER – only auto-redirect on login page
 // ================================================================
 auth.onAuthStateChanged(user => {
-  if (user && window.location.pathname.includes('login.html')) {
+  if (user && window.location.pathname.endsWith('/login.html')) {
     updateLastActive(user.uid);
     db.collection('users').doc(user.uid).get().then(doc => {
       if (doc.exists) {
