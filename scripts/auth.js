@@ -18,9 +18,9 @@ if (!firebase.apps.length) {
 
 const auth = firebase.auth();
 const db = firebase.firestore();
-
 const STRIPE_CHECKOUT_URL = 'https://checkout.stripe.com/pay/placeholder';
 
+// ---------- Toast ----------
 function cdToast(message, type = 'success') {
   const container = document.getElementById('toast-container');
   if (!container) return;
@@ -35,6 +35,7 @@ function cdToast(message, type = 'success') {
   }, 4000);
 }
 
+// ---------- Helpers ----------
 function updateLastActive(uid) {
   db.collection('users').doc(uid).set({
     lastActive: firebase.firestore.FieldValue.serverTimestamp()
@@ -50,19 +51,6 @@ function redirectToDashboard(role, uid) {
     'admin': 'admin-dashboard.html'
   };
   const url = map[role] || 'operator-dashboard.html';
-  const params = new URLSearchParams(window.location.search);
-  const redirect = params.get('redirect');
-  if (redirect) {
-    try {
-      const dest = new URL(decodeURIComponent(redirect));
-      dest.searchParams.set('opToken', uid);
-      window.location.href = dest.toString();
-      return;
-    } catch (_) {
-      window.location.href = decodeURIComponent(redirect);
-      return;
-    }
-  }
   window.location.href = url;
 }
 
@@ -80,9 +68,7 @@ function setReferralFromURL() {
   if (ref) localStorage.setItem('signup_referral', ref);
 }
 
-// ================================================================
-// SOCIAL LOGIN HELPERS
-// ================================================================
+// ---------- Social Helpers ----------
 function handleSocialUser(user) {
   const uid = user.uid;
   const email = user.email || '';
@@ -142,9 +128,9 @@ function handleSocialUser(user) {
           .then(() => {
             if (selectedTier === 'pro') {
               handleProPlanRedirect(uid);
-              return;
+            } else {
+              redirectToDashboard('Operator', uid);
             }
-            redirectToDashboard('Operator', uid);
           });
       }
       return doc;
@@ -179,9 +165,7 @@ function handleProPlanRedirect(uid) {
   window.location.href = stripeUrl;
 }
 
-// ================================================================
-// SOCIAL SIGN-IN/UP BUTTONS
-// ================================================================
+// ---------- Social Buttons ----------
 window.signInWithGoogle = function() {
   const provider = new firebase.auth.GoogleAuthProvider();
   auth.signInWithPopup(provider)
@@ -204,9 +188,7 @@ window.signInWithFacebook = function() {
     .catch(err => cdToast(err.message, 'error'));
 };
 
-// ================================================================
-// EMAIL/PASSWORD LOGIN
-// ================================================================
+// ---------- Email/Password Login ----------
 window.login = function(email, password) {
   if (!email || !password) {
     cdToast('Please fill in all fields.', 'error');
@@ -266,9 +248,7 @@ window.login = function(email, password) {
     .catch(err => cdToast(err.message, 'error'));
 };
 
-// ================================================================
-// FORGOT PASSWORD
-// ================================================================
+// ---------- Forgot Password ----------
 window.forgotPassword = function(email) {
   if (!email) {
     cdToast('Please enter your email address.', 'error');
@@ -279,9 +259,7 @@ window.forgotPassword = function(email) {
     .catch(err => cdToast(err.message, 'error'));
 };
 
-// ================================================================
-// SIGNUP (Operator)
-// ================================================================
+// ---------- Signup State ----------
 let selectedTier = 'free';
 let isAnnual = false;
 let isWeekly = false;
@@ -353,6 +331,7 @@ function updatePricingDisplay() {
   }
 }
 
+// ---------- Create Account (Email) ----------
 window.createAccount = function() {
   const btn = document.getElementById('createBtn');
   const spinner = document.getElementById('signupSpinner');
@@ -458,9 +437,7 @@ window.createAccount = function() {
     });
 };
 
-// ================================================================
-// AUTH STATE OBSERVER – only auto-redirect on login page
-// ================================================================
+// ---------- Auth State ----------
 auth.onAuthStateChanged(user => {
   if (user && window.location.pathname.endsWith('/login.html')) {
     updateLastActive(user.uid);
