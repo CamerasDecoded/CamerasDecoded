@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/css/shepherd.css"/>
   <script src="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/js/shepherd.min.js"></script>
 
-  <!-- ===== YOUR TOAST SYSTEM ===== -->
+  <!-- ===== TOAST SYSTEM (fallback included) ===== -->
   <script src="toast-system.js"></script>
 
   <!-- ===== SHARED BOTTOM NAV CSS ===== -->
@@ -1153,19 +1153,20 @@
   <!-- ===== BOTTOM NAV CONTAINER ===== -->
   <div id="bottomNavContainer"></div>
 
-  <!-- FIREBASE SDKs -->
+  <!-- ===== FIREBASE SDKs ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
+  <!-- ===== BOTTOM NAV ===== -->
   <script src="bottom-nav.js"></script>
 
   <script>
     // ================================================================
-    // DASHBOARD JAVASCRIPT – WITH REAL JOURNEY PROGRESS
+    // COMBINED DASHBOARD LOGIC – PRODUCTION UI + TEST FUNCTIONALITY
     // ================================================================
 
-    // ---- Wrap your toast/confirm system with our existing API ----
+    // ---- Toast / Confirm (fallback) ----
     const cdToast = window.showToast || function(msg) { alert(msg); };
     function cdConfirm(message) {
       return new Promise((resolve) => {
@@ -1177,20 +1178,7 @@
       });
     }
 
-    function copyReferralLink() {
-      const link = document.getElementById('referralLink')?.textContent || '';
-      navigator.clipboard.writeText('https://' + link).then(() => cdToast('Referral link copied!'))
-        .catch(() => {
-          const input = document.createElement('input');
-          input.value = 'https://' + link;
-          document.body.appendChild(input);
-          input.select();
-          document.execCommand('copy');
-          document.body.removeChild(input);
-          cdToast('Copied!');
-        });
-    }
-
+    // ---- Firebase Config ----
     const firebaseConfig = {
       apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
       authDomain: "cameras-decoded.firebaseapp.com",
@@ -1204,10 +1192,7 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    window.addEventListener('unhandledrejection', event => {
-      console.error('Unhandled rejection:', event.reason);
-    });
-
+    // ---- Protocol Library (for rendering saved protocols) ----
     const PROTOCOL_LIBRARY = [
       { id:'proto_001', title:'Mastering Real Estate HDR', genre:'real-estate', description:'Learn to shoot interior HDR with confidence.', brand:'Sony' },
       { id:'proto_002', title:'Street Photography: Zone Focus', genre:'street', description:'Pre‑focus and capture decisive moments.', brand:'Canon' },
@@ -1215,6 +1200,8 @@
       { id:'proto_004', title:'Sports: Tracking AF Techniques', genre:'sports', description:'Keep fast‑moving subjects sharp.', brand:'Sony' },
       { id:'proto_005', title:'Influencer Flat Lay Photography', genre:'influencer', description:'Master styled flat lays for social media.', brand:'All' }
     ];
+
+    // ---- Challenge list ----
     const CHALLENGES = [
       { title:'Golden Hour Portrait', description:'Go out and capture a portrait during golden hour. Focus on warm tones and backlighting.' },
       { title:'Street Scene', description:'Capture a candid street moment with strong composition.' },
@@ -1224,8 +1211,118 @@
     ];
 
     // ================================================================
-    // FETCH REAL JOURNEY DATA
+    // HELPER FUNCTIONS
     // ================================================================
+
+    // Ensure user document exists and has default fields
+    async function ensureUserDoc(user) {
+      const uid = user.uid;
+      const docRef = db.collection('users').doc(uid);
+      const doc = await docRef.get();
+      if (doc.exists) return doc.data();
+      // Create default doc
+      const email = user.email || '';
+      const username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
+      const data = {
+        uid, email, displayName: user.displayName || '', username,
+        role:'Operator', tier:'free', billingInterval:'monthly',
+        preferences:{ brands:[], lenses:[], interests:[] },
+        learningJourney:{},
+        totalPoints:0, level:1, badgesEarned:[],
+        dailyChallengeStreak:0, lastChallengeDate:null, dailyChallengesCompleted:[],
+        savedProtocols:[], savedCards:[], savedBlogs:[], savedPodcasts:[], savedCommunityPosts:[],
+        referralCode:username, totalReferrals:0, totalCommissionEarned:0, ambassadorTier:'signal',
+        aiUsage:{ total:0, prompt:0, snapshot:0, ideas:0, critique:0 },
+        quizStreak:0, quizLastScore:null,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+        tourCompleted:false,
+        bonusPoints:0
+      };
+      await docRef.set(data);
+      return data;
+    }
+
+    // Animate number counting up
+    function animateNumber(el, newValue, prefix = '', suffix = '') {
+      if (!el) return;
+      const current = parseInt(el.textContent) || 0;
+      if (current === newValue) {
+        el.classList.remove('animate');
+        void el.offsetWidth;
+        el.classList.add('animate');
+        setTimeout(() => el.classList.remove('animate'), 1200);
+        return;
+      }
+      const duration = 400;
+      const startTime = performance.now();
+      const startVal = current;
+      const endVal = newValue;
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const currentVal = Math.round(startVal + (endVal - startVal) * eased);
+        el.textContent = prefix + currentVal + suffix;
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        } else {
+          el.textContent = prefix + endVal + suffix;
+          el.classList.remove('animate');
+          void el.offsetWidth;
+          el.classList.add('animate');
+          setTimeout(() => el.classList.remove('animate'), 1200);
+        }
+      }
+      requestAnimationFrame(update);
+    }
+
+    // ---- Multiplier logic ----
+    function getMultiplier(streak) {
+      if (streak >= 7) return 3.0;
+      if (streak >= 3) return 2.0;
+      if (streak >= 1) return 1.5;
+      return 1.0;
+    }
+    function getNextTierLabel(multiplier) {
+      if (multiplier < 1.5) return '×1.5';
+      if (multiplier < 2.0) return '×2.0';
+      if (multiplier < 3.0) return '×3.0';
+      return '×3.0 (max)';
+    }
+    function getDaysToNextTier(streak, multiplier) {
+      if (multiplier >= 3.0) return 0;
+      if (multiplier < 1.5) return 1 - streak;
+      if (multiplier < 2.0) return 3 - streak;
+      if (multiplier < 3.0) return 7 - streak;
+      return 0;
+    }
+    function getTierProgress(streak, multiplier) {
+      if (multiplier >= 3.0) return 1;
+      if (multiplier < 1.5) return streak / 1;
+      if (multiplier < 2.0) return (streak - 1) / (3 - 1);
+      if (multiplier < 3.0) return (streak - 3) / (7 - 3);
+      return 0;
+    }
+
+    // ---- Ring helpers ----
+    function setRingTransition(ringId, enabled) {
+      const ring = document.getElementById(ringId);
+      if (ring) {
+        ring.style.transition = enabled
+          ? 'stroke-dashoffset 1s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          : 'none';
+      }
+    }
+    function setRingValue(ringId, progress) {
+      const ring = document.getElementById(ringId);
+      if (!ring) return;
+      const circumference = 326.7;
+      const clamped = Math.max(0, Math.min(progress, 1));
+      ring.style.strokeDashoffset = circumference * (1 - clamped);
+    }
+
+    // ---- Fetch journey data ----
     async function fetchJourneyData(userId) {
       try {
         const level = 'beginner';
@@ -1281,181 +1378,9 @@
     }
 
     // ================================================================
-    // EXISTING HELPERS
+    // RENDER FUNCTIONS (updating DOM elements)
     // ================================================================
-    async function ensureUserDoc(user) {
-      const uid = user.uid;
-      const docRef = db.collection('users').doc(uid);
-      const doc = await docRef.get();
-      if (doc.exists) return doc.data();
-      const email = user.email || '';
-      const username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
-      const data = {
-        uid, email, displayName: user.displayName || '', username,
-        role:'Operator', tier:'free', billingInterval:'monthly',
-        preferences:{ brands:[], lenses:[], interests:[] },
-        learningJourney:{},
-        totalPoints:0, level:1, badgesEarned:[],
-        dailyChallengeStreak:0, lastChallengeDate:null, dailyChallengesCompleted:[],
-        savedProtocols:[], savedCards:[], savedBlogs:[], savedPodcasts:[], savedCommunityPosts:[],
-        referralCode:username, totalReferrals:0, totalCommissionEarned:0, ambassadorTier:'signal',
-        aiUsage:{ total:0, prompt:0, snapshot:0, ideas:0, critique:0 },
-        quizStreak:0, quizLastScore:null,
-        createdAt:firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-        tourCompleted:false,
-        bonusPoints:0
-      };
-      await docRef.set(data);
-      return data;
-    }
 
-    function animateNumber(el, newValue, prefix = '', suffix = '') {
-      if (!el) return;
-      const current = parseInt(el.textContent) || 0;
-      if (current === newValue) {
-        el.classList.remove('animate');
-        void el.offsetWidth;
-        el.classList.add('animate');
-        setTimeout(() => el.classList.remove('animate'), 1200);
-        return;
-      }
-      const duration = 400;
-      const startTime = performance.now();
-      const startVal = current;
-      const endVal = newValue;
-      function update(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        const currentVal = Math.round(startVal + (endVal - startVal) * eased);
-        el.textContent = prefix + currentVal + suffix;
-        if (progress < 1) {
-          requestAnimationFrame(update);
-        } else {
-          el.textContent = prefix + endVal + suffix;
-          el.classList.remove('animate');
-          void el.offsetWidth;
-          el.classList.add('animate');
-          setTimeout(() => el.classList.remove('animate'), 1200);
-        }
-      }
-      requestAnimationFrame(update);
-    }
-
-    // ================================================================
-    // RING HELPERS
-    // ================================================================
-    function getMultiplier(streak) {
-      if (streak >= 7) return 3.0;
-      if (streak >= 3) return 2.0;
-      if (streak >= 1) return 1.5;
-      return 1.0;
-    }
-
-    function getNextTierLabel(multiplier) {
-      if (multiplier < 1.5) return '×1.5';
-      if (multiplier < 2.0) return '×2.0';
-      if (multiplier < 3.0) return '×3.0';
-      return '×3.0 (max)';
-    }
-
-    function getDaysToNextTier(streak, multiplier) {
-      if (multiplier >= 3.0) return 0;
-      if (multiplier < 1.5) return 1 - streak;
-      if (multiplier < 2.0) return 3 - streak;
-      if (multiplier < 3.0) return 7 - streak;
-      return 0;
-    }
-
-    function getTierProgress(streak, multiplier) {
-      if (multiplier >= 3.0) return 1;
-      if (multiplier < 1.5) return streak / 1;
-      if (multiplier < 2.0) return (streak - 1) / (3 - 1);
-      if (multiplier < 3.0) return (streak - 3) / (7 - 3);
-      return 0;
-    }
-
-    function setRingTransition(ringId, enabled) {
-      const ring = document.getElementById(ringId);
-      if (ring) {
-        ring.style.transition = enabled
-          ? 'stroke-dashoffset 1s cubic-bezier(0.34, 1.56, 0.64, 1)'
-          : 'none';
-      }
-    }
-
-    function setRingValue(ringId, progress) {
-      const ring = document.getElementById(ringId);
-      if (!ring) return;
-      const circumference = 326.7;
-      const clamped = Math.max(0, Math.min(progress, 1));
-      ring.style.strokeDashoffset = circumference * (1 - clamped);
-    }
-
-    function updateProgressOverview(userData, animate = true) {
-      const isHundredPercent = userData === null;
-
-      const streak = isHundredPercent ? 100 : (userData?.dailyChallengeStreak || 0);
-      const points = isHundredPercent ? 10000 : (userData?.totalPoints || 0);
-      const multiplier = isHundredPercent ? 3.0 : getMultiplier(streak);
-      const tierProgress = isHundredPercent ? 1 : getTierProgress(streak, multiplier);
-      const bonusPoints = isHundredPercent ? 0 : (userData?.bonusPoints || 0);
-
-      const rings = ['streakRingFill', 'pointsRingFill', 'multiplierRingFill'];
-      rings.forEach(id => setRingTransition(id, animate));
-
-      const streakProgress = Math.min(streak / 100, 1);
-      setRingValue('streakRingFill', streakProgress);
-
-      const pointsProgress = Math.min((points - 10) / (10000 - 10), 1);
-      setRingValue('pointsRingFill', pointsProgress >= 0 ? pointsProgress : 0);
-
-      const multProgress = (multiplier - 1.0) / 2.0;
-      setRingValue('multiplierRingFill', multProgress);
-
-      const fill = document.getElementById('multiplierProgressFill');
-      if (fill) {
-        fill.style.transition = animate
-          ? 'width 1s cubic-bezier(0.34, 1.56, 0.64, 1)'
-          : 'none';
-        fill.style.width = (tierProgress * 100) + '%';
-      }
-
-      if (!isHundredPercent && userData) {
-        animateNumber(document.getElementById('streakDays'), streak);
-        animateNumber(document.getElementById('totalPoints'), points);
-
-        const multLabel = multiplier === 1.0 ? '×1.0' :
-                          multiplier === 1.5 ? '×1.5' :
-                          multiplier === 2.0 ? '×2.0' : '×3.0';
-        document.getElementById('multiplierBadge').textContent = multLabel;
-
-        document.getElementById('bonusPointsDisplay').textContent = bonusPoints;
-        document.getElementById('daysToNextTier').textContent = getDaysToNextTier(streak, multiplier);
-        document.getElementById('nextTierLabel').textContent = getNextTierLabel(multiplier);
-
-        const signalLevel = Math.min(Math.floor(streak / 2), 5);
-        for (let i = 1; i <= 5; i++) {
-          const bar = document.getElementById('bar' + i);
-          if (bar) {
-            bar.classList.toggle('active', i <= signalLevel);
-          }
-        }
-      }
-    }
-
-    function animateRingsOnLoad(userData) {
-      updateProgressOverview({ dailyChallengeStreak: 0, totalPoints: 10, bonusPoints: 0 }, false);
-      setTimeout(() => {
-        updateProgressOverview(null, true);
-      }, 200);
-      setTimeout(() => {
-        updateProgressOverview(userData, true);
-      }, 1400);
-    }
-
-    // ---- Render functions ----
     function renderProfile(u) {
       document.getElementById('sidebarUsername').textContent = u.username || 'Operator';
       document.getElementById('sidebarEmail').textContent = u.email || 'loading...';
@@ -1518,26 +1443,22 @@
       }
     }
 
-    // ---- UPDATED: renderJourney with real data ----
     function renderJourney(userData, journeyData) {
       const nodes = journeyData.completedNodes || 0;
       const total = journeyData.totalNodes || 10;
       const pct = total > 0 ? (nodes / total) * 100 : 0;
 
-      // "Continue Your Journey" block
       document.getElementById('journeyNameDisplay').textContent = journeyData.journeyTitle || 'Beginner Journey';
       animateNumber(document.getElementById('jPoints'), journeyData.totalPoints || 0);
       document.getElementById('jNodes').textContent = nodes;
       document.getElementById('jTotalNodes').textContent = total;
       document.getElementById('jProgressFill').style.width = pct + '%';
 
-      // "Journey Progress" snapshot card
       animateNumber(document.getElementById('snapPoints'), journeyData.totalPoints || 0);
       document.getElementById('snapNodes').textContent = nodes;
       document.getElementById('snapTotal').textContent = total;
       document.getElementById('snapProgressFill').style.width = pct + '%';
 
-      // Badges
       const badges = userData.badgesEarned || [];
       document.getElementById('snapBadgeName').textContent = badges.length > 0 ? badges.join(', ') : 'No badges yet';
     }
@@ -1618,8 +1539,116 @@
       document.getElementById('ambassadorTier').textContent = tierMap[u.ambassadorTier] || u.ambassadorTier || '—';
     }
 
+    // ---- Rings animation ----
+    function updateProgressOverview(userData, animate = true) {
+      const isHundredPercent = userData === null;
+
+      const streak = isHundredPercent ? 100 : (userData?.dailyChallengeStreak || 0);
+      const points = isHundredPercent ? 10000 : (userData?.totalPoints || 0);
+      const multiplier = isHundredPercent ? 3.0 : getMultiplier(streak);
+      const tierProgress = isHundredPercent ? 1 : getTierProgress(streak, multiplier);
+      const bonusPoints = isHundredPercent ? 0 : (userData?.bonusPoints || 0);
+
+      const rings = ['streakRingFill', 'pointsRingFill', 'multiplierRingFill'];
+      rings.forEach(id => setRingTransition(id, animate));
+
+      const streakProgress = Math.min(streak / 100, 1);
+      setRingValue('streakRingFill', streakProgress);
+
+      const pointsProgress = Math.min((points - 10) / (10000 - 10), 1);
+      setRingValue('pointsRingFill', pointsProgress >= 0 ? pointsProgress : 0);
+
+      const multProgress = (multiplier - 1.0) / 2.0;
+      setRingValue('multiplierRingFill', multProgress);
+
+      const fill = document.getElementById('multiplierProgressFill');
+      if (fill) {
+        fill.style.transition = animate
+          ? 'width 1s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          : 'none';
+        fill.style.width = (tierProgress * 100) + '%';
+      }
+
+      if (!isHundredPercent && userData) {
+        animateNumber(document.getElementById('streakDays'), streak);
+        animateNumber(document.getElementById('totalPoints'), points);
+
+        const multLabel = multiplier === 1.0 ? '×1.0' :
+                          multiplier === 1.5 ? '×1.5' :
+                          multiplier === 2.0 ? '×2.0' : '×3.0';
+        document.getElementById('multiplierBadge').textContent = multLabel;
+
+        document.getElementById('bonusPointsDisplay').textContent = bonusPoints;
+        document.getElementById('daysToNextTier').textContent = getDaysToNextTier(streak, multiplier);
+        document.getElementById('nextTierLabel').textContent = getNextTierLabel(multiplier);
+
+        const signalLevel = Math.min(Math.floor(streak / 2), 5);
+        for (let i = 1; i <= 5; i++) {
+          const bar = document.getElementById('bar' + i);
+          if (bar) {
+            bar.classList.toggle('active', i <= signalLevel);
+          }
+        }
+      }
+    }
+
+    function animateRingsOnLoad(userData) {
+      updateProgressOverview({ dailyChallengeStreak: 0, totalPoints: 10, bonusPoints: 0 }, false);
+      setTimeout(() => {
+        updateProgressOverview(null, true);
+      }, 200);
+      setTimeout(() => {
+        updateProgressOverview(userData, true);
+      }, 1400);
+    }
+
+    // ---- Copy referral ----
+    function copyReferralLink() {
+      const link = document.getElementById('referralLink')?.textContent || '';
+      navigator.clipboard.writeText('https://' + link).then(() => cdToast('Referral link copied!'))
+        .catch(() => {
+          const input = document.createElement('input');
+          input.value = 'https://' + link;
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand('copy');
+          document.body.removeChild(input);
+          cdToast('Copied!');
+        });
+    }
+
+    // ---- Load notification ----
+    async function loadNotification() {
+      try {
+        const doc = await db.collection('admin').doc('announcement').get();
+        const msgEl = document.getElementById('notifMessage');
+        const tsEl = document.getElementById('notifTimestamp');
+        if (doc.exists) {
+          const data = doc.data();
+          if (data.active && data.message) {
+            msgEl.textContent = data.message;
+            msgEl.className = 'notif-message';
+            if (data.updatedAt) {
+              const date = data.updatedAt.toDate?.() || new Date();
+              tsEl.textContent = 'Updated ' + date.toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+            }
+          } else {
+            msgEl.textContent = 'No active announcement';
+            msgEl.className = 'notif-message empty';
+            tsEl.textContent = '';
+          }
+        } else {
+          msgEl.textContent = 'No active announcement';
+          msgEl.className = 'notif-message empty';
+          tsEl.textContent = '';
+        }
+      } catch (err) {
+        console.warn('Notification load error:', err);
+      }
+    }
+
     // ================================================================
-    // SHEPHERD.JS TOUR
+    // SHEPHERD TOUR
     // ================================================================
     let tour = null;
 
@@ -1710,119 +1739,8 @@
       t.start();
     }
 
-    // ---- Main load ----
-    const loadingEl = document.getElementById('loadingState');
-    const contentEl = document.getElementById('dashboardContent');
-
-    async function loadDashboard(user) {
-      if (!user) {
-        loadingEl.innerHTML = '<p class="error">Not authenticated. <a href="login.html">Login</a></p>';
-        return;
-      }
-
-      try {
-        console.log('🔄 Loading dashboard for user:', user.uid);
-
-        const userData = await ensureUserDoc(user);
-        console.log('✅ User data loaded:', userData);
-
-        // Fetch journey progress
-        const journeyData = await fetchJourneyData(user.uid);
-        console.log('✅ Journey data:', journeyData);
-
-        renderProfile(userData);
-        renderStats(userData);
-        renderAIWidget(userData);
-        renderJourney(userData, journeyData);
-        renderChallenge(userData);
-        renderProtocols(userData);
-        renderReferral(userData);
-
-        animateRingsOnLoad(userData);
-
-        // Quiz setup
-        if (userData.quizStreak !== undefined) {
-          document.getElementById('streakNum2').textContent = userData.quizStreak;
-          localStorage.setItem('quizStreak', userData.quizStreak);
-        } else {
-          const streak = parseInt(localStorage.getItem('quizStreak') || '0');
-          document.getElementById('streakNum2').textContent = streak;
-        }
-        if (userData.quizLastScore) {
-          const score = userData.quizLastScore;
-          const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
-          const levelIcon = levelNames[score.level] || '';
-          document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${score.score}/${score.total}`;
-          localStorage.setItem('quizLastScore', JSON.stringify(score));
-        } else {
-          const stored = localStorage.getItem('quizLastScore');
-          if (stored) {
-            try {
-              const data = JSON.parse(stored);
-              const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
-              const levelIcon = levelNames[data.level] || '';
-              document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${data.score}/${data.total}`;
-            } catch { document.getElementById('lastScoreDisplay').textContent = '—'; }
-          } else { document.getElementById('lastScoreDisplay').textContent = '—'; }
-        }
-
-        const diffSelect = document.getElementById('diffSelect');
-        const launchBtn = document.getElementById('quizLaunchBtn');
-        function updateLaunchLink() { if (launchBtn && diffSelect) { launchBtn.href = `quiz-full.html?level=${diffSelect.value}`; } }
-        if (diffSelect) diffSelect.addEventListener('change', updateLaunchLink);
-        updateLaunchLink();
-
-        document.getElementById('scoreLaunchBtn').addEventListener('click', function(e) {
-          e.preventDefault();
-          const selectedLevel = diffSelect ? diffSelect.value : 'beginner';
-          window.location.href = `quiz-full.html?level=${selectedLevel}`;
-        });
-
-        document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${userData.uid}`;
-        document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${userData.uid}`;
-
-        await loadNotification();
-
-        // All done – show content
-        loadingEl.style.display = 'none';
-        contentEl.style.display = 'block';
-
-        initSpotlightCards();
-
-        if (window.BottomNav) {
-          window.BottomNav.updateBadges(userData);
-        }
-
-        // Auto-start tour on first visit
-        if (!userData.tourCompleted) {
-          setTimeout(() => {
-            startTour();
-          }, 1500);
-        }
-
-      } catch (err) {
-        console.error('❌ Dashboard load error:', err);
-        loadingEl.innerHTML = `
-          <p style="color:#ff4a4a; font-family:'Space Mono',monospace;">
-            <i class="fas fa-exclamation-triangle"></i> Error loading dashboard:<br>
-            <span style="font-size:13px;">${err.message}</span>
-          </p>
-          <button onclick="location.reload()" style="margin-top:16px; background:transparent; border:1px solid var(--green); color:var(--green); padding:8px 24px; border-radius:30px; cursor:pointer; font-family:'Space Mono',monospace;">
-            Retry
-          </button>
-        `;
-      }
-    }
-
-    auth.onAuthStateChanged((user) => {
-      if (user) { loadDashboard(user); }
-      else { loadingEl.innerHTML = '<p>You are not logged in. <a href="login.html">Go to Login</a></p>'; }
-    });
-
-    if (auth.currentUser) { loadDashboard(auth.currentUser); }
-
     // ================================================================
-    // SPOTLIGHT CARDS
+    // SPOTLIGHT CARDS (interactive 3D effect)
     // ================================================================
     function initSpotlightCards() {
       const container = document.getElementById('statsContainer');
@@ -2035,37 +1953,122 @@
       }
     }
 
-    async function loadNotification() {
+    // ================================================================
+    // MAIN LOAD FUNCTION (called after auth)
+    // ================================================================
+    const loadingEl = document.getElementById('loadingState');
+    const contentEl = document.getElementById('dashboardContent');
+
+    async function loadDashboard(user) {
+      if (!user) {
+        loadingEl.innerHTML = '<p class="error">Not authenticated. <a href="login.html">Login</a></p>';
+        return;
+      }
+
       try {
-        const doc = await db.collection('admin').doc('announcement').get();
-        const msgEl = document.getElementById('notifMessage');
-        const tsEl = document.getElementById('notifTimestamp');
-        if (doc.exists) {
-          const data = doc.data();
-          if (data.active && data.message) {
-            msgEl.textContent = data.message;
-            msgEl.className = 'notif-message';
-            if (data.updatedAt) {
-              const date = data.updatedAt.toDate?.() || new Date();
-              tsEl.textContent = 'Updated ' + date.toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
-            }
-          } else {
-            msgEl.textContent = 'No active announcement';
-            msgEl.className = 'notif-message empty';
-            tsEl.textContent = '';
-          }
+        console.log('🔄 Loading dashboard for user:', user.uid);
+
+        const userData = await ensureUserDoc(user);
+        console.log('✅ User data loaded:', userData);
+
+        // Fetch journey progress
+        const journeyData = await fetchJourneyData(user.uid);
+        console.log('✅ Journey data:', journeyData);
+
+        // Render all sections
+        renderProfile(userData);
+        renderStats(userData);
+        renderAIWidget(userData);
+        renderJourney(userData, journeyData);
+        renderChallenge(userData);
+        renderProtocols(userData);
+        renderReferral(userData);
+
+        animateRingsOnLoad(userData);
+
+        // ---- Quiz setup ----
+        if (userData.quizStreak !== undefined) {
+          document.getElementById('streakNum2').textContent = userData.quizStreak;
+          localStorage.setItem('quizStreak', userData.quizStreak);
         } else {
-          msgEl.textContent = 'No active announcement';
-          msgEl.className = 'notif-message empty';
-          tsEl.textContent = '';
+          const streak = parseInt(localStorage.getItem('quizStreak') || '0');
+          document.getElementById('streakNum2').textContent = streak;
         }
+        if (userData.quizLastScore) {
+          const score = userData.quizLastScore;
+          const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
+          const levelIcon = levelNames[score.level] || '';
+          document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${score.score}/${score.total}`;
+          localStorage.setItem('quizLastScore', JSON.stringify(score));
+        } else {
+          const stored = localStorage.getItem('quizLastScore');
+          if (stored) {
+            try {
+              const data = JSON.parse(stored);
+              const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
+              const levelIcon = levelNames[data.level] || '';
+              document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${data.score}/${data.total}`;
+            } catch { document.getElementById('lastScoreDisplay').textContent = '—'; }
+          } else { document.getElementById('lastScoreDisplay').textContent = '—'; }
+        }
+
+        const diffSelect = document.getElementById('diffSelect');
+        const launchBtn = document.getElementById('quizLaunchBtn');
+        function updateLaunchLink() { if (launchBtn && diffSelect) { launchBtn.href = `quiz-full.html?level=${diffSelect.value}`; } }
+        if (diffSelect) diffSelect.addEventListener('change', updateLaunchLink);
+        updateLaunchLink();
+
+        document.getElementById('scoreLaunchBtn').addEventListener('click', function(e) {
+          e.preventDefault();
+          const selectedLevel = diffSelect ? diffSelect.value : 'beginner';
+          window.location.href = `quiz-full.html?level=${selectedLevel}`;
+        });
+
+        document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${userData.uid}`;
+        document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${userData.uid}`;
+
+        await loadNotification();
+
+        // All done – show content
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+
+        initSpotlightCards();
+
+        if (window.BottomNav) {
+          window.BottomNav.updateBadges(userData);
+        }
+
+        // Auto-start tour on first visit
+        if (!userData.tourCompleted) {
+          setTimeout(() => {
+            startTour();
+          }, 1500);
+        }
+
       } catch (err) {
-        console.warn('Notification load error:', err);
+        console.error('❌ Dashboard load error:', err);
+        loadingEl.innerHTML = `
+          <p style="color:#ff4a4a; font-family:'Space Mono',monospace;">
+            <i class="fas fa-exclamation-triangle"></i> Error loading dashboard:<br>
+            <span style="font-size:13px;">${err.message}</span>
+          </p>
+          <button onclick="location.reload()" style="margin-top:16px; background:transparent; border:1px solid var(--green); color:var(--green); padding:8px 24px; border-radius:30px; cursor:pointer; font-family:'Space Mono',monospace;">
+            Retry
+          </button>
+        `;
       }
     }
 
-    // ---- Expose tour to window for manual trigger ----
-    window.startTour = startTour;
+    // ---- Auth listener ----
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadDashboard(user);
+      } else {
+        loadingEl.innerHTML = '<p>You are not logged in. <a href="login.html">Go to Login</a></p>';
+      }
+    });
+
     // ---- Logout ----
     window.handleLogout = async function() {
       const ok = await cdConfirm('Are you sure you want to logout?');
@@ -2074,6 +2077,7 @@
       window.location.href = 'login.html';
     };
 
+    // ---- Sidebar toggles ----
     document.getElementById('mobileToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
     document.getElementById('floatingToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
 
@@ -2088,13 +2092,11 @@
       if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
     }
     updateCartUI();
-  </script>
 
-  <!-- ===== REMINDER: AI TOOLS PAGE ENFORCEMENT ===== -->
-  <!--
-    BATCH 1 COMPLETE: AI cap is enforced on the dashboard UI.
-    REMEMBER: You must also enforce the cap on ai-tools.html
-    by checking user.tier and aiUsage.total before allowing an AI action.
-  -->
+    // Expose functions globally
+    window.startTour = startTour;
+    window.copyReferralLink = copyReferralLink;
+    window.handleLogout = handleLogout;
+  </script>
 </body>
 </html>
