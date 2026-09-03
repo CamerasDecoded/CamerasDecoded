@@ -13,20 +13,23 @@
   <!-- Core app -->
   <script src="/test-app/test-app.js"></script>
   <script src="/test-app/test-user-state.js"></script>
-  <!-- Access control (added) -->
   <script src="/test-app/test-access-control.js"></script>
   <script src="/test-app/test-nav-header.js"></script>
 
-  <!-- Sidebar (renamed to test-sidebar) -->
+  <!-- Sidebar / mobile sheet -->
   <link rel="stylesheet" href="/test-app/test-sidebar.css">
   <script src="/test-app/test-sidebar.js"></script>
 
-  <!-- Announcement (if also renamed to test-announcement) -->
+  <!-- Announcement -->
   <link rel="stylesheet" href="/test-app/test-announcement.css">
   <script src="/test-app/test-announcement.js"></script>
 
   <!-- Bottom nav -->
   <link rel="stylesheet" href="/test-app/test-bottom-nav.css">
+
+  <!-- Commission card -->
+  <script src="/test-app/test-commission-card.js"></script>
+
   <style>
     .main-content { margin-left:260px; padding:20px; max-width:800px; }
     @media (max-width:768px) { .main-content { margin-left:0; padding:16px; } }
@@ -51,10 +54,17 @@
         <br><br>
         <button onclick="handleLogout()" style="padding:6px 16px;background:#ff4444;border:none;border-radius:4px;cursor:pointer;color:#fff;">Logout</button>
       </div>
+
+      <!-- Stats Grid (will host commission card after it) -->
+      <div id="statsGrid" class="stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">
+        <div style="background:#f5f5f5;padding:12px;border-radius:8px;"><strong>Students:</strong><br><span id="statStudents">0</span></div>
+        <div style="background:#f5f5f5;padding:12px;border-radius:8px;"><strong>Lessons:</strong><br><span id="statLessons">0</span></div>
+        <div style="background:#f5f5f5;padding:12px;border-radius:8px;"><strong>Earnings:</strong><br><span id="statEarnings">$0.00</span></div>
+      </div>
     </div>
   </div>
 
-  <!-- Bottom Nav Container (script will inject here) -->
+  <!-- Bottom Nav Container -->
   <div id="bottomNavContainer"></div>
   <script src="/test-app/test-bottom-nav.js"></script>
 
@@ -76,9 +86,19 @@
           document.getElementById('userBilling').textContent = data.billingInterval === 'annual' ? 'Annual ($2,500/yr)' : 'Monthly ($300/mo)';
           document.getElementById('userStudents').textContent = data.totalStudents || 0;
           document.getElementById('userReferral').textContent = data.referralCode || '—';
+
+          // Update stats grid
+          document.getElementById('statStudents').textContent = data.totalStudents || 0;
+          document.getElementById('statLessons').textContent = data.totalLessons || 0;
+          document.getElementById('statEarnings').textContent = '$' + (data.referralStats?.totalEarnings || 0).toFixed(2);
+
           document.getElementById('loading').style.display = 'none';
           document.getElementById('content').style.display = 'block';
+
           if (window.BottomNav) window.BottomNav.setActive();
+
+          // Insert commission card after stats grid
+          window.insertCommissionCard('statsGrid', 'after');
         })
         .catch(err => {
           document.getElementById('loading').textContent = 'Error: ' + err.message;

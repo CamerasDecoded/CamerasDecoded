@@ -10,15 +10,15 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="/test-app/test-app.js"></script>
   <script src="/test-app/test-user-state.js"></script>
-  <!-- Access control (added) -->
   <script src="/test-app/test-access-control.js"></script>
   <script src="/test-app/test-nav-header.js"></script>
   <link rel="stylesheet" href="/test-app/test-sidebar.css">
   <link rel="stylesheet" href="/test-app/test-announcement.css">
   <script src="/test-app/test-announcement.js"></script>
   <script src="/test-app/test-sidebar.js"></script>
-  <!-- Bottom Nav CSS (corrected path) -->
   <link rel="stylesheet" href="/test-app/test-bottom-nav.css">
+  <!-- Commission card -->
+  <script src="/test-app/test-commission-card.js"></script>
   <style>
     .main-content { margin-left:260px; padding:20px; max-width:800px; }
     @media (max-width:768px) { .main-content { margin-left:0; padding:16px; } }
@@ -43,10 +43,17 @@
         <br><br>
         <button onclick="handleLogout()" style="padding:6px 16px;background:#ff4444;border:none;border-radius:4px;cursor:pointer;color:#fff;">Logout</button>
       </div>
+
+      <!-- Stats Grid (will host commission card after it) -->
+      <div id="statsGrid" class="stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">
+        <div style="background:#f5f5f5;padding:12px;border-radius:8px;"><strong>Points:</strong><br><span id="statPoints">0</span></div>
+        <div style="background:#f5f5f5;padding:12px;border-radius:8px;"><strong>Level:</strong><br><span id="statLevel">1</span></div>
+        <div style="background:#f5f5f5;padding:12px;border-radius:8px;"><strong>Referrals:</strong><br><span id="statReferrals">0</span></div>
+      </div>
     </div>
   </div>
 
-  <!-- Bottom Nav Container (script will inject here) -->
+  <!-- Bottom Nav Container -->
   <div id="bottomNavContainer"></div>
   <script src="/test-app/test-bottom-nav.js"></script>
 
@@ -68,23 +75,30 @@
           document.getElementById('userPoints').textContent = data.totalPoints || 0;
           document.getElementById('userLevel').textContent = data.level || 1;
           document.getElementById('userReferral').textContent = data.referralCode || '—';
+
+          // Update stats grid
+          document.getElementById('statPoints').textContent = data.totalPoints || 0;
+          document.getElementById('statLevel').textContent = data.level || 1;
+          document.getElementById('statReferrals').textContent = data.referralStats?.totalReferrals || 0;
+
           document.getElementById('loading').style.display = 'none';
           document.getElementById('content').style.display = 'block';
+
           if (window.BottomNav) window.BottomNav.setActive();
+
+          // Insert commission card after stats grid
+          window.insertCommissionCard('statsGrid', 'after');
         })
         .catch(err => {
           document.getElementById('loading').textContent = 'Error: ' + err.message;
         });
     }
 
-    // ---- Init: wait for window.USER ----
     function init() {
       if (window.USER && window.USER.isLoggedIn) {
-        // ✅ No access control check – just load
         uid = window.USER.uid;
         loadDashboard();
       } else {
-        // Wait for userStateReady
         window.addEventListener('userStateReady', (e) => {
           if (e.detail.isLoggedIn) {
             uid = e.detail.uid;
