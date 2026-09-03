@@ -2,7 +2,6 @@
 // AUTH – Cameras Decoded (Production)
 // ================================================================
 
-// Firebase config and initialization
 const firebaseConfig = {
   apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
   authDomain: "cameras-decoded.firebaseapp.com",
@@ -20,6 +19,9 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// Stripe placeholder URL (replace with real Checkout Session URL later)
+const STRIPE_CHECKOUT_URL = 'https://checkout.stripe.com/pay/placeholder';
+
 // Toast
 function cdToast(message, type = 'success') {
   const container = document.getElementById('toast-container');
@@ -35,14 +37,12 @@ function cdToast(message, type = 'success') {
   }, 4000);
 }
 
-// Update last active
 function updateLastActive(uid) {
   db.collection('users').doc(uid).set({
     lastActive: firebase.firestore.FieldValue.serverTimestamp()
   }, { merge: true }).catch(err => console.warn('Could not update lastActive:', err));
 }
 
-// Redirect to dashboard
 function redirectToDashboard(role, uid) {
   const map = {
     'Operator': 'operator-dashboard.html',
@@ -52,7 +52,6 @@ function redirectToDashboard(role, uid) {
     'admin': 'admin-dashboard.html'
   };
   const url = map[role] || 'operator-dashboard.html';
-  // Check for redirect param
   const params = new URLSearchParams(window.location.search);
   const redirect = params.get('redirect');
   if (redirect) {
@@ -69,17 +68,14 @@ function redirectToDashboard(role, uid) {
   window.location.href = url;
 }
 
-// Store user data locally
 function storeUserData(data) {
   localStorage.setItem('cameras_decoded_user', JSON.stringify(data));
 }
 
-// Get stored referral
 function getStoredReferral() {
   return localStorage.getItem('signup_referral') || null;
 }
 
-// Set stored referral from URL param
 function setReferralFromURL() {
   const urlParams = new URLSearchParams(window.location.search);
   const ref = urlParams.get('ref');
@@ -106,8 +102,8 @@ function handleSocialUser(user) {
           username: username,
           photoURL: photoURL,
           role: 'Operator',
-          tier: 'free',
-          billingInterval: 'monthly',
+          tier: selectedTier || 'free',
+          billingInterval: isWeekly ? 'weekly' : isAnnual ? 'annual' : 'monthly',
           preferences: { brands: [], lenses: [], interests: [] },
           learningJourney: {},
           totalPoints: 0,
@@ -145,27 +141,27 @@ function handleSocialUser(user) {
             }
             return Promise.resolve();
           })
-          .then(() => db.collection('users').doc(uid).get());
+          .then(() => {
+            // If Pro plan, redirect to Stripe placeholder
+            if (selectedTier === 'pro') {
+              handleProPlanRedirect(uid);
+              return;
+            }
+            redirectToDashboard('Operator', uid);
+          });
       }
       return doc;
     })
     .then(doc => {
-      const data = doc.data();
-      const userData = { uid, ...data };
-      storeUserData(userData);
-
-      let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
-      roles = [...new Set(roles)];
-
-      if (roles.length === 1) {
-        redirectToDashboard(roles[0], uid);
-      } else {
-        // Show role selection (if implemented in HTML)
-        if (typeof showRoleSelection === 'function') {
-          showRoleSelection();
-          populateRoleCards(roles, uid);
+      if (doc) {
+        const data = doc.data();
+        const userData = { uid, ...data };
+        storeUserData(userData);
+        // If user already exists, just redirect
+        if (selectedTier === 'pro') {
+          handleProPlanRedirect(uid);
         } else {
-          redirectToDashboard(roles[0], uid);
+          redirectToDashboard(data.role || 'Operator', uid);
         }
       }
     })
@@ -173,6 +169,24 @@ function handleSocialUser(user) {
       console.error('Social login error:', err);
       cdToast(err.message || 'Something went wrong.', 'error');
     });
+}
+
+// Redirect to Stripe placeholder for Pro plans
+function handleProPlanRedirect(uid) {
+  // Store pending upgrade info
+  const pending = {
+    uid,
+    tier: 'pro',
+    billingInterval: isWeekly ? 'weekly' : isAnnual ? 'annual' : 'monthly'
+  };
+  localStorage.setItem('pending_pro_upgrade', JSON.stringify(pending));
+
+  // Build return URL (where Stripe will redirect after payment)
+  const returnUrl = window.location.origin + '/profile.html?payment=success';
+  const stripeUrl = `${STRIPE_CHECKOUT_URL}?client_reference_id=${uid}&return_url=${encodeURIComponent(returnUrl)}`;
+
+  // Redirect to Stripe
+  window.location.href = stripeUrl;
 }
 
 // ================================================================
@@ -214,16 +228,15 @@ window.login = function(email, password) {
       updateLastActive(uid);
       return db.collection('users').doc(uid).get().then(doc => {
         if (!doc.exists) {
-          // Minimal recovery
           const data = {
             displayName: cred.user.displayName || '',
-            email: email || '',
-            username: email ? email.split('@')[0] : 'user' + uid.slice(0,6),
+            email: email,
+            username: email.split('@')[0],
             role: 'Operator',
             tier: 'free',
             billingInterval: 'monthly',
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            referralCode: email ? email.split('@')[0] : 'user' + uid.slice(0,6),
+            referralCode: email.split('@')[0],
             totalReferrals: 0,
             totalCommissionEarned: 0,
             ambassadorTier: 'signal',
@@ -247,10 +260,8 @@ window.login = function(email, password) {
       const data = doc.data();
       const userData = { uid: doc.id, ...data };
       storeUserData(userData);
-
       let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
       roles = [...new Set(roles)];
-
       if (roles.length === 1) {
         redirectToDashboard(roles[0], doc.id);
       } else {
@@ -262,9 +273,7 @@ window.login = function(email, password) {
         }
       }
     })
-    .catch(err => {
-      cdToast(err.message, 'error');
-    });
+    .catch(err => cdToast(err.message, 'error'));
 };
 
 // ================================================================
@@ -297,14 +306,11 @@ window.selectTier = function(tier) {
 window.toggleBilling = function() {
   if (isWeekly) {
     isWeekly = false;
-    const weeklyEl = document.getElementById('weeklyOption');
-    if (weeklyEl) weeklyEl.classList.remove('selected');
-    const wrap = document.getElementById('billingWrap');
-    if (wrap) wrap.classList.remove('overridden');
+    document.getElementById('weeklyOption')?.classList.remove('selected');
+    document.getElementById('billingWrap')?.classList.remove('overridden');
   }
   isAnnual = !isAnnual;
-  const toggle = document.getElementById('billingToggle');
-  if (toggle) toggle.classList.toggle('annual', isAnnual);
+  document.getElementById('billingToggle')?.classList.toggle('annual', isAnnual);
   updatePricingDisplay();
 };
 
@@ -313,12 +319,12 @@ window.toggleWeekly = function() {
   const wrap = document.getElementById('billingWrap');
   if (isWeekly) {
     isWeekly = false;
-    el.classList.remove('selected');
-    wrap.classList.remove('overridden');
+    el?.classList.remove('selected');
+    wrap?.classList.remove('overridden');
   } else {
     isWeekly = true;
-    el.classList.add('selected');
-    wrap.classList.add('overridden');
+    el?.classList.add('selected');
+    wrap?.classList.add('overridden');
   }
   updatePricingDisplay();
 };
@@ -326,8 +332,8 @@ window.toggleWeekly = function() {
 window.clearWeekly = function() {
   if (isWeekly) {
     isWeekly = false;
-    document.getElementById('weeklyOption').classList.remove('selected');
-    document.getElementById('billingWrap').classList.remove('overridden');
+    document.getElementById('weeklyOption')?.classList.remove('selected');
+    document.getElementById('billingWrap')?.classList.remove('overridden');
     updatePricingDisplay();
   }
 };
@@ -368,11 +374,9 @@ window.createAccount = function() {
   const password = document.getElementById('password').value;
   const confirmPassword = document.getElementById('confirmPassword').value;
 
-  // Clear errors
   document.querySelectorAll('.error-hint').forEach(el => el.style.display = 'none');
   errorEl.style.display = 'none';
 
-  // Validate
   if (!displayName) { document.getElementById('displayNameError')?.style.display = 'block'; return; }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { document.getElementById('emailError').style.display = 'block'; return; }
   if (!username) { document.getElementById('usernameError').style.display = 'block'; return; }
@@ -439,8 +443,14 @@ window.createAccount = function() {
       btn.textContent = 'Create Account →';
       spinner.style.display = 'none';
       localStorage.removeItem('signup_referral');
-      cdToast('✅ Account created! Redirecting...');
-      window.location.href = 'profile.html?welcome=onboarding';
+
+      // If Pro plan, redirect to Stripe placeholder
+      if (selectedTier === 'pro') {
+        handleProPlanRedirect(auth.currentUser.uid);
+      } else {
+        cdToast('✅ Account created! Redirecting...');
+        window.location.href = 'profile.html?welcome=onboarding';
+      }
     })
     .catch(err => {
       btn.disabled = false;
@@ -481,5 +491,4 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// Set referral from URL on load
 setReferralFromURL();
