@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cameras Decoded — The Operator Confidence Company</title>
   <meta name="description" content="We turn mirrorless camera owners into confident operators." />
   <meta property="og:title" content="Cameras Decoded — The Operator Confidence Company" />
@@ -11,16 +11,26 @@
   <meta property="og:type" content="website" />
   <meta property="og:image" content="https://camerasdecoded.com/cameras-decoded-logo.png" />
 
+  <!-- ===== MASTER LOADER ===== -->
   <script src="/scripts/master-loader.js"></script>
+
+  <!-- ===== FIREBASE SDKs ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="/scripts/firebase-init.js"></script>
 
   <style>
-    /* ===== RESET & ROOT ===== */
+    /* ============================================================
+       ALL STYLES – SIMPLE, CLEAN, RESPONSIVE
+       ============================================================ */
+    :root {
+      --green: #8deb00;
+      --text-muted: #b4b4b4;
+      --border-dim: #1A1A1A;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html { font-size: 16px; }
+
     body {
       background: #050705;
       background-image: radial-gradient(circle at 20% 30%, rgba(141,235,0,0.12) 0%, transparent 50%),
@@ -36,9 +46,14 @@
       overflow-x: hidden;
     }
 
+    a { text-decoration: none; color: inherit; }
+    h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
+    .green-text { color: var(--green); }
+    .grey-text { color: var(--text-muted); }
+
     #binary-rain {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      z-index: 0; pointer-events: none; opacity: 0.2;
+      z-index: 0; pointer-events: none; opacity: 0.15;
     }
     #rain-fade {
       position: fixed; bottom: 0; left: 0; width: 100vw; height: 45vh;
@@ -46,311 +61,231 @@
       pointer-events: none; z-index: 0;
     }
 
-    h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
-    .green-text { color: #8deb00; }
-    .grey-text { color: #b4b4b4; }
-    a { text-decoration: none; color: inherit; transition: 0.2s; }
-
-    /* ===== SIDEBAR ===== */
+    /* ============================================================
+       SIDEBAR
+       ============================================================ */
     #sidebarContainer {
-      position: fixed;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      z-index: 1000;
-      width: 280px;
-      transform: translateX(0);
-      transition: transform 0.3s ease;
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 1000;
+      width: 280px; transform: translateX(0); transition: transform 0.3s ease;
     }
     @media (max-width: 1024px) {
       #sidebarContainer { transform: translateX(-100%); }
       #sidebarContainer.open { transform: translateX(0); }
     }
     .sidebar {
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.95);
-      padding: 20px 16px 24px;
-      border-right: 1px solid #1A1A1A;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
+      width: 100%; height: 100%; background: rgba(0,0,0,0.95);
+      padding: 20px 16px 24px; border-right: 1px solid var(--border-dim);
+      overflow-y: auto; display: flex; flex-direction: column;
     }
     .sidebar .logo { text-align:center; margin-bottom:12px; }
     .sidebar .logo img { height:70px; width:auto; }
-    .sidebar-profile { text-align:center; padding:12px 0 16px; border-bottom:1px solid #1A1A1A; margin-bottom:16px; }
+    .sidebar-profile { text-align:center; padding:12px 0 16px; border-bottom:1px solid var(--border-dim); margin-bottom:16px; }
     .profile-avatar {
       width:64px; height:64px; border-radius:50%; background-size:cover; background-position:center;
-      margin:0 auto 8px; border:2px solid #8deb00; background-color:#1a1a1a;
+      margin:0 auto 8px; border:2px solid var(--green); background-color:#1a1a1a;
     }
     .profile-name { font-weight:600; font-size:14px; color:#fff; }
-    .profile-email { font-size:12px; color:#b4b4b4; }
+    .profile-email { font-size:12px; color:var(--text-muted); }
 
     .sidebar-nav { flex:1; display:flex; flex-direction:column; gap:2px; }
     .sidebar-nav .nav-item {
       display:flex; align-items:center; gap:10px; padding:10px 12px;
-      color:#b4b4b4; font-family:'Space Mono',monospace; font-size:13px; border-radius:6px;
-      transition:all 0.2s; cursor:pointer;
+      color:var(--text-muted); font-family:'Space Mono',monospace; font-size:13px;
+      border-radius:6px; transition:all 0.2s; cursor:pointer;
     }
     .sidebar-nav .nav-item i { width:20px; text-align:center; font-size:14px; }
-    .sidebar-nav .nav-item:hover { color:#8deb00; background:rgba(141,235,0,0.05); transform:translateX(3px); }
-    .sidebar-nav .nav-item.active { color:#8deb00; background:rgba(141,235,0,0.08); }
+    .sidebar-nav .nav-item:hover { color:var(--green); background:rgba(141,235,0,0.05); }
+    .sidebar-nav .nav-item.active { color:var(--green); background:rgba(141,235,0,0.08); }
     .sidebar-divider { border:none; border-top:1px solid rgba(255,255,255,0.06); margin:6px 0; }
 
     #privateLinks { display:none; flex-direction:column; gap:2px; }
     .auth-cta .nav-item {
-      justify-content:center;
-      border:1px solid #8deb00;
-      border-radius:30px;
-      color:#8deb00;
-      padding:8px 12px;
-      margin:4px 0;
+      justify-content:center; border:1px solid var(--green); border-radius:30px;
+      color:var(--green); padding:8px 12px; margin:4px 0;
     }
-    .auth-cta .nav-item.signup { background:#8deb00; color:#000; }
+    .auth-cta .nav-item.signup { background:var(--green); color:#000; }
     .auth-cta .nav-item:hover { background:rgba(141,235,0,0.08); }
 
     .sidebar-notification {
-      margin-top:auto; padding-top:12px; border-top:1px solid #1A1A1A; padding:10px 12px;
+      margin-top:auto; padding-top:12px; border-top:1px solid var(--border-dim);
+      padding:10px 12px;
     }
     .sidebar-notification .notif-header {
-      display:flex; gap:6px; font-size:10px; color:#b4b4b4; font-family:'Space Mono',monospace;
-      text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;
+      display:flex; gap:6px; font-size:10px; color:var(--text-muted);
+      font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;
     }
-    .sidebar-notification .notif-header i { color:#8deb00; font-size:12px; }
+    .sidebar-notification .notif-header i { color:var(--green); font-size:12px; }
     .sidebar-notification .notif-message { font-size:12px; color:#fff; line-height:1.4; }
-    .sidebar-notification .notif-message.empty { color:#b4b4b4; font-style:italic; font-size:11px; }
-    .sidebar-notification .notif-timestamp { font-size:9px; color:#b4b4b4; opacity:0.5; }
+    .sidebar-notification .notif-message.empty { color:var(--text-muted); font-style:italic; font-size:11px; }
 
-    /* ===== FLOATING HEADER – FULLY RESPONSIVE ===== */
+    /* ============================================================
+       FLOATING HEADER
+       ============================================================ */
     .floating-header {
-      position: fixed;
-      top: 12px;
-      left: calc(280px + 12px);
-      right: 12px;
-      z-index: 99;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: clamp(4px, 1vw, 12px);
-      padding: clamp(4px, 0.8vw, 10px) clamp(8px, 1.5vw, 20px);
-      background: rgba(0,0,0,0.4);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(141,235,0,0.2);
-      border-radius: 30px;
-      min-height: 32px;
-      transition: all 0.3s ease;
+      position: fixed; top: 12px; left: 292px; right: 12px; z-index: 99;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; padding: 6px 14px; background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(16px); border: 1px solid rgba(141,235,0,0.2);
+      border-radius: 30px; min-height: 40px; transition: all 0.3s ease;
     }
-    .floating-header:hover {
-      background: rgba(0,0,0,0.6);
-      box-shadow: 0 4px 30px rgba(0,0,0,0.3);
-    }
-    .floating-left-group, .floating-right-group {
-      display: flex;
-      align-items: center;
-      gap: clamp(4px, 0.8vw, 10px);
-      flex-shrink: 0;
-    }
-    .floating-center-group {
-      display: flex;
-      align-items: center;
-      gap: clamp(4px, 0.8vw, 10px);
-      flex: 1;
-      justify-content: center;
-      min-width: 0;
-      overflow: hidden;
-    }
-    .floating-home-icon {
-      font-size: clamp(12px, 1.5vw, 18px);
-      color: #8deb00;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: clamp(24px, 3vw, 36px);
-      height: clamp(24px, 3vw, 36px);
-      border-radius: 50%;
-    }
-    .floating-home-icon:hover {
-      color: #a0f520;
-      transform: scale(1.1);
-      background: rgba(141,235,0,0.08);
-    }
+    .floating-header:hover { background: rgba(0,0,0,0.6); box-shadow: 0 4px 30px rgba(0,0,0,0.3); }
+    .floating-left-group, .floating-right-group { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .floating-center-group { display:flex; align-items:center; gap:8px; flex:1; justify-content:center; }
+
+    .floating-home-icon { font-size:15px; color:var(--green); transition:0.3s; }
+    .floating-home-icon:hover { color:#a0f520; transform:scale(1.1); }
     .floating-toggle {
-      display: none;
-      background: none;
-      border: none;
-      color: #8deb00;
-      font-size: clamp(16px, 2vw, 24px);
-      cursor: pointer;
-      padding: 4px 6px;
-      border-radius: 6px;
-      transition: transform 0.3s ease;
+      display: none; background: none; border: none; color: var(--green);
+      font-size: 20px; cursor: pointer; padding: 4px;
     }
-    .floating-toggle:hover { transform: scale(1.1); background: rgba(141,235,0,0.05); }
+    .floating-toggle:hover { transform: scale(1.1); }
 
     .role-tier-badge {
-      background: rgba(10,10,10,0.9);
-      border: 1px solid rgba(141,235,0,0.3);
-      border-radius: 14px;
-      padding: 2px 10px;
-      font-size: clamp(8px, 1vw, 12px);
-      color: #8deb00;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
-      transition: border-color 0.3s ease;
-      max-width: 180px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      background: rgba(10,10,10,0.9); border: 1px solid rgba(141,235,0,0.3);
+      border-radius: 14px; padding: 2px 12px; font-size: 10px; color: var(--green);
+      display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
     }
-    .role-tier-badge:hover { border-color: #8deb00; box-shadow: 0 0 20px rgba(141,235,0,0.1); }
     .glow-role { font-weight:700; text-shadow:0 0 8px #8deb00, 0 0 12px #8deb00; }
 
     .logout-btn {
-      background: transparent;
-      border: 1px solid #8deb00;
-      color: #8deb00;
-      padding: 2px 10px;
-      border-radius: 20px;
-      cursor: pointer;
-      font-family: 'Space Mono', monospace;
-      font-size: clamp(8px, 0.9vw, 12px);
-      transition: all 0.25s ease;
-      min-height: 22px;
-      line-height: 1.2;
-      white-space: nowrap;
+      background: transparent; border: 1px solid var(--green); color: var(--green);
+      padding: 2px 10px; border-radius: 20px; cursor: pointer;
+      font-family: 'Space Mono', monospace; font-size: 10px;
+      transition: all 0.25s ease; min-height: 22px;
     }
-    .logout-btn:hover { background: rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform:scale(1.02); }
+    .logout-btn:hover { background: rgba(141,235,0,0.1); box-shadow: 0 0 20px rgba(141,235,0,0.2); }
 
     .cart-header-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      border: 1px solid #8deb00;
-      border-radius: 20px;
-      padding: 2px 10px;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: clamp(8px, 0.9vw, 12px);
-      transition: all 0.25s ease;
-      text-decoration: none;
-      min-height: 22px;
-      line-height: 1.2;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 4px;
+      border: 1px solid var(--green); border-radius: 20px; padding: 2px 10px;
+      color: var(--green); font-family: 'Space Mono', monospace; font-size: 10px;
+      text-decoration: none; min-height: 22px;
     }
-    .cart-header-link:hover { background: rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform:scale(1.02); }
+    .cart-header-link:hover { background: rgba(141,235,0,0.1); }
     .cart-count-badge {
-      background: #8deb00;
-      color: #000;
-      border-radius: 50%;
-      padding: 0 4px;
-      font-size: 8px;
-      font-weight: 700;
-      display: inline-block;
-      min-width: 14px;
-      text-align: center;
-      line-height: 14px;
+      background: var(--green); color: #000; border-radius: 50%;
+      padding: 0 4px; font-size: 8px; font-weight: 700;
+      display: inline-block; min-width: 14px; text-align: center; line-height: 14px;
     }
 
-    /* === MOBILE FLOATING HEADER === */
+    /* ===== MOBILE HEADER ===== */
     @media (max-width: 1024px) {
       .floating-header {
-        left: 10px;
-        right: 10px;
-        top: 10px;
-        padding: 4px 10px;
-        min-height: 28px;
-        border-radius: 24px;
+        left: 10px; right: 10px; top: 10px;
+        padding: 4px 12px; min-height: 34px; border-radius: 24px;
       }
       .floating-toggle { display: block !important; }
-      .floating-home-icon { width: 20px; height: 20px; font-size: 12px; }
-      .role-tier-badge { font-size: 7px; padding: 1px 6px; max-width: 100px; }
-      .cart-header-link, .logout-btn { font-size: 7px; padding: 0 6px; min-height: 16px; }
+      .floating-home-icon { font-size: 13px; }
+      .role-tier-badge { font-size: 8px; padding: 1px 8px; }
+      .cart-header-link, .logout-btn { font-size: 8px; padding: 1px 8px; min-height: 18px; }
       .floating-left-group, .floating-right-group { gap: 4px; }
     }
 
-    /* ===== MAIN CONTENT – RESPONSIVE ===== */
-    .main-content {
-      margin-left: 280px;
-      padding: clamp(60px, 8vh, 80px) clamp(16px, 4vw, 40px) clamp(24px, 4vh, 40px);
-      max-width: calc(1200px + 280px);
-      position: relative;
-      z-index: 2;
-    }
-    @media (max-width: 1024px) {
-      .main-content {
-        margin-left: 0;
-        padding: clamp(60px, 8vh, 80px) clamp(12px, 3vw, 20px) clamp(20px, 3vh, 32px);
-      }
+    @media (max-width: 480px) {
+      .floating-header { padding: 3px 8px; min-height: 28px; border-radius: 20px; gap: 4px; }
+      .floating-home-icon { font-size: 11px; width: 20px; text-align: center; }
+      .role-tier-badge { font-size: 7px; padding: 0 6px; }
+      .cart-header-link, .logout-btn { font-size: 7px; padding: 0 6px; min-height: 16px; }
     }
 
-    /* ===== TYPEWRITER – NOW SCALES SMALL ===== */
+    /* ============================================================
+       MAIN CONTENT
+       ============================================================ */
+    .main-content {
+      margin-left: 280px;
+      padding: 80px 40px 40px;
+      max-width: 1200px;
+      position: relative; z-index: 2;
+    }
+    @media (max-width: 1024px) {
+      .main-content { margin-left: 0; padding: 80px 20px 40px; }
+    }
+    @media (max-width: 600px) {
+      .main-content { padding: 70px 16px 30px; }
+    }
+
+    /* ============================================================
+       TYPEWRITER – RESPONSIVE
+       ============================================================ */
     .typewriter-wrapper {
-      text-align: center;
-      padding: clamp(8px, 2vh, 20px) clamp(8px, 2vw, 20px) clamp(4px, 1vh, 10px);
-      max-width: 1000px;
-      margin: 0 auto clamp(8px, 2vh, 20px) auto;
-      position: relative;
-      z-index: 2;
-      height: clamp(80px, 25vh, 320px);
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      text-align: center; padding: 20px 10px 10px;
+      max-width: 1000px; margin: 0 auto 20px auto;
+      position: relative; z-index: 2;
+      min-height: 100px;
+      display: flex; align-items: center; justify-content: center;
     }
     .typewriter-headline {
       font-family: 'Montserrat', sans-serif;
-      font-size: clamp(1.2rem, 4vw, 4.5rem); /* ← key fix: minimum 1.2rem on small screens */
-      font-weight: 400;
-      line-height: 1.2;
-      letter-spacing: -0.04em;
-      color: #fff;
-      text-shadow: 0 2px 40px rgba(0,0,0,0.3);
-      max-width: 100%;
-      word-wrap: break-word;
+      font-size: clamp(1.6rem, 5vw, 4.5rem);
+      font-weight: 400; line-height: 1.2; letter-spacing: -0.04em;
+      color: #fff; text-shadow: 0 2px 40px rgba(0,0,0,0.3);
+      max-width: 100%; word-wrap: break-word;
     }
     .typewriter-headline .highlight {
       background: linear-gradient(135deg, #8deb00 0%, #00e5ff 75%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
-      font-weight: 400;
     }
-    .typewriter-headline .static-text { color: #ffffff; font-weight: 400; }
+    .typewriter-headline .static-text { color: #ffffff; }
     .typewriter-cursor {
-      display: inline-block;
-      width: 3px;
-      height: 1.2em;
-      background: #8deb00;
-      margin-left: 2px;
-      vertical-align: text-bottom;
+      display: inline-block; width: 3px; height: 1.1em;
+      background: #8deb00; margin-left: 4px; vertical-align: text-bottom;
       animation: blink 0.8s step-end infinite;
-      box-shadow: 0 0 20px rgba(141,235,0,0.5), 0 0 60px rgba(141,235,0,0.15);
-      border-radius: 1px;
     }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-    /* ===== HERO GLOBE – NOW SCALES SMALL ===== */
+    @media (max-width: 600px) {
+      .typewriter-wrapper { padding: 10px 8px 5px; margin-bottom: 10px; min-height: 70px; }
+      .typewriter-headline { font-size: clamp(1.2rem, 5vw, 2.2rem); }
+    }
+
+    /* ============================================================
+       SCROLL CUE
+       ============================================================ */
+    .scroll-cue {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 8px; padding: 10px 0 5px;
+      color: var(--green); font-family: 'Space Mono', monospace;
+      font-size: clamp(0.6rem, 1vw, 0.85rem);
+      letter-spacing: 2px; text-transform: uppercase; opacity: 0.75;
+      position: relative; z-index: 2; margin: 5px 0 15px;
+    }
+    .scroll-cue i { font-size: clamp(14px, 1.5vw, 22px); animation: scrollBounce 1.8s ease-in-out infinite; }
+    @keyframes scrollBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(10px)} }
+
+    /* ============================================================
+       ONBOARDING CTA
+       ============================================================ */
+    .onboarding-cta-wrapper {
+      display: flex; justify-content: center;
+      margin: 5px 0 30px; padding: 4px 0;
+      position: relative; z-index: 2;
+    }
+    .btn-onboarding {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 4px 12px 4px 16px;
+      background: transparent; border: 1px solid rgba(141,235,0,0.3);
+      border-radius: 30px; color: var(--green);
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(0.6rem, 1vw, 0.85rem);
+      transition: all 0.3s ease; backdrop-filter: blur(4px);
+    }
+    .btn-onboarding i { font-size: 11px; transition: transform 0.3s ease; opacity: 0.7; }
+    .btn-onboarding:hover { border-color: var(--green); background: rgba(141,235,0,0.08); gap: 12px; }
+    .btn-onboarding:hover i { transform: translateX(4px); opacity: 1; }
+
+    /* ============================================================
+       HERO – RESPONSIVE
+       ============================================================ */
     .hero {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      margin: clamp(8px, 2vh, 20px) 0 clamp(24px, 4vh, 60px) 0;
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; margin: 10px 0 40px;
     }
     .hero-globe-container {
-      width: 100%;
-      max-width: clamp(160px, 60vw, 480px); /* ← key fix: shrinks on mobile */
-      aspect-ratio: 1/1;
-      margin: 0 auto clamp(16px, 3vh, 40px) auto;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      padding: clamp(3px, 0.6vw, 6px);
+      width: 100%; max-width: clamp(180px, 50vw, 480px);
+      aspect-ratio: 1/1; margin: 0 auto 30px auto;
+      position: relative; display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; padding: 5px;
       background: linear-gradient(135deg, #e0b12d 0%, #1db31b 40%, #8deb00 100%);
       box-shadow: 0 0 60px rgba(29,179,27,0.25), inset 0 0 30px rgba(0,0,0,0.8);
       overflow: hidden;
@@ -363,61 +298,896 @@
     }
     .hero-logo-overlay img { width:100%; height:auto; display:block; filter:drop-shadow(0 0 20px rgba(141,235,0,0.9)); opacity:0.95; }
     .hero h1 {
-      font-size: clamp(1.1rem, 3.5vw, 2.2rem);
-      margin: clamp(4px, 1vh, 12px) 0 clamp(2px, 0.5vh, 8px);
+      font-size: clamp(1.1rem, 3vw, 2.2rem);
+      margin: 8px 0 4px;
     }
     .hero .subtitle {
       font-size: clamp(0.7rem, 1.2vw, 1rem);
-      color: #b4b4b4;
+      color: var(--text-muted);
     }
 
-    /* ===== ALL OTHER ELEMENTS – already scaled with clamp ===== */
-    /* (omitted for brevity – they remain as in the previous version) */
-    /* The rest of the CSS is exactly as before, with all sizes using clamp() */
-
-    /* ===== SCROLL CUE, BUTTONS, ETC. ===== */
-    .scroll-cue {
-      display: flex; flex-direction: column; align-items: center; gap: clamp(4px, 1vh, 14px);
-      padding: clamp(4px, 1vh, 20px) 0 clamp(2px, 0.5vh, 10px);
-      color: #8deb00; font-family: 'Space Mono', monospace;
-      font-size: clamp(0.6rem, 1vw, 0.9rem);
-      letter-spacing: 2px; text-transform: uppercase; opacity: 0.75;
-      position: relative; z-index: 2; margin-top: clamp(4px, 1vh, 20px);
-      margin-bottom: clamp(8px, 2vh, 30px);
+    @media (max-width: 600px) {
+      .hero { margin: 5px 0 25px; }
+      .hero-globe-container { max-width: clamp(140px, 55vw, 220px); margin-bottom: 18px; padding: 4px; }
+      .hero h1 { font-size: clamp(1rem, 4vw, 1.4rem); }
     }
-    .scroll-cue i { font-size: clamp(12px, 1.5vw, 24px); animation: scrollBounce 1.8s ease-in-out infinite; }
-    @keyframes scrollBounce { 0%,100%{transform:translateY(0);opacity:0.5} 50%{transform:translateY(12px);opacity:1} }
 
-    .onboarding-cta-wrapper {
-      display: flex; justify-content: center;
-      margin: clamp(2px, 0.5vh, 10px) 0 clamp(16px, 4vh, 80px) 0;
-      padding: clamp(2px, 0.5vh, 6px) 0;
-      position: relative; z-index: 2;
+    /* ============================================================
+       HERO SPREAD VIDEO
+       ============================================================ */
+    .hero-spread {
+      width:100%; margin-bottom: 40px; border-radius:12px;
+      overflow:hidden; border:1px solid var(--border-dim);
+      background:#0F0F0F; display:flex;
     }
-    .btn-onboarding {
-      display: inline-flex; align-items: center; gap: clamp(4px, 0.8vw, 10px);
-      padding: clamp(2px, 0.4vh, 6px) clamp(8px, 1.5vw, 16px) clamp(2px, 0.4vh, 6px) clamp(10px, 2vw, 20px);
-      background: transparent; border: 1px solid rgba(141,235,0,0.3);
-      border-radius: 30px; color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: clamp(0.6rem, 1vw, 0.85rem);
-      font-weight: 400; text-decoration: none; transition: all 0.3s ease;
-      letter-spacing: 0.5px; backdrop-filter: blur(4px);
+    .hero-spread video { width:100%; height:auto; display:block; background:#0F0F0F; min-height:80px; }
+
+    /* ============================================================
+       TICKER
+       ============================================================ */
+    .ticker {
+      background:#0F0F0F; border:1px solid var(--border-dim);
+      padding:14px 20px; display:flex; justify-content:space-between;
+      align-items:center; margin-bottom:40px; flex-wrap:wrap; gap:10px; border-radius:8px;
     }
-    .btn-onboarding i { font-size: clamp(8px, 0.8vw, 12px); transition: transform 0.3s ease; opacity: 0.7; }
-    .btn-onboarding:hover { border-color: #8deb00; background: rgba(141,235,0,0.08); box-shadow:0 0 30px rgba(141,235,0,0.15); gap: clamp(8px, 1.2vw, 14px); }
-    .btn-onboarding:hover i { transform:translateX(4px); opacity:1; }
+    .ticker .left { font-family:'Space Mono',monospace; font-size:clamp(0.65rem, 1vw, 0.85rem); color:var(--green); }
+    .ticker .left span { color:var(--text-muted); }
+    .ticker .right { font-size:clamp(0.6rem, 0.9vw, 0.8rem); color:var(--text-muted); }
 
-    /* ===== OTHER SECTIONS (already responsive) ===== */
-    /* ... (the rest of the CSS is identical to the previous version, with all sizes using clamp) ... */
+    @media (max-width: 600px) {
+      .ticker { padding:10px 14px; flex-direction:column; align-items:flex-start; gap:6px; margin-bottom:25px; }
+    }
 
-    /* For brevity I’m not repeating the entire 300+ lines here – but the key fixes are above. */
-    /* I’ll include a complete file in the final answer. */
+    /* ============================================================
+       SECTION HEADER
+       ============================================================ */
+    .section-header {
+      margin-bottom: 20px; margin-top: 40px;
+      border-bottom: 1px solid var(--border-dim); padding-bottom: 14px;
+    }
+    .section-header:first-of-type { margin-top:0; }
+    .section-title-img { display:block; max-width:100%; height:auto; }
+
+    /* ============================================================
+       SIGNAL SELECTOR
+       ============================================================ */
+    .signal-selector {
+      background:rgba(0,0,0,0.4); border:1px solid var(--border-dim);
+      border-radius:12px; padding:30px 20px; margin-bottom:40px;
+    }
+    .selector-tabs {
+      display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:18px;
+    }
+    .selector-tab {
+      font-family:'Space Mono',monospace; font-size:clamp(0.6rem, 1vw, 0.85rem);
+      color:var(--text-muted); background:transparent; border-radius:6px;
+      padding:8px 16px; cursor:pointer; transition:0.2s;
+      letter-spacing:0.5px; border:1px solid transparent;
+    }
+    .selector-tab:hover { border-color:var(--green); color:var(--green); }
+    .selector-tab.active { border-color:var(--green); color:var(--green); background:rgba(141,235,0,0.08); }
+
+    .selector-panel { text-align:center; min-height:120px; }
+    .selector-panel .icon {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:44px; height:44px; border-radius:50%;
+      background:rgba(141,235,0,0.1); border:1px solid var(--green);
+      color:var(--green); font-size:18px; margin-bottom:10px;
+    }
+    .selector-panel h4 { font-size:clamp(1rem, 1.6vw, 1.3rem); margin-bottom:6px; }
+    .selector-typed {
+      font-family:'Space Mono',monospace; font-size:clamp(0.7rem, 1.1vw, 0.9rem);
+      color:#d0d0d0; min-height:45px; margin:0 auto 14px auto;
+      max-width:480px; line-height:1.6; padding:0 8px;
+    }
+    .selector-typed::after { content:'█'; color:var(--green); animation:blink 0.8s infinite; }
+    .selector-panel .link { color:var(--green); font-size:clamp(0.65rem, 1vw, 0.85rem); font-family:'Space Mono',monospace; }
+
+    @media (max-width: 600px) {
+      .signal-selector { padding:18px 12px; margin-bottom:25px; }
+      .selector-tab { font-size:0.6rem; padding:5px 10px; }
+      .selector-panel .icon { width:36px; height:36px; font-size:15px; }
+    }
+
+    /* ============================================================
+       JOIN SIGNAL
+       ============================================================ */
+    .join-signal {
+      position:relative; overflow:hidden; text-align:center;
+      border:1px solid var(--border-dim); border-radius:12px;
+      padding:35px 20px; margin-bottom:40px;
+      background:rgba(0,0,0,0.4); backdrop-filter:blur(1px);
+    }
+    .join-signal h3 { font-size:clamp(1.2rem, 2vw, 1.6rem); margin-bottom:6px; color:#fff; }
+    .join-signal p { color:var(--text-muted); font-size:clamp(0.8rem, 1.2vw, 1rem); margin-bottom:20px; }
+
+    .signal-subscribe-wrapper { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .pulse-ring-container { position:relative; display:flex; align-items:center; justify-content:center; width:fit-content; margin:0 auto; }
+    .pulse-ring {
+      position:absolute; top:50%; left:50%; width:calc(100% + 30px); height:calc(100% + 30px);
+      border-radius:9999px; border:2px solid rgba(141,235,0,0.4);
+      animation:pulseExpand 2.4s ease-out infinite; pointer-events:none; z-index:0;
+      transform:translate(-50%,-50%) scale(1); transform-origin:center center;
+    }
+    .pulse-ring.delay-1 { animation-delay:0.8s; }
+    .pulse-ring.delay-2 { animation-delay:1.6s; }
+    @keyframes pulseExpand {
+      0% { transform:translate(-50%,-50%) scale(1); opacity:0.8; border-width:2px; }
+      100% { transform:translate(-50%,-50%) scale(1.5); opacity:0; border-width:1px; }
+    }
+    .btn-subscribe {
+      position:relative; z-index:2; display:inline-flex; align-items:center; gap:10px;
+      padding:14px 32px; background:linear-gradient(to top, #1a7a1a 0%, #8deb00 100%);
+      border:none; border-radius:50px; color:#000; font-family:'Space Mono',monospace;
+      font-weight:700; font-size:clamp(0.9rem, 1.4vw, 1.2rem); cursor:pointer; transition:all 0.3s ease;
+      box-shadow:0 4px 30px rgba(141,235,0,0.25); text-decoration:none;
+    }
+    .btn-subscribe:hover { transform:scale(1.05); box-shadow:0 8px 50px rgba(141,235,0,0.5); }
+
+    .live-indicator {
+      display:flex; align-items:center; gap:8px; font-family:'Space Mono',monospace;
+      font-size:clamp(0.6rem, 0.9vw, 0.8rem); color:var(--green); letter-spacing:2px; text-transform:uppercase; opacity:0.7;
+    }
+    .live-dot {
+      display:inline-block; width:7px; height:7px; background:var(--green); border-radius:50%;
+      animation:livePulse 1.2s ease-in-out infinite; box-shadow:0 0 12px rgba(141,235,0,0.5);
+    }
+    @keyframes livePulse {
+      0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.7)}
+    }
+
+    @media (max-width: 600px) {
+      .join-signal { padding:22px 14px; margin-bottom:25px; }
+      .btn-subscribe { padding:10px 20px; font-size:0.9rem; }
+      .pulse-ring { width:calc(100% + 20px); height:calc(100% + 20px); }
+    }
+
+    /* ============================================================
+       TRANSMISSION LIST
+       ============================================================ */
+    .transmission-list {
+      margin-bottom:40px; border:1px solid var(--border-dim); border-radius:8px; overflow:hidden;
+    }
+    .tx-item {
+      padding:20px 16px; display:flex; flex-direction:column; align-items:center; text-align:center;
+    }
+    .tx-item:nth-child(2) { background:rgba(29,179,27,0.03); }
+    .tx-item .tx-dot { width:7px; height:7px; background:var(--green); border-radius:50%; box-shadow:0 0 12px var(--green); margin-bottom:6px; }
+    .tx-item .tx-number { font-family:'Space Mono',monospace; color:var(--green); font-size:clamp(1.2rem, 1.8vw, 1.5rem); }
+    .tx-item h4 { font-size:clamp(0.95rem, 1.4vw, 1.2rem); font-weight:700; }
+    .tx-item p { color:var(--text-muted); font-size:clamp(0.7rem, 1.1vw, 0.9rem); max-width:600px; }
+
+    /* ============================================================
+       FOUNDING 200
+       ============================================================ */
+    .founding-wrapper { margin-bottom:40px; overflow:visible; position:relative; padding-bottom:15px; }
+    .founding-carousel { width:100%; overflow:hidden; padding:14px 0 18px; position:relative; }
+    .founding-track {
+      display:flex; gap:20px; width:max-content;
+      animation:scrollFounding 35s linear infinite; will-change:transform;
+    }
+    .founding-track:hover { animation-play-state:paused; }
+    .founder-item {
+      display:flex; flex-direction:column; align-items:center; text-decoration:none;
+      color:inherit; flex-shrink:0; cursor:pointer; transition:transform 0.2s;
+    }
+    .founder-item:hover { transform:translateY(-3px); }
+    .founder-item .founding-circle {
+      width:clamp(60px, 8vw, 90px); height:clamp(60px, 8vw, 90px);
+      border:3px solid #e0b12d; border-radius:50%;
+      display:flex; align-items:center; justify-content:center; background:#0F0F0F;
+      box-shadow:0 0 30px rgba(224,177,45,0.2); overflow:hidden;
+    }
+    .founder-item:hover .founding-circle { box-shadow:0 0 50px rgba(224,177,45,0.4); }
+    .founder-item .founding-circle img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+    .founder-name {
+      font-family:'Space Mono',monospace; font-size:clamp(0.6rem, 1vw, 0.85rem);
+      color:#e0b12d; margin-top:6px; text-align:center; max-width:clamp(60px, 7vw, 90px); line-height:1.2;
+    }
+    @keyframes scrollFounding { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+
+    /* ============================================================
+       CERTIFIED OPERATOR
+       ============================================================ */
+    .cert-section { margin-bottom:40px; }
+    .cert-badge-container { display:flex; justify-content:center; margin:14px 0 10px; }
+    .cert-badge {
+      width:clamp(80px, 12vw, 120px); height:clamp(80px, 12vw, 120px);
+      border-radius:50%; border:2px solid #e0b12d;
+      box-shadow:0 0 20px rgba(224,177,45,0.2); background:#0A0A0A;
+      display:flex; align-items:center; justify-content:center; overflow:hidden; padding:0;
+    }
+    .cert-badge img { width:100%; height:100%; object-fit:cover; border-radius:50%; display:block; }
+    .cert-section h3 { font-size:clamp(1rem, 1.5vw, 1.3rem); }
+    .cert-section p { color:var(--text-muted); font-size:clamp(0.7rem, 1.1vw, 0.9rem); }
+
+    /* ============================================================
+       DASHBOARD GRID (Impact)
+       ============================================================ */
+    .dashboard-grid {
+      display:grid; grid-template-columns:repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+      gap:14px; margin-bottom:40px;
+    }
+    .db-card { border:1px solid var(--border-dim); border-radius:8px; padding:18px 16px; background:#0A0A0A; }
+    .db-card .db-title { color:var(--green); font-size:clamp(0.7rem, 1.1vw, 0.9rem); margin-bottom:4px; }
+    .db-card .db-value { font-size:clamp(1.4rem, 2.8vw, 1.8rem); font-weight:700; margin-bottom:2px; color:#fff; }
+    .db-card .db-sub { color:var(--text-muted); font-size:clamp(0.55rem, 0.9vw, 0.75rem); margin-bottom:8px; }
+    .db-bar-bg { height:4px; background:var(--border-dim); border-radius:2px; overflow:hidden; }
+    .db-bar-fill { height:100%; background:linear-gradient(90deg, #1db31b 0%, #c9e265 100%); width:0%; border-radius:2px; transition:width 1.2s ease; }
+
+    /* ============================================================
+       AMBASSADOR
+       ============================================================ */
+    .ambassador-section { margin-bottom:40px; }
+
+    /* ============================================================
+       GEAR BOX
+       ============================================================ */
+    .gear-box {
+      border:1px solid var(--border-dim); border-radius:12px;
+      padding:30px 20px; text-align:center; background:#0A0A0A; margin-bottom:40px;
+    }
+    .gear-box h4 { color:var(--green); font-size:clamp(1.1rem, 1.6vw, 1.4rem); margin-bottom:4px; }
+    .gear-box p { color:var(--text-muted); font-size:clamp(0.7rem, 1.1vw, 0.9rem); }
+
+    /* ============================================================
+       BUTTONS
+       ============================================================ */
+    .btn-neon-outline {
+      display:inline-block; padding:8px 24px; background:transparent;
+      border:1px solid var(--green); border-radius:8px; color:var(--green);
+      font-family:'Space Mono',monospace; font-size:clamp(0.7rem, 1.1vw, 0.9rem);
+      transition:0.2s;
+    }
+    .btn-neon-outline:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 15px rgba(141,235,0,0.3); }
+
+    .btn-neon-block {
+      display:inline-block; width:100%; max-width:300px; padding:10px;
+      text-align:center; margin:8px auto 0; background:transparent;
+      border:1px solid var(--green); border-radius:8px; color:var(--green);
+      font-family:'Space Mono',monospace; font-size:clamp(0.7rem, 1.1vw, 0.9rem);
+      transition:0.2s;
+    }
+    .btn-neon-block:hover { background:rgba(141,235,0,0.05); box-shadow:0 0 15px rgba(141,235,0,0.3); }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
+    .footer {
+      border-top:1px solid var(--border-dim); padding-top:30px; margin-top:40px;
+      display:flex; flex-direction:column; gap:14px;
+      font-size:clamp(0.6rem, 0.9vw, 0.8rem); color:var(--text-muted); text-align:center;
+    }
+    .footer .socials { display:flex; justify-content:center; gap:16px; flex-wrap:wrap; }
+    .footer .socials a { color:#fff; font-size:clamp(1rem, 1.5vw, 1.3rem); transition:0.2s; }
+    .footer .socials a:hover { color:var(--green); }
+    .footer .footer-links { display:flex; justify-content:center; gap:12px 20px; flex-wrap:wrap; }
+    .footer .footer-links a { color:var(--green); }
+    .footer .footer-links a:hover { color:#a0f520; }
+
+    /* ============================================================
+       SCROLL REVEAL
+       ============================================================ */
+    .reveal-on-scroll {
+      opacity:0; transition:opacity 0.8s ease, transform 0.8s ease;
+      transform:translateY(40px);
+    }
+    .reveal-on-scroll.revealed { opacity:1; transform:translateY(0); }
+    .reveal-left { transform:translateX(-50px); }
+    .reveal-left.revealed { transform:translateX(0); }
+    .reveal-right { transform:translateX(50px); }
+    .reveal-right.revealed { transform:translateX(0); }
+    .reveal-scale { transform:scale(0.95); }
+    .reveal-scale.revealed { transform:scale(1); }
+    .reveal-delay-1 { transition-delay:0.08s; }
+    .reveal-delay-2 { transition-delay:0.16s; }
+    .reveal-delay-3 { transition-delay:0.24s; }
+    .reveal-delay-4 { transition-delay:0.32s; }
+
+    /* ============================================================
+       SCROLL TOP BUTTON
+       ============================================================ */
+    #scrollTopBtn {
+      position:fixed; bottom:20px; right:20px; visibility:hidden; opacity:0;
+      width:clamp(36px, 4vw, 45px); height:clamp(36px, 4vw, 45px);
+      border-radius:50%; border:1px solid var(--green);
+      background:rgba(0,0,0,0.85); color:var(--green); cursor:pointer;
+      font-size:clamp(14px, 1.5vw, 18px); z-index:999;
+      font-family:'Space Mono',monospace; transition:all 0.3s ease;
+      box-shadow:0 0 10px rgba(141,235,0,0.2);
+    }
+    #scrollTopBtn.show { visibility:visible; opacity:1; }
+    #scrollTopBtn:hover { background:var(--green); color:#000; box-shadow:0 0 20px rgba(141,235,0,0.6); }
+
+    /* ============================================================
+       SIDEBAR OVERLAY
+       ============================================================ */
+    #sidebarOverlay {
+      display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+      background:rgba(0,0,0,0.5); z-index:999; opacity:0; transition:opacity 0.3s ease;
+    }
+    #sidebarOverlay.show { display:block; opacity:1; }
+    @media (max-width: 1024px) { #sidebarOverlay.show { display:block; } }
   </style>
 </head>
 <body>
-  <!-- ===== SIDEBAR, FLOATING HEADER, and ALL CONTENT ===== -->
-  <!-- (the HTML is exactly the same as before – no changes needed) -->
-  <!-- I’ll provide the full, final file in the code block. -->
+
+  <!-- BINARY RAIN -->
+  <canvas id="binary-rain"></canvas>
+  <div id="rain-fade"></div>
+
+  <!-- SIDEBAR OVERLAY -->
+  <div id="sidebarOverlay"></div>
+
+  <!-- ===== SIDEBAR ===== -->
+  <div id="sidebarContainer">
+    <aside class="sidebar" id="sidebar">
+      <div class="logo"><a href="index.html"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a></div>
+      <div class="sidebar-profile">
+        <div class="profile-avatar" id="profileAvatar" style="background-image:url('cameras-decoded-logo.png');"></div>
+        <div class="profile-name" id="sidebarUsername">Guest</div>
+        <div class="profile-email" id="sidebarEmail">Not logged in</div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-group">
+          <a href="index.html" class="nav-item active"><i class="fas fa-home"></i> Home</a>
+          <a href="operator-dashboard.html" class="nav-item"><i class="fas fa-chart-simple"></i> Dashboard</a>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="nav-group">
+          <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
+          <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
+          <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+          <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="nav-group">
+          <a href="journey.html" class="nav-item"><i class="fas fa-route"></i> Journey</a>
+          <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
+          <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
+          <a href="snapshot-library.html" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
+          <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="nav-group">
+          <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
+          <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
+          <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="nav-group private-links" id="privateLinks">
+          <a href="profile.html" class="nav-item"><i class="fas fa-id-card"></i> Profile</a>
+          <a href="#" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
+          <a href="#" class="nav-item"><i class="fas fa-credit-card"></i> Billing</a>
+          <a href="#" class="nav-item" onclick="handleLogout(); return false;" style="color:#ff4a4a;"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+        <div class="nav-group auth-cta" id="authCta">
+          <a href="login.html" class="nav-item"><i class="fas fa-sign-in-alt"></i> Log in</a>
+          <a href="signup.html" class="nav-item signup"><i class="fas fa-user-plus"></i> Sign Up</a>
+        </div>
+      </nav>
+      <div class="sidebar-notification" id="sidebarNotification">
+        <div class="notif-header"><i class="fas fa-bullhorn"></i><span>Announcement</span></div>
+        <div class="notif-message empty" id="sidebarAnnouncement">No active announcement</div>
+        <div class="notif-timestamp" id="sidebarAnnouncementTimestamp"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ===== FLOATING HEADER ===== -->
+  <div class="floating-header">
+    <div class="floating-left-group">
+      <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
+      <span id="roleTierBadge" class="role-tier-badge" style="display:none;">
+        <span class="glow-role" id="headerRole">Guest</span> · <span id="headerTier" class="tier-text">—</span>
+      </span>
+    </div>
+    <div class="floating-center-group"></div>
+    <div class="floating-right-group">
+      <a href="cart.html" class="cart-header-link" id="cartHeaderLink">
+        <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
+        <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
+      </a>
+      <button class="logout-btn" id="floatingLogoutBtn" onclick="handleLogout()" style="display:none;">Logout</button>
+      <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
+    </div>
+  </div>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="main-content">
+
+    <div class="typewriter-wrapper reveal-on-scroll">
+      <h1 class="typewriter-headline">
+        <span class="highlight">Confidence</span>
+        <span class="static-text">is a</span>
+        <span class="highlight">protocol</span>,
+        <span id="typingText"></span><span class="typewriter-cursor"></span>
+      </h1>
+    </div>
+
+    <div class="scroll-cue reveal-on-scroll reveal-delay-1">
+      <span>See the signal in motion</span>
+      <i class="fas fa-chevron-down"></i>
+    </div>
+
+    <div class="onboarding-cta-wrapper reveal-on-scroll reveal-delay-1">
+      <a href="onboarding.html" class="btn-onboarding">
+        <span>Daily Protocol</span>
+        <i class="fas fa-arrow-right"></i>
+      </a>
+    </div>
+
+    <div class="hero reveal-on-scroll reveal-delay-2" id="heroSection">
+      <div class="hero-globe-container" id="heroGlobe">
+        <video src="cynetis-7-loop.mp4" autoplay loop muted playsinline class="globe-image" poster="cameras-decoded-globe.png"></video>
+        <div class="hero-logo-overlay"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></div>
+      </div>
+      <div class="green-text" style="font-size:clamp(0.7rem, 1vw, 0.85rem);">The Operator Confidence Company</div>
+      <h1>We turn mirrorless owners into confident operators.</h1>
+      <div class="subtitle">Transmitted by Cynetis‑7 · Built by the Signal Keeper</div>
+    </div>
+
+    <div class="hero-spread reveal-on-scroll reveal-delay-3">
+      <video src="brand-explainer-1080.mp4" poster="video-poster.jpg" controls>
+        <p style="color:#b4b4b4; padding:20px; text-align:center; font-family:'Space Mono',monospace;">
+          <i class="fas fa-film" style="color:#8deb00;"></i> Video placeholder
+        </p>
+      </video>
+    </div>
+
+    <section class="reveal-on-scroll reveal-left">
+      <div class="section-header">
+        <img src="custom-site-titles/three-pathways.png" alt="Three Pathways" class="section-title-img">
+      </div>
+      <p class="grey-text" style="margin-bottom:18px; font-size:clamp(0.7rem, 1.1vw, 0.9rem);">Every visitor has a door. Choose yours.</p>
+      <div class="signal-selector">
+        <div class="selector-tabs">
+          <button class="selector-tab active" data-tab="operator">&gt; OPERATOR</button>
+          <button class="selector-tab" data-tab="partner">&gt; PARTNER</button>
+          <button class="selector-tab" data-tab="instructor">&gt; INSTRUCTOR</button>
+        </div>
+        <div class="selector-panel" id="selectorPanel"></div>
+      </div>
+    </section>
+
+    <div class="ticker reveal-on-scroll reveal-right">
+      <div class="left">✦ // LATEST TRANSMISSION — Protocol 8 - Why Your Indoor Photos Look Yellow</div>
+      <div class="right"><a href="https://open.substack.com/pub/camerasdecoded" target="_blank">Read on Substack →</a></div>
+    </div>
+
+    <section class="join-signal reveal-on-scroll reveal-scale" id="joinSignal">
+      <div class="section-header" style="border:none; margin-top:0; padding-top:0;">
+        <img src="custom-site-titles/join-the-signal.png" alt="Join the Signal" class="section-title-img">
+      </div>
+      <h3>Free weekly operator protocols</h3>
+      <p>New transmission every Monday. No fluff. No ads. Just the signal.</p>
+      <div class="signal-subscribe-wrapper">
+        <div class="pulse-ring-container">
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring delay-1"></div>
+          <div class="pulse-ring delay-2"></div>
+          <a href="https://camerasdecoded.substack.com/subscribe" target="_blank" class="btn-subscribe">
+            <span class="btn-text">Subscribe Free</span>
+            <span class="btn-icon"><i class="fas fa-bolt"></i></span>
+          </a>
+        </div>
+        <div class="live-indicator">
+          <span class="live-dot"></span>
+          <span class="live-text">LIVE SIGNAL</span>
+        </div>
+      </div>
+      <div class="signal-scanline"></div>
+    </section>
+
+    <div class="founding-wrapper reveal-on-scroll reveal-left">
+      <div class="section-header">
+        <img src="custom-site-titles/founding-200.png" alt="The Founding 200" class="section-title-img">
+      </div>
+      <div style="font-size:clamp(1.2rem, 2.5vw, 1.8rem); font-weight:700; text-align:center;">200</div>
+      <p class="grey-text" style="margin-bottom:18px; text-align:center; font-size:clamp(0.7rem, 1.1vw, 0.9rem);">Founding Decoder slots. First operators to activate the signal.</p>
+      <div class="founding-carousel">
+        <div class="founding-track" id="foundingTrack"></div>
+      </div>
+      <div style="text-align:center; padding-bottom:5px;">
+        <a href="camera-confidence-guide.html" class="btn-neon-block">Become a Founding Decoder → $47</a>
+      </div>
+    </div>
+
+    <section class="reveal-on-scroll reveal-right">
+      <div class="section-header">
+        <img src="custom-site-titles/latest-transmissions.png" alt="Latest Transmissions" class="section-title-img">
+      </div>
+      <h3 style="font-size:clamp(1rem, 1.4vw, 1.3rem);">The Protocol Archive</h3>
+      <p class="grey-text" style="margin-bottom:18px; font-size:clamp(0.7rem, 1.1vw, 0.9rem);">Free weekly operator protocols. Updated every Monday.</p>
+      <div class="transmission-list">
+        <div class="tx-item"><div class="tx-dot"></div><div class="tx-number">007</div><h4>The Metering Mistake</h4><p>Why Your Camera's Meter Is Lying to You</p></div>
+        <div class="tx-item"><div class="tx-dot"></div><div class="tx-number">006</div><h4>Why Your Camera Keeps Focusing on the Wrong Thing</h4><p>And the One Setting That Fixes It.</p></div>
+        <div class="tx-item"><div class="tx-dot"></div><div class="tx-number">005</div><h4>The One Setting That Saves Indoor Birthday Parties</h4><p>Your camera isn't broken.</p></div>
+      </div>
+    </section>
+
+    <section class="cert-section reveal-on-scroll reveal-scale">
+      <div class="section-header">
+        <img src="custom-site-titles/certified-operator.png" alt="Certified Operator" class="section-title-img">
+      </div>
+      <h3 style="font-size:clamp(1rem, 1.4vw, 1.3rem);">The credential that proves it</h3>
+      <p class="grey-text" style="margin-bottom:14px; font-size:clamp(0.7rem, 1.1vw, 0.9rem);">Issued exclusively through licensed Cameras Decoded instructors.</p>
+      <div class="cert-badge-container">
+        <div class="cert-badge">
+          <img src="certified-badge.png" alt="Certified Operator Badge" />
+        </div>
+      </div>
+      <div style="text-align:center;">
+        <h3 style="font-size:clamp(0.9rem, 1.2vw, 1.1rem);">Cameras Decoded Certified Operator</h3>
+        <p class="grey-text" style="font-size:clamp(0.65rem, 1vw, 0.85rem);">A digital credential displayed on LinkedIn, portfolios, and professional profiles.</p>
+      </div>
+    </section>
+
+    <section class="reveal-on-scroll reveal-left" id="impactSection">
+      <div class="section-header">
+        <img src="custom-site-titles/signal-network-impact.png" alt="Signal Network Impact" class="section-title-img">
+      </div>
+      <h3 style="font-size:clamp(1rem, 1.4vw, 1.3rem);">What pre-purchase education actually does</h3>
+      <p class="grey-text" style="margin-bottom:18px; font-size:clamp(0.7rem, 1.1vw, 0.9rem);">Return rate reduction and accessory revenue lift.</p>
+      <div class="dashboard-grid">
+        <div class="db-card"><div class="db-title">Return Rate Reduction</div><div class="db-value">30%</div><div class="db-sub">Pre-purchase education impact</div><div class="db-bar-bg"><div class="db-bar-fill" data-target="60" style="width:0%;"></div></div></div>
+        <div class="db-card"><div class="db-title">Accessory Revenue</div><div class="db-value">+30%</div><div class="db-sub">Educated customer spend lift</div><div class="db-bar-bg"><div class="db-bar-fill" data-target="60" style="width:0%;"></div></div></div>
+        <div class="db-card"><div class="db-title">Founding Decoders</div><div class="db-value">200</div><div class="db-sub">Slots remaining</div><div class="db-bar-bg"><div class="db-bar-fill" data-target="40" style="width:0%;"></div></div></div>
+        <div class="db-card"><div class="db-title">Active Protocols</div><div class="db-value">008</div><div class="db-sub">Published transmissions</div><div class="db-bar-bg"><div class="db-bar-fill" data-target="80" style="width:0%;"></div></div></div>
+      </div>
+      <div style="text-align:center; margin-top:10px;">
+        <a href="partners.html" style="color:var(--green); font-family:'Space Mono',monospace; font-size:clamp(0.65rem, 0.9vw, 0.8rem);">Compare full licensing tiers →</a>
+      </div>
+    </section>
+
+    <section class="ambassador-section reveal-on-scroll reveal-right">
+      <div class="section-header">
+        <img src="custom-site-titles/decoder-ambassador-program.png" alt="Decoder Ambassador Program" class="section-title-img">
+      </div>
+      <h3 style="font-size:clamp(1rem, 1.4vw, 1.3rem);">Earn by sharing the signal</h3>
+      <p class="grey-text" style="margin-bottom:14px; font-size:clamp(0.7rem, 1.1vw, 0.9rem);">Create content. Share your link. Earn 30–50% commission.</p>
+      <a href="https://tally.so/r/ODk9YY" target="_blank" class="btn-neon-outline">Apply to the program →</a>
+    </section>
+
+    <section class="reveal-on-scroll reveal-scale" style="margin-top:30px;">
+      <div class="section-header">
+        <img src="custom-site-titles/decoder-gear.png" alt="Decoder Gear" class="section-title-img">
+      </div>
+      <div class="gear-box" style="padding:0; margin-bottom:30px; border-radius:12px; overflow:hidden;">
+        <a href="https://tally.so/r/44O7pk" target="_blank" style="display:block; width:100%; padding:clamp(20px, 3vh, 40px); text-align:center; text-decoration:none; color:inherit; transition:all 0.3s ease;"
+           onmouseover="this.style.backgroundColor='rgba(141,235,0,0.05)'; this.style.boxShadow='inset 0 0 25px rgba(141,235,0,0.3)';"
+           onmouseout="this.style.backgroundColor='#0A0A0A'; this.style.boxShadow='none';">
+          <h4 style="color:#8deb00; margin-bottom:4px; pointer-events:none; font-family:'Space Mono',monospace; font-size:clamp(1.1rem, 1.6vw, 1.4rem);">Coming Soon</h4>
+          <p style="color:#b4b4b4; pointer-events:none; font-size:clamp(0.7rem, 1.1vw, 0.9rem);">Notify me when available</p>
+        </a>
+      </div>
+    </section>
+
+    <footer class="footer reveal-on-scroll">
+      <div>© 2026 Cameras Decoded. All rights reserved.</div>
+      <div class="socials">
+        <a href="https://www.youtube.com/@CamerasDecoded"><i class="fab fa-youtube"></i></a>
+        <a href="https://www.tiktok.com/@cameras.decoded"><i class="fab fa-tiktok"></i></a>
+        <a href="https://www.instagram.com/camerasdecoded/reels/"><i class="fab fa-instagram"></i></a>
+        <a href="https://www.facebook.com/profile.php?id=61553594660326"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://camerasdecoded.substack.com"><i class="fas fa-bookmark"></i></a>
+        <a href="https://podcasts.apple.com/us/podcast/cameras-decoded/idYOURID" target="_blank"><i class="fas fa-podcast"></i></a>
+      </div>
+      <div>© Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
+      <div class="footer-links" style="margin-bottom:8px;">
+        <a href="roadmap.html">Roadmap</a> ·
+        <a href="blog-updates.html">Blog/Updates</a> ·
+        <a href="faq.html">FAQ</a> ·
+        <a href="contact.html">Contact</a> ·
+        <a href="podcast.html">Podcast</a>
+      </div>
+      <div class="footer-links">
+        <a href="terms.html">Privacy/Terms</a>
+        <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
+      </div>
+    </footer>
+  </main>
+
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+
+  <script>
+    // ================================================================
+    // FIREBASE
+    // ================================================================
+    if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+      firebase.initializeApp({
+        apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+        authDomain: "cameras-decoded.firebaseapp.com",
+        projectId: "cameras-decoded",
+        storageBucket: "cameras-decoded.firebasestorage.app",
+        messagingSenderId: "1088920052790",
+        appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+        measurementId: "G-YN3M01WW0B"
+      });
+    }
+    if (firebase.firestore) {
+      firebase.firestore().settings({ experimentalForceLongPolling: true });
+    }
+
+    var auth = window.auth || firebase.auth();
+    var db = window.db || firebase.firestore();
+
+    window.handleLogout = function() {
+      auth.signOut().then(function() { window.location.href = 'index.html'; });
+    };
+
+    // ================================================================
+    // BINARY RAIN
+    // ================================================================
+    (function() {
+      var canvas = document.getElementById('binary-rain');
+      var ctx = canvas.getContext('2d');
+      var width = window.innerWidth, height = window.innerHeight;
+      canvas.width = width; canvas.height = height;
+      var fontSize = 16, columns = Math.floor(width / fontSize);
+      var drops = Array(columns).fill(1), speed = 0.55;
+      function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.font = fontSize + 'px "Space Mono", monospace';
+        ctx.textAlign = 'center';
+        for (var i = 0; i < drops.length; i++) {
+          var char = Math.random() > 0.5 ? '1' : '0';
+          var x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
+          ctx.shadowColor = char === '1' ? '#8deb00' : '#3a7a1a';
+          ctx.shadowBlur = char === '1' ? 8 : 4;
+          ctx.fillStyle = char === '1' ? '#8deb00' : '#4caf50';
+          ctx.fillText(char, x, y);
+          if (y > height && Math.random() > 0.97) { drops[i] = 0; }
+          drops[i] += speed;
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+      window.addEventListener('resize', function() {
+        width = window.innerWidth; height = window.innerHeight;
+        canvas.width = width; canvas.height = height;
+        var newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) { drops.push.apply(drops, Array(newColumns - drops.length).fill(1)); }
+        else { drops.length = newColumns; }
+      });
+    })();
+
+    // ================================================================
+    // SCROLL REVEAL
+    // ================================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      var reveals = document.querySelectorAll('.reveal-on-scroll, .reveal-left, .reveal-right, .reveal-scale');
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) { entry.target.classList.add('revealed'); }
+        });
+      }, { threshold: 0.1 });
+      reveals.forEach(function(el) { observer.observe(el); });
+    });
+
+    // ================================================================
+    // SCROLL TOP
+    // ================================================================
+    window.onscroll = function() {
+      var btn = document.getElementById('scrollTopBtn');
+      if (!btn) return;
+      var show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
+      btn.classList.toggle('show', show);
+    };
+
+    // ================================================================
+    // TYPEWRITER
+    // ================================================================
+    (function() {
+      var phrases = ['not a personality trait.', 'built for operators.', 'one frame at a time.', 'decoded daily.'];
+      var phraseIndex = 0, charIndex = 0, isDeleting = false, typeTimeout;
+      var textElement = document.getElementById('typingText');
+      function typeEffect() {
+        var currentPhrase = phrases[phraseIndex];
+        var speed = isDeleting ? 30 : 60;
+        if (!isDeleting && charIndex <= currentPhrase.length) {
+          textElement.textContent = currentPhrase.substring(0, charIndex);
+          charIndex++;
+          typeTimeout = setTimeout(typeEffect, speed);
+        } else if (isDeleting && charIndex >= 0) {
+          textElement.textContent = currentPhrase.substring(0, charIndex);
+          charIndex--;
+          typeTimeout = setTimeout(typeEffect, speed);
+        } else {
+          isDeleting = !isDeleting;
+          if (!isDeleting) { phraseIndex = (phraseIndex + 1) % phrases.length; charIndex = 0; typeTimeout = setTimeout(typeEffect, 600); }
+          else { typeTimeout = setTimeout(typeEffect, 1500); }
+        }
+      }
+      setTimeout(typeEffect, 800);
+    })();
+
+    // ================================================================
+    // SIGNAL SELECTOR
+    // ================================================================
+    (function() {
+      var pathwaysData = {
+        operator: { icon: 'fa-camera', title: 'Operators', text: "You own a mirrorless camera and want to actually use it. The guide, the protocols, and the Inner Signal system are yours.", cta: 'Get the Camera Confidence Guide →', href: 'https://cameradecoded.gumroad.com/l/TheCameraConfidenceGuide' },
+        partner: { icon: 'fa-store', title: 'Partners', text: "You run a camera store, school, or training program. License the curriculum and reduce returns while growing accessory revenue.", cta: 'Explore the Signal Network →', href: 'partners.html' },
+        instructor: { icon: 'fa-chalkboard-teacher', title: 'Instructors', text: "You're a working photographer who wants to teach without building a curriculum from scratch. The Instructor License is yours.", cta: 'View the Instructor Opportunity →', href: 'educators-pdf-viewer.html' }
+      };
+      var typeTimeoutId;
+      function typeOutPanel(key) {
+        var data = pathwaysData[key];
+        var panel = document.getElementById('selectorPanel');
+        panel.innerHTML = '<div class="icon"><i class="fas ' + data.icon + '"></i></div>' +
+                          '<h4>' + data.title + '</h4>' +
+                          '<div class="selector-typed" id="selectorTypedText"></div>' +
+                          '<a href="' + data.href + '" target="_blank" class="link">' + data.cta + '</a>';
+        var el = document.getElementById('selectorTypedText');
+        if (typeTimeoutId) clearTimeout(typeTimeoutId);
+        var i = 0; el.textContent = '';
+        function type() { if (i < data.text.length) { el.textContent += data.text.charAt(i); i++; typeTimeoutId = setTimeout(type, 12); } }
+        type();
+      }
+      function selectTab(key) {
+        document.querySelectorAll('.selector-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === key); });
+        typeOutPanel(key);
+      }
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.selector-tab').forEach(function(t) {
+          t.addEventListener('click', function() { selectTab(this.dataset.tab); });
+        });
+        typeOutPanel('operator');
+      });
+    })();
+
+    // ================================================================
+    // PROGRESS BARS
+    // ================================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      var impactSection = document.getElementById('impactSection');
+      if (impactSection) {
+        var bars = impactSection.querySelectorAll('.db-bar-fill');
+        var barObserver = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+              bars.forEach(function(bar, index) {
+                var target = bar.getAttribute('data-target') || '0';
+                setTimeout(function() { bar.style.width = target + '%'; }, index * 150);
+              });
+            }
+          });
+        }, { threshold: 0.2 });
+        barObserver.observe(impactSection);
+      }
+    });
+
+    // ================================================================
+    // FOUNDING 200
+    // ================================================================
+    (function() {
+      var founders = [
+        { name: "Alex Rivera", badge: "founding-badges/alex-rivera.png" },
+        { name: "Jamie Chen", badge: "founding-badges/jamie-chen.png" },
+        { name: "Morgan Blake", badge: "founding-badges/morgan-blake.png" },
+        { name: "Taylor Kim", badge: "founding-badges/taylor-kim.png" },
+        { name: "Jordan Miles", badge: "founding-badges/jordan-miles.png" },
+        { name: "Casey Smith", badge: "founding-badges/casey-smith.png" },
+        { name: "Riley Peters", badge: "founding-badges/riley-peters.png" },
+        { name: "Quinn Anderson", badge: "founding-badges/quinn-anderson.png" },
+        { name: "Avery Johnson", badge: "founding-badges/avery-johnson.png" },
+        { name: "Dakota Lee", badge: "founding-badges/dakota-lee.png" }
+      ];
+      function fallbackSVG() {
+        return 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2290%22 height=%2290%22%3E%3Ccircle cx=%2245%22 cy=%2245%22 r=%2243%22 fill=%22%231A1A1A%22 stroke=%22%23e0b12d%22 stroke-width=%223%22/%3E%3Ctext x=%2245%22 y=%2250%22 text-anchor=%22middle%22 fill=%22%238deb00%22 font-family=%22Space Mono%22 font-size=%2216%22%3E200%3C/text%3E%3C/svg%3E';
+      }
+      var track = document.getElementById('foundingTrack');
+      if (!track) return;
+      function buildFounderHTML(founder) {
+        return '<a href="founding-200.html" class="founder-item"><div class="founding-circle"><img src="' + founder.badge + '" alt="' + founder.name + '" onerror="this.src=\'' + fallbackSVG() + '\'"/></div><div class="founder-name">' + founder.name + '</div></a>';
+      }
+      var doubled = founders.concat(founders);
+      track.innerHTML = doubled.map(function(founder) { return buildFounderHTML(founder); }).join('');
+    })();
+
+    // ================================================================
+    // CART
+    // ================================================================
+    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
+    function updateCartUI() {
+      var cart = getCart();
+      var totalItems = 0;
+      for (var i = 0; i < cart.length; i++) { totalItems += cart[i].qty; }
+      var countEl = document.getElementById('cartHeaderCount');
+      var labelEl = document.getElementById('cartHeaderLabel');
+      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
+      if (labelEl) { labelEl.textContent = totalItems > 0 ? 'Cart (' + totalItems + ')' : 'Cart'; }
+    }
+    updateCartUI();
+
+    // ================================================================
+    // AUTH UI
+    // ================================================================
+    function updateAuthUI(user) {
+      var privateLinks = document.getElementById('privateLinks');
+      var authCta = document.getElementById('authCta');
+      var roleBadge = document.getElementById('roleTierBadge');
+      var logoutBtn = document.getElementById('floatingLogoutBtn');
+      var profileName = document.getElementById('sidebarUsername');
+      var profileEmail = document.getElementById('sidebarEmail');
+      var avatar = document.querySelector('.profile-avatar');
+
+      if (user) {
+        if (privateLinks) privateLinks.style.display = 'flex';
+        if (authCta) authCta.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+        if (roleBadge) roleBadge.style.display = 'inline-flex';
+
+        db.collection('users').doc(user.uid).get().then(function(doc) {
+          if (doc.exists) {
+            var data = doc.data();
+            var role = data.role || 'Operator';
+            var tier = data.tier || 'free';
+            var tierLabel = tier === 'pro' ? 'Pro' : 'Free';
+            document.getElementById('headerRole').textContent = role;
+            document.getElementById('headerTier').textContent = tierLabel;
+            if (profileName) profileName.textContent = data.username || role;
+            if (profileEmail) profileEmail.textContent = user.email || '';
+            if (avatar) {
+              if (data.photoURL) avatar.style.backgroundImage = 'url(' + data.photoURL + ')';
+              else avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
+            }
+          }
+        }).catch(function() {});
+      } else {
+        if (privateLinks) privateLinks.style.display = 'none';
+        if (authCta) authCta.style.display = 'flex';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (roleBadge) roleBadge.style.display = 'none';
+        if (profileName) profileName.textContent = 'Guest';
+        if (profileEmail) profileEmail.textContent = 'Not logged in';
+        if (avatar) avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
+      }
+    }
+
+    auth.onAuthStateChanged(function(user) {
+      updateAuthUI(user);
+    });
+
+    // ================================================================
+    // SIDEBAR TOGGLE
+    // ================================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      var toggleBtn = document.getElementById('floatingToggle');
+      var sidebar = document.getElementById('sidebarContainer');
+      var overlay = document.getElementById('sidebarOverlay');
+
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          sidebar.classList.toggle('open');
+          overlay.classList.toggle('show');
+          document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
+        });
+      }
+
+      if (overlay) {
+        overlay.addEventListener('click', function() {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('show');
+          document.body.style.overflow = '';
+        });
+      }
+
+      document.querySelectorAll('.sidebar-nav .nav-item').forEach(function(link) {
+        link.addEventListener('click', function() {
+          if (window.innerWidth <= 1024) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('show');
+            document.body.style.overflow = '';
+          }
+        });
+      });
+    });
+
+    console.log('Cameras Decoded — ready.');
+  </script>
 </body>
 </html>
