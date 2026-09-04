@@ -6,7 +6,7 @@
   <title>Partner Dashboard — Cameras Decoded</title>
   <meta name="description" content="Analytics, agreements, and resources for Cameras Decoded partners.">
 
-  <!-- ===== MASTER LOADER ===== -->
+  <!-- ===== MASTER LOADER (Fonts, CSS) ===== -->
   <script src="/scripts/master-loader.js"></script>
 
   <!-- ===== FIREBASE SDKs ===== -->
@@ -19,7 +19,7 @@
 
   <style>
     /* ============================================================
-       PARTNER DASHBOARD – FULL STYLES (same as operator dashboard)
+       PARTNER DASHBOARD – FULL STYLES (same as operator)
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -729,10 +729,10 @@
   <!-- ===== SIDEBAR SCRIPT ===== -->
   <script src="sidebar.js"></script>
 
-  <!-- ===== PAGE-SPECIFIC JAVASCRIPT – IDENTICAL TO OPERATOR ===== -->
+  <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
   <script>
     // ================================================================
-    // PARTNER DASHBOARD – EXACT SAME PATTERN AS OPERATOR
+    // PARTNER DASHBOARD – SAFE VERSION
     // ================================================================
 
     // ---- Toast fallback ----
@@ -797,28 +797,41 @@
     }
 
     function renderStats(u) {
-      document.getElementById('clickCount').textContent = u.clicks || 0;
-      document.getElementById('downloadCount').textContent = u.downloads || 0;
-      document.getElementById('agreementCount').textContent = u.agreements || 0;
-      document.getElementById('studentCountPartner').textContent = u.referredStudents || 0;
-      document.getElementById('profileUsername').textContent = u.username || '—';
-      document.getElementById('profileName').textContent = u.displayName || u.name || '—';
-      document.getElementById('profileEmail').textContent = u.email || '—';
-      document.getElementById('profileCompany').textContent = u.companyName || '—';
-      var tier = u.partnerTier || 'signal';
-      var tierDisplay = tier.charAt(0).toUpperCase() + tier.slice(1);
-      document.getElementById('profileLicense').textContent = tierDisplay;
-      var billing = u.billingInterval || 'monthly';
-      document.getElementById('profileBilling').textContent = billing.charAt(0).toUpperCase() + billing.slice(1);
-      document.getElementById('partnerUniqueId').textContent = u.partnerId || '—';
+      // Safely update elements
+      var elements = {
+        clickCount: u.clicks || 0,
+        downloadCount: u.downloads || 0,
+        agreementCount: u.agreements || 0,
+        studentCountPartner: u.referredStudents || 0,
+        profileUsername: u.username || '—',
+        profileName: u.displayName || u.name || '—',
+        profileEmail: u.email || '—',
+        profileCompany: u.companyName || '—',
+        profileLicense: (u.partnerTier || 'signal').charAt(0).toUpperCase() + (u.partnerTier || 'signal').slice(1),
+        profileBilling: (u.billingInterval || 'monthly').charAt(0).toUpperCase() + (u.billingInterval || 'monthly').slice(1),
+        partnerUniqueId: u.partnerId || '—',
+        referralLink: 'camerasdecoded.com/ref/' + (u.referralCode || ''),
+        totalReferrals: u.totalReferrals || 0,
+        totalCommission: '$' + (u.totalCommissionEarned || 0).toFixed(2),
+        ambassadorTier: 'Partner (20%)'
+      };
 
-      var code = u.referralCode || '';
-      document.getElementById('referralLink').textContent = 'camerasdecoded.com/ref/' + code;
-      document.getElementById('totalReferrals').textContent = u.totalReferrals || 0;
-      document.getElementById('totalCommission').textContent = '$' + (u.totalCommissionEarned || 0).toFixed(2);
-      document.getElementById('ambassadorTier').textContent = 'Partner (20%)';
-      document.getElementById('headerTier').textContent = tierDisplay;
-      document.getElementById('headerRole').textContent = 'Partner';
+      for (var key in elements) {
+        var el = document.getElementById(key);
+        if (el) {
+          el.textContent = elements[key];
+        }
+      }
+
+      // Update header safely
+      var headerTier = document.getElementById('headerTier');
+      if (headerTier) {
+        headerTier.textContent = elements.profileLicense;
+      }
+      var headerRole = document.getElementById('headerRole');
+      if (headerRole) {
+        headerRole.textContent = 'Partner';
+      }
     }
 
     // ---- Render commission history ----
@@ -857,17 +870,21 @@
       var resetBtn = document.getElementById('resetDemoBtn');
       var simBtn = document.getElementById('simulateBtn');
       if (hasDemo) {
-        resetBtn.style.display = 'inline-block';
-        simBtn.textContent = 'Demo used';
-        simBtn.disabled = true;
-        simBtn.style.opacity = '0.5';
-        simBtn.style.cursor = 'default';
+        if (resetBtn) resetBtn.style.display = 'inline-block';
+        if (simBtn) {
+          simBtn.textContent = 'Demo used';
+          simBtn.disabled = true;
+          simBtn.style.opacity = '0.5';
+          simBtn.style.cursor = 'default';
+        }
       } else {
-        resetBtn.style.display = 'none';
-        simBtn.textContent = 'Simulate Purchase';
-        simBtn.disabled = false;
-        simBtn.style.opacity = '1';
-        simBtn.style.cursor = 'pointer';
+        if (resetBtn) resetBtn.style.display = 'none';
+        if (simBtn) {
+          simBtn.textContent = 'Simulate Purchase';
+          simBtn.disabled = false;
+          simBtn.style.opacity = '1';
+          simBtn.style.cursor = 'pointer';
+        }
         window.demoCommissionId = null;
       }
     }
@@ -990,7 +1007,7 @@
       });
     };
 
-    // ---- Sidebar toggles ----
+    // ---- Sidebar toggle ----
     document.getElementById('floatingToggle').addEventListener('click', function() {
       var sidebarContainer = document.getElementById('sidebarContainer');
       if (sidebarContainer) {
