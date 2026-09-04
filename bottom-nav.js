@@ -1,6 +1,6 @@
 // ================================================================
 // BOTTOM NAV – Production (role-aware, root paths)
-// ALL icons use 'far' (Regular) – thinner, premium look
+// Font Awesome 6 Free – uses fa-regular + fa-solid
 // ================================================================
 
 (function() {
@@ -120,7 +120,7 @@
   }
 
   // ================================================================
-  // BUILD NAV HTML – ALL ICONS USE 'far' (Regular, thinner)
+  // BUILD NAV HTML – Font Awesome 6 Free Compatible
   // ================================================================
 
   function buildNavHTML() {
@@ -128,27 +128,27 @@
     return `
       <nav class="bottom-nav chasing-border-nav" role="navigation" aria-label="Main Navigation">
         <a href="index.html" data-page="index.html" class="nav-link">
-          <i class="far fa-house"></i>           <!-- ✅ Regular house -->
+          <i class="fa-regular fa-house"></i>          <!-- ✅ Free: fa-regular -->
           <span>Home</span>
           <span class="badge-dot" id="badgeHome"></span>
         </a>
         <a href="${config.dashboard}" data-page="${config.dashboard}" class="nav-link" id="navDashboard">
-          <i class="far fa-gauge-high"></i>      <!-- ✅ Regular gauge (dashboard) -->
+          <i class="fa-solid fa-chart-simple"></i>     <!-- ✅ Free: fa-solid (clean alternative) -->
           <span>Dashboard</span>
           <span class="badge-dot" id="badgeDashboard"></span>
         </a>
         <a href="journey.html" data-page="journey.html" class="nav-link">
-          <i class="far fa-compass"></i>          <!-- ✅ Regular compass -->
+          <i class="fa-regular fa-compass"></i>         <!-- ✅ Free: fa-regular -->
           <span>Journey</span>
           <span class="badge-dot" id="badgeJourney"></span>
         </a>
         <a href="cynetis-7.html" data-page="cynetis-7.html" class="nav-link">
-          <i class="far fa-camera"></i>           <!-- ✅ Regular camera -->
+          <i class="fa-regular fa-camera"></i>          <!-- ✅ Free: fa-regular -->
           <span>Cynetis-7</span>
           <span class="badge-dot" id="badgeCynetis"></span>
         </a>
         <a href="${config.profile}" data-page="${config.profile}" class="nav-link" id="navProfile">
-          <i class="far fa-user"></i>             <!-- ✅ Regular user -->
+          <i class="fa-regular fa-user"></i>            <!-- ✅ Free: fa-regular -->
           <span>Profile</span>
           <span class="badge-dot" id="badgeProfile"></span>
         </a>
