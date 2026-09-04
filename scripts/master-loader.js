@@ -2,7 +2,6 @@
 (function() {
   'use strict';
 
-  // ===== LOAD FONT AWESOME =====
   function loadFontAwesome() {
     if (document.querySelector('link[href*="font-awesome"]')) return;
     const link = document.createElement('link');
@@ -12,7 +11,6 @@
     console.log('✅ Font Awesome loaded');
   }
 
-  // ===== LOAD GOOGLE FONTS =====
   function loadGoogleFonts() {
     if (document.querySelector('link[href*="fonts.googleapis.com"]')) return;
     const link = document.createElement('link');
@@ -22,12 +20,11 @@
     console.log('✅ Google Fonts loaded');
   }
 
-  // ===== LOAD SHARED CSS =====
   function loadSharedCSS() {
     const files = [
       '/styles/design-system.css',
       '/styles/components.css',
-      'bottom-nav.css'                   // ← root path
+      'bottom-nav.css'
     ];
     files.forEach(href => {
       if (document.querySelector(`link[href="${href}"]`)) return;
@@ -39,7 +36,6 @@
     console.log('✅ Shared CSS loaded');
   }
 
-  // ===== LOAD AUTH.JS (GLOBAL) =====
   function loadAuth() {
     if (document.querySelector('script[src*="auth.js"]')) return;
     const script = document.createElement('script');
@@ -48,7 +44,6 @@
     console.log('✅ Auth loaded');
   }
 
-  // ===== LOAD PARTICLES (ONLY IF NEEDED) =====
   function loadParticles() {
     if (!document.getElementById('particles')) return;
     if (document.querySelector('script[src*="particles.js"]')) return;
@@ -58,7 +53,6 @@
     console.log('✅ Particles loaded');
   }
 
-  // ===== INJECT FLOATING HEADER =====
   function injectFloatingHeader() {
     if (document.querySelector('.floating-header')) return;
     const headerHTML = `
@@ -83,7 +77,6 @@
     console.log('✅ Floating header injected');
   }
 
-  // ===== INJECT BOTTOM NAV CONTAINER =====
   function injectBottomNavContainer() {
     if (document.getElementById('bottomNavContainer')) return;
     const container = document.createElement('div');
@@ -92,19 +85,17 @@
     console.log('✅ Bottom nav container injected');
   }
 
-  // ===== LOAD BOTTOM NAV SCRIPT (ROOT) =====
   function loadBottomNav() {
     if (document.querySelector('script[src*="bottom-nav.js"]')) return;
     const script = document.createElement('script');
-    script.src = 'bottom-nav.js';          // ← root path
+    script.src = 'bottom-nav.js';
     document.body.appendChild(script);
     console.log('✅ Bottom nav script loaded');
   }
 
-  // ===== GLOBAL LOGOUT =====
   window.handleLogout = function() {
-    if (typeof auth !== 'undefined' && auth.signOut) {
-      auth.signOut().then(() => {
+    if (typeof window.auth !== 'undefined' && window.auth.signOut) {
+      window.auth.signOut().then(() => {
         localStorage.clear();
         window.location.href = 'login.html';
       }).catch(() => {
@@ -117,12 +108,11 @@
     }
   };
 
-  // ===== INIT =====
   function init() {
     loadFontAwesome();
     loadGoogleFonts();
     loadSharedCSS();
-    loadAuth();
+    loadAuth();          // now uses window.auth, no const conflicts
     loadParticles();
     injectFloatingHeader();
     injectBottomNavContainer();
