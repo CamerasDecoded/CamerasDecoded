@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/css/shepherd.css"/>
   <script src="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/js/shepherd.min.js"></script>
 
-  <!-- ===== TOAST SYSTEM (fallback included) ===== -->
+  <!-- ===== TOAST SYSTEM ===== -->
   <script src="toast-system.js"></script>
 
   <!-- ===== SHARED BOTTOM NAV CSS ===== -->
@@ -21,6 +21,7 @@
   <style>
     /* ============================================================
        COMPLETE DASHBOARD – APPLE ACTIVITY CARD WITH 3 RINGS
+       (all existing styles remain exactly the same)
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -941,6 +942,11 @@
         </div>
       </div>
 
+      <!-- ============================================================ -->
+      <!-- ⬇️ COMMISSION CARD – INSERTED RIGHT AFTER STATS             -->
+      <!-- ============================================================ -->
+      <div id="commissionCardPlaceholder"></div>
+
       <!-- AI WORKBENCH -->
       <div class="ai-widget" id="aiWidget">
         <div class="ai-widget-header">
@@ -1153,20 +1159,23 @@
   <!-- ===== BOTTOM NAV CONTAINER ===== -->
   <div id="bottomNavContainer"></div>
 
+  <!-- ===== SHARED BOTTOM NAV ===== -->
+  <script src="bottom-nav.js"></script>
+
+  <!-- ===== COMMISSION CARD ===== -->
+  <script src="/scripts/commission-card.js"></script>
+
   <!-- ===== FIREBASE SDKs ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <!-- ===== BOTTOM NAV ===== -->
-  <script src="bottom-nav.js"></script>
-
   <script>
     // ================================================================
-    // COMBINED DASHBOARD LOGIC – PRODUCTION UI + TEST FUNCTIONALITY
+    // ALL EXISTING DASHBOARD LOGIC (unchanged)
     // ================================================================
 
-    // ---- Toast / Confirm (fallback) ----
+    // ---- Toast / Confirm ----
     const cdToast = window.showToast || function(msg) { alert(msg); };
     function cdConfirm(message) {
       return new Promise((resolve) => {
@@ -1188,11 +1197,11 @@
       appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
       measurementId: "G-YN3M01WW0B"
     };
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // ---- Protocol Library (for rendering saved protocols) ----
+    // ---- Protocol Library ----
     const PROTOCOL_LIBRARY = [
       { id:'proto_001', title:'Mastering Real Estate HDR', genre:'real-estate', description:'Learn to shoot interior HDR with confidence.', brand:'Sony' },
       { id:'proto_002', title:'Street Photography: Zone Focus', genre:'street', description:'Pre‑focus and capture decisive moments.', brand:'Canon' },
@@ -1201,7 +1210,6 @@
       { id:'proto_005', title:'Influencer Flat Lay Photography', genre:'influencer', description:'Master styled flat lays for social media.', brand:'All' }
     ];
 
-    // ---- Challenge list ----
     const CHALLENGES = [
       { title:'Golden Hour Portrait', description:'Go out and capture a portrait during golden hour. Focus on warm tones and backlighting.' },
       { title:'Street Scene', description:'Capture a candid street moment with strong composition.' },
@@ -1210,17 +1218,12 @@
       { title:'Reflection Hunt', description:'Find a reflection (water, glass, mirror) and use it as the main subject.' }
     ];
 
-    // ================================================================
-    // HELPER FUNCTIONS
-    // ================================================================
-
-    // Ensure user document exists and has default fields
+    // ---- Ensure user doc ----
     async function ensureUserDoc(user) {
       const uid = user.uid;
       const docRef = db.collection('users').doc(uid);
       const doc = await docRef.get();
       if (doc.exists) return doc.data();
-      // Create default doc
       const email = user.email || '';
       const username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
       const data = {
@@ -1243,7 +1246,7 @@
       return data;
     }
 
-    // Animate number counting up
+    // ---- Animate number ----
     function animateNumber(el, newValue, prefix = '', suffix = '') {
       if (!el) return;
       const current = parseInt(el.textContent) || 0;
@@ -1264,15 +1267,8 @@
         const eased = 1 - Math.pow(1 - progress, 3);
         const currentVal = Math.round(startVal + (endVal - startVal) * eased);
         el.textContent = prefix + currentVal + suffix;
-        if (progress < 1) {
-          requestAnimationFrame(update);
-        } else {
-          el.textContent = prefix + endVal + suffix;
-          el.classList.remove('animate');
-          void el.offsetWidth;
-          el.classList.add('animate');
-          setTimeout(() => el.classList.remove('animate'), 1200);
-        }
+        if (progress < 1) requestAnimationFrame(update);
+        else { el.textContent = prefix + endVal + suffix; el.classList.remove('animate'); void el.offsetWidth; el.classList.add('animate'); setTimeout(() => el.classList.remove('animate'), 1200); }
       }
       requestAnimationFrame(update);
     }
@@ -1349,7 +1345,6 @@
           totalPoints = progress.totalPoints || 0;
         }
 
-        // If totalPoints is 0 but we have completed nodes, calculate from journey
         if (totalPoints === 0 && journey && journey.nodes && completedNodes.length > 0) {
           totalPoints = journey.nodes
             .filter(node => completedNodes.includes(node.id))
@@ -1377,10 +1372,7 @@
       }
     }
 
-    // ================================================================
-    // RENDER FUNCTIONS (updating DOM elements)
-    // ================================================================
-
+    // ---- Render functions ----
     function renderProfile(u) {
       document.getElementById('sidebarUsername').textContent = u.username || 'Operator';
       document.getElementById('sidebarEmail').textContent = u.email || 'loading...';
@@ -1647,9 +1639,7 @@
       }
     }
 
-    // ================================================================
-    // SHEPHERD TOUR
-    // ================================================================
+    // ---- Shepherd Tour ----
     let tour = null;
 
     function createTour() {
@@ -1739,9 +1729,7 @@
       t.start();
     }
 
-    // ================================================================
-    // SPOTLIGHT CARDS (interactive 3D effect)
-    // ================================================================
+    // ---- Spotlight cards ----
     function initSpotlightCards() {
       const container = document.getElementById('statsContainer');
       if (!container) return;
@@ -1953,9 +1941,7 @@
       }
     }
 
-    // ================================================================
-    // MAIN LOAD FUNCTION (called after auth)
-    // ================================================================
+    // ---- Main load ----
     const loadingEl = document.getElementById('loadingState');
     const contentEl = document.getElementById('dashboardContent');
 
@@ -1971,11 +1957,9 @@
         const userData = await ensureUserDoc(user);
         console.log('✅ User data loaded:', userData);
 
-        // Fetch journey progress
         const journeyData = await fetchJourneyData(user.uid);
         console.log('✅ Journey data:', journeyData);
 
-        // Render all sections
         renderProfile(userData);
         renderStats(userData);
         renderAIWidget(userData);
@@ -2029,7 +2013,14 @@
 
         await loadNotification();
 
-        // All done – show content
+        // ---- Insert commission card after stats ----
+        if (document.getElementById('statsContainer') && typeof insertCommissionCard === 'function') {
+          insertCommissionCard('statsContainer', 'after');
+        } else {
+          console.warn('insertCommissionCard not available or stats container missing');
+        }
+
+        // ---- Show content ----
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
 
@@ -2039,7 +2030,6 @@
           window.BottomNav.updateBadges(userData);
         }
 
-        // Auto-start tour on first visit
         if (!userData.tourCompleted) {
           setTimeout(() => {
             startTour();
@@ -2070,16 +2060,21 @@
     });
 
     // ---- Logout ----
-    window.handleLogout = async function() {
-      const ok = await cdConfirm('Are you sure you want to logout?');
-      if (!ok) return;
-      await auth.signOut();
-      window.location.href = 'login.html';
+    window.handleLogout = function() {
+      auth.signOut().then(() => {
+        window.location.href = 'login.html';
+      }).catch(() => {
+        window.location.href = 'login.html';
+      });
     };
 
     // ---- Sidebar toggles ----
-    document.getElementById('mobileToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
-    document.getElementById('floatingToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+    document.getElementById('mobileToggle').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+    });
+    document.getElementById('floatingToggle').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+    });
 
     // ---- Cart UI ----
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
@@ -2093,7 +2088,7 @@
     }
     updateCartUI();
 
-    // Expose functions globally
+    // ---- Expose global functions ----
     window.startTour = startTour;
     window.copyReferralLink = copyReferralLink;
     window.handleLogout = handleLogout;

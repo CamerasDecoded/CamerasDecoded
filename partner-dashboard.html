@@ -576,7 +576,7 @@
     </div>
 
     <!-- Stats -->
-    <div class="stat-grid reveal">
+    <div class="stat-grid reveal" id="statsGrid">
       <div class="stat-card">
         <div class="label">Clicks</div>
         <div class="value" id="clickCount">0</div>
@@ -598,6 +598,8 @@
         <div class="sub">referred</div>
       </div>
     </div>
+
+    <!-- ===== COMMISSION CARD will be inserted here ===== -->
 
     <!-- Profile -->
     <div class="profile-section reveal" id="profileSection">
@@ -746,6 +748,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== COMMISSION CARD ===== -->
+  <script src="/scripts/commission-card.js"></script>
 
   <!-- ===== SCRIPTS ===== -->
   <script src="bottom-nav.js"></script>
@@ -940,6 +945,15 @@
 
       // Header tier badge – use partnerTier
       document.getElementById('userTierText').textContent = tierDisplay;
+
+      // ============================================================
+      // INSERT COMMISSION CARD RIGHT AFTER THE STATS GRID
+      // ============================================================
+      if (document.getElementById('statsGrid') && typeof insertCommissionCard === 'function') {
+        insertCommissionCard('statsGrid', 'after');
+      } else {
+        console.warn('insertCommissionCard not available or stats grid missing');
+      }
     }
 
     // ---- Render commission history (limit to 20) ----
@@ -1010,7 +1024,6 @@
       // Real-time profile listener
       userDocRef.onSnapshot((doc) => {
         if (!doc.exists) {
-          // Create default partner profile with merge: true
           const email = user.email || '';
           const username = email ? email.split('@')[0] : 'user' + user.uid.slice(0,6);
           userDocRef.set({
@@ -1027,11 +1040,9 @@
             totalReferrals: 0,
             totalCommissionEarned: 0
           }, { merge: true }).then(() => {
-            // After creation, fetch and render
             userDocRef.get().then(snap => {
               if (snap.exists) {
                 updatePartnerProfile(snap.data());
-                // Start commission listener
                 listenCommissions();
               }
             });
@@ -1039,7 +1050,6 @@
           return;
         }
         updatePartnerProfile(doc.data());
-        // Start commission listener if not already
         if (!commissionListener) listenCommissions();
       }, (error) => console.error('Profile listener error:', error));
 

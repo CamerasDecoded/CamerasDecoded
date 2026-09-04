@@ -13,7 +13,7 @@
 
   <style>
     /* ============================================================
-       ALL STYLES – COMPLETE (copy from your production file)
+       ALL STYLES – COMPLETE (unchanged)
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -45,12 +45,14 @@
     a { text-decoration: none; color: inherit; }
     h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
 
+    /* ===== SCROLLBARS ===== */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
     * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
 
+    /* ===== ANIMATIONS ===== */
     @keyframes fadeInUp { 0% { opacity:0; transform:translateY(20px); } 100% { opacity:1; transform:translateY(0); } }
     .reveal {
       opacity: 0;
@@ -63,7 +65,9 @@
       transform: translateY(0);
     }
 
-    /* ===== SIDEBAR (injected) ===== */
+    /* ============================================================
+       SIDEBAR (injected by sidebar.js)
+       ============================================================ */
     #sidebarContainer {
       position: fixed;
       top: 0;
@@ -220,7 +224,9 @@
       background: #a0f520;
     }
 
-    /* ===== MAIN CONTENT ===== */
+    /* ============================================================
+       MAIN CONTENT LAYOUT
+       ============================================================ */
     .main-content {
       margin-left: 280px;
       padding: 80px 40px 40px;
@@ -232,7 +238,9 @@
       .main-content { margin-left: 0; padding: 100px 20px 20px; }
     }
 
-    /* ===== FLOATING HEADER ===== */
+    /* ============================================================
+       FLOATING HEADER
+       ============================================================ */
     .floating-header {
       position:fixed; top:12px; left:292px; right:12px; z-index:99;
       display:flex; align-items:center; justify-content:space-between; gap:8px;
@@ -305,7 +313,9 @@
     .chasing-border>* { position:relative; z-index:1; }
     @keyframes spinBorder { to { --angle: 360deg; } }
 
-    /* ===== DASHBOARD SPECIFICS ===== */
+    /* ============================================================
+       DASHBOARD SPECIFIC STYLES
+       ============================================================ */
     .dash-header {
       display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center;
       margin-bottom:24px; border-bottom:1px solid var(--border-dim); padding-bottom:16px;
@@ -678,12 +688,14 @@
     </div>
 
     <!-- STAT CARDS -->
-    <div class="stat-grid reveal">
+    <div class="stat-grid reveal" id="statsGrid">
       <div class="stat-card"><div class="label">Students</div><div class="value" id="studentCount">0</div><div class="sub">active</div></div>
       <div class="stat-card"><div class="label">Guide Sales</div><div class="value" id="guideSalesCount">0</div><div class="sub">commission tracked</div></div>
       <div class="stat-card"><div class="label">Workshops</div><div class="value" id="workshopCount">0</div><div class="sub">completed / upcoming</div></div>
       <div class="stat-card"><div class="label">Cohorts</div><div class="value" id="cohortCount">0</div><div class="sub">active</div></div>
     </div>
+
+    <!-- ===== COMMISSION CARD will be inserted here ===== -->
 
     <!-- PROFILE SECTION -->
     <div class="profile-section reveal" id="profileSection">
@@ -890,6 +902,9 @@ See you soon,
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
+  <!-- ===== COMMISSION CARD ===== -->
+  <script src="/scripts/commission-card.js"></script>
+
   <!-- ===== SHARED SCRIPTS ===== -->
   <script src="bottom-nav.js"></script>
   <script src="sidebar.js"></script>
@@ -1029,12 +1044,10 @@ See you soon,
     // PROFILE RENDER
     // ============================================================
     function updateInstructorProfile(data) {
-      // Basic info
       document.getElementById('profileUsername').textContent = data.username || '—';
       document.getElementById('profileName').textContent = data.name || '—';
       document.getElementById('profileEmail').textContent = data.email || '—';
 
-      // Experience mapping (from test)
       const expMap = { '<1': 'Less than 1 year', '1-3': '1–3 years', '3-5': '3–5 years', '5+': '5+ years' };
       document.getElementById('profileExperience').textContent = expMap[data.teachingExperience] || data.teachingExperience || '—';
 
@@ -1050,29 +1063,33 @@ See you soon,
       document.getElementById('instructorUniqueId').textContent = instructorId;
       document.getElementById('guideUniqueId').textContent = instructorId;
 
-      // Stats
       document.getElementById('studentCount').textContent = data.totalStudents || 0;
       document.getElementById('guideSalesCount').textContent = data.guideSales || 0;
       document.getElementById('workshopCount').textContent = data.totalWorkshops || 0;
       document.getElementById('cohortCount').textContent = data.totalCohorts || 0;
 
-      // Billing
       const isAnnual = data.billingInterval === 'annual';
       document.getElementById('billingPlan').textContent = 'Educator License';
       document.getElementById('billingPrice').textContent = isAnnual ? '$2,500 / year' : '$300 / month';
       document.getElementById('billingNext').textContent = data.nextBillingDate || '—';
 
-      // Header
       document.getElementById('userTierText').textContent = licenseDisplay;
 
-      // Referral
       const code = data.referralCode || '';
       document.getElementById('referralLink').textContent = `camerasdecoded.com/ref/${code}`;
       document.getElementById('totalReferrals').textContent = data.totalReferrals || 0;
       document.getElementById('totalCommission').textContent = '$' + (data.totalCommissionEarned || 0).toFixed(2);
       document.getElementById('ambassadorTier').textContent = 'Instructor (20%)';
 
-      // Update bottom nav badges
+      // ============================================================
+      // INSERT COMMISSION CARD RIGHT AFTER THE STATS GRID
+      // ============================================================
+      if (document.getElementById('statsGrid') && typeof insertCommissionCard === 'function') {
+        insertCommissionCard('statsGrid', 'after');
+      } else {
+        console.warn('insertCommissionCard not available or stats grid missing');
+      }
+
       if (window.BottomNav) {
         window.BottomNav.updateBadges(data);
       }
@@ -1341,7 +1358,6 @@ See you soon,
       // Listen for profile changes
       userDocRef.onSnapshot((doc) => {
         if (!doc.exists) {
-          // Create default instructor document
           const email = user.email || '';
           const username = email ? email.split('@')[0] : 'user' + user.uid.slice(0,6);
           const defaultData = {
@@ -1363,14 +1379,11 @@ See you soon,
             nextBillingDate: new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
           };
           userDocRef.set(defaultData, { merge: true }).then(() => {
-            // Fetch and render after creation
             userDocRef.get().then(snap => {
               if (snap.exists) {
                 updateInstructorProfile(snap.data());
-                // Start listening to subcollections
                 listenStudents();
                 listenCommissions();
-                // Hide loading
                 const loadingState = document.getElementById('loadingState');
                 if (loadingState) loadingState.style.display = 'none';
               }
@@ -1384,12 +1397,9 @@ See you soon,
           });
           return;
         }
-        // Document exists – render it
         updateInstructorProfile(doc.data());
-        // Start listeners if not already
         if (!studentListener) listenStudents();
         if (!commissionListener) listenCommissions();
-        // Hide loading
         const loadingState = document.getElementById('loadingState');
         if (loadingState) loadingState.style.display = 'none';
       }, (error) => {
@@ -1400,7 +1410,6 @@ See you soon,
         }
       });
 
-      // Student form
       const form = document.getElementById('addStudentForm');
       if (form) {
         form.addEventListener('submit', function(e) {
@@ -1416,7 +1425,6 @@ See you soon,
         });
       }
 
-      // Add dashboard link to sidebar if not present
       const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
       if (homeNav && !document.getElementById('dynamic-dashboard-node')) {
         const dashLink = document.createElement('a');
@@ -1427,7 +1435,6 @@ See you soon,
         homeNav.parentNode.insertBefore(dashLink, homeNav);
       }
 
-      // Bottom Nav
       if (window.BottomNav) {
         window.BottomNav.init();
       }
