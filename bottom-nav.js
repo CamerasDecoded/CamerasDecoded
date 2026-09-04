@@ -1,6 +1,6 @@
 // ================================================================
 // BOTTOM NAV – Production (role-aware, root paths)
-// All icons use 'far' (Regular) for a thinner, premium look
+// ALL icons use 'far' (Regular) – thinner, premium look
 // ================================================================
 
 (function() {
@@ -128,27 +128,27 @@
     return `
       <nav class="bottom-nav chasing-border-nav" role="navigation" aria-label="Main Navigation">
         <a href="index.html" data-page="index.html" class="nav-link">
-          <i class="far fa-house"></i>          <!-- Regular house -->
+          <i class="far fa-house"></i>           <!-- ✅ Regular house -->
           <span>Home</span>
           <span class="badge-dot" id="badgeHome"></span>
         </a>
         <a href="${config.dashboard}" data-page="${config.dashboard}" class="nav-link" id="navDashboard">
-          <i class="far fa-chart-pie"></i>      <!-- Regular chart pie -->
+          <i class="far fa-gauge-high"></i>      <!-- ✅ Regular gauge (dashboard) -->
           <span>Dashboard</span>
           <span class="badge-dot" id="badgeDashboard"></span>
         </a>
         <a href="journey.html" data-page="journey.html" class="nav-link">
-          <i class="far fa-compass"></i>         <!-- Regular compass -->
+          <i class="far fa-compass"></i>          <!-- ✅ Regular compass -->
           <span>Journey</span>
           <span class="badge-dot" id="badgeJourney"></span>
         </a>
         <a href="cynetis-7.html" data-page="cynetis-7.html" class="nav-link">
-          <i class="far fa-camera"></i>          <!-- Regular camera -->
+          <i class="far fa-camera"></i>           <!-- ✅ Regular camera -->
           <span>Cynetis-7</span>
           <span class="badge-dot" id="badgeCynetis"></span>
         </a>
         <a href="${config.profile}" data-page="${config.profile}" class="nav-link" id="navProfile">
-          <i class="far fa-user"></i>            <!-- Regular user -->
+          <i class="far fa-user"></i>             <!-- ✅ Regular user -->
           <span>Profile</span>
           <span class="badge-dot" id="badgeProfile"></span>
         </a>
