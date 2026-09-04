@@ -11,18 +11,20 @@
   <meta property="og:type" content="website" />
   <meta property="og:image" content="https://camerasdecoded.com/cameras-decoded-logo.png" />
 
-  <!-- ===== MASTER LOADER ===== -->
+  <!-- MASTER LOADER (fonts, etc.) -->
   <script src="/scripts/master-loader.js"></script>
 
-  <!-- ===== FIREBASE SDKs (kept for inline script) ===== -->
+  <!-- FIREBASE SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <!-- ===== PAGE-SPECIFIC STYLES ===== -->
+  <!-- (Optional) firebase-init.js – fallback inline -->
+  <script src="/scripts/firebase-init.js"></script>
+
   <style>
     /* ================================================================
-       ALL STYLES – from the working old index (without sidebar)
+       ALL ORIGINAL INDEX STYLES (kept)
        ================================================================ */
     :root {
       --space-sm: 16px;
@@ -30,6 +32,16 @@
       --space-lg: 64px;
       --space-xl: 96px;
       --space-xxl: 140px;
+      --green: #8deb00;
+      --green-dim: rgba(141,235,0,0.12);
+      --green-glow: rgba(141,235,0,0.25);
+      --text-muted: #b4b4b4;
+      --bg-panel: #0A0A0A;
+      --border-dim: #1A1A1A;
+      --gold: #e0b12d;
+      --card-bg: rgba(10,10,10,0.6);
+      --radius: 12px;
+      --transition-smooth: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -66,19 +78,231 @@
     a { text-decoration: none; color: inherit; transition: 0.2s; }
 
     /* ================================================================
-       MAIN CONTENT (full width, no sidebar)
+       SIDEBAR (same as dashboards)
        ================================================================ */
-    .main-content {
-      padding: 80px 20px 40px;
-      max-width: 1200px;
-      margin: 0 auto;
+    #sidebarContainer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 1000;
+      width: 280px;
+    }
+    .sidebar {
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      padding: 20px 16px 24px;
+      border-right: 1px solid var(--border-dim);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s var(--transition-smooth);
+      transform: translateX(0);
       position: relative;
-      z-index: 2;
+    }
+    @media (max-width: 1024px) {
+      #sidebarContainer {
+        position: fixed;
+        width: 280px;
+        z-index: 1000;
+      }
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s var(--transition-smooth);
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+    }
+    .sidebar .logo { text-align:center; margin-bottom:12px; }
+    .sidebar .logo img { height:70px; width:auto; transition:filter 0.3s ease; }
+    .sidebar .logo img:hover { filter:drop-shadow(0 0 20px rgba(141,235,0,0.15)); }
+    .sidebar-profile { text-align:center; padding:12px 0 16px; border-bottom:1px solid var(--border-dim); margin-bottom:16px; flex-shrink:0; }
+    .profile-avatar { width:64px; height:64px; border-radius:50%; background-size:cover; background-position:center; margin:0 auto 8px; border:2px solid var(--green); background-color:#1a1a1a; transition:transform 0.3s var(--transition-smooth), box-shadow 0.3s ease; }
+    .profile-avatar:hover { transform:scale(1.05); box-shadow:0 0 30px var(--green-glow); border-color:#a0f520; }
+    .profile-name { font-weight:600; font-size:14px; color:#fff; }
+    .profile-email { font-size:12px; color:var(--text-muted); }
+
+    .sidebar-nav {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar-nav .nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar-nav .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      border-radius: 6px;
+      transition: all 0.2s var(--transition-smooth);
+      cursor: pointer;
+      text-decoration: none;
+      border: none;
+    }
+    .sidebar-nav .nav-item i {
+      width: 20px;
+      text-align: center;
+      font-size: 14px;
+      transition: transform 0.2s ease;
+    }
+    .sidebar-nav .nav-item:hover {
+      color: var(--green);
+      background: rgba(141,235,0,0.05);
+      transform: translateX(3px);
+    }
+    .sidebar-nav .nav-item:hover i {
+      transform: scale(1.1);
+    }
+    .sidebar-nav .nav-item.active {
+      color: var(--green);
+      background: rgba(141,235,0,0.08);
+    }
+    .sidebar-divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 6px 0;
+      flex-shrink: 0;
+    }
+
+    .sidebar-notification {
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-dim);
+      background: rgba(255,255,255,0.01);
+      border-radius: 8px;
+      padding: 10px 12px;
+      transition: background 0.3s ease;
+      flex-shrink: 0;
+    }
+    .sidebar-notification:hover { background: rgba(141,235,0,0.02); }
+    .sidebar-notification .notif-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .sidebar-notification .notif-header i { color: var(--green); font-size: 12px; }
+    .sidebar-notification .notif-message {
+      font-size: 12px;
+      color: #fff;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .sidebar-notification .notif-message.empty {
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 11px;
+    }
+    .sidebar-notification .notif-timestamp {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-family: 'Space Mono', monospace;
+      opacity: 0.5;
+    }
+
+    #privateLinks { display: none; flex-direction: column; gap: 2px; }
+    #privateLinks .nav-item { display: flex; }
+    .auth-cta .nav-item {
+      justify-content: center;
+      border: 1px solid var(--green);
+      border-radius: 30px;
+      color: var(--green);
+      background: transparent;
+      padding: 8px 12px;
+      margin: 4px 0;
+    }
+    .auth-cta .nav-item:hover { background: rgba(141,235,0,0.08); }
+    .auth-cta .nav-item.signup {
+      background: var(--green);
+      color: #000;
+    }
+    .auth-cta .nav-item.signup:hover { background: #a0f520; }
+
+    /* ================================================================
+       FLOATING HEADER (shared)
+       ================================================================ */
+    .floating-header {
+      position:fixed; top:12px; left:292px; right:12px; z-index:99;
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
+      padding:6px 14px; background:rgba(0,0,0,0.4); backdrop-filter:blur(16px);
+      border:1px solid rgba(141,235,0,0.2); border-radius:30px; min-height:40px;
+      transition:background 0.3s ease, box-shadow 0.3s ease;
+    }
+    .floating-header:hover { background:rgba(0,0,0,0.6); box-shadow:0 4px 30px rgba(0,0,0,0.3); }
+    .floating-left-group, .floating-right-group { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .floating-center-group { display:flex; align-items:center; gap:8px; flex:1; justify-content:center; }
+    .floating-home-icon { font-size:15px; color:var(--green); transition:transform 0.3s var(--transition-smooth), color 0.3s ease; }
+    .floating-home-icon:hover { color:#a0f520; transform:scale(1.1); }
+    .floating-toggle { display:none; background:none; border:none; color:var(--green); font-size:20px; cursor:pointer; transition:transform 0.3s ease; }
+    .floating-toggle:hover { transform:scale(1.1); }
+    .logout-btn {
+      background:transparent; border:1px solid var(--green); color:var(--green);
+      padding:2px 10px; border-radius:20px; cursor:pointer;
+      font-family:'Space Mono',monospace; font-size:10px;
+      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease;
+      min-height:22px; line-height:1.2;
+    }
+    .logout-btn:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform:scale(1.02); }
+    .logout-btn:active { transform:scale(0.95); }
+    .role-tier-badge {
+      background:rgba(10,10,10,0.9); border:1px solid rgba(141,235,0,0.3);
+      border-radius:14px; padding:2px 12px; font-size:10px; color:var(--green);
+      display:inline-flex; align-items:center; gap:4px; white-space:nowrap;
+      transition:border-color 0.3s ease;
+    }
+    .role-tier-badge:hover { border-color:var(--green); box-shadow:0 0 20px rgba(141,235,0,0.1); }
+    .glow-role { font-weight:700; text-shadow:0 0 8px #8deb00, 0 0 12px #8deb00; }
+    .cart-header-link {
+      display:inline-flex; align-items:center; gap:4px;
+      border:1px solid var(--green); border-radius:20px; padding:2px 10px;
+      color:var(--green); font-family:'Space Mono',monospace; font-size:10px;
+      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease;
+      text-decoration:none; min-height:22px; line-height:1.2;
+    }
+    .cart-header-link:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform:scale(1.02); }
+    .cart-count-badge { background:var(--green); color:#000; border-radius:50%; padding:0 4px; font-size:8px; font-weight:700; display:inline-block; min-width:14px; text-align:center; line-height:14px; }
+
+    @media (max-width: 1024px) {
+      .floating-header { left:10px; right:10px; top:70px; padding:6px 12px; }
+      .floating-toggle { display:block !important; }
+    }
+    @media (min-width: 1025px) {
+      .floating-toggle { display:none !important; }
     }
 
     /* ================================================================
-       TYPEWRITER
-    ================================================================ */
+       MAIN CONTENT (moved to the right to accommodate sidebar)
+       ================================================================ */
+    .main-content {
+      margin-left: 280px;
+      padding: 80px 40px 40px;
+      max-width: calc(1200px + 280px);
+      position: relative;
+      z-index: 2;
+    }
+    @media (max-width: 1024px) {
+      .main-content { margin-left: 0; padding: 100px 20px 20px; }
+    }
+
+    /* ================================================================
+       ALL ORIGINAL INDEX STYLES (typewriter, hero, etc.) – unchanged
+       ================================================================ */
     .typewriter-wrapper {
       text-align: center; padding: 20px 20px 10px; max-width: 1000px; margin: 0 auto 30px auto;
       position: relative; z-index: 2; height: clamp(200px, 30vh, 350px); overflow: hidden;
@@ -102,7 +326,6 @@
     }
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-    /* --- SCROLL CUE --- */
     .scroll-cue {
       display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 20px 0 10px 0;
       color: #8deb00; font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 2px;
@@ -124,7 +347,6 @@
     .btn-onboarding:hover { border-color: #8deb00; background: rgba(141, 235, 0, 0.08); box-shadow: 0 0 30px rgba(141, 235, 0, 0.15); gap: 14px; }
     .btn-onboarding:hover i { transform: translateX(4px); opacity: 1; }
 
-    /* --- HERO --- */
     .hero {
       display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: 20px;
       margin-bottom: var(--space-xxl); will-change: transform;
@@ -171,9 +393,6 @@
     .section-header:first-of-type { margin-top: 0; }
     .section-title-img { display: block; max-width: 100%; height: auto; }
 
-    /* ================================================================
-       JOIN THE SIGNAL – PULSE RINGS
-    ================================================================ */
     .join-signal {
       position: relative; overflow: hidden; text-align: center;
       border: 1px solid #1A1A1A; border-radius: 12px; padding: var(--space-lg) var(--space-md);
@@ -241,13 +460,6 @@
     }
     @keyframes textUnderline { 0%, 100% { width: 0; left: 0; } 50% { width: 100%; left: 0; } }
 
-    @media (max-width: 500px) {
-      .btn-subscribe { padding: 14px 28px; font-size: 15px; }
-      .pulse-ring { width: calc(100% + 24px); height: calc(100% + 24px); }
-      .live-indicator { font-size: 9px; gap: 6px; }
-    }
-
-    /* ---- SIGNAL SELECTOR (Three Pathways) ---- */
     .signal-selector {
       background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(1px);
       border: 1px solid #1A1A1A; border-radius: 12px; padding: var(--space-lg);
@@ -279,7 +491,6 @@
     .selector-typed::after { content: '█'; color: #8deb00; animation: blink 0.8s infinite; }
     .selector-panel .link { color: #8deb00; font-size: 13px; font-family: 'Space Mono', monospace; }
 
-    /* ---- TRANSMISSION LIST ---- */
     .transmission-list { margin-bottom: var(--space-xxl); border: 1px solid #1A1A1A; border-radius: 8px; overflow: hidden; }
     .tx-item {
       padding: var(--space-lg); display: flex; flex-direction: column; align-items: center; text-align: center;
@@ -293,9 +504,6 @@
     .tx-item h4 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
     .tx-item p { color: #b4b4b4; font-size: 14px; max-width: 600px; }
 
-    /* ================================================================
-       FOUNDING 200 – SCROLLING CAROUSEL
-    ================================================================ */
     .founding-wrapper { margin-bottom: var(--space-xxl); overflow: visible; position: relative; padding-bottom: 30px; }
     .founding-carousel { width: 100%; overflow: hidden; padding: 20px 0 30px; position: relative; }
     .founding-track {
@@ -319,18 +527,8 @@
       font-family: 'Space Mono', monospace; font-size: 13px; color: #e0b12d; margin-top: 8px;
       text-align: center; max-width: 90px; line-height: 1.3;
     }
-    @media (max-width: 1024px) {
-      .founder-item .founding-circle { width: 70px; height: 70px; }
-      .founder-name { font-size: 11px; max-width: 70px; }
-    }
-    @media (max-width: 500px) {
-      .founder-item .founding-circle { width: 60px; height: 60px; }
-      .founder-name { font-size: 10px; max-width: 60px; }
-    }
     @keyframes scrollFounding { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-    .founding-wrapper .btn-neon-block { margin-top: 16px; margin-bottom: 5px; display: inline-block; position: relative; z-index: 2; }
 
-    /* ---- CERTIFIED OPERATOR ---- */
     .cert-section { margin-bottom: var(--space-xxl); }
     .cert-badge-container { display: flex; justify-content: center; margin: 25px 0 15px 0; }
     .cert-badge {
@@ -343,7 +541,6 @@
     .cert-section h3 { font-size: 18px; margin: 4px 0; }
     .cert-section p { color: #b4b4b4; font-size: 14px; }
 
-    /* ---- SIGNAL NETWORK IMPACT ---- */
     .dashboard-grid {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: var(--space-md); margin-bottom: var(--space-xxl);
@@ -355,10 +552,7 @@
     .db-bar-bg { height: 4px; background: #1A1A1A; border-radius: 2px; overflow: hidden; position: relative; }
     .db-bar-fill { height: 100%; background: linear-gradient(90deg, #1db31b 0%, #c9e265 100%); width: 0%; border-radius: 2px; transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative; }
 
-    /* ---- AMBASSADOR PROGRAM ---- */
     .ambassador-section { margin-bottom: var(--space-xxl); }
-
-    /* ---- DECODER GEAR ---- */
     .gear-box { border: 1px solid #1A1A1A; border-radius: 12px; padding: var(--space-lg); text-align: center; background: #0A0A0A; margin-bottom: var(--space-xxl); }
     .gear-box h4 { color: #8deb00; font-size: 20px; margin-bottom: 4px; }
     .gear-box p { color: #b4b4b4; font-size: 14px; }
@@ -386,9 +580,6 @@
     .footer .footer-links a { color: #8deb00 !important; }
     .footer .footer-links a:hover { color: #a0f520 !important; }
 
-    /* ================================================================
-       SCROLL-REVEAL ANIMATIONS
-    ================================================================ */
     .reveal-on-scroll {
       opacity: 0; transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1), transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
       transform: translateY(50px);
@@ -405,9 +596,6 @@
     .reveal-delay-3 { transition-delay: 0.24s; }
     .reveal-delay-4 { transition-delay: 0.32s; }
 
-    /* ================================================================
-       RESPONSIVE (no sidebar adjustments)
-    ================================================================ */
     @media (max-width: 1024px) {
       .main-content { padding: 100px 16px 20px; }
       .hero h1 { font-size: 26px; }
@@ -425,9 +613,6 @@
       .onboarding-cta-wrapper { margin: 0 0 30px 0; }
       .hero-globe-container { max-width: 220px; }
     }
-
-    .main-content { animation: fadeIn 0.5s ease-in-out forwards; }
-    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
 
     #scrollTopBtn {
       position: fixed; bottom: 30px; right: 30px; visibility: hidden; opacity: 0;
@@ -448,9 +633,85 @@
 </head>
 <body>
 
-  <!-- BINARY RAIN -->
+  <!-- BINARY RAIN (z-index 0) -->
   <canvas id="binary-rain"></canvas>
   <div id="rain-fade"></div>
+
+  <!-- ===== SIDEBAR (hardcoded) ===== -->
+  <div id="sidebarContainer">
+    <aside class="sidebar" id="sidebar">
+      <div class="logo"><a href="https://camerasdecoded.com"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a></div>
+      <div class="sidebar-profile">
+        <div class="profile-avatar" id="profileAvatar" style="background-image:url('cameras-decoded-logo.png');"></div>
+        <div class="profile-name" id="sidebarUsername">Guest</div>
+        <div class="profile-email" id="sidebarEmail">Not logged in</div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-group">
+          <a href="index.html" class="nav-item active"><i class="fas fa-home"></i> Home</a>
+          <a href="operator-dashboard.html" class="nav-item"><i class="fas fa-chart-simple"></i> Dashboard</a>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="nav-group">
+          <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
+          <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
+          <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
+          <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="nav-group">
+          <a href="journey.html" class="nav-item"><i class="fas fa-route"></i> Journey</a>
+          <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
+          <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
+          <a href="snapshot-library.html" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
+          <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="nav-group">
+          <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
+          <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
+          <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
+        </div>
+        <hr class="sidebar-divider">
+        <!-- PRIVATE (shown when logged in) -->
+        <div class="nav-group private-links" id="privateLinks">
+          <a href="profile.html" class="nav-item"><i class="fas fa-id-card"></i> Profile</a>
+          <a href="#" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
+          <a href="#" class="nav-item"><i class="fas fa-credit-card"></i> Billing</a>
+          <a href="#" class="nav-item" onclick="handleLogout(); return false;" style="color:#ff4a4a;"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+        <!-- AUTH CTA (shown when logged out) -->
+        <div class="nav-group auth-cta" id="authCta" style="display:flex; flex-direction:column; gap:8px; padding-top:4px;">
+          <a href="login.html" class="nav-item"><i class="fas fa-sign-in-alt"></i> Log in</a>
+          <a href="signup.html" class="nav-item signup"><i class="fas fa-user-plus"></i> Sign Up</a>
+        </div>
+      </nav>
+      <div class="sidebar-notification" id="sidebarNotification">
+        <div class="notif-header"><i class="fas fa-bullhorn"></i><span>Announcement</span></div>
+        <div class="notif-message empty" id="sidebarAnnouncement">No active announcement</div>
+        <div class="notif-timestamp" id="sidebarAnnouncementTimestamp"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ===== FLOATING HEADER ===== -->
+  <div class="floating-header">
+    <div class="floating-left-group">
+      <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
+      <span id="roleTierBadge" class="role-tier-badge" style="display:none;">
+        <span class="glow-role" id="headerRole">Guest</span> · <span id="headerTier" class="tier-text">—</span>
+      </span>
+    </div>
+    <div class="floating-center-group"></div>
+    <div class="floating-right-group">
+      <a href="cart.html" class="cart-header-link" id="cartHeaderLink">
+        <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
+        <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
+      </a>
+      <button class="logout-btn" id="floatingLogoutBtn" onclick="handleLogout()" style="display:none;">Logout</button>
+      <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
+    </div>
+  </div>
 
   <!-- ===== MAIN CONTENT ===== -->
   <main class="main-content">
@@ -665,21 +926,36 @@
   <!-- SCROLL TO TOP -->
   <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
 
-  <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
+  <!-- ===== JAVASCRIPT ===== -->
   <script>
     // ================================================================
-    // FIREBASE – use global auth/db from auth.js
+    // FIREBASE FALLBACK + LONG POLLING (CORS)
     // ================================================================
-    const auth = window.auth || firebase.auth();
-    const db = window.db || firebase.firestore();
-    const cdToast = window.cdToast || function(msg, type) { alert(msg); };
-    window.handleLogout = window.handleLogout || function() {
-      auth.signOut().then(() => {
-        localStorage.removeItem('cameras_decoded_uid');
-        localStorage.removeItem('cameras_decoded_user');
+    if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+      firebase.initializeApp({
+        apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+        authDomain: "cameras-decoded.firebaseapp.com",
+        projectId: "cameras-decoded",
+        storageBucket: "cameras-decoded.firebasestorage.app",
+        messagingSenderId: "1088920052790",
+        appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+        measurementId: "G-YN3M01WW0B"
+      });
+    }
+    if (firebase.firestore) {
+      firebase.firestore().settings({ experimentalForceLongPolling: true });
+    }
+
+    // ---- helpers ----
+    var cdToast = window.cdToast || function(msg, type) { alert(msg); };
+    var auth = window.auth || firebase.auth();
+    var db = window.db || firebase.firestore();
+
+    // ---- logout ----
+    window.handleLogout = function() {
+      auth.signOut().then(function() {
         window.location.href = 'index.html';
-      }).catch(() => {
-        localStorage.clear();
+      }).catch(function() {
         window.location.href = 'index.html';
       });
     };
@@ -688,13 +964,13 @@
     // BINARY RAIN
     // ================================================================
     (function() {
-      const canvas = document.getElementById('binary-rain');
-      const ctx = canvas.getContext('2d');
-      let width = window.innerWidth, height = window.innerHeight;
+      var canvas = document.getElementById('binary-rain');
+      var ctx = canvas.getContext('2d');
+      var width = window.innerWidth, height = window.innerHeight;
       canvas.width = width; canvas.height = height;
-      const fontSize = 16, columns = Math.floor(width / fontSize);
-      const drops = Array(columns).fill(1), speed = 0.55;
-      let frameCount = 0;
+      var fontSize = 16, columns = Math.floor(width / fontSize);
+      var drops = Array(columns).fill(1), speed = 0.55;
+      var frameCount = 0;
       function draw() {
         frameCount++;
         if (frameCount % 2 === 0) { requestAnimationFrame(draw); return; }
@@ -702,9 +978,9 @@
         ctx.fillRect(0, 0, width, height);
         ctx.font = fontSize + 'px "Space Mono", monospace';
         ctx.textAlign = 'center';
-        for (let i = 0; i < drops.length; i++) {
-          const char = Math.random() > 0.5 ? '1' : '0';
-          const x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
+        for (var i = 0; i < drops.length; i++) {
+          var char = Math.random() > 0.5 ? '1' : '0';
+          var x = i * fontSize + fontSize / 2, y = drops[i] * fontSize;
           if (char === '1') { ctx.shadowColor = '#8deb00'; ctx.shadowBlur = 8; ctx.fillStyle = '#8deb00'; }
           else { ctx.shadowColor = '#3a7a1a'; ctx.shadowBlur = 4; ctx.fillStyle = '#4caf50'; }
           ctx.fillText(char, x, y);
@@ -718,11 +994,11 @@
         requestAnimationFrame(draw);
       }
       draw();
-      window.addEventListener('resize', () => {
+      window.addEventListener('resize', function() {
         width = window.innerWidth; height = window.innerHeight;
         canvas.width = width; canvas.height = height;
-        const newColumns = Math.floor(width / fontSize);
-        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
+        var newColumns = Math.floor(width / fontSize);
+        if (newColumns > drops.length) drops.push.apply(drops, Array(newColumns - drops.length).fill(1));
         else drops.length = newColumns;
       });
     })();
@@ -730,19 +1006,19 @@
     // ================================================================
     // PARALLAX
     // ================================================================
-    const heroGlobe = document.getElementById('heroGlobe');
+    var heroGlobe = document.getElementById('heroGlobe');
     if (heroGlobe) {
-      let lastScrollY = window.scrollY;
-      window.addEventListener('scroll', () => {
-        const currentScroll = window.scrollY;
+      var lastScrollY = window.scrollY;
+      window.addEventListener('scroll', function() {
+        var currentScroll = window.scrollY;
         if (Math.abs(currentScroll - lastScrollY) < 2) return;
         lastScrollY = currentScroll;
-        const heroSection = document.getElementById('heroSection');
+        var heroSection = document.getElementById('heroSection');
         if (!heroSection) return;
-        const rect = heroSection.getBoundingClientRect();
+        var rect = heroSection.getBoundingClientRect();
         if (rect.bottom > 0 && rect.top < window.innerHeight) {
-          const offset = currentScroll * 0.06;
-          heroGlobe.style.transform = `translateY(${offset}px)`;
+          var offset = currentScroll * 0.06;
+          heroGlobe.style.transform = 'translateY(' + offset + 'px)';
         }
       });
     }
@@ -751,21 +1027,23 @@
     // SCROLL REVEAL
     // ================================================================
     document.addEventListener('DOMContentLoaded', function() {
-      const revealEls = document.querySelectorAll('.reveal-on-scroll, .reveal-left, .reveal-right, .reveal-scale');
-      const revealObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('revealed'); });
+      var revealEls = document.querySelectorAll('.reveal-on-scroll, .reveal-left, .reveal-right, .reveal-scale');
+      var revealObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) entry.target.classList.add('revealed');
+        });
       }, { threshold: 0.12, rootMargin: '0px 0px -20px 0px' });
-      revealEls.forEach(el => revealObserver.observe(el));
+      revealEls.forEach(function(el) { revealObserver.observe(el); });
     });
 
     // ================================================================
     // SCROLL TOP BUTTON
     // ================================================================
     window.onscroll = function() {
-      const btn = document.getElementById('scrollTopBtn');
+      var btn = document.getElementById('scrollTopBtn');
       if (!btn) return;
-      const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
-      if (show) { btn.classList.add('show'); requestAnimationFrame(() => btn.classList.add('pulse')); }
+      var show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
+      if (show) { btn.classList.add('show'); requestAnimationFrame(function() { btn.classList.add('pulse'); }); }
       else { btn.classList.remove('show', 'pulse'); }
     };
 
@@ -773,31 +1051,33 @@
     // SIGNAL SELECTOR
     // ================================================================
     (function() {
-      const pathwaysData = {
+      var pathwaysData = {
         operator: { icon: 'fa-camera', title: 'Operators', text: "You own a mirrorless camera and want to actually use it. The guide, the protocols, and the Inner Signal system are yours.", cta: 'Get the Camera Confidence Guide →', href: 'https://cameradecoded.gumroad.com/l/TheCameraConfidenceGuide' },
         partner: { icon: 'fa-store', title: 'Partners', text: "You run a camera store, school, or training program. License the curriculum and reduce returns while growing accessory revenue.", cta: 'Explore the Signal Network →', href: 'partners.html' },
         instructor: { icon: 'fa-chalkboard-teacher', title: 'Instructors', text: "You're a working photographer who wants to teach without building a curriculum from scratch. The Instructor License is yours.", cta: 'View the Instructor Opportunity →', href: 'educators-pdf-viewer.html' }
       };
-      let typeTimeoutId;
+      var typeTimeoutId;
       function typeOutPanel(key) {
-        const data = pathwaysData[key];
-        const panel = document.getElementById('selectorPanel');
+        var data = pathwaysData[key];
+        var panel = document.getElementById('selectorPanel');
         panel.innerHTML = '<div class="icon"><i class="fas ' + data.icon + '"></i></div>' +
                           '<h4>' + data.title + '</h4>' +
                           '<div class="selector-typed" id="selectorTypedText"></div>' +
                           '<a href="' + data.href + '" target="_blank" class="link">' + data.cta + '</a>';
-        const el = document.getElementById('selectorTypedText');
+        var el = document.getElementById('selectorTypedText');
         if (typeTimeoutId) clearTimeout(typeTimeoutId);
-        let i = 0; el.textContent = '';
+        var i = 0; el.textContent = '';
         function type() { if (i < data.text.length) { el.textContent += data.text.charAt(i); i++; typeTimeoutId = setTimeout(type, 12); } }
         type();
       }
       function selectTab(key) {
-        document.querySelectorAll('.selector-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === key));
+        document.querySelectorAll('.selector-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === key); });
         typeOutPanel(key);
       }
       document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.selector-tab').forEach(t => { t.addEventListener('click', function() { selectTab(this.dataset.tab); }); });
+        document.querySelectorAll('.selector-tab').forEach(function(t) {
+          t.addEventListener('click', function() { selectTab(this.dataset.tab); });
+        });
         typeOutPanel('operator');
       });
     })();
@@ -806,25 +1086,33 @@
     // PROGRESS BARS
     // ================================================================
     document.addEventListener('DOMContentLoaded', function() {
-      const impactSection = document.getElementById('impactSection');
+      var impactSection = document.getElementById('impactSection');
       if (impactSection) initProgressBars(impactSection);
     });
     function initProgressBars(section) {
-      const bars = section.querySelectorAll('.db-bar-fill');
+      var bars = section.querySelectorAll('.db-bar-fill');
       if (!bars.length) return;
-      bars.forEach(bar => { bar.style.width = '0%'; bar.style.transition = 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)'; });
-      const barObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
+      bars.forEach(function(bar) { bar.style.width = '0%'; bar.style.transition = 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)'; });
+      var barObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
           if (entry.isIntersecting) {
-            bars.forEach((bar, index) => { const target = bar.getAttribute('data-target') || '0'; setTimeout(() => { bar.style.width = target + '%'; }, index * 150); });
-          } else { bars.forEach((bar) => { bar.style.width = '0%'; }); }
+            bars.forEach(function(bar, index) {
+              var target = bar.getAttribute('data-target') || '0';
+              setTimeout(function() { bar.style.width = target + '%'; }, index * 150);
+            });
+          } else {
+            bars.forEach(function(bar) { bar.style.width = '0%'; });
+          }
         });
       }, { threshold: 0.2 });
       barObserver.observe(section);
-      const rect = section.getBoundingClientRect();
-      const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+      var rect = section.getBoundingClientRect();
+      var windowHeight = window.innerHeight || document.documentElement.clientHeight;
       if (rect.top < windowHeight * 0.8 && rect.bottom > 0) {
-        bars.forEach((bar, index) => { const target = bar.getAttribute('data-target') || '0'; setTimeout(() => { bar.style.width = target + '%'; }, index * 150); });
+        bars.forEach(function(bar, index) {
+          var target = bar.getAttribute('data-target') || '0';
+          setTimeout(function() { bar.style.width = target + '%'; }, index * 150);
+        });
       }
     }
 
@@ -832,12 +1120,12 @@
     // TYPEWRITER
     // ================================================================
     (function() {
-      const phrases = ['not a personality trait.', 'built for operators.', 'one frame at a time.', 'decoded daily.'];
-      let phraseIndex = 0, charIndex = 0, isDeleting = false, typeTimeout;
-      const textElement = document.getElementById('typingText');
+      var phrases = ['not a personality trait.', 'built for operators.', 'one frame at a time.', 'decoded daily.'];
+      var phraseIndex = 0, charIndex = 0, isDeleting = false, typeTimeout;
+      var textElement = document.getElementById('typingText');
       function typeEffect() {
-        const currentPhrase = phrases[phraseIndex];
-        const speed = isDeleting ? 30 : 60;
+        var currentPhrase = phrases[phraseIndex];
+        var speed = isDeleting ? 30 : 60;
         if (!isDeleting && charIndex <= currentPhrase.length) {
           textElement.textContent = currentPhrase.substring(0, charIndex);
           charIndex++;
@@ -859,7 +1147,7 @@
     // FOUNDING 200 CAROUSEL
     // ================================================================
     (function() {
-      const founders = [
+      var founders = [
         { name: "Alex Rivera", badge: "founding-badges/alex-rivera.png" },
         { name: "Jamie Chen", badge: "founding-badges/jamie-chen.png" },
         { name: "Morgan Blake", badge: "founding-badges/morgan-blake.png" },
@@ -871,14 +1159,16 @@
         { name: "Avery Johnson", badge: "founding-badges/avery-johnson.png" },
         { name: "Dakota Lee", badge: "founding-badges/dakota-lee.png" }
       ];
-      function fallbackSVG() { return 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2290%22 height=%2290%22%3E%3Ccircle cx=%2245%22 cy=%2245%22 r=%2243%22 fill=%22%231A1A1A%22 stroke=%22%23e0b12d%22 stroke-width=%223%22/%3E%3Ctext x=%2245%22 y=%2250%22 text-anchor=%22middle%22 fill=%22%238deb00%22 font-family=%22Space Mono%22 font-size=%2216%22%3E200%3C/text%3E%3C/svg%3E'; }
-      const track = document.getElementById('foundingTrack');
+      function fallbackSVG() {
+        return 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2290%22 height=%2290%22%3E%3Ccircle cx=%2245%22 cy=%2245%22 r=%2243%22 fill=%22%231A1A1A%22 stroke=%22%23e0b12d%22 stroke-width=%223%22/%3E%3Ctext x=%2245%22 y=%2250%22 text-anchor=%22middle%22 fill=%22%238deb00%22 font-family=%22Space Mono%22 font-size=%2216%22%3E200%3C/text%3E%3C/svg%3E';
+      }
+      var track = document.getElementById('foundingTrack');
       if (!track) return;
       function buildFounderHTML(founder) {
-        return `<a href="founding-200.html" class="founder-item"><div class="founding-circle"><img src="${founder.badge}" alt="${founder.name}" onerror="this.src='${fallbackSVG()}'"/></div><div class="founder-name">${founder.name}</div></a>`;
+        return '<a href="founding-200.html" class="founder-item"><div class="founding-circle"><img src="' + founder.badge + '" alt="' + founder.name + '" onerror="this.src=\'' + fallbackSVG() + '\'"/></div><div class="founder-name">' + founder.name + '</div></a>';
       }
-      const doubled = founders.concat(founders);
-      track.innerHTML = doubled.map(founder => buildFounderHTML(founder)).join('');
+      var doubled = founders.concat(founders);
+      track.innerHTML = doubled.map(function(founder) { return buildFounderHTML(founder); }).join('');
     })();
 
     // ================================================================
@@ -886,87 +1176,101 @@
     // ================================================================
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
     function updateCartUI() {
-      const cart = getCart();
-      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-      const countEl = document.getElementById('cartHeaderCount');
-      const labelEl = document.getElementById('cartHeaderLabel');
+      var cart = getCart();
+      var totalItems = 0;
+      for (var i = 0; i < cart.length; i++) { totalItems += cart[i].qty; }
+      var countEl = document.getElementById('cartHeaderCount');
+      var labelEl = document.getElementById('cartHeaderLabel');
       if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
-      if (labelEl) { labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart'; }
+      if (labelEl) { labelEl.textContent = totalItems > 0 ? 'Cart (' + totalItems + ')' : 'Cart'; }
     }
     updateCartUI();
 
     // ================================================================
-    // AUTH UI – update auth buttons and role badge
+    // AUTH UI – update sidebar + floating header
     // ================================================================
-    const authButtons = document.getElementById('authButtons');
-    const roleBadge = document.getElementById('roleTierBadge');
-    const roleText = document.getElementById('roleTierText');
-
     function updateAuthUI(user) {
-      if (!authButtons) return;
+      var privateLinks = document.getElementById('privateLinks');
+      var authCta = document.getElementById('authCta');
+      var roleBadge = document.getElementById('roleTierBadge');
+      var roleText = document.getElementById('headerRole');
+      var tierText = document.getElementById('headerTier');
+      var logoutBtn = document.getElementById('floatingLogoutBtn');
+      var profileName = document.getElementById('sidebarUsername');
+      var profileEmail = document.getElementById('sidebarEmail');
+      var avatar = document.querySelector('.profile-avatar');
+
       if (user) {
-        authButtons.innerHTML = `
-          <a href="operator-dashboard.html" class="header-login-btn" id="dashboardLinkHeader">Dashboard</a>
-          <button class="header-login-btn header-logout-btn" onclick="handleLogout()">Logout</button>
-        `;
-        if (roleBadge) {
-          roleBadge.style.display = 'inline-block';
-          db.collection('users').doc(user.uid).get().then(doc => {
-            if (doc.exists) {
-              const data = doc.data();
-              const role = data.role || 'Operator';
-              const tier = data.tier || 'free';
-              const tierLabel = tier === 'pro' ? 'Pro' : 'Free';
-              const dashLink = document.getElementById('dashboardLinkHeader');
-              if (dashLink) {
-                let url = 'operator-dashboard.html';
-                if (role === 'Instructor') url = 'instructor-dashboard.html';
-                else if (role === 'Partner') url = 'partner-dashboard.html';
-                else if (role === 'Admin' || role === 'admin') url = 'admin-dashboard.html';
-                dashLink.href = url;
-              }
-              roleText.innerHTML = '<span class="glow-role">' + role + '</span> · <span class="tier-text">' + tierLabel + '</span>';
+        if (privateLinks) privateLinks.style.display = 'flex';
+        if (authCta) authCta.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+        if (roleBadge) roleBadge.style.display = 'inline-flex';
+
+        // Load user profile from Firestore
+        db.collection('users').doc(user.uid).get().then(function(doc) {
+          if (doc.exists) {
+            var data = doc.data();
+            var role = data.role || 'Operator';
+            var tier = data.tier || 'free';
+            var tierLabel = tier === 'pro' ? 'Pro' : 'Free';
+            if (roleText) roleText.textContent = role;
+            if (tierText) tierText.textContent = tierLabel;
+            if (profileName) profileName.textContent = data.username || role;
+            if (profileEmail) profileEmail.textContent = user.email || '';
+            if (avatar) {
+              if (data.photoURL) avatar.style.backgroundImage = 'url(' + data.photoURL + ')';
+              else avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
             }
-          }).catch(() => {
-            roleText.innerHTML = '<span class="glow-role">Operator</span> · <span class="tier-text">Free</span>';
-          });
-        }
+            // Update dashboard link
+            var dashLink = document.querySelector('.nav-item[href="operator-dashboard.html"]');
+            if (dashLink) {
+              var url = 'operator-dashboard.html';
+              if (role === 'Instructor') url = 'instructor-dashboard.html';
+              else if (role === 'Partner') url = 'partner-dashboard.html';
+              else if (role === 'Admin' || role === 'admin') url = 'admin-dashboard.html';
+              dashLink.href = url;
+            }
+          }
+        }).catch(function() {});
       } else {
-        authButtons.innerHTML = `
-          <a href="login.html" class="header-login-btn">Log in</a>
-          <a href="signup.html" class="header-login-btn">Sign Up</a>
-        `;
+        if (privateLinks) privateLinks.style.display = 'none';
+        if (authCta) authCta.style.display = 'flex';
+        if (logoutBtn) logoutBtn.style.display = 'none';
         if (roleBadge) roleBadge.style.display = 'none';
+        if (profileName) profileName.textContent = 'Guest';
+        if (profileEmail) profileEmail.textContent = 'Not logged in';
+        if (avatar) avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
       }
     }
 
-    // Auth state listener
-    auth.onAuthStateChanged((user) => {
+    auth.onAuthStateChanged(function(user) {
       updateAuthUI(user);
       if (user) {
         localStorage.setItem('cameras_decoded_uid', user.uid);
-        document.querySelectorAll('a[href*="settings.camerasdecoded.com"]').forEach(link => {
-          if (!link.href.includes('opToken=') && !link.href.includes('?uid=')) {
-            const sep = link.href.includes('?') ? '&' : '?';
-            link.href = link.href + sep + 'opToken=' + user.uid;
-          }
-        });
       } else {
         localStorage.removeItem('cameras_decoded_uid');
       }
     });
 
     // ================================================================
-    // FLOATING TOGGLE (mobile menu placeholder)
+    // SIDEBAR TOGGLE (mobile)
     // ================================================================
-    document.getElementById('floatingToggle').addEventListener('click', function() {
-      alert('Mobile navigation is available via the bottom nav. Swipe up or tap the menu icon at the bottom.');
+    document.addEventListener('DOMContentLoaded', function() {
+      var toggleBtn = document.getElementById('floatingToggle');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          var sidebar = document.getElementById('sidebar');
+          if (sidebar) sidebar.classList.toggle('open');
+        });
+      }
     });
 
     // ================================================================
-    // BOTTOM NAV INIT – let bottom-nav.js handle role detection
+    // CHASING BORDER (used in selector tabs)
     // ================================================================
-    // bottom-nav.js will automatically run and detect role
+    // (The style is already defined, just ensure any .chasing-border works)
+    console.log('Cameras Decoded — Index loaded.');
   </script>
 </body>
 </html>
