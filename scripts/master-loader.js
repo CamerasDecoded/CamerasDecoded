@@ -1,4 +1,4 @@
-// master-loader.js – Single source of truth for all shared resources
+// master-loader.js – Loads only shared resources (CSS, fonts, header, bottom nav)
 (function() {
   'use strict';
 
@@ -34,14 +34,6 @@
       document.head.appendChild(link);
     });
     console.log('✅ Shared CSS loaded');
-  }
-
-  function loadAuth() {
-    if (document.querySelector('script[src*="auth.js"]')) return;
-    const script = document.createElement('script');
-    script.src = '/scripts/auth.js';
-    document.body.appendChild(script);
-    console.log('✅ Auth loaded');
   }
 
   function loadParticles() {
@@ -112,7 +104,6 @@
     loadFontAwesome();
     loadGoogleFonts();
     loadSharedCSS();
-    loadAuth();          // now uses window.auth, no const conflicts
     loadParticles();
     injectFloatingHeader();
     injectBottomNavContainer();
