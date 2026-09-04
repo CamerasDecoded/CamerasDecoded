@@ -1,178 +1,272 @@
 // ================================================================
-// BOTTOM NAV – Production, role‑aware, premium icons
+// BOTTOM NAV – Production (role-aware, root paths)
+// Premium icons (far) + micro-animations
 // ================================================================
 
 (function() {
   'use strict';
 
-  // Map role → dashboard URL
-  const ROLE_DASHBOARD = {
-    'Operator': 'operator-dashboard.html',
-    'Partner': 'partner-dashboard.html',
-    'Instructor': 'instructor-dashboard.html',
-    'Admin': 'admin-dashboard.html',
-    'admin': 'admin-dashboard.html'
+  const ROLE_MAP = {
+    Operator: {
+      dashboard: 'operator-dashboard.html',
+      profile: 'profile.html'
+    },
+    Partner: {
+      dashboard: 'partner-dashboard.html',
+      profile: 'partner-profile.html'
+    },
+    Instructor: {
+      dashboard: 'instructor-dashboard.html',
+      profile: 'instructor-profile.html'
+    },
+    Admin: {
+      dashboard: 'admin-dashboard.html',
+      profile: 'admin-profile.html'
+    },
+    admin: {
+      dashboard: 'admin-dashboard.html',
+      profile: 'admin-profile.html'
+    }
   };
 
-  // Icon mapping – using far (regular) for thinner, premium feel
-  const NAV_ITEMS = [
-    { id: 'home', label: 'Home', icon: 'fa-house', url: 'index.html' },
-    { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie', url: null }, // dynamic
-    { id: 'profile', label: 'Profile', icon: 'fa-user', url: 'profile.html' },
-    { id: 'cart', label: 'Cart', icon: 'fa-cart-shopping', url: 'cart.html' }
-  ];
+  const DEFAULT_ROLE = 'Operator';
+  const CACHE_KEY = 'cameras_decoded_user_role';
+  const CACHE_TTL = 3600000; // 1 hour
 
-  // Cache DOM elements
-  let container = document.getElementById('bottomNavContainer');
-  let currentRole = 'Operator';
+  let currentRole = DEFAULT_ROLE;
+  let currentUser = null;
+  let navInjected = false;
+  let firebaseReady = false;
 
-  // ================================================================
-  // Helper: get user role from Firebase or localStorage
-  // ================================================================
-  function getUserRole() {
+  function waitForFirebase(maxWaitMs = 5000) {
+    return new Promise((resolve) => {
+      if (typeof firebase !== 'undefined' && firebase.auth && firebase.firestore) {
+        firebaseReady = true;
+        resolve(true);
+        return;
+      }
+      let elapsed = 0;
+      const interval = setInterval(() => {
+        if (typeof firebase !== 'undefined' && firebase.auth && firebase.firestore) {
+          firebaseReady = true;
+          clearInterval(interval);
+          resolve(true);
+        } else if (elapsed >= maxWaitMs) {
+          clearInterval(interval);
+          resolve(false);
+        }
+        elapsed += 100;
+      }, 100);
+    });
+  }
+
+  function getCacheRole() {
     try {
-      const user = JSON.parse(localStorage.getItem('cameras_decoded_user') || '{}');
-      if (user && user.role) return user.role;
-      // Fallback: check if uid is stored, then fetch from Firestore
-      const uid = localStorage.getItem('cameras_decoded_uid');
-      if (uid && typeof firebase !== 'undefined' && firebase.firestore) {
-        // We'll fetch asynchronously, but for now return 'Operator'
-        return 'Operator';
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { role, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_TTL) return role;
       }
-      return null;
-    } catch (e) {
-      return null;
+    } catch (e) {}
+    return null;
+  }
+
+  function setCacheRole(role) {
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ role, timestamp: Date.now() }));
+    } catch (e) {}
+  }
+
+  async function fetchRole(userId) {
+    if (!firebaseReady || !userId) return null;
+    for (let i = 0; i < 3; i++) {
+      try {
+        const doc = await firebase.firestore().collection('users').doc(userId).get();
+        if (doc.exists) {
+          const role = doc.data().role || DEFAULT_ROLE;
+          setCacheRole(role);
+          return role;
+        }
+      } catch (e) {
+        if (i < 2) await new Promise(r => setTimeout(r, 500));
+      }
     }
+    return null;
+  }
+
+  async function resolveRole() {
+    await waitForFirebase();
+    if (!firebaseReady) return DEFAULT_ROLE;
+
+    return new Promise((resolve) => {
+      const unsubscribe = firebase.auth().onAuthStateChanged(async (user) => {
+        currentUser = user;
+        if (!user) {
+          unsubscribe();
+          resolve(DEFAULT_ROLE);
+          return;
+        }
+        const cachedRole = getCacheRole();
+        if (cachedRole) {
+          unsubscribe();
+          resolve(cachedRole);
+          return;
+        }
+        const role = await fetchRole(user.uid);
+        unsubscribe();
+        resolve(role || DEFAULT_ROLE);
+      });
+    });
   }
 
   // ================================================================
-  // Build navigation items
+  // BUILD NAV HTML – PREMIUM ICONS (far = regular, thinner)
   // ================================================================
-  function buildNav(role) {
+
+  function buildNavHTML() {
+    const config = ROLE_MAP[currentRole] || ROLE_MAP[DEFAULT_ROLE];
+    return `
+      <nav class="bottom-nav chasing-border-nav" role="navigation" aria-label="Main Navigation">
+        <a href="index.html" data-page="index.html" class="nav-link">
+          <i class="far fa-home"></i>
+          <span>Home</span>
+          <span class="badge-dot" id="badgeHome"></span>
+        </a>
+        <a href="${config.dashboard}" data-page="${config.dashboard}" class="nav-link" id="navDashboard">
+          <i class="fas fa-th-large"></i>
+          <span>Dashboard</span>
+          <span class="badge-dot" id="badgeDashboard"></span>
+        </a>
+        <a href="journey.html" data-page="journey.html" class="nav-link">
+          <i class="far fa-compass"></i>
+          <span>Journey</span>
+          <span class="badge-dot" id="badgeJourney"></span>
+        </a>
+        <a href="cynetis-7.html" data-page="cynetis-7.html" class="nav-link">
+          <i class="far fa-camera"></i>
+          <span>Cynetis-7</span>
+          <span class="badge-dot" id="badgeCynetis"></span>
+        </a>
+        <a href="${config.profile}" data-page="${config.profile}" class="nav-link" id="navProfile">
+          <i class="far fa-user"></i>
+          <span>Profile</span>
+          <span class="badge-dot" id="badgeProfile"></span>
+        </a>
+      </nav>
+    `;
+  }
+
+  function injectNav() {
+    if (navInjected) return;
+    let container = document.getElementById('bottomNavContainer');
     if (!container) {
-      container = document.getElementById('bottomNavContainer');
-      if (!container) return;
+      container = document.createElement('div');
+      container.id = 'bottomNavContainer';
+      document.body.appendChild(container);
     }
+    container.innerHTML = buildNavHTML();
+    navInjected = true;
+    setActiveNav();
+    updateBadgesAsync();
+  }
 
-    // Determine dashboard URL
-    const dashboardUrl = ROLE_DASHBOARD[role] || 'operator-dashboard.html';
-
-    // Prepare items
-    const items = NAV_ITEMS.map(item => {
-      let url = item.url;
-      if (item.id === 'dashboard') url = dashboardUrl;
-      return { ...item, url };
-    });
-
-    // Build HTML – use far (regular) icon prefix
-    const navHtml = items.map(item => {
-      const iconClass = `far ${item.icon}`;
-      return `<a href="${item.url}" class="bottom-nav-item" data-id="${item.id}">
-                <i class="${iconClass}"></i>
-                <span>${item.label}</span>
-              </a>`;
-    }).join('');
-
-    container.innerHTML = navHtml;
-
-    // Mark active item based on current page
-    const currentPath = window.location.pathname.split('/').pop() || 'index.html';
-    container.querySelectorAll('.bottom-nav-item').forEach(el => {
-      const href = el.getAttribute('href');
-      if (href === currentPath) {
-        el.classList.add('active');
-      }
+  function setActiveNav() {
+    const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+    document.querySelectorAll('.bottom-nav .nav-link').forEach(link => {
+      const page = link.dataset.page;
+      link.classList.toggle('active', page === currentPage);
     });
   }
 
-  // ================================================================
-  // Public API
-  // ================================================================
-  window.BottomNav = {
-    init: function() {
-      const role = getUserRole() || 'Operator';
-      this.setRole(role);
-    },
-    setRole: function(role) {
-      currentRole = role;
-      buildNav(role);
-    },
-    updateBadges: function(userData) {
-      // Update cart badge count
-      const cart = JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
-      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-      const cartItem = container?.querySelector('.bottom-nav-item[data-id="cart"]');
-      if (cartItem) {
-        // Remove existing badge
-        const oldBadge = cartItem.querySelector('.bottom-nav-badge');
-        if (oldBadge) oldBadge.remove();
-        if (totalItems > 0) {
-          const badge = document.createElement('span');
-          badge.className = 'bottom-nav-badge';
-          badge.textContent = totalItems;
-          cartItem.appendChild(badge);
+  async function updateBadgesAsync() {
+    if (!firebaseReady) return;
+    try {
+      const annDoc = await firebase.firestore().collection('admin').doc('announcement').get();
+      const hasAnnouncement = annDoc.exists && annDoc.data()?.active === true;
+      document.querySelector('.bottom-nav a[href="index.html"]')?.classList.toggle('show-badge', hasAnnouncement);
+
+      const hasNewFeatures = !localStorage.getItem('cynetis_visited');
+      document.querySelector('.bottom-nav a[href="cynetis-7.html"]')?.classList.toggle('show-badge', hasNewFeatures);
+
+      if (currentUser) {
+        const userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
+        if (userDoc.exists) {
+          const data = userDoc.data();
+          const hasAlerts = !data.tourCompleted || !data.learningJourney?.primaryGoal || (data.totalPoints || 0) < 10;
+          ['navDashboard', 'navProfile'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('show-badge', hasAlerts);
+          });
+          document.querySelector('.bottom-nav a[href="journey.html"]')?.classList.toggle('show-badge', hasAlerts);
         }
       }
-      // Could also update other badges (e.g., notifications) here
+    } catch (e) {
+      console.warn('Badge update error:', e);
+    }
+  }
+
+  function listenToAuthChanges() {
+    if (!firebaseReady) return;
+    firebase.auth().onAuthStateChanged(async (user) => {
+      const prevRole = currentRole;
+      currentUser = user;
+      if (!user) {
+        currentRole = DEFAULT_ROLE;
+        navInjected = false;
+        injectNav();
+        return;
+      }
+      let role = getCacheRole() || await fetchRole(user.uid) || DEFAULT_ROLE;
+      currentRole = role;
+      if (role !== prevRole) {
+        navInjected = false;
+        injectNav();
+      } else {
+        updateBadgesAsync();
+      }
+    });
+  }
+
+  function setupCynetisVisited() {
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('.bottom-nav a[href="cynetis-7.html"]');
+      if (link) {
+        localStorage.setItem('cynetis_visited', 'true');
+        link.classList.remove('show-badge');
+      }
+    });
+  }
+
+  // ================================================================
+  // PUBLIC API
+  // ================================================================
+
+  window.BottomNav = {
+    init: async function() {
+      currentRole = await resolveRole();
+      injectNav();
+      listenToAuthChanges();
+      setupCynetisVisited();
     },
-    // For compatibility with old test code
-    setActive: function() {
-      // already done in buildNav
+    inject: injectNav,
+    setActive: setActiveNav,
+    updateBadges: updateBadgesAsync,
+    rebuild: async function() {
+      navInjected = false;
+      currentRole = await resolveRole();
+      injectNav();
     }
   };
 
   // ================================================================
-  // Auto‑init when DOM ready
+  // AUTO-INIT
   // ================================================================
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-      window.BottomNav.init();
-      // If Firebase auth state changes, re‑fetch role
-      if (typeof firebase !== 'undefined' && firebase.auth) {
-        firebase.auth().onAuthStateChanged((user) => {
-          if (user) {
-            // Fetch role from Firestore
-            const db = firebase.firestore();
-            db.collection('users').doc(user.uid).get().then(doc => {
-              if (doc.exists) {
-                const role = doc.data().role || 'Operator';
-                window.BottomNav.setRole(role);
-                // Also update badges if data available
-                window.BottomNav.updateBadges(doc.data());
-              }
-            }).catch(() => {});
-          } else {
-            window.BottomNav.setRole('Operator');
-          }
-        });
-      }
-    });
+    document.addEventListener('DOMContentLoaded', () => window.BottomNav.init());
   } else {
     window.BottomNav.init();
   }
 
-  // ================================================================
-  // Cart badge – listen for storage changes (if cart updated in other tab)
-  // ================================================================
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'cameras_decoded_cart') {
-      window.BottomNav.updateBadges();
-    }
-  });
-
-  // Also update cart badge whenever we load the page
-  document.addEventListener('DOMContentLoaded', function() {
-    // Fetch user data if available
-    const uid = localStorage.getItem('cameras_decoded_uid');
-    if (uid && typeof firebase !== 'undefined' && firebase.firestore) {
-      firebase.firestore().collection('users').doc(uid).get().then(doc => {
-        if (doc.exists) {
-          window.BottomNav.updateBadges(doc.data());
-        }
-      }).catch(() => {});
-    } else {
-      window.BottomNav.updateBadges();
-    }
-  });
-
+  window.addEventListener('popstate', setActiveNav);
 })();
