@@ -245,7 +245,7 @@
     }
 
     /* ============================================================
-       FLOATING HEADER (inline – kept for style, but now it's in the body)
+       FLOATING HEADER (inline – same as operator dashboard)
        ============================================================ */
     .floating-header {
       position:fixed; top:12px; left:292px; right:12px; z-index:99;
@@ -573,12 +573,12 @@
 </head>
 <body>
 
-  <!-- ===== FLOATING HEADER (INLINE) ===== -->
+  <!-- ===== FLOATING HEADER (INLINE – SAME AS OPERATOR) ===== -->
   <div class="floating-header">
     <div class="floating-left-group">
       <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
-      <span class="role-tier-badge">
-        <span class="glow-role" id="headerRole">Partner</span> · <span id="headerTier">Signal</span>
+      <span id="roleTierBadge" class="role-tier-badge" style="display:none;">
+        <span class="glow-role" id="headerRole">Partner</span> · <span id="headerTier" class="tier-text">Signal</span>
       </span>
     </div>
     <div class="floating-center-group"></div>
@@ -778,10 +778,10 @@
   <!-- ===== SIDEBAR SCRIPT ===== -->
   <script src="sidebar.js"></script>
 
-  <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
+  <!-- ===== PAGE-SPECIFIC JAVASCRIPT – EXACTLY THE SAME STYLE AS OPERATOR ===== -->
   <script>
     // ============================================================
-    // REVEAL ANIMATIONS
+    // REVEAL ANIMATIONS – identical to operator dashboard
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
       var reveals = document.querySelectorAll('.reveal');
@@ -792,11 +792,13 @@
           }
         });
       }, { threshold: 0.1 });
-      reveals.forEach(function(el) { observer.observe(el); });
+      for (var i = 0; i < reveals.length; i++) {
+        observer.observe(reveals[i]);
+      }
     });
 
     // ============================================================
-    // GLOBAL FUNCTIONS (used in HTML)
+    // GLOBAL FUNCTIONS – identical to operator dashboard
     // ============================================================
     function copyReferralLink() {
       var link = document.getElementById('referralLink').textContent;
@@ -816,26 +818,34 @@
     function downloadResource(filename) { cdToast('Downloading ' + filename); }
 
     // ============================================================
-    // CART UI
+    // CART UI – identical to operator dashboard
     // ============================================================
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
     function updateCartUI() {
       var cart = getCart();
-      var totalItems = cart.reduce(function(sum, item) { return sum + item.qty; }, 0);
+      var totalItems = 0;
+      for (var i = 0; i < cart.length; i++) {
+        totalItems += cart[i].qty;
+      }
       var countEl = document.getElementById('cartHeaderCount');
       var labelEl = document.getElementById('cartHeaderLabel');
-      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
-      if (labelEl) { labelEl.textContent = totalItems > 0 ? 'Cart (' + totalItems + ')' : 'Cart'; }
+      if (countEl) {
+        countEl.textContent = totalItems;
+        countEl.style.display = totalItems > 0 ? 'inline-block' : 'none';
+      }
+      if (labelEl) {
+        labelEl.textContent = totalItems > 0 ? 'Cart (' + totalItems + ')' : 'Cart';
+      }
     }
     updateCartUI();
 
     // ============================================================
-    // FIREBASE – use global auth/db from firebase-init.js
+    // FIREBASE – use global auth/db (same as operator)
     // ============================================================
     var auth = window.auth || firebase.auth();
     var db = window.db || firebase.firestore();
     var cdToast = window.cdToast || function(msg, type) { alert(msg); };
-    window.handleLogout = window.handleLogout || function() {
+    window.handleLogout = function() {
       auth.signOut().then(function() {
         localStorage.clear();
         window.location.href = 'login.html';
@@ -849,7 +859,7 @@
     var currentUser = null;
     var window.demoCommissionId = null;
 
-    // ---- Simulate purchase (partner – flat 20%) ----
+    // ---- Simulate purchase ----
     function simulatePurchase() {
       if (!userDocRef) {
         cdToast('Please log in first.', 'error');
@@ -887,7 +897,7 @@
       });
     }
 
-    // ---- Reset demo commission ----
+    // ---- Reset demo ----
     function resetDemoCommission() {
       if (!window.demoCommissionId) {
         cdToast('No demo commission to reset.', '');
@@ -936,18 +946,16 @@
       document.getElementById('totalCommission').textContent = '$' + (data.totalCommissionEarned || 0).toFixed(2);
       document.getElementById('ambassadorTier').textContent = 'Partner (20%)';
 
-      // Header tier badge – use partnerTier
+      // Header tier badge
       document.getElementById('headerTier').textContent = tierDisplay;
 
-      // Insert commission card right after stats grid
+      // Insert commission card
       if (document.getElementById('statsGrid') && typeof insertCommissionCard === 'function') {
         insertCommissionCard('statsGrid', 'after');
-      } else {
-        console.warn('insertCommissionCard not available or stats grid missing');
       }
     }
 
-    // ---- Render commission history (limit to 20) ----
+    // ---- Render commission history ----
     function renderCommissionHistory(commissions) {
       var list = document.getElementById('commissionList');
       if (!list) return;
@@ -962,32 +970,32 @@
       });
       var display = sorted.slice(0, 20);
       var html = '';
-      display.forEach(function(c) {
+      for (var i = 0; i < display.length; i++) {
+        var c = display[i];
         var date = c.createdAt && c.createdAt.toDate ? c.createdAt.toDate() : new Date();
         var dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         var statusClass = c.status || 'pending';
         var statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
         html += '<div class="commission-item"><div class="left"><div class="name">' + (c.productName || 'Purchase') + '</div><div class="date">' + dateStr + '</div></div><div class="right"><span class="amount">$' + c.amount.toFixed(2) + '</span><span class="status ' + statusClass + '">' + statusLabel + '</span></div></div>';
-      });
+      }
       list.innerHTML = html;
 
-      // Check for demo commission
-      var demo = null;
-      for (var i = 0; i < commissions.length; i++) {
-        if (commissions[i].isDemo === true) {
-          demo = commissions[i];
+      var hasDemo = false;
+      for (var j = 0; j < commissions.length; j++) {
+        if (commissions[j].isDemo === true) {
+          hasDemo = true;
+          window.demoCommissionId = commissions[j].id;
           break;
         }
       }
       var resetBtn = document.getElementById('resetDemoBtn');
       var simBtn = document.getElementById('simulateBtn');
-      if (demo) {
+      if (hasDemo) {
         resetBtn.style.display = 'inline-block';
         simBtn.textContent = 'Demo used';
         simBtn.disabled = true;
         simBtn.style.opacity = '0.5';
         simBtn.style.cursor = 'default';
-        window.demoCommissionId = demo.id;
       } else {
         resetBtn.style.display = 'none';
         simBtn.textContent = 'Simulate Purchase';
@@ -1007,7 +1015,6 @@
       currentUser = user;
       userDocRef = db.collection('users').doc(user.uid);
 
-      // Real-time profile listener
       userDocRef.onSnapshot(function(doc) {
         if (!doc.exists) {
           var email = user.email || '';
@@ -1037,9 +1044,11 @@
         }
         updatePartnerProfile(doc.data());
         if (!commissionListener) listenCommissions();
-      }, function(error) { console.error('Profile listener error:', error); });
+      }, function(error) {
+        console.error('Profile listener error:', error);
+      });
 
-      // Add dashboard link to sidebar if not present
+      // Add dashboard link to sidebar
       var homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
       if (homeNav && !document.getElementById('dynamic-dashboard-node')) {
         var dashLink = document.createElement('a');
@@ -1050,7 +1059,6 @@
         homeNav.parentNode.insertBefore(dashLink, homeNav);
       }
 
-      // Bottom Nav
       if (window.BottomNav) {
         window.BottomNav.init();
       }
@@ -1072,39 +1080,37 @@
         .onSnapshot(function(snapshot) {
           var commissions = [];
           snapshot.forEach(function(doc) {
-            commissions.push({ id: doc.id, data: function() { return doc.data(); } });
+            var data = doc.data();
+            data.id = doc.id;
+            commissions.push(data);
           });
-          // Convert to plain array with data
-          var commissionsData = commissions.map(function(c) {
-            var data = c.data();
-            data.id = c.id;
-            return data;
-          });
-          renderCommissionHistory(commissionsData);
-        }, function(error) { console.error('Commission listener error:', error); });
+          renderCommissionHistory(commissions);
+        }, function(error) {
+          console.error('Commission listener error:', error);
+        });
     }
 
-    // ---- Sidebar toggle (mobile) ----
+    // ---- Sidebar toggle ----
     document.addEventListener('click', function(e) {
       var toggle = e.target.closest('#floatingToggle');
       if (toggle) {
         e.preventDefault();
-        var sidebar = document.getElementById('sidebarContainer');
-        if (sidebar) {
-          var sidebarElement = sidebar.querySelector('.sidebar');
-          if (sidebarElement) {
-            sidebarElement.classList.toggle('open');
+        var sidebarContainer = document.getElementById('sidebarContainer');
+        if (sidebarContainer) {
+          var sidebar = sidebarContainer.querySelector('.sidebar');
+          if (sidebar) {
+            sidebar.classList.toggle('open');
           }
         }
       }
       if (window.innerWidth <= 1024) {
-        var sidebar = document.getElementById('sidebarContainer');
-        if (sidebar) {
-          var sidebarElement = sidebar.querySelector('.sidebar');
-          if (sidebarElement) {
+        var sidebarContainer2 = document.getElementById('sidebarContainer');
+        if (sidebarContainer2) {
+          var sidebar2 = sidebarContainer2.querySelector('.sidebar');
+          if (sidebar2) {
             var link = e.target.closest('.sidebar-nav .nav-item');
             if (link) {
-              sidebarElement.classList.remove('open');
+              sidebar2.classList.remove('open');
             }
           }
         }
