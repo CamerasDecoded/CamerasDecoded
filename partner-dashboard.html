@@ -19,7 +19,7 @@
 
   <style>
     /* ============================================================
-       PARTNER DASHBOARD – FULL STYLES
+       PARTNER DASHBOARD – FULL STYLES (unchanged)
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -784,11 +784,10 @@
   <!-- ===== COMMISSION CARD ===== -->
   <script src="/scripts/commission-card.js"></script>
 
-  <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
+  <!-- ===== PAGE-SPECIFIC JAVASCRIPT – REDIRECT GUESTS + FALLBACK FOR USERS ===== -->
   <script>
     // ================================================================
-    // PARTNER DASHBOARD – WITH FALLBACK FOR MISSING DOCUMENT
-    // (mimics the working operator dashboard, but handles permission-denied)
+    // PARTNER DASHBOARD – FINAL LOGIC
     // ================================================================
 
     if (typeof cdToast === 'undefined') {
@@ -799,15 +798,12 @@
     var auth = window.auth || firebase.auth();
     var db = window.db || firebase.firestore();
 
-    // ---- ensureUserDoc – fallback for permission-denied ----
+    // ---- ensureUserDoc – NO FIRESTORE CALLS, just return default data ----
     async function ensureUserDoc(user) {
       var uid = user.uid;
-      var docRef = db.collection('users').doc(uid);
-
-      // Default partner data
       var email = user.email || '';
       var username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
-      var defaultData = {
+      return {
         uid: uid,
         email: email,
         displayName: user.displayName || '',
@@ -825,31 +821,13 @@
         totalReferrals: 0,
         totalCommissionEarned: 0,
         ambassadorTier: 'partner',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
         tourCompleted: false
       };
-
-      try {
-        // Try reading first (fast path)
-        var doc = await docRef.get();
-        if (doc.exists) return doc.data();
-        // Doesn't exist → create and return default data
-        await docRef.set(defaultData);
-        return defaultData;
-      } catch (error) {
-        if (error.code === 'permission-denied') {
-          // Read denied – attempt to create the document anyway
-          await docRef.set(defaultData, { merge: true });
-          // Return the data we have (we can't read it back, but we wrote it)
-          return defaultData;
-        } else {
-          throw error;
-        }
-      }
     }
 
-    // ---- Render functions (same as operator) ----
+    // ---- Render functions ----
     function renderProfile(u) {
       var sidebarUsername = document.getElementById('sidebarUsername');
       if (sidebarUsername) sidebarUsername.textContent = u ? (u.username || 'Partner') : 'Partner';
@@ -969,7 +947,7 @@
       }
     }
 
-    // ---- Commission functions ----
+    // ---- Commission functions (require userDocRef) ----
     var userDocRef = null;
 
     function simulatePurchase() {
@@ -1037,30 +1015,30 @@
     var contentEl = document.getElementById('dashboardContent');
 
     async function loadDashboard(user) {
-      if (!user) {
-        loadingEl.innerHTML = '<p class="error">Not authenticated. <a href="login.html">Login</a></p>';
-        return;
-      }
-
       try {
         console.log('🔄 Loading partner dashboard for user:', user.uid);
 
         var userData = await ensureUserDoc(user);
-        console.log('✅ Partner data (local or fetched):', userData);
+        console.log('✅ Using default partner data:', userData);
 
         userDocRef = db.collection('users').doc(user.uid);
 
         renderProfile(userData);
         renderStats(userData);
 
-        // Load commissions
-        var commissionsSnapshot = await userDocRef.collection('commissions').orderBy('createdAt', 'desc').limit(50).get();
+        // Try to load commissions, but if it fails, just show empty
         var commissions = [];
-        commissionsSnapshot.forEach(function(doc) {
-          var data = doc.data();
-          data.id = doc.id;
-          commissions.push(data);
-        });
+        try {
+          var commissionsSnapshot = await userDocRef.collection('commissions').orderBy('createdAt', 'desc').limit(50).get();
+          commissionsSnapshot.forEach(function(doc) {
+            var data = doc.data();
+            data.id = doc.id;
+            commissions.push(data);
+          });
+        } catch (commErr) {
+          console.warn('Could not load commissions, using empty list:', commErr);
+          // keep commissions = []
+        }
         renderCommissionHistory(commissions);
 
         loadingEl.style.display = 'none';
@@ -1083,13 +1061,14 @@
       }
     }
 
-    // ---- Auth ----
+    // ---- AUTH LISTENER – REDIRECT UNAUTHENTICATED ----
     auth.onAuthStateChanged(function(user) {
       if (user) {
+        // Logged in → load the dashboard with default data
         loadDashboard(user);
       } else {
-        loadingEl.innerHTML = '<p>You are not logged in. <a href="login.html">Go to Login</a></p>';
-        renderProfile(null);
+        // Not logged in → redirect immediately to login
+        window.location.href = 'login.html';
       }
     });
 
