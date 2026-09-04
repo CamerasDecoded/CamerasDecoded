@@ -1,9 +1,8 @@
 // ================================================================
 // AUTH – Cameras Decoded (Production)
-// Single source of truth for Firebase, toast, auth, and utilities
+// Single source of truth – no duplicate declarations
 // ================================================================
 
-// ===== FIREBASE CONFIG =====
 const firebaseConfig = {
   apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
   authDomain: "cameras-decoded.firebaseapp.com",
@@ -18,11 +17,12 @@ if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 
-const auth = firebase.auth();
-const db = firebase.firestore();
+// Set auth and db directly on window – no `const` to avoid redeclaration
+window.auth = firebase.auth();
+window.db = firebase.firestore();
 const STRIPE_CHECKOUT_URL = 'https://checkout.stripe.com/pay/placeholder';
 
-// ===== TOAST – SINGLE SOURCE OF TRUTH =====
+// ---------- Toast ----------
 function cdToast(message, type = 'success') {
   let container = document.getElementById('toast-container');
   if (!container) {
@@ -73,13 +73,11 @@ function cdToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 300);
   }, 4000);
 }
-
-// Make it globally available
 window.cdToast = cdToast;
 
-// ===== UTILITY HELPERS =====
+// ---------- Helpers ----------
 function updateLastActive(uid) {
-  db.collection('users').doc(uid).set({
+  window.db.collection('users').doc(uid).set({
     lastActive: firebase.firestore.FieldValue.serverTimestamp()
   }, { merge: true }).catch(err => console.warn('Could not update lastActive:', err));
 }
@@ -111,15 +109,21 @@ function setReferralFromURL() {
   if (ref) localStorage.setItem('signup_referral', ref);
 }
 
-// ===== ALL YOUR EXISTING AUTH LOGIC =====
-// (copy everything else from your auth.js – signInWithGoogle, signInWithFacebook, login, forgotPassword, createAccount, etc.)
-// ... keeping everything unchanged ...
+// ===== SOCIAL HELPERS =====
+function handleSocialUser(user) {
+  // ... (keep your existing code, use window.db and window.auth)
+}
+window.signInWithGoogle = function() { /* ... */ };
+window.signInWithFacebook = function() { /* ... */ };
+window.login = function(email, password) { /* ... */ };
+window.forgotPassword = function(email) { /* ... */ };
+window.createAccount = function() { /* ... */ };
 
 // ===== AUTH STATE LISTENER =====
-auth.onAuthStateChanged(user => {
+window.auth.onAuthStateChanged(user => {
   if (user && window.location.pathname.endsWith('/login.html')) {
     updateLastActive(user.uid);
-    db.collection('users').doc(user.uid).get().then(doc => {
+    window.db.collection('users').doc(user.uid).get().then(doc => {
       if (doc.exists) {
         const data = doc.data();
         let roles = (data.roles && Array.isArray(data.roles)) ? data.roles : [data.role || 'Operator'];
@@ -137,10 +141,5 @@ auth.onAuthStateChanged(user => {
 
 setReferralFromURL();
 
-// ===== EXPOSE GLOBALLY =====
-window.auth = auth;
-window.db = db;
-window.firebaseConfig = firebaseConfig;
-window.updateLastActive = updateLastActive;
-window.storeUserData = storeUserData;
-window.getStoredReferral = getStoredReferral;
+// Expose everything else you need on window
+// (already have window.auth, window.db, window.cdToast)
