@@ -70,7 +70,7 @@
     }
 
     /* ============================================================
-       SIDEBAR – HARDCODED (no external script needed)
+       SIDEBAR – HARDCODED
        ============================================================ */
     #sidebarContainer {
       position: fixed;
@@ -166,15 +166,12 @@
       flex-shrink: 0;
     }
 
-    /* ---- auth‑aware sections ---- */
     #privateLinks {
       display: none;
       flex-direction: column;
       gap: 2px;
     }
-    #privateLinks .nav-item {
-      display: flex;
-    }
+    #privateLinks .nav-item { display: flex; }
     #authCta {
       display: flex;
       flex-direction: column;
@@ -190,16 +187,12 @@
       padding: 8px 12px;
       margin: 4px 0;
     }
-    #authCta .nav-item:hover {
-      background: rgba(141,235,0,0.08);
-    }
+    #authCta .nav-item:hover { background: rgba(141,235,0,0.08); }
     #authCta .nav-item.signup {
       background: var(--green);
       color: #000;
     }
-    #authCta .nav-item.signup:hover {
-      background: #a0f520;
-    }
+    #authCta .nav-item.signup:hover { background: #a0f520; }
 
     .sidebar-notification {
       margin-top: auto;
@@ -257,9 +250,7 @@
       .main-content { margin-left: 0; padding: 100px 20px 20px; }
     }
 
-    /* ============================================================
-       FLOATING HEADER
-       ============================================================ */
+    /* ===== FLOATING HEADER ===== */
     .floating-header {
       position:fixed; top:12px; left:292px; right:12px; z-index:99;
       display:flex; align-items:center; justify-content:space-between; gap:8px;
@@ -309,9 +300,7 @@
       .floating-toggle { display:none !important; }
     }
 
-    /* ============================================================
-       DASHBOARD SPECIFIC STYLES
-       ============================================================ */
+    /* ===== DASHBOARD SPECIFIC STYLES ===== */
     .dash-header {
       display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center;
       margin-bottom:24px; border-bottom:1px solid var(--border-dim); padding-bottom:16px;
@@ -573,7 +562,7 @@
     </div>
   </div>
 
-  <!-- ===== SIDEBAR – HARDCODED (no external script) ===== -->
+  <!-- ===== SIDEBAR ===== -->
   <div id="sidebarContainer">
     <aside class="sidebar" id="sidebar">
       <div class="logo"><a href="https://camerasdecoded.com"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a></div>
@@ -583,7 +572,6 @@
         <div class="profile-email" id="sidebarEmail">loading...</div>
       </div>
       <nav class="sidebar-nav">
-        <!-- PUBLIC links -->
         <div class="nav-group">
           <a href="partner-dashboard.html" class="nav-item active"><i class="fas fa-chart-simple"></i> Dashboard</a>
           <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
@@ -611,7 +599,7 @@
         </div>
         <hr class="sidebar-divider">
 
-        <!-- ===== PRIVATE LINKS (shown only when logged in) ===== -->
+        <!-- PRIVATE (shown when logged in) -->
         <div class="nav-group private-links" id="privateLinks">
           <a href="profile.html" class="nav-item"><i class="fas fa-id-card"></i> Profile</a>
           <a href="#" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
@@ -619,19 +607,15 @@
           <a href="#" class="nav-item" onclick="handleLogout(); return false;" style="color:#ff4a4a;"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
 
-        <!-- ===== AUTH CTA (shown only when logged out) ===== -->
+        <!-- AUTH CTA (shown when logged out) -->
         <div class="nav-group auth-cta" id="authCta" style="display:flex; flex-direction:column; gap:8px; padding-top:4px;">
           <a href="login.html" class="nav-item"><i class="fas fa-sign-in-alt"></i> Log in</a>
           <a href="signup.html" class="nav-item signup"><i class="fas fa-user-plus"></i> Sign Up</a>
         </div>
       </nav>
 
-      <!-- Announcement -->
       <div class="sidebar-notification" id="sidebarNotification">
-        <div class="notif-header">
-          <i class="fas fa-bullhorn"></i>
-          <span>Announcement</span>
-        </div>
+        <div class="notif-header"><i class="fas fa-bullhorn"></i><span>Announcement</span></div>
         <div class="notif-message empty" id="sidebarAnnouncement">No active announcement</div>
         <div class="notif-timestamp" id="sidebarAnnouncementTimestamp"></div>
       </div>
@@ -641,19 +625,16 @@
   <!-- ===== MAIN CONTENT ===== -->
   <main class="main-content">
 
-    <!-- DASHBOARD HEADER -->
     <div class="dash-header reveal">
       <h1><i class="fas fa-handshake" style="color:var(--green);"></i> Partner Command Center</h1>
       <div class="partner-id">Partner ID: <span id="partnerUniqueId">—</span></div>
     </div>
 
-    <!-- LOADING STATE -->
     <div id="loadingState" style="text-align:center;padding:60px 0;color:var(--text-muted);">
       <i class="fas fa-spinner fa-spin" style="font-size:32px;color:var(--green);"></i>
       <p style="margin-top:12px;">Loading your partner signal...</p>
     </div>
 
-    <!-- DASHBOARD CONTENT -->
     <div id="dashboardContent" style="display:none;">
 
       <!-- Stats -->
@@ -806,52 +787,100 @@
   <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
   <script>
     // ================================================================
-    // PARTNER DASHBOARD – COMPLETE LOGIC
+    // PARTNER DASHBOARD – FIXED PERMISSION ERROR
     // ================================================================
 
-    // ---- Toast fallback ----
     if (typeof cdToast === 'undefined') {
       window.cdToast = function(msg, type) { alert(msg); };
     }
     var cdToast = window.cdToast;
 
-    // ---- Firebase auth/db ----
     var auth = window.auth || firebase.auth();
     var db = window.db || firebase.firestore();
 
-    // ---- Ensure user doc ----
+    // ---- FIXED ensureUserDoc: handles permission denied by creating doc ----
     async function ensureUserDoc(user) {
       var uid = user.uid;
       var docRef = db.collection('users').doc(uid);
-      var doc = await docRef.get();
-      if (doc.exists) return doc.data();
-      var email = user.email || '';
-      var username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
-      var data = {
-        uid: uid, email: email, displayName: user.displayName || '', username: username,
-        role: 'Partner', partnerTier: 'signal', billingInterval: 'monthly',
-        companyName: '', partnerId: 'PART-' + uid.slice(0,6).toUpperCase(),
-        clicks: 0, downloads: 0, agreements: 0, referredStudents: 0,
-        referralCode: username, totalReferrals: 0, totalCommissionEarned: 0,
-        ambassadorTier: 'partner',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        tourCompleted: false
-      };
-      await docRef.set(data);
-      return data;
+
+      try {
+        var doc = await docRef.get();
+        if (doc.exists) return doc.data();
+        // Doc doesn't exist – create it
+        var email = user.email || '';
+        var username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
+        var data = {
+          uid: uid,
+          email: email,
+          displayName: user.displayName || '',
+          username: username,
+          role: 'Partner',
+          partnerTier: 'signal',
+          billingInterval: 'monthly',
+          companyName: '',
+          partnerId: 'PART-' + uid.slice(0,6).toUpperCase(),
+          clicks: 0,
+          downloads: 0,
+          agreements: 0,
+          referredStudents: 0,
+          referralCode: username,
+          totalReferrals: 0,
+          totalCommissionEarned: 0,
+          ambassadorTier: 'partner',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          tourCompleted: false
+        };
+        await docRef.set(data);
+        var newDoc = await docRef.get();
+        return newDoc.data();
+      } catch (error) {
+        // If read failed due to permission, try to create/merge the doc
+        if (error.code === 'permission-denied') {
+          console.warn('Read permission denied – attempting to create document via set merge');
+          var email = user.email || '';
+          var username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
+          var data = {
+            uid: uid,
+            email: email,
+            displayName: user.displayName || '',
+            username: username,
+            role: 'Partner',
+            partnerTier: 'signal',
+            billingInterval: 'monthly',
+            companyName: '',
+            partnerId: 'PART-' + uid.slice(0,6).toUpperCase(),
+            clicks: 0,
+            downloads: 0,
+            agreements: 0,
+            referredStudents: 0,
+            referralCode: username,
+            totalReferrals: 0,
+            totalCommissionEarned: 0,
+            ambassadorTier: 'partner',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            tourCompleted: false
+          };
+          await docRef.set(data, { merge: true });
+          var newDoc = await docRef.get();
+          if (newDoc.exists) return newDoc.data();
+          else throw new Error('Document still not accessible after creation.');
+        } else {
+          throw error;
+        }
+      }
     }
 
-    // ---- Render functions ----
+    // ---- Render functions (same as before) ----
     function renderProfile(u) {
-      // Sidebar profile
       var sidebarUsername = document.getElementById('sidebarUsername');
-      if (sidebarUsername) sidebarUsername.textContent = u.username || 'Partner';
+      if (sidebarUsername) sidebarUsername.textContent = u ? (u.username || 'Partner') : 'Partner';
       var sidebarEmail = document.getElementById('sidebarEmail');
-      if (sidebarEmail) sidebarEmail.textContent = u.email || 'loading...';
+      if (sidebarEmail) sidebarEmail.textContent = u ? (u.email || 'loading...') : 'loading...';
       var avatar = document.querySelector('.profile-avatar');
       if (avatar) {
-        if (u.photoURL) {
+        if (u && u.photoURL) {
           avatar.style.backgroundImage = 'url(' + u.photoURL + ')';
           avatar.innerHTML = '';
           localStorage.setItem('profilePhoto', u.photoURL);
@@ -866,15 +895,16 @@
           }
         }
       }
-
-      // Floating header badge
       var badge = document.getElementById('roleTierBadge');
       if (badge) {
-        badge.style.display = 'inline-flex';
-        badge.innerHTML = '<span class="glow-role">' + (u.role || 'Partner') + '</span> · <span class="tier-text">' + (u.partnerTier || 'Signal') + '</span>';
+        if (u && u.uid) {
+          badge.style.display = 'inline-flex';
+          badge.innerHTML = '<span class="glow-role">' + (u.role || 'Partner') + '</span> · <span class="tier-text">' + (u.partnerTier || 'Signal') + '</span>';
+        } else {
+          badge.style.display = 'none';
+        }
       }
 
-      // ---- Toggle sidebar auth visibility ----
       var privateLinks = document.getElementById('privateLinks');
       var authCta = document.getElementById('authCta');
       if (u && u.uid) {
@@ -891,7 +921,6 @@
         var el = document.getElementById(id);
         if (el) el.textContent = value;
       }
-
       safeSet('clickCount', u.clicks || 0);
       safeSet('downloadCount', u.downloads || 0);
       safeSet('agreementCount', u.agreements || 0);
@@ -909,7 +938,6 @@
       safeSet('ambassadorTier', 'Partner (20%)');
     }
 
-    // ---- Render commission history ----
     function renderCommissionHistory(commissions) {
       var list = document.getElementById('commissionList');
       if (!list) return;
@@ -934,7 +962,6 @@
       }
       list.innerHTML = html;
 
-      // Check for demo
       var hasDemo = false;
       for (var j = 0; j < commissions.length; j++) {
         if (commissions[j].isDemo === true) {
@@ -965,7 +992,9 @@
       }
     }
 
-    // ---- Simulate purchase ----
+    // ---- Commission functions ----
+    var userDocRef = null;
+
     function simulatePurchase() {
       if (!userDocRef) {
         cdToast('Please log in first.', 'error');
@@ -1002,7 +1031,6 @@
       });
     }
 
-    // ---- Reset demo ----
     function resetDemoCommission() {
       if (!window.demoCommissionId) {
         cdToast('No demo commission to reset.', '');
@@ -1027,9 +1055,6 @@
       });
     }
 
-    // ---- Global ref to user doc for commission functions ----
-    var userDocRef = null;
-
     // ---- Main load ----
     var loadingEl = document.getElementById('loadingState');
     var contentEl = document.getElementById('dashboardContent');
@@ -1046,13 +1071,12 @@
         var userData = await ensureUserDoc(user);
         console.log('✅ Partner data loaded:', userData);
 
-        // Store user doc ref for commission functions
         userDocRef = db.collection('users').doc(user.uid);
 
         renderProfile(userData);
         renderStats(userData);
 
-        // Load commissions from subcollection
+        // Load commissions
         var commissionsSnapshot = await userDocRef.collection('commissions').orderBy('createdAt', 'desc').limit(50).get();
         var commissions = [];
         commissionsSnapshot.forEach(function(doc) {
@@ -1062,11 +1086,9 @@
         });
         renderCommissionHistory(commissions);
 
-        // ---- Show content ----
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
 
-        // ---- Insert commission card ----
         if (document.getElementById('statsGrid') && typeof insertCommissionCard === 'function') {
           insertCommissionCard('statsGrid', 'after');
         }
@@ -1080,20 +1102,21 @@
         if (loadingEl) {
           loadingEl.innerHTML = '<p style="color:#ff4a4a; font-family:\'Space Mono\',monospace;">Error loading dashboard: ' + err.message + '</p>';
         }
+        // Also show a toast with the error
+        cdToast('Failed to load dashboard: ' + err.message, 'error');
       }
     }
 
-    // ---- Auth listener ----
+    // ---- Auth ----
     auth.onAuthStateChanged(function(user) {
       if (user) {
         loadDashboard(user);
       } else {
         loadingEl.innerHTML = '<p>You are not logged in. <a href="login.html">Go to Login</a></p>';
-        renderProfile(null); // ensure sidebar shows login CTA
+        renderProfile(null);
       }
     });
 
-    // ---- Logout ----
     window.handleLogout = function() {
       auth.signOut().then(function() {
         window.location.href = 'login.html';
@@ -1102,7 +1125,7 @@
       });
     };
 
-    // ---- SIDEBAR TOGGLE – DIRECT EVENT LISTENER ----
+    // ---- Sidebar toggle ----
     document.addEventListener('DOMContentLoaded', function() {
       var toggleBtn = document.getElementById('floatingToggle');
       if (toggleBtn) {
@@ -1111,17 +1134,12 @@
           var sidebar = document.getElementById('sidebar');
           if (sidebar) {
             sidebar.classList.toggle('open');
-            console.log('Sidebar toggled:', sidebar.classList.contains('open') ? 'open' : 'closed');
-          } else {
-            console.warn('Sidebar element not found');
           }
         });
-      } else {
-        console.warn('floatingToggle button not found');
       }
     });
 
-    // ---- Cart UI ----
+    // ---- Cart ----
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
     function updateCartUI() {
       var cart = getCart();
@@ -1141,7 +1159,7 @@
     }
     updateCartUI();
 
-    // ---- Reveal animations ----
+    // ---- Reveal ----
     document.addEventListener('DOMContentLoaded', function() {
       var reveals = document.querySelectorAll('.reveal');
       var observer = new IntersectionObserver(function(entries) {
@@ -1157,7 +1175,7 @@
       }
     });
 
-    // ---- Expose global functions ----
+    // ---- Expose ----
     window.copyReferralLink = function() {
       var link = document.getElementById('referralLink').textContent;
       navigator.clipboard.writeText('https://' + link).then(function() {
