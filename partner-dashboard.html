@@ -787,7 +787,8 @@
   <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
   <script>
     // ================================================================
-    // PARTNER DASHBOARD – FIXED PERMISSION ERROR (no second read)
+    // PARTNER DASHBOARD – WITH FALLBACK FOR MISSING DOCUMENT
+    // (mimics the working operator dashboard, but handles permission-denied)
     // ================================================================
 
     if (typeof cdToast === 'undefined') {
@@ -798,12 +799,12 @@
     var auth = window.auth || firebase.auth();
     var db = window.db || firebase.firestore();
 
-    // ---- FIXED: never read after create, return default data ----
+    // ---- ensureUserDoc – fallback for permission-denied ----
     async function ensureUserDoc(user) {
       var uid = user.uid;
       var docRef = db.collection('users').doc(uid);
 
-      // Build default data
+      // Default partner data
       var email = user.email || '';
       var username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
       var defaultData = {
@@ -830,17 +831,17 @@
       };
 
       try {
-        // Try to read first (fast path)
+        // Try reading first (fast path)
         var doc = await docRef.get();
         if (doc.exists) return doc.data();
-        // If not exists, create and return the data we just set
+        // Doesn't exist → create and return default data
         await docRef.set(defaultData);
         return defaultData;
       } catch (error) {
         if (error.code === 'permission-denied') {
-          // Read denied – try to create anyway (merge so we don't lose existing fields)
+          // Read denied – attempt to create the document anyway
           await docRef.set(defaultData, { merge: true });
-          // Return the data we have (since we can't read it)
+          // Return the data we have (we can't read it back, but we wrote it)
           return defaultData;
         } else {
           throw error;
@@ -848,7 +849,7 @@
       }
     }
 
-    // ---- Render functions ----
+    // ---- Render functions (same as operator) ----
     function renderProfile(u) {
       var sidebarUsername = document.getElementById('sidebarUsername');
       if (sidebarUsername) sidebarUsername.textContent = u ? (u.username || 'Partner') : 'Partner';
