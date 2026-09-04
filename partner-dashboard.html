@@ -729,10 +729,10 @@
   <!-- ===== SIDEBAR SCRIPT ===== -->
   <script src="sidebar.js"></script>
 
-  <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
+  <!-- ===== PAGE-SPECIFIC JAVASCRIPT – SAFE VERSION ===== -->
   <script>
     // ================================================================
-    // PARTNER DASHBOARD – SAFE VERSION
+    // PARTNER DASHBOARD – ALL DOM REFERENCES ARE CHECKED
     // ================================================================
 
     // ---- Toast fallback ----
@@ -768,10 +768,12 @@
       return data;
     }
 
-    // ---- Render functions ----
+    // ---- Render functions (safe) ----
     function renderProfile(u) {
-      document.getElementById('sidebarUsername').textContent = u.username || 'Partner';
-      document.getElementById('sidebarEmail').textContent = u.email || 'loading...';
+      var sidebarUsername = document.getElementById('sidebarUsername');
+      if (sidebarUsername) sidebarUsername.textContent = u.username || 'Partner';
+      var sidebarEmail = document.getElementById('sidebarEmail');
+      if (sidebarEmail) sidebarEmail.textContent = u.email || 'loading...';
       var avatar = document.querySelector('.profile-avatar');
       if (avatar) {
         if (u.photoURL) {
@@ -797,41 +799,29 @@
     }
 
     function renderStats(u) {
-      // Safely update elements
-      var elements = {
-        clickCount: u.clicks || 0,
-        downloadCount: u.downloads || 0,
-        agreementCount: u.agreements || 0,
-        studentCountPartner: u.referredStudents || 0,
-        profileUsername: u.username || '—',
-        profileName: u.displayName || u.name || '—',
-        profileEmail: u.email || '—',
-        profileCompany: u.companyName || '—',
-        profileLicense: (u.partnerTier || 'signal').charAt(0).toUpperCase() + (u.partnerTier || 'signal').slice(1),
-        profileBilling: (u.billingInterval || 'monthly').charAt(0).toUpperCase() + (u.billingInterval || 'monthly').slice(1),
-        partnerUniqueId: u.partnerId || '—',
-        referralLink: 'camerasdecoded.com/ref/' + (u.referralCode || ''),
-        totalReferrals: u.totalReferrals || 0,
-        totalCommission: '$' + (u.totalCommissionEarned || 0).toFixed(2),
-        ambassadorTier: 'Partner (20%)'
-      };
-
-      for (var key in elements) {
-        var el = document.getElementById(key);
-        if (el) {
-          el.textContent = elements[key];
-        }
+      // Helper: safe set text
+      function safeSet(id, value) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = value;
       }
 
-      // Update header safely
-      var headerTier = document.getElementById('headerTier');
-      if (headerTier) {
-        headerTier.textContent = elements.profileLicense;
-      }
-      var headerRole = document.getElementById('headerRole');
-      if (headerRole) {
-        headerRole.textContent = 'Partner';
-      }
+      safeSet('clickCount', u.clicks || 0);
+      safeSet('downloadCount', u.downloads || 0);
+      safeSet('agreementCount', u.agreements || 0);
+      safeSet('studentCountPartner', u.referredStudents || 0);
+      safeSet('profileUsername', u.username || '—');
+      safeSet('profileName', u.displayName || u.name || '—');
+      safeSet('profileEmail', u.email || '—');
+      safeSet('profileCompany', u.companyName || '—');
+      safeSet('profileLicense', (u.partnerTier || 'signal').charAt(0).toUpperCase() + (u.partnerTier || 'signal').slice(1));
+      safeSet('profileBilling', (u.billingInterval || 'monthly').charAt(0).toUpperCase() + (u.billingInterval || 'monthly').slice(1));
+      safeSet('partnerUniqueId', u.partnerId || '—');
+      safeSet('referralLink', 'camerasdecoded.com/ref/' + (u.referralCode || ''));
+      safeSet('totalReferrals', u.totalReferrals || 0);
+      safeSet('totalCommission', '$' + (u.totalCommissionEarned || 0).toFixed(2));
+      safeSet('ambassadorTier', 'Partner (20%)');
+
+      // Update badge if needed (already updated in renderProfile)
     }
 
     // ---- Render commission history ----
@@ -985,7 +975,9 @@
 
       } catch (err) {
         console.error('❌ Dashboard load error:', err);
-        loadingEl.innerHTML = '<p style="color:#ff4a4a; font-family:\'Space Mono\',monospace;">Error loading dashboard: ' + err.message + '</p>';
+        if (loadingEl) {
+          loadingEl.innerHTML = '<p style="color:#ff4a4a; font-family:\'Space Mono\',monospace;">Error loading dashboard: ' + err.message + '</p>';
+        }
       }
     }
 
