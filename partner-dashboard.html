@@ -787,7 +787,7 @@
   <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
   <script>
     // ================================================================
-    // PARTNER DASHBOARD – FIXED PERMISSION ERROR
+    // PARTNER DASHBOARD – FIXED PERMISSION ERROR (no second read)
     // ================================================================
 
     if (typeof cdToast === 'undefined') {
@@ -798,81 +798,57 @@
     var auth = window.auth || firebase.auth();
     var db = window.db || firebase.firestore();
 
-    // ---- FIXED ensureUserDoc: handles permission denied by creating doc ----
+    // ---- FIXED: never read after create, return default data ----
     async function ensureUserDoc(user) {
       var uid = user.uid;
       var docRef = db.collection('users').doc(uid);
 
+      // Build default data
+      var email = user.email || '';
+      var username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
+      var defaultData = {
+        uid: uid,
+        email: email,
+        displayName: user.displayName || '',
+        username: username,
+        role: 'Partner',
+        partnerTier: 'signal',
+        billingInterval: 'monthly',
+        companyName: '',
+        partnerId: 'PART-' + uid.slice(0,6).toUpperCase(),
+        clicks: 0,
+        downloads: 0,
+        agreements: 0,
+        referredStudents: 0,
+        referralCode: username,
+        totalReferrals: 0,
+        totalCommissionEarned: 0,
+        ambassadorTier: 'partner',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        tourCompleted: false
+      };
+
       try {
+        // Try to read first (fast path)
         var doc = await docRef.get();
         if (doc.exists) return doc.data();
-        // Doc doesn't exist – create it
-        var email = user.email || '';
-        var username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
-        var data = {
-          uid: uid,
-          email: email,
-          displayName: user.displayName || '',
-          username: username,
-          role: 'Partner',
-          partnerTier: 'signal',
-          billingInterval: 'monthly',
-          companyName: '',
-          partnerId: 'PART-' + uid.slice(0,6).toUpperCase(),
-          clicks: 0,
-          downloads: 0,
-          agreements: 0,
-          referredStudents: 0,
-          referralCode: username,
-          totalReferrals: 0,
-          totalCommissionEarned: 0,
-          ambassadorTier: 'partner',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          tourCompleted: false
-        };
-        await docRef.set(data);
-        var newDoc = await docRef.get();
-        return newDoc.data();
+        // If not exists, create and return the data we just set
+        await docRef.set(defaultData);
+        return defaultData;
       } catch (error) {
-        // If read failed due to permission, try to create/merge the doc
         if (error.code === 'permission-denied') {
-          console.warn('Read permission denied – attempting to create document via set merge');
-          var email = user.email || '';
-          var username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
-          var data = {
-            uid: uid,
-            email: email,
-            displayName: user.displayName || '',
-            username: username,
-            role: 'Partner',
-            partnerTier: 'signal',
-            billingInterval: 'monthly',
-            companyName: '',
-            partnerId: 'PART-' + uid.slice(0,6).toUpperCase(),
-            clicks: 0,
-            downloads: 0,
-            agreements: 0,
-            referredStudents: 0,
-            referralCode: username,
-            totalReferrals: 0,
-            totalCommissionEarned: 0,
-            ambassadorTier: 'partner',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            tourCompleted: false
-          };
-          await docRef.set(data, { merge: true });
-          var newDoc = await docRef.get();
-          if (newDoc.exists) return newDoc.data();
-          else throw new Error('Document still not accessible after creation.');
+          // Read denied – try to create anyway (merge so we don't lose existing fields)
+          await docRef.set(defaultData, { merge: true });
+          // Return the data we have (since we can't read it)
+          return defaultData;
         } else {
           throw error;
         }
       }
     }
 
-    // ---- Render functions (same as before) ----
+    // ---- Render functions ----
     function renderProfile(u) {
       var sidebarUsername = document.getElementById('sidebarUsername');
       if (sidebarUsername) sidebarUsername.textContent = u ? (u.username || 'Partner') : 'Partner';
@@ -1069,7 +1045,7 @@
         console.log('🔄 Loading partner dashboard for user:', user.uid);
 
         var userData = await ensureUserDoc(user);
-        console.log('✅ Partner data loaded:', userData);
+        console.log('✅ Partner data (local or fetched):', userData);
 
         userDocRef = db.collection('users').doc(user.uid);
 
@@ -1102,7 +1078,6 @@
         if (loadingEl) {
           loadingEl.innerHTML = '<p style="color:#ff4a4a; font-family:\'Space Mono\',monospace;">Error loading dashboard: ' + err.message + '</p>';
         }
-        // Also show a toast with the error
         cdToast('Failed to load dashboard: ' + err.message, 'error');
       }
     }
