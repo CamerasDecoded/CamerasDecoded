@@ -27,7 +27,7 @@
     const files = [
       '/styles/design-system.css',
       '/styles/components.css',
-      '/styles/bottom-nav.css'
+      'bottom-nav.css'                   // ← root path
     ];
     files.forEach(href => {
       if (document.querySelector(`link[href="${href}"]`)) return;
@@ -92,11 +92,11 @@
     console.log('✅ Bottom nav container injected');
   }
 
-  // ===== LOAD BOTTOM NAV SCRIPT =====
+  // ===== LOAD BOTTOM NAV SCRIPT (ROOT) =====
   function loadBottomNav() {
     if (document.querySelector('script[src*="bottom-nav.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/scripts/bottom-nav.js';
+    script.src = 'bottom-nav.js';          // ← root path
     document.body.appendChild(script);
     console.log('✅ Bottom nav script loaded');
   }
