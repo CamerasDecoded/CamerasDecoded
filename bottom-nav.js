@@ -1,6 +1,6 @@
 // ================================================================
 // BOTTOM NAV – Production (role-aware, root paths)
-// Premium icons (far) + micro-animations
+// Premium icons – uses 'far' where available, 'fas' fallback
 // ================================================================
 
 (function() {
@@ -120,7 +120,7 @@
   }
 
   // ================================================================
-  // BUILD NAV HTML – PREMIUM ICONS (far = regular, thinner)
+  // BUILD NAV HTML – CORRECT ICON CLASSES
   // ================================================================
 
   function buildNavHTML() {
@@ -128,27 +128,27 @@
     return `
       <nav class="bottom-nav chasing-border-nav" role="navigation" aria-label="Main Navigation">
         <a href="index.html" data-page="index.html" class="nav-link">
-          <i class="far fa-home"></i>
+          <i class="fas fa-home"></i>           <!-- fixed: was 'far' -->
           <span>Home</span>
           <span class="badge-dot" id="badgeHome"></span>
         </a>
         <a href="${config.dashboard}" data-page="${config.dashboard}" class="nav-link" id="navDashboard">
-          <i class="fas fa-th-large"></i>
+          <i class="fas fa-th-large"></i>        <!-- unchanged -->
           <span>Dashboard</span>
           <span class="badge-dot" id="badgeDashboard"></span>
         </a>
         <a href="journey.html" data-page="journey.html" class="nav-link">
-          <i class="far fa-compass"></i>
+          <i class="far fa-compass"></i>          <!-- unchanged, works -->
           <span>Journey</span>
           <span class="badge-dot" id="badgeJourney"></span>
         </a>
         <a href="cynetis-7.html" data-page="cynetis-7.html" class="nav-link">
-          <i class="far fa-camera"></i>
+          <i class="fas fa-camera"></i>           <!-- fixed: was 'far' -->
           <span>Cynetis-7</span>
           <span class="badge-dot" id="badgeCynetis"></span>
         </a>
         <a href="${config.profile}" data-page="${config.profile}" class="nav-link" id="navProfile">
-          <i class="far fa-user"></i>
+          <i class="far fa-user"></i>             <!-- unchanged, works -->
           <span>Profile</span>
           <span class="badge-dot" id="badgeProfile"></span>
         </a>
