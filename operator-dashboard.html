@@ -5,24 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Operator Dashboard — Cameras Decoded</title>
 
+  <!-- ===== MASTER LOADER (injects fonts, shared CSS, bottom nav container & script) ===== -->
+  <script src="/scripts/master-loader.js"></script>
+
   <!-- ===== FONT AWESOME (LOAD EARLY) ===== -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
-  <!-- ===== GOOGLE FONTS ===== -->
+  <!-- ===== GOOGLE FONTS (master-loader also loads these, but we keep as fallback) ===== -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
 
-  <!-- ===== SHARED CSS ===== -->
+  <!-- ===== SHARED CSS (master-loader also loads these, but we keep them explicit) ===== -->
   <link rel="stylesheet" href="/styles/design-system.css" />
   <link rel="stylesheet" href="/styles/components.css" />
-  <link rel="stylesheet" href="header.css" />           <!-- Shared floating header -->
-  <link rel="stylesheet" href="bottom-nav.css" />       <!-- Shared bottom nav -->
+  <link rel="stylesheet" href="header.css" />
+  <link rel="stylesheet" href="bottom-nav.css" />
 
   <!-- ===== FIREBASE SDKs ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <!-- ===== FIREBASE INIT (SYNCHRONOUS) ===== -->
+  <!-- ===== FIREBASE INIT ===== -->
   <script src="/scripts/firebase-init.js"></script>
 
   <!-- ===== SHEPHERD.JS (Tour) ===== -->
@@ -35,9 +38,6 @@
   <!-- ===== SHARED HEADER & SIDEBAR (injection) ===== -->
   <script src="header.js"></script>
   <script src="sidebar.js"></script>
-
-  <!-- ===== BOTTOM NAV ===== -->
-  <script src="bottom-nav.js"></script>
 
   <!-- ===== COMMISSION CARD ===== -->
   <script src="/scripts/commission-card.js"></script>
@@ -964,13 +964,10 @@
     </div><!-- /dashboardContent -->
   </main>
 
-  <!-- ===== BOTTOM NAV CONTAINER ===== -->
-  <div id="bottomNavContainer"></div>
-
   <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
   <script>
     // ================================================================
-    // COMPLETE DASHBOARD JAVASCRIPT (unchanged logic, but now uses shared UI)
+    // COMPLETE DASHBOARD JAVASCRIPT (unchanged, uses shared UI)
     // ================================================================
 
     // Use global auth, db, and cdToast from firebase-init.js + cd-ui.js
@@ -1151,11 +1148,7 @@
 
     // ---- Render functions ----
     function renderProfile(u) {
-      // The sidebar is now injected by sidebar.js – we don't need to manually update its content
-      // because sidebar.js does that automatically via its own logic.
-      // However, if we want to keep the page's profile display (in the sidebar), we can rely on sidebar.js.
-      // We'll keep the function empty or just update any additional profile elements.
-      // For now, we'll leave it as a no-op.
+      // Sidebar is now injected by sidebar.js – no need to manually update.
     }
 
     function renderStats(u) {
@@ -1386,8 +1379,7 @@
     async function loadNotification() {
       try {
         const doc = await db.collection('admin').doc('announcement').get();
-        // The notification area is now managed by sidebar.js, so we don't need to update it here.
-        // We'll keep this function empty or remove it.
+        // Notification is managed by sidebar.js – no need to update here.
       } catch (err) {
         console.warn('Notification load error:', err);
       }
@@ -1502,7 +1494,6 @@
         const journeyData = await fetchJourneyData(user.uid);
         console.log('✅ Journey data:', journeyData);
 
-        // Profile is now handled by sidebar.js – no need to call renderProfile
         renderStats(userData);
         renderAIWidget(userData);
         renderJourney(userData, journeyData);
@@ -1553,8 +1544,6 @@
         document.getElementById('goToAtlasBtn').href = `https://settings.camerasdecoded.com/?opToken=${userData.uid}`;
         document.getElementById('goToCollectionBtn').href = `https://settings.camerasdecoded.com/collection.html?opToken=${userData.uid}`;
 
-        // Notification is handled by sidebar.js – no need to load it here.
-
         // ---- Insert commission card after stats ----
         if (document.getElementById('statsContainer') && typeof insertCommissionCard === 'function') {
           insertCommissionCard('statsContainer', 'after');
@@ -1566,8 +1555,19 @@
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
 
+        // Update bottom nav badges (master-loader injects nav, but we still update)
         if (window.BottomNav) {
           window.BottomNav.updateBadges(userData);
+        } else {
+          // If BottomNav not loaded yet, wait for it
+          const waitForNav = setInterval(() => {
+            if (window.BottomNav) {
+              window.BottomNav.updateBadges(userData);
+              clearInterval(waitForNav);
+            }
+          }, 100);
+          // Timeout after 3 seconds
+          setTimeout(() => clearInterval(waitForNav), 3000);
         }
 
         if (!userData.tourCompleted) {
@@ -1613,8 +1613,7 @@
     function updateCartUI() {
       const cart = getCart();
       const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-      // The cart badge is now managed by header.js – we don't need to update it manually.
-      // But we keep this function for any additional cart UI.
+      // header.js manages the cart badge, so we keep this as a no‑op.
     }
     updateCartUI();
 
