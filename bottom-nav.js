@@ -1,8 +1,7 @@
 // bottom-nav.js – Premium instructor style with auth/role logic
 (function() {
-  // ============================================================
-  // 1. HTML TEMPLATE (fixed 5 links)
-  // ============================================================
+  console.log('[BottomNav] Script loaded.');
+
   const NAV_HTML = `
     <nav class="bottom-nav chasing-border-nav" role="navigation" aria-label="Main Navigation">
       <a href="index.html" data-page="index.html" class="nav-link show-badge">
@@ -33,23 +32,18 @@
     </nav>
   `;
 
-  // ============================================================
-  // 2. INJECTION
-  // ============================================================
   function injectNav() {
     const container = document.getElementById('bottomNavContainer');
     if (!container) {
-      console.warn('bottomNavContainer not found – nav not injected.');
+      console.warn('[BottomNav] Container #bottomNavContainer not found.');
       return;
     }
+    console.log('[BottomNav] Injecting nav into container.');
     container.innerHTML = NAV_HTML;
     updateActiveLink();
     updateCartBadge();
   }
 
-  // ============================================================
-  // 3. ACTIVE LINK DETECTION (role‑aware)
-  // ============================================================
   function updateActiveLink() {
     const currentPath = window.location.pathname.split('/').pop() || 'index.html';
     const links = document.querySelectorAll('.bottom-nav .nav-link');
@@ -66,20 +60,14 @@
     });
   }
 
-  // ============================================================
-  // 4. CART BADGE (kept for future)
-  // ============================================================
   function updateCartBadge() {
     try {
       const cart = JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
       const totalItems = cart.reduce((sum, item) => sum + (item.qty || 0), 0);
-      // You could add a cart link if desired.
+      // (future use)
     } catch (e) { /* ignore */ }
   }
 
-  // ============================================================
-  // 5. ROLE‑BASED DASHBOARD + PROFILE LINKS
-  // ============================================================
   function updateDashboardLink(role) {
     const map = {
       'Operator': 'operator-dashboard.html',
@@ -98,17 +86,13 @@
   function updateProfileLink(uid) {
     const profileLink = document.querySelector('.bottom-nav #navProfile');
     if (profileLink) {
-      // If you have a dynamic profile page with UID, adjust here.
-      // For now, keep instructor-profile.html (or profile.html)
       profileLink.setAttribute('href', 'instructor-profile.html');
       profileLink.setAttribute('data-page', 'instructor-profile.html');
     }
   }
 
-  // ============================================================
-  // 6. BADGE DOTS (public API)
-  // ============================================================
   function updateBadges(userData) {
+    console.log('[BottomNav] updateBadges called with:', userData);
     const badges = {
       badgeHome: false,
       badgeDashboard: false,
@@ -116,8 +100,6 @@
       badgeCynetis: false,
       badgeProfile: false
     };
-
-    // Customise these conditions
     if (userData?.unreadAnnouncements) badges.badgeHome = true;
     if (userData?.pendingChallenges) badges.badgeJourney = true;
     if (userData?.unreadMessages) badges.badgeProfile = true;
@@ -133,9 +115,6 @@
     if (userData?.uid) updateProfileLink(userData.uid);
   }
 
-  // ============================================================
-  // 7. EXPOSE GLOBAL API
-  // ============================================================
   window.BottomNav = {
     inject: injectNav,
     updateBadges: updateBadges,
@@ -143,9 +122,7 @@
     updateCartBadge: updateCartBadge
   };
 
-  // ============================================================
-  // 8. AUTO‑INJECT ON DOM READY
-  // ============================================================
+  // Auto-inject on DOM ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', injectNav);
   } else {
@@ -155,4 +132,6 @@
   window.addEventListener('storage', function(e) {
     if (e.key === 'cameras_decoded_cart') updateCartBadge();
   });
+
+  console.log('[BottomNav] Initialized.');
 })();
