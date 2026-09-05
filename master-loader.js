@@ -124,7 +124,6 @@
     loadGoogleFonts();
     loadSharedCSS();
     loadParticles();
-    injectFloatingHeader();
     injectBottomNavContainer();
     loadBottomNav();
     
