@@ -1,8 +1,7 @@
-// bottom-nav.js – Premium instructor style with full auth/logic
-
+// bottom-nav.js – Premium instructor style with auth/role logic
 (function() {
   // ============================================================
-  // 1. HTML TEMPLATE (exactly the one from instructor profile)
+  // 1. HTML TEMPLATE (fixed 5 links)
   // ============================================================
   const NAV_HTML = `
     <nav class="bottom-nav chasing-border-nav" role="navigation" aria-label="Main Navigation">
@@ -68,7 +67,7 @@
   }
 
   // ============================================================
-  // 4. CART BADGE (not used in this nav, but kept for future)
+  // 4. CART BADGE (kept for future)
   // ============================================================
   function updateCartBadge() {
     try {
