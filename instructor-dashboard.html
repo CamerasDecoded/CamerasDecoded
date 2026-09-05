@@ -9,17 +9,27 @@
   <!-- ===== MASTER LOADER ===== -->
   <script src="/scripts/master-loader.js"></script>
 
+  <!-- ===== GLOBAL COMPONENT STYLES ===== -->
+  <link rel="stylesheet" href="header.css" />
+  <link rel="stylesheet" href="bottom-nav.css" />
+
   <!-- ===== FIREBASE SDKs ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <!-- ===== firebase-init.js (optional, but we'll also init inline) ===== -->
+  <!-- ===== firebase-init.js ===== -->
   <script src="/scripts/firebase-init.js"></script>
+
+  <!-- ===== HEADER AUTH UI LOGIC ===== -->
+  <script src="header.js"></script>
+
+  <!-- ===== SIDEBAR INJECTION & MANAGEMENT ===== -->
+  <script src="sidebar.js"></script>
 
   <style>
     /* ============================================================
-       INSTRUCTOR DASHBOARD – ALL STYLES (unchanged)
+       INSTRUCTOR DASHBOARD – ALL STYLES (page‑specific only)
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -70,7 +80,7 @@
     }
 
     /* ============================================================
-       SIDEBAR – hardcoded
+       SIDEBAR CONTAINER – now injected by sidebar.js, so only the container exists
        ============================================================ */
     #sidebarContainer {
       position: fixed;
@@ -80,156 +90,9 @@
       z-index: 1000;
       width: 280px;
     }
-    .sidebar {
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.95);
-      padding: 20px 16px 24px;
-      border-right: 1px solid var(--border-dim);
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.3s var(--transition-smooth);
-      transform: translateX(0);
-      position: relative;
-    }
-    @media (max-width: 1024px) {
-      #sidebarContainer {
-        position: fixed;
-        width: 280px;
-        z-index: 1000;
-      }
-      .sidebar {
-        transform: translateX(-100%);
-        transition: transform 0.3s var(--transition-smooth);
-      }
-      .sidebar.open {
-        transform: translateX(0);
-      }
-    }
-    .sidebar .logo { text-align:center; margin-bottom:12px; }
-    .sidebar .logo img { height:70px; width:auto; transition:filter 0.3s ease; }
-    .sidebar .logo img:hover { filter:drop-shadow(0 0 20px rgba(141,235,0,0.15)); }
-    .sidebar-profile { text-align:center; padding:12px 0 16px; border-bottom:1px solid var(--border-dim); margin-bottom:16px; flex-shrink:0; }
-    .profile-avatar { width:64px; height:64px; border-radius:50%; background-size:cover; background-position:center; margin:0 auto 8px; border:2px solid var(--green); background-color:#1a1a1a; transition:transform 0.3s var(--transition-smooth), box-shadow 0.3s ease; }
-    .profile-avatar:hover { transform:scale(1.05); box-shadow:0 0 30px var(--green-glow); border-color:#a0f520; }
-    .profile-name { font-weight:600; font-size:14px; color:#fff; }
-    .profile-email { font-size:12px; color:var(--text-muted); }
-
-    .sidebar-nav {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .sidebar-nav .nav-group {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .sidebar-nav .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      color: var(--text-muted);
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      border-radius: 6px;
-      transition: all 0.2s var(--transition-smooth);
-      cursor: pointer;
-      text-decoration: none;
-      border: none;
-    }
-    .sidebar-nav .nav-item i {
-      width: 20px;
-      text-align: center;
-      font-size: 14px;
-      transition: transform 0.2s ease;
-    }
-    .sidebar-nav .nav-item:hover {
-      color: var(--green);
-      background: rgba(141,235,0,0.05);
-      transform: translateX(3px);
-    }
-    .sidebar-nav .nav-item:hover i {
-      transform: scale(1.1);
-    }
-    .sidebar-nav .nav-item.active {
-      color: var(--green);
-      background: rgba(141,235,0,0.08);
-    }
-    .sidebar-divider {
-      border: none;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      margin: 6px 0;
-      flex-shrink: 0;
-    }
-
-    .sidebar-notification {
-      margin-top: auto;
-      padding-top: 12px;
-      border-top: 1px solid var(--border-dim);
-      background: rgba(255,255,255,0.01);
-      border-radius: 8px;
-      padding: 10px 12px;
-      transition: background 0.3s ease;
-      flex-shrink: 0;
-    }
-    .sidebar-notification:hover { background: rgba(141,235,0,0.02); }
-    .sidebar-notification .notif-header {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 10px;
-      color: var(--text-muted);
-      font-family: 'Space Mono', monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-    .sidebar-notification .notif-header i { color: var(--green); font-size: 12px; }
-    .sidebar-notification .notif-message {
-      font-size: 12px;
-      color: #fff;
-      line-height: 1.4;
-      word-break: break-word;
-    }
-    .sidebar-notification .notif-message.empty {
-      color: var(--text-muted);
-      font-style: italic;
-      font-size: 11px;
-    }
-    .sidebar-notification .notif-timestamp {
-      font-size: 9px;
-      color: var(--text-muted);
-      margin-top: 2px;
-      font-family: 'Space Mono', monospace;
-      opacity: 0.5;
-    }
-
-    .auth-cta .nav-item {
-      justify-content: center;
-      border: 1px solid var(--green);
-      border-radius: 30px;
-      color: var(--green);
-      background: transparent;
-      padding: 8px 12px;
-      margin: 4px 0;
-    }
-    .auth-cta .nav-item:hover {
-      background: rgba(141,235,0,0.08);
-    }
-    .auth-cta .nav-item.signup {
-      background: var(--green);
-      color: #000;
-    }
-    .auth-cta .nav-item.signup:hover {
-      background: #a0f520;
-    }
 
     /* ============================================================
-       MAIN CONTENT LAYOUT
+       MAIN CONTENT LAYOUT – margin-left adjusted for sidebar
        ============================================================ */
     .main-content {
       margin-left: 280px;
@@ -243,59 +106,7 @@
     }
 
     /* ============================================================
-       FLOATING HEADER
-       ============================================================ */
-    .floating-header {
-      position:fixed; top:12px; left:292px; right:12px; z-index:99;
-      display:flex; align-items:center; justify-content:space-between; gap:8px;
-      padding:6px 14px; background:rgba(0,0,0,0.4); backdrop-filter:blur(16px);
-      border:1px solid rgba(141,235,0,0.2); border-radius:30px; min-height:40px;
-      transition:background 0.3s ease, box-shadow 0.3s ease;
-    }
-    .floating-header:hover { background:rgba(0,0,0,0.6); box-shadow:0 4px 30px rgba(0,0,0,0.3); }
-    .floating-left-group, .floating-right-group { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-    .floating-center-group { display:flex; align-items:center; gap:8px; flex:1; justify-content:center; }
-    .floating-home-icon { font-size:15px; color:var(--green); transition:transform 0.3s var(--transition-smooth), color 0.3s ease; }
-    .floating-home-icon:hover { color:#a0f520; transform:scale(1.1); }
-    .floating-toggle { display:none; background:none; border:none; color:var(--green); font-size:20px; cursor:pointer; transition:transform 0.3s ease; }
-    .floating-toggle:hover { transform:scale(1.1); }
-    .logout-btn {
-      background:transparent; border:1px solid var(--green); color:var(--green);
-      padding:2px 10px; border-radius:20px; cursor:pointer;
-      font-family:'Space Mono',monospace; font-size:10px;
-      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease;
-      min-height:22px; line-height:1.2;
-    }
-    .logout-btn:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform:scale(1.02); }
-    .logout-btn:active { transform:scale(0.95); }
-    .role-tier-badge {
-      background:rgba(10,10,10,0.9); border:1px solid rgba(141,235,0,0.3);
-      border-radius:14px; padding:2px 12px; font-size:10px; color:var(--green);
-      display:inline-flex; align-items:center; gap:4px; white-space:nowrap;
-      transition:border-color 0.3s ease;
-    }
-    .role-tier-badge:hover { border-color:var(--green); box-shadow:0 0 20px rgba(141,235,0,0.1); }
-    .glow-role { font-weight:700; text-shadow:0 0 8px #8deb00, 0 0 12px #8deb00; }
-    .cart-header-link {
-      display:inline-flex; align-items:center; gap:4px;
-      border:1px solid var(--green); border-radius:20px; padding:2px 10px;
-      color:var(--green); font-family:'Space Mono',monospace; font-size:10px;
-      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease;
-      text-decoration:none; min-height:22px; line-height:1.2;
-    }
-    .cart-header-link:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform:scale(1.02); }
-    .cart-count-badge { background:var(--green); color:#000; border-radius:50%; padding:0 4px; font-size:8px; font-weight:700; display:inline-block; min-width:14px; text-align:center; line-height:14px; }
-
-    @media (max-width: 1024px) {
-      .floating-header { left:10px; right:10px; top:70px; padding:6px 12px; }
-      .floating-toggle { display:block !important; }
-    }
-    @media (min-width: 1025px) {
-      .floating-toggle { display:none !important; }
-    }
-
-    /* ============================================================
-       DASHBOARD SPECIFIC STYLES
+       DASHBOARD SPECIFIC STYLES (unchanged)
        ============================================================ */
     .dash-header {
       display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center;
@@ -637,84 +448,8 @@
 </head>
 <body>
 
-  <!-- ===== SIDEBAR CONTAINER (hardcoded) ===== -->
-  <div id="sidebarContainer">
-    <aside class="sidebar" id="sidebar">
-      <div class="logo"><a href="https://camerasdecoded.com"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a></div>
-      <div class="sidebar-profile">
-        <div class="profile-avatar" id="profileAvatar" style="background-image:url('cameras-decoded-logo.png');"></div>
-        <div class="profile-name" id="sidebarUsername">Instructor</div>
-        <div class="profile-email" id="sidebarEmail">loading...</div>
-      </div>
-      <nav class="sidebar-nav">
-        <div class="nav-group">
-          <a href="instructor-dashboard.html" class="nav-item active"><i class="fas fa-chart-simple"></i> Dashboard</a>
-          <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-        </div>
-        <hr class="sidebar-divider">
-        <div class="nav-group">
-          <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-          <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-          <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-          <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-        </div>
-        <hr class="sidebar-divider">
-        <div class="nav-group">
-          <a href="journey.html" class="nav-item"><i class="fas fa-route"></i> Journey</a>
-          <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-          <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-          <a href="snapshot-library.html" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-          <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-        </div>
-        <hr class="sidebar-divider">
-        <div class="nav-group">
-          <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-          <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-          <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-        </div>
-        <hr class="sidebar-divider">
-
-        <!-- PRIVATE LINKS (shown when logged in) -->
-        <div class="nav-group private-links" id="privateLinks">
-          <a href="profile.html" class="nav-item"><i class="fas fa-id-card"></i> Profile</a>
-          <a href="#" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
-          <a href="#" class="nav-item"><i class="fas fa-credit-card"></i> Billing</a>
-          <a href="#" class="nav-item" onclick="handleLogout(); return false;" style="color:#ff4a4a;"><i class="fas fa-sign-out-alt"></i> Logout</a>
-        </div>
-
-        <!-- AUTH CTA (shown when logged out) -->
-        <div class="nav-group auth-cta" id="authCta" style="display:flex; flex-direction:column; gap:8px; padding-top:4px;">
-          <a href="login.html" class="nav-item"><i class="fas fa-sign-in-alt"></i> Log in</a>
-          <a href="signup.html" class="nav-item signup"><i class="fas fa-user-plus"></i> Sign Up</a>
-        </div>
-      </nav>
-
-      <div class="sidebar-notification" id="sidebarNotification">
-        <div class="notif-header"><i class="fas fa-bullhorn"></i><span>Announcement</span></div>
-        <div class="notif-message empty" id="sidebarAnnouncement">No active announcement</div>
-        <div class="notif-timestamp" id="sidebarAnnouncementTimestamp"></div>
-      </div>
-    </aside>
-  </div>
-
-  <!-- ===== FLOATING HEADER ===== -->
-  <div class="floating-header">
-    <div class="floating-left-group">
-      <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
-      <span id="roleTierBadge" class="role-tier-badge" style="display:none;">
-        <span class="glow-role" id="headerRole">Instructor</span> · <span id="headerTier" class="tier-text">Educator</span>
-      </span>
-    </div>
-    <div class="floating-center-group"></div>
-    <div class="floating-right-group">
-      <a href="cart.html" class="cart-header-link" id="cartHeaderLink">
-        <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
-        <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
-      </a>
-      <button class="logout-btn" onclick="handleLogout()">Logout</button>
-      <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
-    </div>
-  </div>
+  <!-- ===== SIDEBAR CONTAINER – injected by sidebar.js ===== -->
+  <div id="sidebarContainer"></div>
 
   <!-- ===== MAIN CONTENT ===== -->
   <main class="main-content">
@@ -733,7 +468,7 @@
       <div class="stat-card"><div class="label">Cohorts</div><div class="value" id="cohortCount">0</div><div class="sub">active</div></div>
     </div>
 
-    <!-- ===== COMMISSION CARD will be inserted here ===== -->
+    <!-- COMMISSION CARD will be inserted here by commission-card.js -->
 
     <!-- PROFILE SECTION -->
     <div class="profile-section reveal" id="profileSection">
@@ -933,7 +668,7 @@ See you soon,
   </main>
 
   <!-- ===== SCRIPTS ===== -->
-  <!-- COMMISSION CARD -->
+  <!-- COMMISSION CARD (page‑specific) -->
   <script src="/scripts/commission-card.js"></script>
 
   <!-- PAGE-SPECIFIC SCRIPT – FIXED -->
@@ -998,7 +733,7 @@ See you soon,
 
     // ---- Render profile ----
     function updateInstructorProfile(data) {
-      // All DOM elements are now guaranteed to exist
+      // All DOM elements are guaranteed to exist
       document.getElementById('profileUsername').textContent = data.username || '—';
       document.getElementById('profileName').textContent = data.name || '—';
       document.getElementById('profileEmail').textContent = data.email || '—';
@@ -1028,8 +763,6 @@ See you soon,
       document.getElementById('billingPrice').textContent = isAnnual ? '$2,500 / year' : '$300 / month';
       document.getElementById('billingNext').textContent = data.nextBillingDate || '—';
 
-      document.getElementById('headerTier').textContent = licenseDisplay;
-
       var code = data.referralCode || '';
       document.getElementById('referralLink').textContent = 'camerasdecoded.com/ref/' + code;
       document.getElementById('totalReferrals').textContent = data.totalReferrals || 0;
@@ -1040,7 +773,12 @@ See you soon,
       if (document.getElementById('statsGrid') && typeof insertCommissionCard === 'function') {
         insertCommissionCard('statsGrid', 'after');
       }
-      if (window.BottomNav) {
+
+      // ---- Update the global header and bottom nav ----
+      if (window.Header && typeof window.Header.setUserData === 'function') {
+        window.Header.setUserData(currentUser, data);
+      }
+      if (window.BottomNav && typeof window.BottomNav.updateBadges === 'function') {
         window.BottomNav.updateBadges(data);
       }
     }
@@ -1280,9 +1018,8 @@ See you soon,
         });
       }
 
-      if (window.BottomNav) {
-        window.BottomNav.init();
-      }
+      // Bottom nav initialization is handled by master-loader.js
+      // But we call updateBadges after data loads.
     });
 
     // ---- Utility functions ----
@@ -1342,44 +1079,12 @@ See you soon,
       if (existing) existing.qty += 1;
       else cart.push({ name: name, price: price, qty: 1, image: '' });
       localStorage.setItem('cameras_decoded_cart', JSON.stringify(cart));
-      updateCartUI();
+      // The header will automatically update its cart badge via its own storage listener
       cdToast(name + ' added to cart.');
     };
 
-    function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
-    function updateCartUI() {
-      var cart = getCart();
-      var totalItems = 0;
-      for (var i = 0; i < cart.length; i++) {
-        totalItems += cart[i].qty;
-      }
-      var countEl = document.getElementById('cartHeaderCount');
-      var labelEl = document.getElementById('cartHeaderLabel');
-      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
-      if (labelEl) { labelEl.textContent = totalItems > 0 ? 'Cart (' + totalItems + ')' : 'Cart'; }
-    }
-    updateCartUI();
-    window.addEventListener('storage', updateCartUI);
-
-    // ---- Sidebar toggle ----
-    document.addEventListener('DOMContentLoaded', function() {
-      var toggleBtn = document.getElementById('floatingToggle');
-      if (toggleBtn) {
-        toggleBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          var sidebar = document.getElementById('sidebar');
-          if (sidebar) sidebar.classList.toggle('open');
-        });
-      }
-      document.querySelectorAll('.sidebar-nav .nav-item').forEach(function(link) {
-        link.addEventListener('click', function() {
-          if (window.innerWidth <= 1024) {
-            var sidebar = document.getElementById('sidebar');
-            if (sidebar) sidebar.classList.remove('open');
-          }
-        });
-      });
-    });
+    // We no longer need to manually update the header cart badge – it listens to storage events.
+    // But we keep this if needed for page-specific UI.
 
     // ---- Reveal animations ----
     document.addEventListener('DOMContentLoaded', function() {
@@ -1394,9 +1099,7 @@ See you soon,
       reveals.forEach(function(el) { observer.observe(el); });
     });
 
-    window.handleLogout = function() {
-      auth.signOut().then(function() { window.location.href = 'login.html'; });
-    };
+    // ---- Expose simulate/reset globally ----
     window.simulatePurchase = simulatePurchase;
     window.resetDemoCommission = resetDemoCommission;
   </script>
