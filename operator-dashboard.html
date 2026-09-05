@@ -5,20 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Operator Dashboard — Cameras Decoded</title>
 
-  <!-- ===== MASTER LOADER (injects fonts, shared CSS, bottom nav container & script) ===== -->
+  <!-- ===== MASTER LOADER ===== -->
   <script src="/scripts/master-loader.js"></script>
 
-  <!-- ===== FONT AWESOME (LOAD EARLY) ===== -->
+  <!-- ===== FONT AWESOME (explicit, but master-loader also loads it) ===== -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
-  <!-- ===== GOOGLE FONTS (master-loader also loads these, but we keep as fallback) ===== -->
+  <!-- ===== GOOGLE FONTS ===== -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
 
-  <!-- ===== SHARED CSS (master-loader also loads these, but we keep them explicit) ===== -->
+  <!-- ===== SHARED CSS (master-loader loads these, but we keep them for safety) ===== -->
   <link rel="stylesheet" href="/styles/design-system.css" />
   <link rel="stylesheet" href="/styles/components.css" />
   <link rel="stylesheet" href="header.css" />
-  <link rel="stylesheet" href="bottom-nav.css" />
 
   <!-- ===== FIREBASE SDKs ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -32,10 +31,10 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/css/shepherd.css"/>
   <script src="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/js/shepherd.min.js"></script>
 
-  <!-- ===== SHARED UI HELPERS (toast, confirm, spinner) ===== -->
+  <!-- ===== SHARED UI HELPERS ===== -->
   <script src="cd-ui.js"></script>
 
-  <!-- ===== SHARED HEADER & SIDEBAR (injection) ===== -->
+  <!-- ===== SHARED HEADER & SIDEBAR ===== -->
   <script src="header.js"></script>
   <script src="sidebar.js"></script>
 
@@ -45,7 +44,7 @@
   <!-- ===== PAGE-SPECIFIC STYLES ===== -->
   <style>
     /* ============================================================
-       OPERATOR DASHBOARD – ALL STYLES (except header/sidebar)
+       OPERATOR DASHBOARD – ALL STYLES (unchanged from original)
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -675,8 +674,9 @@
 
   <!-- ===== MAIN CONTENT ===== -->
   <main class="main-content">
-
-    <!-- DASHBOARD HEADER -->
+    <!-- ============================================================
+         DASHBOARD HEADER
+         ============================================================ -->
     <div class="dash-header">
       <img src="custom-site-titles/operator-dashboard.png" alt="Operator Dashboard" />
       <div class="greeting">
@@ -685,13 +685,17 @@
       </div>
     </div>
 
-    <!-- LOADING STATE -->
+    <!-- ============================================================
+         LOADING STATE
+         ============================================================ -->
     <div id="loadingState" style="text-align:center;padding:60px 0;color:var(--text-muted);">
       <i class="fas fa-spinner fa-spin" style="font-size:32px;color:var(--green);"></i>
       <p style="margin-top:12px;">Loading your signal...</p>
     </div>
 
-    <!-- DASHBOARD CONTENT -->
+    <!-- ============================================================
+         DASHBOARD CONTENT
+         ============================================================ -->
     <div id="dashboardContent" style="display:none;">
 
       <!-- ACTIVITY CARD -->
@@ -964,16 +968,14 @@
     </div><!-- /dashboardContent -->
   </main>
 
-  <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
+  <!-- ===== PAGE‑SPECIFIC JAVASCRIPT ===== -->
   <script>
     // ================================================================
-    // COMPLETE DASHBOARD JAVASCRIPT (unchanged, uses shared UI)
+    // DASHBOARD LOGIC (unchanged – all functions stay the same)
     // ================================================================
-
-    // Use global auth, db, and cdToast from firebase-init.js + cd-ui.js
     const auth = window.auth;
     const db = window.db;
-    const cdToast = window.cdToast; // provided by cd-ui.js
+    const cdToast = window.cdToast;
 
     // ---- Protocol Library ----
     const PROTOCOL_LIBRARY = [
@@ -1147,10 +1149,6 @@
     }
 
     // ---- Render functions ----
-    function renderProfile(u) {
-      // Sidebar is now injected by sidebar.js – no need to manually update.
-    }
-
     function renderStats(u) {
       const protocols = u.savedProtocols || [];
       const cards = u.savedCards || [];
@@ -1375,16 +1373,6 @@
         });
     }
 
-    // ---- Load notification ----
-    async function loadNotification() {
-      try {
-        const doc = await db.collection('admin').doc('announcement').get();
-        // Notification is managed by sidebar.js – no need to update here.
-      } catch (err) {
-        console.warn('Notification load error:', err);
-      }
-    }
-
     // ---- Shepherd Tour ----
     let tour = null;
 
@@ -1555,19 +1543,22 @@
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
 
-        // Update bottom nav badges (master-loader injects nav, but we still update)
+        // Update bottom nav badges (master-loader injects the nav)
         if (window.BottomNav) {
           window.BottomNav.updateBadges(userData);
         } else {
-          // If BottomNav not loaded yet, wait for it
+          // Wait a moment for BottomNav to load
+          let attempts = 0;
           const waitForNav = setInterval(() => {
+            attempts++;
             if (window.BottomNav) {
               window.BottomNav.updateBadges(userData);
               clearInterval(waitForNav);
+            } else if (attempts > 20) {
+              clearInterval(waitForNav);
+              console.warn('BottomNav not available after 2 seconds.');
             }
           }, 100);
-          // Timeout after 3 seconds
-          setTimeout(() => clearInterval(waitForNav), 3000);
         }
 
         if (!userData.tourCompleted) {
@@ -1611,9 +1602,7 @@
     // ---- Cart UI ----
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
     function updateCartUI() {
-      const cart = getCart();
-      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-      // header.js manages the cart badge, so we keep this as a no‑op.
+      // header.js handles the cart badge
     }
     updateCartUI();
 
