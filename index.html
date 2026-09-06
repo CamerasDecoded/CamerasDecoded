@@ -11,7 +11,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:image" content="https://camerasdecoded.com/cameras-decoded-logo.png" />
 
-  <!-- ===== MASTER LOADER (injects header HTML + bottom nav container, loads shared CSS & bottom-nav.js) ===== -->
+  <!-- ===== MASTER LOADER ===== -->
   <script src="/scripts/master-loader.js"></script>
 
   <!-- ===== SHARED COMPONENT CSS ===== -->
@@ -29,6 +29,7 @@
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="header.js"></script>
   <script src="sidebar.js"></script>
+  <script src="bottom-nav.js"></script>
 
   <style>
     /* ============================================================
@@ -749,12 +750,10 @@
   <!-- ===== BOTTOM NAV CONTAINER – data-role="operator" ===== -->
   <div id="bottomNavContainer" data-role="operator"></div>
 
-  <!-- ===== SCRIPTS (shared + page-specific) ===== -->
-  <script src="bottom-nav.js"></script>
-
+  <!-- ===== PAGE-SPECIFIC SCRIPT (with explicit component updates) ===== -->
   <script>
     // ============================================================
-    // INDEX.HTML – PAGE-SPECIFIC SCRIPTS (unchanged)
+    // INDEX.HTML – PAGE-SPECIFIC SCRIPTS + COMPONENT SYNC
     // ============================================================
 
     // ---- Binary rain ----
@@ -929,7 +928,97 @@
       }
     };
 
-    console.log('🚀 Cameras Decoded – Homepage ready (component pattern)');
+    // ============================================================
+    // AUTH STATE + COMPONENT SYNC (critical fix)
+    // ============================================================
+    const auth = window.auth || firebase.auth();
+    const db = window.db || firebase.firestore();
+
+    // Helper to update all shared components with user data
+    function updateComponents(user, userData) {
+      if (!userData) {
+        // If no data, just show logged-out state
+        if (window.Header && typeof window.Header.setUserData === 'function') {
+          window.Header.setUserData(null, null);
+        }
+        if (window.BottomNav) {
+          window.BottomNav.updateBadges(null);
+          window.BottomNav.setRole('Operator');
+        }
+        if (window.Sidebar && typeof window.Sidebar.updateProfile === 'function') {
+          window.Sidebar.updateProfile(null);
+        }
+        return;
+      }
+
+      // Update header
+      if (window.Header && typeof window.Header.setUserData === 'function') {
+        window.Header.setUserData(user, userData);
+      }
+
+      // Update bottom nav
+      if (window.BottomNav) {
+        window.BottomNav.updateBadges(userData);
+        window.BottomNav.setRole(userData.role || 'Operator');
+      }
+
+      // Update sidebar
+      if (window.Sidebar && typeof window.Sidebar.updateProfile === 'function') {
+        window.Sidebar.updateProfile(userData);
+      } else {
+        // fallback: load profile from Firestore
+        if (window.Sidebar && typeof window.Sidebar.loadProfile === 'function') {
+          window.Sidebar.loadProfile();
+        }
+      }
+    }
+
+    // Listen to auth changes
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        try {
+          const doc = await db.collection('users').doc(user.uid).get();
+          if (doc.exists) {
+            const data = doc.data();
+            updateComponents(user, data);
+          } else {
+            // Create default doc if needed (quick)
+            const email = user.email || '';
+            const username = email ? email.split('@')[0] : 'user' + user.uid.slice(0,6);
+            const defaultData = {
+              uid: user.uid,
+              email: email,
+              displayName: user.displayName || '',
+              username: username,
+              role: 'Operator',
+              tier: 'free',
+              referralCode: username,
+              totalReferrals: 0,
+              totalCommissionEarned: 0,
+              ambassadorTier: 'signal',
+              photoURL: user.photoURL || ''
+            };
+            await db.collection('users').doc(user.uid).set(defaultData);
+            updateComponents(user, defaultData);
+          }
+        } catch (err) {
+          console.warn('Error loading user data, using minimal:', err);
+          updateComponents(user, { role: 'Operator', tier: 'free' });
+        }
+      } else {
+        updateComponents(null, null);
+      }
+    });
+
+    // ---- Ensure sidebar is injected (if not auto-injected) ----
+    // sidebar.js auto-injects on DOMContentLoaded, but we can force it if needed.
+    // It should already be injected because we have the container and script loaded.
+    // If not, we can call:
+    // if (window.Sidebar && typeof window.Sidebar.inject === 'function') {
+    //   window.Sidebar.inject();
+    // }
+
+    console.log('🚀 Cameras Decoded – Homepage ready (component sync)');
   </script>
 </body>
 </html>
