@@ -82,6 +82,23 @@
       .main-content { margin-left: 0; padding: 100px 20px 20px; }
     }
 
+    /* ===== FORCE SIDEBAR VISIBLE UNTIL TOGGLED ===== */
+    #sidebarContainer {
+      display: block !important;
+    }
+    .sidebar {
+      display: flex !important;
+      transform: translateX(0) !important;
+    }
+    @media (max-width: 1024px) {
+      .sidebar {
+        transform: translateX(-100%) !important;
+      }
+      .sidebar.open {
+        transform: translateX(0) !important;
+      }
+    }
+
     /* ===== TYPEWRITER ===== */
     .typewriter-wrapper {
       text-align: center;
@@ -975,27 +992,45 @@
 
     // Force sidebar injection (in case sidebar.js didn't auto-inject)
     document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOMContentLoaded – checking sidebar');
       if (window.Sidebar && typeof window.Sidebar.inject === 'function') {
         // Only inject if sidebar not already present
         if (!document.getElementById('sidebar')) {
+          console.log('Injecting sidebar via Sidebar.inject()');
           window.Sidebar.inject();
+        } else {
+          console.log('Sidebar already exists in DOM');
         }
+      } else {
+        console.warn('Sidebar not available – check sidebar.js loading');
       }
-      // Set up toggle manually if sidebar.js didn't
+
+      // Set up toggle manually if sidebar.js didn't (or as fallback)
       const toggleBtn = document.getElementById('floatingToggle');
       if (toggleBtn) {
-        toggleBtn.addEventListener('click', function(e) {
+        console.log('Found floatingToggle, attaching click listener');
+        // Remove any existing listeners by cloning and replacing
+        const newBtn = toggleBtn.cloneNode(true);
+        toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
+        newBtn.addEventListener('click', function(e) {
           e.preventDefault();
+          e.stopPropagation();
           const sidebar = document.getElementById('sidebar');
           if (sidebar) {
             sidebar.classList.toggle('open');
+            console.log('Toggled sidebar, now has class "open":', sidebar.classList.contains('open'));
+          } else {
+            console.warn('Sidebar element not found');
           }
         });
+      } else {
+        console.warn('floatingToggle not found');
       }
     });
 
     // Listen to auth changes
     auth.onAuthStateChanged(async (user) => {
+      console.log('Auth state changed, user:', user ? user.uid : 'null');
       if (user) {
         try {
           const doc = await db.collection('users').doc(user.uid).get();
@@ -1031,7 +1066,11 @@
       }
     });
 
-    console.log('🚀 Cameras Decoded – Homepage ready (component sync with forced injection)');
+    // ---- Additional fix: make sure sidebar is visible on mobile when toggled ----
+    // We already have CSS forcing visibility, but we also want the toggle to work.
+    // The toggle listener above handles that.
+
+    console.log('🚀 Cameras Decoded – Homepage ready (component sync with forced injection and toggle)');
   </script>
 </body>
 </html>
