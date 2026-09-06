@@ -80,7 +80,10 @@
     const authButtons = document.getElementById('headerAuthButtons');
     const badge = document.getElementById('roleTierBadge');
 
-    if (user && userData && user.isLoggedIn) {
+    // SIMPLIFIED: If user or userData exists, user is logged in
+    const isLoggedIn = !!(user || userData);
+
+    if (isLoggedIn) {
       console.log('[Header] ✅ User logged in. Updating UI...');
       
       // Hide login/signup buttons
@@ -90,8 +93,9 @@
 
       // Show role/tier badge
       if (badge) {
-        const role = userData.role || 'Operator';
-        const tierLabel = (userData.tier === 'pro' || userData.tier === 'Pro') ? 'Pro' : 'Free';
+        const role = (userData && userData.role) || (user && user.role) || 'Operator';
+        const tier = (userData && userData.tier) || (user && user.tier) || 'free';
+        const tierLabel = (tier === 'pro' || tier === 'Pro') ? 'Pro' : 'Free';
         
         badge.innerHTML = `<span class="glow-role">${role}</span> · <span class="tier-text">${tierLabel}</span>`;
         badge.style.display = 'inline-flex';
@@ -135,16 +139,6 @@
     }
   }, 500);
 
-  // Listen for auth state changes (if user logs out, etc.)
-  if (typeof firebase !== 'undefined' && firebase.auth) {
-    firebase.auth().onAuthStateChanged((user) => {
-      if (!user) {
-        console.log('[Header] User logged out. Resetting UI...');
-        updateAuthUI(null, null);
-      }
-    });
-  }
-
   // ================================================================
   // PUBLIC API
   // ================================================================
@@ -161,7 +155,7 @@
   // ================================================================
   function init() {
     console.log('[Header] Initializing...');
-    setupSidebarToggle();  // Will retry if elements not ready
+    setupSidebarToggle();
     updateCartUI();
     console.log('[Header] ✅ Initialized');
   }
