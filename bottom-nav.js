@@ -121,6 +121,9 @@
       profileLink.setAttribute('href', config.profile);
       profileLink.setAttribute('data-page', config.profile);
     }
+
+    // ★★★ FIX: re-run active link detection after updating href/data-page ★★★
+    updateActiveLink();
   }
 
   function updateActiveLink() {
@@ -191,7 +194,7 @@
     inject: injectNav,
     updateBadges: updateBadges,
     updateActiveLink: updateActiveLink,
-    setRole: setCurrentRole
+    setRole: setCurrentRole   // exposes setCurrentRole as setRole
   };
 
   // ================================================================
