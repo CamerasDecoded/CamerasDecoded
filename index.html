@@ -712,7 +712,7 @@
     #scrollTopBtn.show { visibility:visible; opacity:1; }
     #scrollTopBtn:hover { background:var(--green); color:#000; box-shadow:0 0 20px rgba(141,235,0,0.6); transform:translateY(-2px); }
 
-    /* ===== RESPONSIVE (exactly as original) ===== */
+    /* ===== RESPONSIVE ===== */
     @media (max-width: 1024px) {
       .main-content { margin-left: 0; padding: 100px 20px 20px; }
       .hero h1 { font-size: 1.6rem; }
@@ -958,7 +958,7 @@
   <!-- ===== PAGE-SPECIFIC SCRIPT ===== -->
   <script>
     // ============================================================
-    // INDEX.HTML – PAGE-SPECIFIC SCRIPTS (no manual injection)
+    // INDEX.HTML – PAGE-SPECIFIC SCRIPTS
     // ============================================================
 
     // ---- Binary rain ----
@@ -1133,10 +1133,13 @@
       }
     };
 
-    // ---- Auth listener (for header/bottom-nav updates) ----
+    // ============================================================
+    // AUTH + COMPONENT SYNC (with avatar fallback)
+    // ============================================================
     const auth = window.auth || firebase.auth();
     const db = window.db || firebase.firestore();
 
+    // Helper to update all shared components
     function updateComponents(user, userData) {
       if (window.Header && typeof window.Header.setUserData === 'function') {
         window.Header.setUserData(user, userData);
@@ -1148,14 +1151,44 @@
       if (window.Sidebar && typeof window.Sidebar.updateProfile === 'function') {
         window.Sidebar.updateProfile(userData);
       }
+      // ---- FALLBACK: manually set sidebar avatar ----
+      setSidebarAvatar(userData?.photoURL);
     }
 
+    // Direct avatar setter (safe, even if sidebar not fully rendered)
+    function setSidebarAvatar(photoURL) {
+      const avatar = document.querySelector('.profile-avatar');
+      if (avatar) {
+        if (photoURL) {
+          avatar.style.backgroundImage = `url(${photoURL})`;
+          avatar.innerHTML = ''; // remove any placeholder icon
+        } else {
+          avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
+        }
+      } else {
+        // Element not yet in DOM – retry once after a short delay
+        setTimeout(() => {
+          const retryAvatar = document.querySelector('.profile-avatar');
+          if (retryAvatar) {
+            if (photoURL) {
+              retryAvatar.style.backgroundImage = `url(${photoURL})`;
+              retryAvatar.innerHTML = '';
+            } else {
+              retryAvatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
+            }
+          }
+        }, 300);
+      }
+    }
+
+    // Auth listener
     auth.onAuthStateChanged(async (user) => {
       if (user) {
         try {
           const doc = await db.collection('users').doc(user.uid).get();
           if (doc.exists) {
-            updateComponents(user, doc.data());
+            const data = doc.data();
+            updateComponents(user, data);
           } else {
             const email = user.email || '';
             const username = email ? email.split('@')[0] : 'user' + user.uid.slice(0,6);
@@ -1184,7 +1217,23 @@
       }
     });
 
-    console.log('🚀 Cameras Decoded – Homepage ready (sidebar styles fixed, no manual injection)');
+    // ---- Force sidebar injection (if needed) ----
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.Sidebar && typeof window.Sidebar.inject === 'function') {
+        if (!document.getElementById('sidebar')) {
+          window.Sidebar.inject();
+        }
+      }
+      // Also set avatar after a moment in case it wasn't set
+      setTimeout(() => {
+        const avatar = document.querySelector('.profile-avatar');
+        if (avatar && avatar.style.backgroundImage === '' || avatar.style.backgroundImage === 'none') {
+          avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
+        }
+      }, 500);
+    });
+
+    console.log('🚀 Cameras Decoded – Homepage ready with avatar fallback');
   </script>
 </body>
 </html>
