@@ -660,10 +660,18 @@
     // PARTNER PROFILE – STANDARDISED PATTERN (same as partner-dashboard)
     // ================================================================
 
-    if (typeof cdToast === 'undefined') {
-      window.cdToast = function(msg, type) { alert(msg); };
+    // ---- cdToast: hoisted function to avoid TDZ ----
+    function cdToast(msg, type) {
+      if (typeof window.cdToast === 'function') {
+        window.cdToast(msg, type);
+      } else {
+        alert(msg);
+      }
     }
-    const cdToast = window.cdToast;
+    // Ensure window.cdToast is defined for other scripts
+    if (typeof window.cdToast === 'undefined') {
+      window.cdToast = cdToast;
+    }
 
     const auth = window.auth || firebase.auth();
     const db = window.db || firebase.firestore();
@@ -718,6 +726,7 @@
 
     // ---- Render profile ----
     function renderProfile(data) {
+      console.log('[Partner Profile] Rendering profile with data:', data);
       // Update shared components
       if (window.Header && typeof window.Header.setUserData === 'function') {
         window.Header.setUserData(currentUser, data);
@@ -862,12 +871,14 @@
     // ---- Auth listener ----
     auth.onAuthStateChanged(async (user) => {
       if (!user) { window.location.href = 'login.html'; return; }
+      console.log('[Partner Profile] Auth user detected:', user.uid);
       currentUser = user;
       userDocRef = db.collection('users').doc(user.uid);
 
       // Load data once
       try {
         const data = await getUserData(user);
+        console.log('[Partner Profile] User data loaded:', data);
         renderProfile(data);
       } catch (err) {
         console.error('Error loading profile:', err);
