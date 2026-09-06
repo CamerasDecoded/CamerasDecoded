@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Your Profile — Cameras Decoded</title>
+  <title>Operator Profile — Cameras Decoded</title>
 
-  <!-- ===== MASTER LOADER (injects header, bottom nav container, loads bottom-nav.js) ===== -->
+  <!-- ===== MASTER LOADER (injects header, bottom nav container, shared CSS) ===== -->
   <script src="/scripts/master-loader.js"></script>
 
-  <!-- ===== GLOBAL COMPONENT STYLES ===== -->
+  <!-- ===== SHARED COMPONENT CSS ===== -->
   <link rel="stylesheet" href="header.css" />
   <link rel="stylesheet" href="bottom-nav.css" />
 
@@ -17,16 +17,16 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <!-- ===== FIREBASE INIT (SYNCHRONOUS) ===== -->
+  <!-- ===== FIREBASE INIT ===== -->
   <script src="/scripts/firebase-init.js"></script>
 
-  <!-- ===== HEADER AUTH UI LOGIC ===== -->
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="header.js"></script>
+  <script src="sidebar.js"></script>
 
-  <!-- ===== PAGE-SPECIFIC STYLES ===== -->
   <style>
     /* ============================================================
-       OPERATOR PROFILE – ALL STYLES (page‑specific only)
+       OPERATOR PROFILE – STYLES (adapted from partner‑profile)
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -60,25 +60,199 @@
     a { text-decoration: none; color: inherit; }
     h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
 
-    /* ===== MAIN CONTENT ===== */
-    .main-content {
-      width: 100%;
-      max-width: 820px;
-      margin: 80px auto 40px;
-      padding: 0 20px 40px;
-      position: relative;
-      z-index: 2;
-      animation: fadeSlideUp 0.6s ease forwards;
-    }
-    @media (max-width: 640px) {
-      .main-content { margin-top: 100px; padding: 0 16px 20px; }
+    /* ============================================================
+       SIDEBAR CONTAINER – injected by sidebar.js
+       ============================================================ */
+    #sidebarContainer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 1000;
+      width: 280px;
     }
 
-    /* ===== CARDS ===== */
+    .sidebar {
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      padding: 20px 16px 24px;
+      border-right: 1px solid var(--border-dim);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s var(--transition-smooth);
+      transform: translateX(0);
+      position: relative;
+    }
+
+    @media (max-width: 1024px) {
+      #sidebarContainer {
+        position: fixed;
+        width: 280px;
+        z-index: 1000;
+      }
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s var(--transition-smooth);
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+    }
+
+    .sidebar .logo { text-align:center; margin-bottom:12px; }
+    .sidebar .logo img { height:70px; width:auto; transition:filter 0.3s ease; }
+    .sidebar .logo img:hover { filter:drop-shadow(0 0 20px rgba(141,235,0,0.15)); }
+
+    .sidebar-profile { text-align:center; padding:12px 0 16px; border-bottom:1px solid var(--border-dim); margin-bottom:16px; flex-shrink:0; }
+    .profile-avatar { width:64px; height:64px; border-radius:50%; background-size:cover; background-position:center; margin:0 auto 8px; border:2px solid var(--green); background-color:#1a1a1a; transition:transform 0.3s var(--transition-smooth), box-shadow 0.3s ease; }
+    .profile-avatar:hover { transform:scale(1.05); box-shadow:0 0 30px var(--green-glow); border-color:#a0f520; }
+    .profile-name { font-weight:600; font-size:14px; color:#fff; }
+    .profile-email { font-size:12px; color:var(--text-muted); }
+
+    .sidebar-nav {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar-nav .nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar-nav .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      border-radius: 6px;
+      transition: all 0.2s var(--transition-smooth);
+      cursor: pointer;
+      text-decoration: none;
+      border: none;
+    }
+    .sidebar-nav .nav-item i {
+      width: 20px;
+      text-align: center;
+      font-size: 14px;
+      transition: transform 0.2s ease;
+    }
+    .sidebar-nav .nav-item:hover {
+      color: var(--green);
+      background: rgba(141,235,0,0.05);
+      transform: translateX(3px);
+    }
+    .sidebar-nav .nav-item:hover i {
+      transform: scale(1.1);
+    }
+    .sidebar-nav .nav-item.active {
+      color: var(--green);
+      background: rgba(141,235,0,0.08);
+    }
+    .sidebar-divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 6px 0;
+      flex-shrink: 0;
+    }
+
+    #privateLinks {
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+    }
+    #privateLinks .nav-item { display: flex; }
+    #authCta {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 4px;
+    }
+    #authCta .nav-item {
+      justify-content: center;
+      border: 1px solid var(--green);
+      border-radius: 30px;
+      color: var(--green);
+      background: transparent;
+      padding: 8px 12px;
+      margin: 4px 0;
+    }
+    #authCta .nav-item:hover { background: rgba(141,235,0,0.08); }
+    #authCta .nav-item.signup {
+      background: var(--green);
+      color: #000;
+    }
+    #authCta .nav-item.signup:hover { background: #a0f520; }
+
+    .sidebar-notification {
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-dim);
+      background: rgba(255,255,255,0.01);
+      border-radius: 8px;
+      padding: 10px 12px;
+      transition: background 0.3s ease;
+      flex-shrink: 0;
+    }
+    .sidebar-notification:hover { background: rgba(141,235,0,0.02); }
+    .sidebar-notification .notif-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .sidebar-notification .notif-header i { color: var(--green); font-size: 12px; }
+    .sidebar-notification .notif-message {
+      font-size: 12px;
+      color: #fff;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .sidebar-notification .notif-message.empty {
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 11px;
+    }
+    .sidebar-notification .notif-timestamp {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-family: 'Space Mono', monospace;
+      opacity: 0.5;
+    }
+
+    /* ============================================================
+       MAIN CONTENT LAYOUT
+       ============================================================ */
+    .main-content {
+      margin-left: 280px;
+      padding: 80px 40px 40px;
+      max-width: calc(1200px + 280px);
+      position: relative;
+      z-index: 2;
+    }
+
+    @media (max-width: 1024px) {
+      .main-content { margin-left: 0; padding: 100px 20px 20px; }
+    }
+
+    /* ============================================================
+       CARDS
+       ============================================================ */
     .card {
       background: rgba(12,12,12,0.16);
       backdrop-filter: blur(12px);
-      border: 1px solid var(--border-dim);
+      border: 1px solid var(--border);
       border-radius: 14px;
       padding: 24px 28px;
       margin-bottom: 18px;
@@ -89,24 +263,25 @@
       border-color: rgba(141,235,0,0.15);
       box-shadow: 0 8px 50px rgba(0,0,0,0.5);
     }
+
     .card-header {
       display: flex;
       align-items: center;
       gap: 10px;
       margin-bottom: 16px;
     }
-    .card-header .icon {
-      font-size: 18px;
-      color: var(--green);
-      width: 32px;
-      text-align: center;
+    .card-header img {
+      max-height: 34px;
+      width: auto;
+      display: block;
     }
+
+    /* Remove the old icon and h2 */
+    .card-header .icon,
     .card-header h2 {
-      font-family: 'Space Mono', monospace;
-      font-size: 15px;
-      color: var(--green);
-      letter-spacing: 0.3px;
+      display: none;
     }
+
     .card-header .badge {
       font-size: 9px;
       font-family: 'Space Mono', monospace;
@@ -117,12 +292,7 @@
       border: 1px solid rgba(141,235,0,0.1);
       margin-left: auto;
     }
-    .card-sub {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-bottom: 16px;
-      line-height: 1.5;
-    }
+
     .info-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -144,118 +314,32 @@
     }
     .info-item .value.green { color: var(--green); }
 
-    /* ===== CHIPS ===== */
-    .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0; }
-    .chip {
-      padding: 8px 18px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 24px;
-      font-size: 13px;
+    /* ===== FORM FIELDS ===== */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
       color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.25s;
-      user-select: none;
-    }
-    .chip:hover {
-      border-color: rgba(141,235,0,0.25);
-      color: #fff;
-      transform: translateY(-1px);
-    }
-    .chip.selected {
-      border-color: var(--green);
-      background: rgba(141,235,0,0.12);
-      color: #fff;
-      box-shadow: 0 0 20px rgba(141,235,0,0.06);
-    }
-    .chip-count {
-      font-size: 12px;
-      color: var(--text-muted);
+      font-size: 11px;
       font-family: 'Space Mono', monospace;
-      margin-top: 6px;
-    }
-    .chip-count .num { color: var(--green); font-weight: 700; }
-
-    /* ===== SELECT CARDS ===== */
-    .select-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 10px;
-      margin: 4px 0;
-    }
-    .select-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 8px;
-      padding: 14px 12px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.25s;
-      color: var(--text-muted);
-      position: relative;
-    }
-    .select-card:hover {
-      border-color: rgba(141,235,0,0.2);
-      transform: translateY(-2px);
-      background: rgba(255,255,255,0.05);
-    }
-    .select-card.selected {
-      border-color: var(--green);
-      background: rgba(141,235,0,0.12);
-      box-shadow: 0 0 30px rgba(141,235,0,0.06);
-    }
-    .select-card .emoji { font-size: 28px; display: block; margin-bottom: 4px; }
-    .select-card .label { font-size: 12px; font-weight: 500; color: #fff; }
-    .select-card .desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-    .select-card.selected .label { color: var(--green); }
-    .select-card .check-mark { position: absolute; top: 6px; right: 8px; font-size: 12px; color: var(--green); display: none; }
-    .select-card.selected .check-mark { display: block; }
-
-    /* ===== SLIDER ===== */
-    .slider-wrap { padding: 8px 0; }
-    .slider-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
       margin-bottom: 6px;
     }
-    .slider-header .left {
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-    .slider-header .value {
-      font-family: 'Space Mono', monospace;
-      font-size: 18px;
-      color: var(--green);
-      font-weight: 700;
-    }
-    .slider-wrap input[type="range"] {
-      -webkit-appearance: none;
+    .form-group input, .form-group select {
       width: 100%;
-      height: 5px;
-      border-radius: 3px;
-      background: rgba(255,255,255,0.08);
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 15px;
       outline: none;
-      cursor: pointer;
+      transition: all 0.3s;
     }
-    .slider-wrap input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: var(--green);
-      cursor: pointer;
-      box-shadow: 0 0 30px var(--green-glow);
-      border: 2px solid #000;
-    }
-    .slider-track-fill {
-      height: 5px;
-      border-radius: 3px;
-      background: linear-gradient(90deg, var(--green), #a0f520);
-      pointer-events: none;
-      position: relative;
-      top: -5px;
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 20px rgba(141,235,0,0.06);
     }
 
     /* ===== SAVE ROW ===== */
@@ -265,7 +349,7 @@
       gap: 12px;
       margin-top: 16px;
       padding-top: 14px;
-      border-top: 1px solid var(--border-dim);
+      border-top: 1px solid var(--border);
     }
     .btn-save {
       padding: 10px 28px;
@@ -286,45 +370,6 @@
       background: #a0f520;
       box-shadow: 0 0 40px rgba(141,235,0,0.3);
       transform: scale(1.02);
-    }
-
-    /* ===== REFERRAL ===== */
-    .referral-card { border-color: rgba(141,235,0,0.15); }
-    .ref-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
-    }
-    .ref-link {
-      font-family: 'Space Mono', monospace;
-      color: var(--green);
-      font-size: 14px;
-      word-break: break-all;
-      flex: 1;
-      min-width: 180px;
-      background: rgba(0,0,0,0.3);
-      padding: 6px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--border-dim);
-    }
-    .ref-stats {
-      display: flex;
-      gap: 24px;
-      flex-wrap: wrap;
-    }
-    .ref-stats .stat { text-align: center; }
-    .ref-stats .stat .num {
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--green);
-    }
-    .ref-stats .stat .lbl {
-      font-size: 10px;
-      color: #666;
-      font-family: 'Space Mono', monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
     }
 
     /* ===== AVATAR ===== */
@@ -370,6 +415,44 @@
       border-color: var(--green);
       color: var(--green);
       background: rgba(141,235,0,0.04);
+    }
+
+    /* ===== REFERRAL ===== */
+    .ref-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+    .ref-link {
+      font-family: 'Space Mono', monospace;
+      color: var(--green);
+      font-size: 14px;
+      word-break: break-all;
+      flex: 1;
+      min-width: 180px;
+      background: rgba(0,0,0,0.3);
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .ref-stats {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .ref-stats .stat { text-align: center; }
+    .ref-stats .stat .num {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .ref-stats .stat .lbl {
+      font-size: 10px;
+      color: #666;
+      font-family: 'Space Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     /* ===== LOADING ===== */
@@ -442,35 +525,38 @@
     .chasing-border>* { position: relative; z-index: 1; }
     @keyframes spinBorder { to { --angle: 360deg; } }
 
-    /* ===== RESPONSIVE ===== */
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
     @media (max-width: 640px) {
       .info-grid { grid-template-columns: 1fr 1fr; }
-      .select-grid { grid-template-columns: 1fr 1fr; }
       .avatar-row { flex-direction: column; align-items: center; text-align: center; }
       .avatar-actions { align-items: center; }
       .ref-row { flex-direction: column; align-items: stretch; }
       .save-row { justify-content: center; }
+      .card-header img { max-height: 28px; }
     }
     @media (max-width: 420px) {
       .info-grid { grid-template-columns: 1fr; }
-      .select-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
 
+  <!-- ===== SIDEBAR INJECTION POINT ===== -->
+  <div id="sidebarContainer"></div>
+
   <!-- ===== MAIN CONTENT ===== -->
   <main class="main-content">
     <div id="toast-container"></div>
 
-    <div class="profile-header" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:28px; padding-bottom:16px; border-bottom:1px solid var(--border-dim);">
+    <div class="profile-header" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:28px; padding-bottom:16px; border-bottom:1px solid var(--border);">
       <div class="brand" style="display:flex; align-items:center; gap:12px;">
-        <!-- Replaced emoji with image -->
-        <img src="/custom-site-titles/profile.png" alt="Your Profile" style="max-height:50px; width:auto; display:block;" />
-        <span class="tag" id="roleTag" style="font-size:11px; color:var(--text-muted); font-family:'Space Mono',monospace; background:rgba(255,255,255,0.04); padding:2px 12px; border-radius:20px; border:1px solid var(--border-dim);">Operator</span>
+        <img src="/custom-site-titles/profile-operator.png" alt="Operator Profile" style="max-height:50px; width:auto; display:block;" />
+        <span class="tag" id="roleTag" style="font-size:11px; color:var(--text-muted); font-family:'Space Mono',monospace; background:rgba(255,255,255,0.04); padding:2px 12px; border-radius:20px; border:1px solid var(--border);">Operator</span>
       </div>
       <div class="header-actions" style="display:flex; gap:10px; flex-wrap:wrap;">
-        <a href="#" id="dashboardLink" class="btn" style="padding:6px 16px; border-radius:8px; font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--green); color:var(--green); background:transparent;">Dashboard</a>
+        <a href="operator-dashboard.html" id="dashboardLink" class="btn" style="padding:6px 16px; border-radius:8px; font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--green); color:var(--green); background:transparent;">Dashboard</a>
       </div>
     </div>
 
@@ -485,7 +571,9 @@
 
       <!-- Avatar Card -->
       <div class="card avatar-card chasing-border" id="avatarCard">
-        <div class="card-header"><span class="icon"><i class="fas fa-image"></i></span><h2>Profile Photo</h2></div>
+        <div class="card-header">
+          <img src="/custom-site-titles/profile-photo.png" alt="Profile Photo" />
+        </div>
         <div class="avatar-row">
           <div class="avatar-preview" id="avatarPreview"><i class="fas fa-user"></i></div>
           <div class="avatar-actions">
@@ -500,96 +588,51 @@
 
       <!-- Basic Info -->
       <div class="card">
-        <div class="card-header"><span class="icon"><i class="fas fa-id-card"></i></span><h2>Basic Information</h2><span class="badge">read-only</span></div>
+        <div class="card-header">
+          <img src="/custom-site-titles/basic-information.png" alt="Basic Information" />
+          <span class="badge">read-only</span>
+        </div>
         <div class="info-grid">
           <div class="info-item"><span class="label">Full Name</span><span class="value" id="displayNameDisplay">—</span></div>
           <div class="info-item"><span class="label">Username</span><span class="value" id="usernameDisplay">—</span></div>
           <div class="info-item"><span class="label">Email</span><span class="value" id="emailDisplay">—</span></div>
-          <div class="info-item"><span class="label">Plan</span><span class="value green" id="tierDisplay">Free</span></div>
         </div>
       </div>
 
-      <!-- Operator Profile -->
-      <div id="operatorProfile">
-        <div class="card">
-          <div class="card-header"><span class="icon"><i class="fas fa-camera"></i></span><h2>Gear & Preferences</h2></div>
-          <div class="card-sub">Select your camera brands, lenses, and creative interests.</div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Camera Brands</div>
-            <div class="chip-grid" id="brandsGrid"></div>
-          </div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Lenses</div>
-            <div class="chip-grid" id="lensesGrid"></div>
-          </div>
-          <div>
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Interests <span style="color:#666;">(max 3)</span></div>
-            <div class="chip-grid" id="interestsGrid"></div>
-            <div class="chip-count">Selected: <span class="num" id="interestsCount">0</span> / 3</div>
-          </div>
-          <div class="save-row"><button class="btn-save" id="savePrefsBtn"><i class="fas fa-save"></i> Save Gear</button></div>
+      <!-- Gear & Preferences (editable) -->
+      <div class="card">
+        <div class="card-header">
+          <img src="/custom-site-titles/gear-and-preferences.png" alt="Gear & Preferences" />
         </div>
+        <div class="form-group">
+          <label for="preferredGearInput">Preferred Gear</label>
+          <input type="text" id="preferredGearInput" placeholder="e.g. Sony A7IV, 24-70mm GM" />
+        </div>
+        <div class="form-group">
+          <label for="specialtiesInput">Specialties</label>
+          <input type="text" id="specialtiesInput" placeholder="e.g. Portrait, Landscape, Street" />
+        </div>
+        <div class="save-row"><button class="btn-save" id="saveGearBtn"><i class="fas fa-save"></i> Save</button></div>
+      </div>
 
-        <div class="card">
-          <div class="card-header"><span class="icon"><i class="fas fa-compass"></i></span><h2>Learning Journey</h2></div>
-          <div class="card-sub">Tell us about your experience, goals, and how you learn best.</div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Experience Level</div>
-            <div class="select-grid" id="experienceGrid"></div>
-          </div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Primary Goal</div>
-            <div class="select-grid" id="primaryGoalGrid"></div>
-          </div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Ambition</div>
-            <div class="select-grid" id="ambitionGrid"></div>
-          </div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Confidence Level</div>
-            <div class="slider-wrap">
-              <div class="slider-header"><span class="left">How locked in are you?</span><span class="value" id="confidenceDisplay">5</span></div>
-              <input type="range" id="confidenceSlider" min="1" max="10" value="5" step="1" />
-              <div class="slider-track-fill" id="confidenceTrackFill" style="width:44.4%;"></div>
-              <div class="slider-labels"><span>1 — New Signal</span><span>5 — Locking On</span><span>10 — Locked</span></div>
-            </div>
-          </div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Pain Points <span style="color:#666;">(max 3)</span></div>
-            <div class="chip-grid" id="painPointsGrid"></div>
-            <div class="chip-count">Selected: <span class="num" id="painPointsCount">0</span> / 3</div>
-          </div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Content Format</div>
-            <div class="select-grid" id="contentFormatGrid"></div>
-          </div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Delivery Channel</div>
-            <div class="select-grid" id="deliveryChannelGrid"></div>
-          </div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Shoot Frequency</div>
-            <div class="select-grid" id="shootFrequencyGrid"></div>
-          </div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Biggest Challenge</div>
-            <div class="select-grid" id="biggestChallengeGrid"></div>
-          </div>
-          <div style="margin-bottom:14px;">
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">6-Month Skill Goal</div>
-            <div class="select-grid" id="sixMonthGoalGrid"></div>
-          </div>
-          <div>
-            <div style="font-size:12px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:6px;">Dream Project</div>
-            <div class="select-grid" id="dreamProjectGrid"></div>
-          </div>
-          <div class="save-row"><button class="btn-save" id="saveLearningBtn"><i class="fas fa-save"></i> Save Learning Journey</button></div>
+      <!-- Stats & Progress -->
+      <div class="card">
+        <div class="card-header">
+          <img src="/custom-site-titles/stats-and-progress.png" alt="Stats & Progress" />
+        </div>
+        <div class="info-grid">
+          <div class="info-item"><span class="label">Journey Nodes</span><span class="value" id="journeyNodes">0</span></div>
+          <div class="info-item"><span class="label">Snapshots</span><span class="value" id="snapshotCount">0</span></div>
+          <div class="info-item"><span class="label">Points</span><span class="value" id="pointsDisplay">0</span></div>
+          <div class="info-item"><span class="label">Streak</span><span class="value" id="streakDisplay">0</span></div>
         </div>
       </div>
 
-      <!-- Referral Card -->
-      <div class="card referral-card chasing-border">
-        <div class="card-header"><span class="icon"><i class="fas fa-satellite-dish"></i></span><h2>Referral & Stats</h2></div>
+      <!-- Referral & Stats -->
+      <div class="card chasing-border">
+        <div class="card-header">
+          <img src="/custom-site-titles/referral-and-stats.png" alt="Referral & Stats" />
+        </div>
         <div class="ref-row">
           <div>
             <div style="font-size:10px;color:#666;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;">Your Referral Link</div>
@@ -604,148 +647,101 @@
         </div>
       </div>
 
-      <footer class="profile-footer" style="margin-top:40px;padding-top:20px;border-top:1px solid var(--border-dim);text-align:center;font-size:12px;color:#555;font-family:'Space Mono',monospace;">© 2026 Cameras Decoded · All signals locked</footer>
+      <footer class="profile-footer" style="margin-top:40px;padding-top:20px;border-top:1px solid var(--border);text-align:center;font-size:12px;color:#555;font-family:'Space Mono',monospace;">© 2026 Cameras Decoded · All signals locked</footer>
     </div>
   </main>
 
-  <!-- ===== EMAIL VERIFICATION SCRIPT (page-specific) ===== -->
+  <!-- ===== BOTTOM NAV CONTAINER – with data-role="operator" ===== -->
+  <div id="bottomNavContainer" data-role="operator"></div>
+
+  <!-- ===== EMAIL VERIFICATION (optional) ===== -->
   <script src="/scripts/email-verification.js"></script>
 
   <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
   <script>
     // ================================================================
-    // PROFILE LOGIC – using global auth/db from firebase-init.js
+    // OPERATOR PROFILE – STANDARDISED PATTERN
     // ================================================================
 
-    // Use global auth, db, cdToast, handleLogout
+    function cdToast(msg, type) {
+      if (typeof window.cdToast === 'function') {
+        window.cdToast(msg, type);
+      } else {
+        alert(msg);
+      }
+    }
+    if (typeof window.cdToast === 'undefined') {
+      window.cdToast = cdToast;
+    }
+
     const auth = window.auth || firebase.auth();
     const db = window.db || firebase.firestore();
-    const cdToast = window.cdToast || function(msg, type) { alert(msg); };
-    window.handleLogout = window.handleLogout || function() {
+
+    window.handleLogout = function() {
       auth.signOut().then(() => window.location.href = 'login.html').catch(() => window.location.href = 'login.html');
     };
 
     const IMGBB_API_KEY = '0b9201a8e4212a124013c23eb559936a';
-
-    // ================================================================
-    // DATA DEFINITIONS (unchanged)
-    // ================================================================
-    const BRAND_OPTIONS = ['Sony','Canon','Nikon','Fuji','Panasonic','Leica','Olympus'];
-    const LENS_OPTIONS = ['Prime','Zoom','Wide','Telephoto','Macro','Fisheye'];
-    const INTEREST_OPTIONS = ['Portraits','Events','Landscape','Street','Weddings','Product','Wildlife','Sports'];
-    const PAIN_OPTIONS = ['Manual mode confusion','Focus issues','Low light struggles','Composition','Editing workflow','Business/marketing'];
-    const EXPERIENCE_OPTIONS = [
-      { value:'beginner', label:'Beginner', desc:'Just starting out', emoji:'🌱' },
-      { value:'intermediate', label:'Intermediate', desc:'Comfortable with basics', emoji:'📷' },
-      { value:'advanced', label:'Advanced', desc:'Pro-level skills', emoji:'🚀' }
-    ];
-    const PRIMARY_GOAL_OPTIONS = [
-      { value:'master-manual', label:'Master Manual Mode', desc:'Full control', emoji:'🎛️' },
-      { value:'start-business', label:'Start a Business', desc:'Get paid', emoji:'💼' },
-      { value:'improve-social', label:'Improve Social Content', desc:'Grow audience', emoji:'📱' }
-    ];
-    const AMBITION_OPTIONS = [
-      { value:'hobby', label:'Hobbyist', desc:'For fun', emoji:'😊' },
-      { value:'side-hustle', label:'Side Hustle', desc:'Earn extra', emoji:'💰' },
-      { value:'full-time', label:'Full-Time Pro', desc:'Career', emoji:'🔥' }
-    ];
-    const CONTENT_FORMAT_OPTIONS = [
-      { value:'video', label:'Video', desc:'YouTube/TikTok', emoji:'🎥' },
-      { value:'photo', label:'Photo', desc:'Instagram/Portfolio', emoji:'📸' },
-      { value:'both', label:'Both', desc:'Hybrid creator', emoji:'🎬' }
-    ];
-    const DELIVERY_CHANNEL_OPTIONS = [
-      { value:'email', label:'Email', desc:'Daily email', emoji:'📧' },
-      { value:'sms', label:'SMS', desc:'Text messages', emoji:'📱' },
-      { value:'push', label:'Push', desc:'App notifications', emoji:'🔔' }
-    ];
-    const SHOOT_FREQUENCY_OPTIONS = [
-      { value:'daily', label:'Daily', desc:'Every day', emoji:'☀️' },
-      { value:'weekly', label:'Weekly', desc:'Once a week', emoji:'📅' },
-      { value:'monthly', label:'Monthly', desc:'Few times a month', emoji:'🌙' }
-    ];
-    const BIGGEST_CHALLENGE_OPTIONS = [
-      { value:'lighting', label:'Lighting', desc:'Hard light situations', emoji:'💡' },
-      { value:'composition', label:'Composition', desc:'Framing & balance', emoji:'🖼️' },
-      { value:'editing', label:'Editing', desc:'Post-processing', emoji:'💻' },
-      { value:'confidence', label:'Confidence', desc:'Fear of shooting', emoji:'😰' }
-    ];
-    const SIX_MONTH_GOAL_OPTIONS = [
-      { value:'portfolio', label:'Build Portfolio', desc:'Strong body of work', emoji:'📚' },
-      { value:'first-client', label:'First Paying Client', desc:'Land a gig', emoji:'🤝' },
-      { value:'publish', label:'Get Published', desc:'Magazine/blog', emoji:'📰' },
-      { value:'exhibition', label:'Exhibition', desc:'Show your work', emoji:'🖼️' }
-    ];
-    const DREAM_PROJECT_OPTIONS = [
-      { value:'travel', label:'Travel Series', desc:'Document a journey', emoji:'✈️' },
-      { value:'documentary', label:'Documentary', desc:'Tell a story', emoji:'🎬' },
-      { value:'fashion', label:'Fashion Shoot', desc:'Editorial', emoji:'👗' },
-      { value:'wildlife', label:'Wildlife', desc:'Nature at its best', emoji:'🦁' }
-    ];
-
-    // ================================================================
-    // RENDER FUNCTIONS
-    // ================================================================
     let currentUser = null;
-    let currentUserData = null;
-    let operatorData = {};
+    let userDocRef = null;
 
-    function renderChips(containerId, options, selected, max, onChange) {
-      const container = document.getElementById(containerId);
-      if (!container) return;
-      container.innerHTML = '';
-      options.forEach(opt => {
-        const chip = document.createElement('span');
-        chip.className = 'chip' + (selected.includes(opt) ? ' selected' : '');
-        chip.textContent = opt;
-        chip.dataset.value = opt;
-        chip.addEventListener('click', () => {
-          const isSel = chip.classList.contains('selected');
-          const current = container.querySelectorAll('.chip.selected');
-          if (isSel) chip.classList.remove('selected');
-          else {
-            if (current.length >= max) { cdToast(`Max ${max} selections.`, 'error'); return; }
-            chip.classList.add('selected');
-          }
-          const vals = Array.from(container.querySelectorAll('.chip.selected')).map(c => c.dataset.value);
-          onChange(vals);
-          const countId = containerId.replace('Grid','Count');
-          const counter = document.getElementById(countId);
-          if (counter) counter.textContent = vals.length;
-        });
-        container.appendChild(chip);
-      });
-      const countId = containerId.replace('Grid','Count');
-      const counter = document.getElementById(countId);
-      if (counter) counter.textContent = selected.length;
+    // ---- Get (or create) user document ----
+    async function getUserData(user) {
+      const uid = user.uid;
+      const docRef = db.collection('users').doc(uid);
+      const doc = await docRef.get();
+
+      if (doc.exists) {
+        return doc.data();
+      } else {
+        const email = user.email || '';
+        const username = email ? email.split('@')[0] : 'operator_' + uid.slice(0,6);
+        const defaultData = {
+          displayName: user.displayName || '',
+          email: user.email || '',
+          username: username,
+          photoURL: user.photoURL || null,
+          role: 'Operator',
+          preferredGear: '',
+          specialties: '',
+          journeyNodes: 0,
+          snapshots: 0,
+          totalPoints: 0,
+          streak: 0,
+          referralCode: username,
+          totalReferrals: 0,
+          totalCommissionEarned: 0,
+          ambassadorTier: 'operator',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          tourCompleted: false
+        };
+        await docRef.set(defaultData);
+        return defaultData;
+      }
     }
 
-    function renderSelectCards(containerId, options, selectedValue, onChange) {
-      const container = document.getElementById(containerId);
-      if (!container) return;
-      container.innerHTML = '';
-      options.forEach(opt => {
-        const card = document.createElement('div');
-        card.className = 'select-card' + (selectedValue === opt.value ? ' selected' : '');
-        card.innerHTML = `<span class="check-mark"><i class="fas fa-check-circle"></i></span>${opt.emoji ? `<span class="emoji">${opt.emoji}</span>` : ''}<div class="label">${opt.label}</div>${opt.desc ? `<div class="desc">${opt.desc}</div>` : ''}`;
-        card.dataset.value = opt.value;
-        card.addEventListener('click', () => {
-          container.querySelectorAll('.select-card').forEach(c => c.classList.remove('selected'));
-          card.classList.add('selected');
-          onChange(card.dataset.value);
-        });
-        container.appendChild(card);
-      });
-    }
-
+    // ---- Render profile ----
     function renderProfile(data) {
-      const role = data.role || 'Operator';
-      document.getElementById('roleTag').textContent = role;
-      // Header will be updated separately via Header.setUserData
+      // Update shared components
+      if (window.Header && typeof window.Header.setUserData === 'function') {
+        window.Header.setUserData(currentUser, data);
+      }
+      if (window.BottomNav) {
+        window.BottomNav.updateBadges(data);
+        window.BottomNav.setRole(data.role);
+      }
+      if (window.Sidebar && typeof window.Sidebar.updateProfile === 'function') {
+        window.Sidebar.updateProfile(data);
+      } else {
+        console.warn('Sidebar.updateProfile not available – ensure sidebar.js is loaded.');
+      }
+
+      // Local UI
+      document.getElementById('roleTag').textContent = data.role || 'Operator';
       document.getElementById('displayNameDisplay').textContent = data.displayName || data.name || '—';
       document.getElementById('usernameDisplay').textContent = data.username || '—';
       document.getElementById('emailDisplay').textContent = data.email || '—';
-      document.getElementById('tierDisplay').textContent = data.tier === 'pro' ? 'Pro' : 'Free';
       document.getElementById('dashboardLink').href = 'operator-dashboard.html';
 
       // Avatar
@@ -759,79 +755,46 @@
         removeBtn.style.display = 'none';
       }
 
+      // Gear & Preferences
+      document.getElementById('preferredGearInput').value = data.preferredGear || '';
+      document.getElementById('specialtiesInput').value = data.specialties || '';
+
+      // Stats
+      document.getElementById('journeyNodes').textContent = data.journeyNodes || 0;
+      document.getElementById('snapshotCount').textContent = data.snapshots || 0;
+      document.getElementById('pointsDisplay').textContent = data.totalPoints || 0;
+      document.getElementById('streakDisplay').textContent = data.streak || 0;
+
       // Referral
       const refCode = data.referralCode || '';
       document.getElementById('referralLinkDisplay').textContent = `camerasdecoded.com/ref/${refCode}`;
       document.getElementById('refTotalReferrals').textContent = data.totalReferrals || 0;
-      document.getElementById('refTotalCommission').textContent = '$' + (data.totalCommissionEarned || 0).toFixed(2);
-      document.getElementById('refAmbassadorTier').textContent = data.ambassadorTier || 'signal';
-
-      // Operator data
-      const prefs = data.preferences || { brands: [], lenses: [], interests: [] };
-      const lj = data.learningJourney || {};
-      operatorData = {
-        brands: prefs.brands || [],
-        lenses: prefs.lenses || [],
-        interests: prefs.interests || [],
-        painPoints: lj.painPoints || [],
-        experience: lj.experience || '',
-        primaryGoal: lj.primaryGoal || '',
-        ambition: lj.ambition || '',
-        confidence: lj.confidence || 5,
-        contentFormat: lj.contentFormat || '',
-        deliveryChannel: lj.deliveryChannel || '',
-        shootFrequency: lj.shootFrequency || '',
-        biggestChallenge: lj.biggestChallenge || '',
-        sixMonthGoal: lj.sixMonthGoal || '',
-        dreamProject: lj.dreamProject || ''
-      };
-
-      renderChips('brandsGrid', BRAND_OPTIONS, operatorData.brands, Infinity, (vals)=>{operatorData.brands=vals;});
-      renderChips('lensesGrid', LENS_OPTIONS, operatorData.lenses, Infinity, (vals)=>{operatorData.lenses=vals;});
-      renderChips('interestsGrid', INTEREST_OPTIONS, operatorData.interests, 3, (vals)=>{operatorData.interests=vals;});
-      renderChips('painPointsGrid', PAIN_OPTIONS, operatorData.painPoints, 3, (vals)=>{operatorData.painPoints=vals;});
-
-      renderSelectCards('experienceGrid', EXPERIENCE_OPTIONS, operatorData.experience, (val)=>{operatorData.experience=val;});
-      renderSelectCards('primaryGoalGrid', PRIMARY_GOAL_OPTIONS, operatorData.primaryGoal, (val)=>{operatorData.primaryGoal=val;});
-      renderSelectCards('ambitionGrid', AMBITION_OPTIONS, operatorData.ambition, (val)=>{operatorData.ambition=val;});
-      renderSelectCards('contentFormatGrid', CONTENT_FORMAT_OPTIONS, operatorData.contentFormat, (val)=>{operatorData.contentFormat=val;});
-      renderSelectCards('deliveryChannelGrid', DELIVERY_CHANNEL_OPTIONS, operatorData.deliveryChannel, (val)=>{operatorData.deliveryChannel=val;});
-      renderSelectCards('shootFrequencyGrid', SHOOT_FREQUENCY_OPTIONS, operatorData.shootFrequency, (val)=>{operatorData.shootFrequency=val;});
-      renderSelectCards('biggestChallengeGrid', BIGGEST_CHALLENGE_OPTIONS, operatorData.biggestChallenge, (val)=>{operatorData.biggestChallenge=val;});
-      renderSelectCards('sixMonthGoalGrid', SIX_MONTH_GOAL_OPTIONS, operatorData.sixMonthGoal, (val)=>{operatorData.sixMonthGoal=val;});
-      renderSelectCards('dreamProjectGrid', DREAM_PROJECT_OPTIONS, operatorData.dreamProject, (val)=>{operatorData.dreamProject=val;});
-
-      // Confidence slider
-      const confSlider = document.getElementById('confidenceSlider');
-      const confDisplay = document.getElementById('confidenceDisplay');
-      const confTrack = document.getElementById('confidenceTrackFill');
-      confSlider.value = operatorData.confidence;
-      confDisplay.textContent = operatorData.confidence;
-      confTrack.style.width = ((operatorData.confidence - 1) / 9 * 100) + '%';
-      confSlider.oninput = function() {
-        const val = this.value;
-        confDisplay.textContent = val;
-        confTrack.style.width = ((val - 1) / 9 * 100) + '%';
-        operatorData.confidence = parseInt(val);
-      };
+      document.getElementById('refTotalCommission').textContent = '$' + (data.totalCommissionEarned || 0);
+      document.getElementById('refAmbassadorTier').textContent = data.ambassadorTier || 'operator';
 
       // Show content
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('profileContent').style.display = 'block';
 
-      setupAvatarUpload();
-      setupSaveButtons();
-      setupCopyReferral();
+      // Attach event listeners (only once)
+      if (!window._profileListenersAttached) {
+        window._profileListenersAttached = true;
+        setupAvatarUpload();
+        setupSaveGear();
+        setupCopyReferral();
+      }
     }
 
-    // ================================================================
-    // EVENT SETUP
-    // ================================================================
+    // ---- Event setup ----
     function setupAvatarUpload() {
       const uploadBtn = document.getElementById('uploadBtn');
       const removeBtn = document.getElementById('removeBtn');
       const fileInput = document.getElementById('avatarInput');
-      uploadBtn.addEventListener('click', () => fileInput.click());
+
+      uploadBtn.replaceWith(uploadBtn.cloneNode(true));
+      const newUploadBtn = document.getElementById('uploadBtn');
+      newUploadBtn.addEventListener('click', () => fileInput.click());
+
       fileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -845,142 +808,88 @@
           const json = await res.json();
           if (json.success) {
             const url = json.data.url;
-            await db.collection('users').doc(currentUser.uid).update({ photoURL: url });
+            await userDocRef.update({ photoURL: url });
             document.getElementById('avatarPreview').innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
-            removeBtn.style.display = 'inline-block';
+            document.getElementById('removeBtn').style.display = 'inline-block';
             statusEl.textContent = 'Done!';
           } else {
             throw new Error('Upload failed');
           }
         } catch (err) {
-          console.error(err);
           statusEl.textContent = 'Error uploading';
           cdToast('Upload failed: ' + err.message, 'error');
         }
       });
+
       removeBtn.addEventListener('click', async () => {
-        await db.collection('users').doc(currentUser.uid).update({ photoURL: null });
+        await userDocRef.update({ photoURL: null });
         document.getElementById('avatarPreview').innerHTML = '<i class="fas fa-user" style="font-size:32px;color:#555;"></i>';
-        removeBtn.style.display = 'none';
+        document.getElementById('removeBtn').style.display = 'none';
         cdToast('Photo removed');
       });
     }
 
-    function setupSaveButtons() {
-      document.getElementById('savePrefsBtn').addEventListener('click', async () => {
+    function setupSaveGear() {
+      const btn = document.getElementById('saveGearBtn');
+      btn.replaceWith(btn.cloneNode(true));
+      document.getElementById('saveGearBtn').addEventListener('click', async () => {
+        const preferredGear = document.getElementById('preferredGearInput').value.trim();
+        const specialties = document.getElementById('specialtiesInput').value.trim();
         try {
-          await db.collection('users').doc(currentUser.uid).update({
-            'preferences.brands': operatorData.brands,
-            'preferences.lenses': operatorData.lenses,
-            'preferences.interests': operatorData.interests,
+          await userDocRef.update({
+            preferredGear,
+            specialties,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
-          cdToast('Gear saved!');
-        } catch (err) { cdToast('Error: ' + err.message, 'error'); }
-      });
-
-      document.getElementById('saveLearningBtn').addEventListener('click', async () => {
-        try {
-          await db.collection('users').doc(currentUser.uid).update({
-            'learningJourney.experience': operatorData.experience,
-            'learningJourney.primaryGoal': operatorData.primaryGoal,
-            'learningJourney.ambition': operatorData.ambition,
-            'learningJourney.confidence': operatorData.confidence,
-            'learningJourney.painPoints': operatorData.painPoints,
-            'learningJourney.contentFormat': operatorData.contentFormat,
-            'learningJourney.deliveryChannel': operatorData.deliveryChannel,
-            'learningJourney.shootFrequency': operatorData.shootFrequency,
-            'learningJourney.biggestChallenge': operatorData.biggestChallenge,
-            'learningJourney.sixMonthGoal': operatorData.sixMonthGoal,
-            'learningJourney.dreamProject': operatorData.dreamProject,
-            tourCompleted: true,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-          cdToast('Learning journey saved!');
+          cdToast('Preferences saved!');
         } catch (err) { cdToast('Error: ' + err.message, 'error'); }
       });
     }
 
     function setupCopyReferral() {
+      const btn = document.getElementById('copyRefBtn');
+      btn.replaceWith(btn.cloneNode(true));
       document.getElementById('copyRefBtn').addEventListener('click', () => {
         const link = document.getElementById('referralLinkDisplay').textContent;
         navigator.clipboard.writeText(link).then(() => cdToast('Copied!'));
       });
     }
 
-    // ================================================================
-    // AUTH LISTENER
-    // ================================================================
+    // ---- Auth listener ----
     auth.onAuthStateChanged(async (user) => {
       if (!user) { window.location.href = 'login.html'; return; }
       currentUser = user;
+      userDocRef = db.collection('users').doc(user.uid);
+
       try {
-        const uid = user.uid;
-        const docRef = db.collection('users').doc(uid);
-        const doc = await docRef.get();
-        if (!doc.exists) {
-          const email = user.email || '';
-          const username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
-          const data = {
-            uid, email, displayName: user.displayName || '', username,
-            role:'Operator', tier:'free', billingInterval:'monthly',
-            preferences:{ brands:[], lenses:[], interests:[] },
-            learningJourney:{},
-            totalPoints:0, level:1, badgesEarned:[],
-            dailyChallengeStreak:0, lastChallengeDate:null, dailyChallengesCompleted:[],
-            savedProtocols:[], savedCards:[], savedBlogs:[], savedPodcasts:[], savedCommunityPosts:[],
-            referralCode:username, totalReferrals:0, totalCommissionEarned:0, ambassadorTier:'signal',
-            aiUsage:{ total:0, prompt:0, snapshot:0, ideas:0, critique:0 },
-            quizStreak:0, quizLastScore:null,
-            createdAt:firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-            tourCompleted:false,
-            bonusPoints:0
-          };
-          await docRef.set(data);
-        }
-
-        // Real‑time listener
-        db.collection('users').doc(user.uid).onSnapshot((doc) => {
-          if (doc.exists) {
-            const userData = doc.data();
-            renderProfile(userData);
-
-            // ===== UPDATE GLOBAL HEADER & BOTTOM NAV =====
-            if (window.Header && typeof window.Header.setUserData === 'function') {
-              window.Header.setUserData(user, userData);
-            }
-            if (window.BottomNav && typeof window.BottomNav.updateBadges === 'function') {
-              window.BottomNav.updateBadges(userData);
-            }
-          }
-        }, (err) => {
-          console.error('Profile listener error:', err);
-          document.getElementById('loadingState').innerHTML = `<p style="color:#ff4a4a;">Error loading profile: ${err.message}</p>`;
-        });
+        const data = await getUserData(user);
+        renderProfile(data);
       } catch (err) {
-        console.error('Error ensuring user doc:', err);
-        document.getElementById('loadingState').innerHTML = `<p style="color:#ff4a4a;">Error initializing: ${err.message}</p>`;
+        console.error('Error loading profile:', err);
+        document.getElementById('loadingState').innerHTML = `<p style="color:#ff4a4a;">Error: ${err.message}</p>`;
       }
+
+      userDocRef.onSnapshot((doc) => {
+        if (doc.exists) {
+          renderProfile(doc.data());
+        }
+      }, (err) => {
+        console.warn('Profile listener error:', err);
+      });
     });
 
-    // ================================================================
-    // CART UI (still local – but header now handles its own cart badge)
-    // ================================================================
-    // The header's cart badge is updated by Header.setUserData, but we keep
-    // this for any page‑specific cart interactions (if needed).
-    // We no longer need to update the header's cart count manually;
-    // the header will read from localStorage on its own.
-    // We keep this function in case of storage events, but it's optional.
-    // We'll just leave it for compatibility.
+    // ---- Cart UI ----
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
     function updateCartUI() {
-      // The header now handles this internally via its own listener.
-      // We can keep this for any other UI elements on the page.
-      // No action needed.
+      const cart = getCart();
+      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+      const countEl = document.getElementById('cartHeaderCount');
+      const labelEl = document.getElementById('cartHeaderLabel');
+      if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
+      if (labelEl) labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart';
     }
-    // Optionally listen for storage changes if any other UI needs update.
     window.addEventListener('storage', updateCartUI);
+    document.addEventListener('DOMContentLoaded', updateCartUI);
   </script>
 </body>
 </html>
