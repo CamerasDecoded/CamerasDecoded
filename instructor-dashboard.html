@@ -445,7 +445,7 @@
       </div>
       <div class="bento-card span-2">
         <div class="card-title"><i class="fas fa-robot"></i> AI Tool Usage (students)</div>
-        <div class="ai-usage-grid" id="aiUsageGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+        <div class="ai-usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
           <div class="ai-item" style="font-size:13px; color:var(--text-muted); display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04);"><span>Prompt</span> <strong id="aiPrompt">0</strong></div>
           <div class="ai-item" style="font-size:13px; color:var(--text-muted); display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04);"><span>Snapshot</span> <strong id="aiSnapshot">0</strong></div>
           <div class="ai-item" style="font-size:13px; color:var(--text-muted); display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04);"><span>Ideas</span> <strong id="aiIdeas">0</strong></div>
@@ -477,7 +477,7 @@
 
   <script>
     // ================================================================
-    // INSTRUCTOR DASHBOARD – STANDARDISED PATTERN
+    // INSTRUCTOR DASHBOARD – STANDARDISED PATTERN (with debugging)
     // ================================================================
 
     function cdToast(msg, type) {
@@ -498,7 +498,7 @@
       auth.signOut().then(() => window.location.href = 'login.html').catch(() => window.location.href = 'login.html');
     };
 
-    // ===== PARTICLES (same as admin) =====
+    // ===== PARTICLES =====
     (function() {
       const canvas = document.getElementById('particles');
       const ctx = canvas.getContext('2d');
@@ -573,11 +573,10 @@
       const today = new Date(); today.setHours(0,0,0,0);
       let activeToday = 0;
       let topPerformer = { name: null, points: 0 };
-      let courseEnrollees = {}; // courseId -> count
+      let courseEnrollees = {};
 
       usersSnap.forEach(doc => {
         const u = doc.data();
-        // Check if this user is assigned to this instructor
         if (u.instructorId !== instructorId) return;
 
         totalStudents++;
@@ -602,7 +601,6 @@
           topPerformer.name = u.displayName || u.username || doc.id;
         }
 
-        // Count enrollees per course (assuming u.courses is an array)
         if (u.courses && Array.isArray(u.courses)) {
           u.courses.forEach(c => {
             courseEnrollees[c] = (courseEnrollees[c] || 0) + 1;
@@ -612,12 +610,11 @@
 
       const avgEngagement = totalStudents > 0 ? Math.round((activeToday / totalStudents) * 100) : 0;
 
-      // Find most popular course
       let topCourse = { name: null, count: 0 };
       for (const [courseId, count] of Object.entries(courseEnrollees)) {
         if (count > topCourse.count) {
           topCourse.count = count;
-          topCourse.name = courseId; // Could map to a course name from another collection
+          topCourse.name = courseId;
         }
       }
 
@@ -782,42 +779,80 @@
     };
 
     // ================================================================
-    // AUTH + RENDER
+    // AUTH + RENDER — HARDENED WITH DEBUG LOGGING
     // ================================================================
     let currentUser = null;
     let instructorData = null;
 
     auth.onAuthStateChanged(async (user) => {
-      if (!user) { window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href); return; }
+      if (!user) {
+        console.warn('🔴 No user logged in — redirecting to login.');
+        window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
+        return;
+      }
       currentUser = user;
+      console.log('✅ User authenticated:', user.uid);
 
       try {
         const doc = await db.collection('users').doc(user.uid).get();
-        if (!doc.exists || doc.data().role !== 'instructor') {
+        if (!doc.exists) {
+          console.error('❌ User document does not exist.');
+          cdToast('Account error. Please contact support.', 'error');
+          return;
+        }
+
+        const data = doc.data();
+        if (data.role !== 'instructor') {
+          console.warn('⛔ Role is not "instructor" — redirecting.');
           cdToast('Access denied. Instructor only.', 'error');
           setTimeout(() => { window.location.href = 'operator-dashboard.html'; }, 1500);
           return;
         }
 
-        instructorData = doc.data();
+        instructorData = data;
+        console.log('📦 Instructor data loaded:', instructorData);
 
-        // Update shared components
+        // --- Update Header ---
         if (window.Header && typeof window.Header.setUserData === 'function') {
-          window.Header.setUserData(user, instructorData);
+          console.log('📡 Calling Header.setUserData...');
+          try {
+            window.Header.setUserData(user, instructorData);
+            console.log('✅ Header updated successfully.');
+          } catch (e) {
+            console.error('❌ Header.setUserData threw an error:', e);
+          }
+        } else {
+          console.error('❌ window.Header is missing or does not have setUserData. Did header.js load?');
+          // Try a fallback: maybe the header just needs a nudge
+          if (window.Header && typeof window.Header.update === 'function') {
+            window.Header.update(user, instructorData);
+          }
         }
+
+        // --- Update Bottom Nav ---
         if (window.BottomNav) {
-          window.BottomNav.updateBadges(instructorData);
-          window.BottomNav.setRole(instructorData.role);
+          if (typeof window.BottomNav.updateBadges === 'function') {
+            window.BottomNav.updateBadges(instructorData);
+          }
+          if (typeof window.BottomNav.setRole === 'function') {
+            window.BottomNav.setRole(instructorData.role);
+          }
+          console.log('✅ BottomNav updated.');
         }
+
+        // --- Update Sidebar ---
         if (window.Sidebar && typeof window.Sidebar.updateProfile === 'function') {
           window.Sidebar.updateProfile(instructorData);
+          console.log('✅ Sidebar updated.');
+        } else {
+          console.warn('⚠️ Sidebar.updateProfile not available.');
         }
 
-        // Load stats with instructor's UID as filter
+        // Load stats
         loadStats(false, user.uid);
 
       } catch (err) {
-        console.error('Auth check error:', err);
+        console.error('🔥 Auth check error:', err);
         cdToast('Error verifying instructor role', 'error');
       }
     });
