@@ -750,7 +750,7 @@
   <!-- ===== BOTTOM NAV CONTAINER – data-role="operator" ===== -->
   <div id="bottomNavContainer" data-role="operator"></div>
 
-  <!-- ===== PAGE-SPECIFIC SCRIPT (with explicit component updates) ===== -->
+  <!-- ===== PAGE-SPECIFIC SCRIPT ===== -->
   <script>
     // ============================================================
     // INDEX.HTML – PAGE-SPECIFIC SCRIPTS + COMPONENT SYNC
@@ -973,6 +973,27 @@
       }
     }
 
+    // Force sidebar injection (in case sidebar.js didn't auto-inject)
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.Sidebar && typeof window.Sidebar.inject === 'function') {
+        // Only inject if sidebar not already present
+        if (!document.getElementById('sidebar')) {
+          window.Sidebar.inject();
+        }
+      }
+      // Set up toggle manually if sidebar.js didn't
+      const toggleBtn = document.getElementById('floatingToggle');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const sidebar = document.getElementById('sidebar');
+          if (sidebar) {
+            sidebar.classList.toggle('open');
+          }
+        });
+      }
+    });
+
     // Listen to auth changes
     auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -982,7 +1003,7 @@
             const data = doc.data();
             updateComponents(user, data);
           } else {
-            // Create default doc if needed (quick)
+            // Create default doc if needed
             const email = user.email || '';
             const username = email ? email.split('@')[0] : 'user' + user.uid.slice(0,6);
             const defaultData = {
@@ -1010,15 +1031,7 @@
       }
     });
 
-    // ---- Ensure sidebar is injected (if not auto-injected) ----
-    // sidebar.js auto-injects on DOMContentLoaded, but we can force it if needed.
-    // It should already be injected because we have the container and script loaded.
-    // If not, we can call:
-    // if (window.Sidebar && typeof window.Sidebar.inject === 'function') {
-    //   window.Sidebar.inject();
-    // }
-
-    console.log('🚀 Cameras Decoded – Homepage ready (component sync)');
+    console.log('🚀 Cameras Decoded – Homepage ready (component sync with forced injection)');
   </script>
 </body>
 </html>
