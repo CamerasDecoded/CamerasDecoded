@@ -32,7 +32,7 @@
 
   <style>
     /* ================================================================
-       ROOT – Cameras Decoded brand palette
+       ROOT
        ================================================================ */
     :root {
       --green: #8deb00;
@@ -66,6 +66,28 @@
     h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
 
     /* ================================================================
+       BRAND LOGO – top left, behind floating header
+       ================================================================ */
+    .brand-logo {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 1;
+      width: 100px;
+      height: auto;
+      pointer-events: none;
+    }
+    .brand-logo img {
+      width: 100%;
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+    }
+    @media (max-width: 600px) {
+      .brand-logo { width: 70px; top: 10px; left: 10px; }
+    }
+
+    /* ================================================================
        HIDE SIDEBAR
        ================================================================ */
     #sidebarContainer {
@@ -91,7 +113,7 @@
     }
 
     /* ================================================================
-       TOP BAR – profile, announcement, exit
+       TOP BAR
        ================================================================ */
     .top-bar {
       display: flex;
@@ -202,7 +224,7 @@
     }
 
     /* ================================================================
-       JOURNEY HEADER – points
+       JOURNEY HEADER – with image title
        ================================================================ */
     .journey-header {
       display: flex;
@@ -219,7 +241,19 @@
       gap: 8px;
       color: #fff;
     }
-    .journey-header h1 span { color: var(--green); }
+    .journey-title-img {
+      max-height: 40px;
+      width: auto;
+      display: inline-block;
+    }
+    @media (max-width: 600px) {
+      .journey-title-img { max-height: 28px; }
+    }
+    .fallback-title {
+      display: none; /* hidden by default, shown if image fails */
+      align-items: center;
+      gap: 8px;
+    }
     .journey-header .points-display {
       font-family: 'Space Mono', monospace;
       font-size: clamp(14px, 3vw, 18px);
@@ -235,7 +269,7 @@
     }
 
     /* ================================================================
-       MODULE SWITCHER – horizontal scroll
+       MODULE SWITCHER
        ================================================================ */
     .module-switcher {
       display: flex;
@@ -487,7 +521,7 @@
     .btn-step.completed-btn:hover { background: transparent; transform: none; box-shadow: none; }
 
     /* ================================================================
-       MODULE COMPLETE – celebration card
+       MODULE COMPLETE
        ================================================================ */
     .module-complete {
       background: var(--card-bg);
@@ -525,7 +559,7 @@
     }
 
     /* ================================================================
-       CYNETIS‑7 ASSISTANT – floating
+       CYNETIS‑7 ASSISTANT
        ================================================================ */
     .cynetis-assistant {
       position: fixed;
@@ -693,7 +727,12 @@
 </head>
 <body>
 
-  <!-- ===== SIDEBAR IS HIDDEN – not used ===== -->
+  <!-- ===== BRAND LOGO (fixed, behind header) ===== -->
+  <div class="brand-logo">
+    <img src="cameras-decoded-logo.png" alt="Cameras Decoded" />
+  </div>
+
+  <!-- ===== SIDEBAR IS HIDDEN ===== -->
   <div id="sidebarContainer" style="display:none;"></div>
 
   <!-- ===== MAIN CONTENT ===== -->
@@ -722,10 +761,15 @@
     </div>
 
     <!-- ============================================================
-         JOURNEY HEADER + points
+         JOURNEY HEADER – image title with fallback
          ============================================================ -->
     <div class="journey-header">
-      <h1><i class="fas fa-route" style="color:var(--green);"></i> <span>Cynetis‑7</span> Journey</h1>
+      <h1>
+        <img src="cynetis-7-journey.png" alt="Cynetis-7 Journey" class="journey-title-img" id="journeyTitleImg" />
+        <span class="fallback-title" id="fallbackTitle">
+          <i class="fas fa-route" style="color:var(--green);"></i> <span>Cynetis‑7</span> Journey
+        </span>
+      </h1>
       <div class="points-display">
         <i class="fas fa-star"></i>
         <span id="totalPointsDisplay">0</span>
@@ -733,7 +777,7 @@
     </div>
 
     <!-- ============================================================
-         MODULE SWITCHER (horizontal scroll)
+         MODULE SWITCHER
          ============================================================ -->
     <div class="module-switcher" id="moduleSwitcher">
       <!-- Rendered by JS -->
@@ -760,7 +804,7 @@
     </div>
 
     <!-- ============================================================
-         MODULE COMPLETE (hidden until triggered)
+         MODULE COMPLETE
          ============================================================ -->
     <div id="moduleComplete" style="display:none;"></div>
 
@@ -770,7 +814,7 @@
   <div id="bottomNavContainer" data-role="operator"></div>
 
   <!-- ============================================================
-       CYNETIS‑7 ASSISTANT (floating)
+       CYNETIS‑7 ASSISTANT
        ============================================================ -->
   <div class="cynetis-assistant" id="cynetisAssistant">
     <div class="cynetis-toggle" id="cynetisToggle" aria-label="Cynetis-7 Assistant">
@@ -797,7 +841,7 @@
   </div>
 
   <!-- ================================================================
-       JAVASCRIPT – Duolingo-style journey engine
+       JAVASCRIPT
        ================================================================ -->
   <script>
     // ================================================================
@@ -831,11 +875,21 @@
     const cynetisMessage = document.getElementById('cynetisMessage');
     const cynetisActions = document.getElementById('cynetisActions');
 
-    // Top bar refs
+    // Top bar
     const userDisplayName = document.getElementById('userDisplayName');
     const userEmail = document.getElementById('userEmail');
     const userAvatar = document.getElementById('userAvatar');
     const announcementText = document.getElementById('announcementText');
+
+    // Title image fallback
+    const titleImg = document.getElementById('journeyTitleImg');
+    const fallbackTitle = document.getElementById('fallbackTitle');
+    if (titleImg) {
+      titleImg.addEventListener('error', function() {
+        this.style.display = 'none';
+        if (fallbackTitle) fallbackTitle.style.display = 'inline-flex';
+      });
+    }
 
     // ================================================================
     // HELPERS
@@ -862,7 +916,7 @@
     }
 
     // ================================================================
-    // SEED DATA (one-time setup) – with error handling
+    // SEED DATA (one-time setup)
     // ================================================================
     async function seedJourneyData() {
       try {
@@ -1016,7 +1070,6 @@
           ]
         };
 
-        // Calculate total points per module
         beginnerJourney.modules.forEach(mod => {
           mod.totalPoints = mod.steps.reduce((sum, s) => sum + s.points, 0);
         });
@@ -1040,7 +1093,6 @@
         cdToast('🌱 Journey data seeded!');
       } catch (err) {
         console.warn('Seed error (permissions likely):', err.message);
-        // Fallback – we'll use local data if available
       }
     }
 
@@ -1057,7 +1109,6 @@
             if (retry.exists) {
               journeyData = retry.data();
             } else {
-              // Fallback minimal (hardcoded)
               journeyData = {
                 id: 'beginner',
                 title: 'Beginner Journey',
@@ -1089,7 +1140,6 @@
           journeyData = journeyDoc.data();
         }
 
-        // Load user progress
         if (currentUser) {
           const ujDoc = await db.collection('userJourney').doc(currentUser.uid).get();
           if (ujDoc.exists) {
@@ -1110,7 +1160,6 @@
           }
         }
 
-        // Determine first incomplete module
         if (journeyData.modules && journeyData.modules.length > 0) {
           let found = false;
           for (let i = 0; i < journeyData.modules.length; i++) {
@@ -1139,7 +1188,7 @@
     }
 
     // ================================================================
-    // UPDATE TOP BAR (profile + announcement)
+    // UPDATE TOP BAR
     // ================================================================
     function updateTopBar() {
       if (userData) {
@@ -1147,7 +1196,6 @@
         const email = userData.email || 'operator@camerasdecoded.com';
         userDisplayName.textContent = name;
         userEmail.textContent = email;
-        // Avatar
         if (userData.photoURL) {
           userAvatar.innerHTML = `<img src="${userData.photoURL}" alt="Avatar" />`;
         } else {
@@ -1157,7 +1205,6 @@
         }
       }
 
-      // Load announcement
       if (db) {
         db.collection('admin').doc('announcement').onSnapshot((doc) => {
           if (doc.exists && doc.data().active) {
@@ -1166,8 +1213,7 @@
           } else {
             announcementText.textContent = 'No active announcement';
           }
-        }, (err) => {
-          console.warn('Announcement listener error:', err);
+        }, () => {
           announcementText.textContent = 'No active announcement';
         });
       }
@@ -1483,7 +1529,7 @@
     };
 
     // ================================================================
-    // ASSISTANT LOGIC
+    // ASSISTANT
     // ================================================================
     function updateAssistantTip() {
       if (!journeyData || !userProgress) {
@@ -1625,7 +1671,7 @@
     }
 
     // ================================================================
-    // AUTH LISTENER
+    // AUTH
     // ================================================================
     function updateComponents(user, userData) {
       if (window.Header && typeof window.Header.setUserData === 'function') {
@@ -1635,7 +1681,6 @@
         window.BottomNav.updateBadges(userData);
         window.BottomNav.setRole(userData?.role || 'Operator');
       }
-      // Sidebar is hidden, so we don't update it
     }
 
     auth.onAuthStateChanged(async (user) => {
@@ -1678,7 +1723,7 @@
       }
     })();
 
-    console.log('🚀 Cameras Decoded Journey (sidebar removed, full width).');
+    console.log('🚀 Cameras Decoded Journey (with logo and custom title image).');
   </script>
 </body>
 </html>
