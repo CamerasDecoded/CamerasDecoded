@@ -1,5 +1,5 @@
 // ================================================================
-// SHARED SIDEBAR – auth‑aware (hides Dashboard/Profile/Settings/Billing/Logout for guests)
+// SHARED SIDEBAR – auth‑aware with admin support and profile update
 // ================================================================
 
 (function() {
@@ -58,7 +58,7 @@
           <a href="signup.html" class="nav-item" style="border:1px solid var(--green); border-radius:30px; justify-content:center; background:var(--green); color:#000;"><i class="fas fa-user-plus"></i> Sign Up</a>
         </div>
 
-        <!-- Admin-only -->
+        <!-- Admin-only (hidden by default) -->
         <hr class="sidebar-divider admin-only" style="display:none;">
         <div class="nav-group admin-only" style="display:none;">
           <a href="admin-dashboard.html" class="nav-item" data-page="admin-dashboard.html"><i class="fas fa-chart-pie"></i> Admin Dashboard</a>
@@ -92,22 +92,22 @@
 
     setActiveLink();
     updateAuthVisibility();
-    checkAndShowAdminLinks();
+    // Admin links will be shown after auth check
   }
 
-  // ---- Set active link (FIXED: handle profile page variants) ----
+  // ---- Set active link (supports profile variants) ----
   function setActiveLink() {
     const path = window.location.pathname.split('/').pop() || 'index.html';
     document.querySelectorAll('.sidebar-nav .nav-item').forEach(link => {
       const href = link.getAttribute('data-page');
       
-      // Exact match first
+      // Exact match
       if (href === path) {
         link.classList.add('active');
         return;
       }
       
-      // If on any profile page (profile.html, instructor-profile.html, operator-profile.html, etc),
+      // If on any profile page (profile.html, instructor-profile.html, etc),
       // highlight the profile link (profile.html)
       if (path.includes('profile.html') && href === 'profile.html') {
         link.classList.add('active');
@@ -118,7 +118,7 @@
     });
   }
 
-  // ---- Toggle visibility ----
+  // ---- Toggle visibility (public/private) ----
   function updateAuthVisibility() {
     const user = firebase.auth().currentUser;
     const privateLinks = document.getElementById('privateLinks');
@@ -139,20 +139,28 @@
     }
   }
 
+  // ---- Show/hide admin links based on role (case‑insensitive) ----
   async function checkAndShowAdminLinks() {
     try {
       const user = firebase.auth().currentUser;
       if (!user) return;
       const doc = await firebase.firestore().collection('users').doc(user.uid).get();
-      if (doc.exists && doc.data().role === 'admin') {
-        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
-        document.querySelectorAll('.admin-only .nav-item').forEach(el => el.style.display = 'flex');
+      if (doc.exists && doc.data().role) {
+        const role = doc.data().role;
+        // Check both "admin" and "Admin"
+        if (role.toLowerCase() === 'admin') {
+          document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+          document.querySelectorAll('.admin-only .nav-item').forEach(el => el.style.display = 'flex');
+        } else {
+          document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+        }
       }
     } catch (e) {
       console.warn('Admin check error:', e);
     }
   }
 
+  // ---- Load profile data from Firestore and update sidebar ----
   async function loadSidebarProfile() {
     try {
       const user = firebase.auth().currentUser;
@@ -163,10 +171,13 @@
       const doc = await firebase.firestore().collection('users').doc(user.uid).get();
       if (doc.exists) {
         const data = doc.data();
+        // Update sidebar fields
         document.getElementById('sidebarUsername').textContent = data.username || 'Operator';
         document.getElementById('sidebarEmail').textContent = data.email || '';
         const avatar = document.querySelector('.profile-avatar');
         if (data.photoURL) avatar.style.backgroundImage = `url(${data.photoURL})`;
+        // Also check admin
+        await checkAndShowAdminLinks();
       }
       updateAuthVisibility();
     } catch (e) {
@@ -174,6 +185,40 @@
     }
   }
 
+  // ---- Update profile from provided data (no Firestore fetch) ----
+  function updateProfile(data) {
+    if (!data) return;
+    const username = data.username || data.displayName || 'Operator';
+    const email = data.email || '';
+    const photoURL = data.photoURL || null;
+
+    const nameEl = document.getElementById('sidebarUsername');
+    const emailEl = document.getElementById('sidebarEmail');
+    const avatar = document.querySelector('.profile-avatar');
+
+    if (nameEl) nameEl.textContent = username;
+    if (emailEl) emailEl.textContent = email;
+    if (avatar) {
+      if (photoURL) {
+        avatar.style.backgroundImage = `url(${photoURL})`;
+      } else {
+        avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
+      }
+    }
+
+    // If the role indicates admin, show admin links
+    if (data.role && data.role.toLowerCase() === 'admin') {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+      document.querySelectorAll('.admin-only .nav-item').forEach(el => el.style.display = 'flex');
+    } else {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+    }
+
+    // Ensure private links are visible (if logged in)
+    updateAuthVisibility();
+  }
+
+  // ---- Announcement listener ----
   function loadAndListenToAnnouncement() {
     try {
       const db = firebase.firestore();
@@ -209,6 +254,7 @@
     }
   }
 
+  // ---- Logout (global) ----
   window.handleLogout = function() {
     firebase.auth().signOut().then(() => {
       window.location.href = 'login.html';
@@ -217,7 +263,7 @@
     });
   };
 
-  // ---- Toggle sidebar with hamburger (FIXED: use capture phase + stopImmediatePropagation) ----
+  // ---- Toggle sidebar with hamburger (capture phase to prevent duplicate handlers) ----
   function setupToggle() {
     document.addEventListener('click', function(e) {
       const target = e.target.closest('#floatingToggle');
@@ -243,7 +289,7 @@
         if (user) {
           loadSidebarProfile();
           loadAndListenToAnnouncement();
-          checkAndShowAdminLinks();
+          // checkAndShowAdminLinks is called inside loadSidebarProfile
         } else {
           updateAuthVisibility();
           loadAndListenToAnnouncement();
@@ -252,9 +298,11 @@
     }
   });
 
+  // ---- Public API ----
   window.Sidebar = {
     inject: injectSidebar,
     loadProfile: loadSidebarProfile,
+    updateProfile: updateProfile,        // <-- new method for direct update
     loadAnnouncement: loadAndListenToAnnouncement
   };
 })();
