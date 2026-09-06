@@ -8,7 +8,7 @@
   <!-- ===== MASTER LOADER (injects header HTML + bottom nav container, loads shared CSS & bottom-nav.js) ===== -->
   <script src="/scripts/master-loader.js"></script>
 
-  <!-- ===== SHARED COMPONENT CSS (applied to injected header & bottom nav) ===== -->
+  <!-- ===== SHARED COMPONENT CSS ===== -->
   <link rel="stylesheet" href="header.css" />
   <link rel="stylesheet" href="bottom-nav.css" />
 
@@ -24,10 +24,9 @@
   <script src="header.js"></script>
   <script src="sidebar.js"></script>
 
-  <!-- ===== PAGE-SPECIFIC STYLES ===== -->
   <style>
     /* ============================================================
-       PARTNER PROFILE – ALL STYLES (same as original)
+       PARTNER PROFILE – ALL STYLES (unchanged)
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -72,9 +71,6 @@
       z-index: 1000;
       width: 280px;
     }
-    /* The injected sidebar uses the same classes as the hardcoded one,
-       so the styles below apply. We keep them here to ensure
-       consistent appearance. */
     .sidebar {
       width: 100%;
       height: 100%;
@@ -661,10 +657,9 @@
   <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
   <script>
     // ================================================================
-    // PARTNER PROFILE – STANDARDISED PATTERN
+    // PARTNER PROFILE – STANDARDISED PATTERN (same as partner-dashboard)
     // ================================================================
 
-    // ---- Toast fallback ----
     if (typeof cdToast === 'undefined') {
       window.cdToast = function(msg, type) { alert(msg); };
     }
@@ -675,22 +670,53 @@
 
     // ---- Logout ----
     window.handleLogout = function() {
-      auth.signOut().then(() => {
-        window.location.href = 'login.html';
-      }).catch(() => {
-        window.location.href = 'login.html';
-      });
+      auth.signOut().then(() => window.location.href = 'login.html').catch(() => window.location.href = 'login.html');
     };
 
-    // ---- IMGBB key ----
     const IMGBB_API_KEY = '0b9201a8e4212a124013c23eb559936a';
-
     let currentUser = null;
     let userDocRef = null;
 
-    // ================================================================
-    // RENDER PROFILE
-    // ================================================================
+    // ---- Get (or create) user document ----
+    async function getUserData(user) {
+      const uid = user.uid;
+      const docRef = db.collection('users').doc(uid);
+      const doc = await docRef.get();
+
+      if (doc.exists) {
+        return doc.data();
+      } else {
+        // Default partner data
+        const email = user.email || '';
+        const username = email ? email.split('@')[0] : 'partner_' + uid.slice(0,6);
+        const defaultData = {
+          displayName: user.displayName || '',
+          email: user.email || '',
+          username: username,
+          photoURL: user.photoURL || null,
+          role: 'Partner',
+          partnerTier: 'signal',
+          billingInterval: 'monthly',
+          companyName: '',
+          partnerId: 'PART-' + Math.random().toString(36).substring(2,8).toUpperCase(),
+          clicks: 0,
+          downloads: 0,
+          agreements: 0,
+          referredStudents: 0,
+          referralCode: username,
+          totalReferrals: 0,
+          totalCommissionEarned: 0,
+          ambassadorTier: 'partner',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          tourCompleted: false
+        };
+        await docRef.set(defaultData);
+        return defaultData;
+      }
+    }
+
+    // ---- Render profile ----
     function renderProfile(data) {
       // Update shared components
       if (window.Header && typeof window.Header.setUserData === 'function') {
@@ -706,7 +732,7 @@
         console.warn('Sidebar.updateProfile not available – ensure sidebar.js is loaded.');
       }
 
-      // Local UI updates
+      // Local UI
       const role = data.role || 'Partner';
       document.getElementById('roleTag').textContent = role;
       document.getElementById('displayNameDisplay').textContent = data.displayName || data.name || '—';
@@ -731,7 +757,7 @@
       document.getElementById('partnerTierSelect').value = data.partnerTier || 'signal';
       document.getElementById('billingIntervalSelect').value = data.billingInterval || 'monthly';
 
-      // Partner stats
+      // Stats
       document.getElementById('partnerIdDisplay').textContent = data.partnerId || '—';
       document.getElementById('clicksDisplay').textContent = data.clicks || 0;
       document.getElementById('downloadsDisplay').textContent = data.downloads || 0;
@@ -745,22 +771,30 @@
       document.getElementById('refTotalCommission').textContent = '$' + (data.totalCommissionEarned || 0);
       document.getElementById('refAmbassadorTier').textContent = data.ambassadorTier || 'partner';
 
+      // Show content
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('profileContent').style.display = 'block';
 
-      setupAvatarUpload();
-      setupSavePartner();
-      setupCopyReferral();
+      // Attach event listeners (only once)
+      if (!window._profileListenersAttached) {
+        window._profileListenersAttached = true;
+        setupAvatarUpload();
+        setupSavePartner();
+        setupCopyReferral();
+      }
     }
 
-    // ================================================================
-    // EVENT SETUP
-    // ================================================================
+    // ---- Event setup (only once) ----
     function setupAvatarUpload() {
       const uploadBtn = document.getElementById('uploadBtn');
       const removeBtn = document.getElementById('removeBtn');
       const fileInput = document.getElementById('avatarInput');
-      uploadBtn.addEventListener('click', () => fileInput.click());
+
+      // Remove old listeners to avoid duplicates
+      uploadBtn.replaceWith(uploadBtn.cloneNode(true));
+      const newUploadBtn = document.getElementById('uploadBtn');
+      newUploadBtn.addEventListener('click', () => fileInput.click());
+
       fileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -775,15 +809,11 @@
           if (json.success) {
             const url = json.data.url;
             await userDocRef.update({ photoURL: url });
-            // Update sidebar avatar too (Sidebar.updateProfile will be called on next snapshot)
-            document.getElementById('avatarPreview').innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
-            removeBtn.style.display = 'inline-block';
+            // Update preview
+            const preview = document.getElementById('avatarPreview');
+            preview.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+            document.getElementById('removeBtn').style.display = 'inline-block';
             statusEl.textContent = 'Done!';
-            // Force sidebar update
-            if (window.Sidebar && typeof window.Sidebar.updateProfile === 'function') {
-              // We'll re-fetch data from snapshot, but we can also pass updated data
-              // The snapshot will trigger again.
-            }
           } else {
             throw new Error('Upload failed');
           }
@@ -792,15 +822,18 @@
           cdToast('Upload failed: ' + err.message, 'error');
         }
       });
+
       removeBtn.addEventListener('click', async () => {
         await userDocRef.update({ photoURL: null });
         document.getElementById('avatarPreview').innerHTML = '<i class="fas fa-user" style="font-size:32px;color:#555;"></i>';
-        removeBtn.style.display = 'none';
+        document.getElementById('removeBtn').style.display = 'none';
         cdToast('Photo removed');
       });
     }
 
     function setupSavePartner() {
+      const btn = document.getElementById('savePartnerBtn');
+      btn.replaceWith(btn.cloneNode(true));
       document.getElementById('savePartnerBtn').addEventListener('click', async () => {
         const companyName = document.getElementById('companyNameInput').value.trim();
         const partnerTier = document.getElementById('partnerTierSelect').value;
@@ -818,55 +851,40 @@
     }
 
     function setupCopyReferral() {
+      const btn = document.getElementById('copyRefBtn');
+      btn.replaceWith(btn.cloneNode(true));
       document.getElementById('copyRefBtn').addEventListener('click', () => {
         const link = document.getElementById('referralLinkDisplay').textContent;
         navigator.clipboard.writeText(link).then(() => cdToast('Copied!'));
       });
     }
 
-    // ================================================================
-    // AUTH LISTENER – ensure user doc, render profile
-    // ================================================================
-    auth.onAuthStateChanged((user) => {
+    // ---- Auth listener ----
+    auth.onAuthStateChanged(async (user) => {
       if (!user) { window.location.href = 'login.html'; return; }
       currentUser = user;
       userDocRef = db.collection('users').doc(user.uid);
 
+      // Load data once
+      try {
+        const data = await getUserData(user);
+        renderProfile(data);
+      } catch (err) {
+        console.error('Error loading profile:', err);
+        document.getElementById('loadingState').innerHTML = `<p style="color:#ff4a4a;">Error: ${err.message}</p>`;
+      }
+
+      // Set up real-time listener for updates (optional, but good for consistency)
       userDocRef.onSnapshot((doc) => {
-        if (!doc.exists) {
-          const email = user.email || '';
-          const username = email ? email.split('@')[0] : 'partner_' + user.uid.slice(0,6);
-          const defaultData = {
-            displayName: user.displayName || '',
-            email: user.email || '',
-            username: username,
-            photoURL: user.photoURL || null,
-            role: 'Partner',
-            partnerTier: 'signal',
-            billingInterval: 'monthly',
-            companyName: '',
-            partnerId: 'PART-' + Math.random().toString(36).substring(2,8).toUpperCase(),
-            clicks: 0, downloads: 0, agreements: 0, referredStudents: 0,
-            referralCode: '',
-            totalReferrals: 0, totalCommissionEarned: 0,
-            ambassadorTier: 'partner',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            tourCompleted: false
-          };
-          userDocRef.set(defaultData, { merge: true }).catch(console.error);
-          return;
+        if (doc.exists) {
+          renderProfile(doc.data());
         }
-        renderProfile(doc.data());
       }, (err) => {
-        console.error('Profile listener error:', err);
-        document.getElementById('loadingState').innerHTML = `<p style="color:#ff4a4a;">Error loading profile: ${err.message}</p>`;
+        console.warn('Profile listener error:', err);
       });
     });
 
-    // ================================================================
-    // CART UI – updated by Header.setUserData, but we keep a fallback
-    // ================================================================
+    // ---- Cart UI (fallback) ----
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
     function updateCartUI() {
       const cart = getCart();
@@ -876,9 +894,7 @@
       if (countEl) { countEl.textContent = totalItems; countEl.style.display = totalItems > 0 ? 'inline-block' : 'none'; }
       if (labelEl) labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart';
     }
-    // Header will update cart automatically via setUserData, but we also listen to storage events
     window.addEventListener('storage', updateCartUI);
-    // Also update after DOM ready
     document.addEventListener('DOMContentLoaded', updateCartUI);
   </script>
 </body>
