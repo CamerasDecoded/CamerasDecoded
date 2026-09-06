@@ -86,33 +86,17 @@
     document.body.appendChild(script);
   }
 
-  function loadCriticalScripts() {
-    const scripts = [
-      'firebase-init.js',
-      'user-state.js',
-      'header.js',
-      'sidebar.js'
-    ];
-    
-    scripts.forEach(src => {
-      if (document.querySelector(`script[src*="${src}"]`)) return;
-      const script = document.createElement('script');
-      script.src = src;
-      document.body.appendChild(script);
-    });
-  }
-
   function init() {
     loadFontAwesome();
     loadGoogleFonts();
     loadSharedCSS();
     loadParticles();
-    injectFloatingHeader();
+    injectFloatingHeader();   // this injects the new header
     injectBottomNavContainer();
     loadBottomNav();
-    loadCriticalScripts();  // ← ADD THIS LINE HERE
     console.log('✅ Master loader complete.');
   }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
