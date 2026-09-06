@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Partner Dashboard — Cameras Decoded</title>
-  <meta name="description" content="Analytics, agreements, and resources for Cameras Decoded partners.">
+  <meta name="description" content="Analytics, agreements, and resources for Cameras Decoded partners." />
 
-  <!-- ===== MASTER LOADER (Fonts, CSS) ===== -->
+  <!-- ===== MASTER LOADER (injects header HTML + bottom nav container, loads shared CSS & bottom-nav.js) ===== -->
   <script src="/scripts/master-loader.js"></script>
+
+  <!-- ===== SHARED COMPONENT CSS (applied to injected header & bottom nav) ===== -->
+  <link rel="stylesheet" href="header.css" />
+  <link rel="stylesheet" href="bottom-nav.css" />
 
   <!-- ===== FIREBASE SDKs ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -16,6 +20,10 @@
 
   <!-- ===== FIREBASE INIT ===== -->
   <script src="/scripts/firebase-init.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS (header logic, sidebar injection & toggle) ===== -->
+  <script src="header.js"></script>
+  <script src="sidebar.js"></script>
 
   <style>
     /* ============================================================
@@ -70,7 +78,7 @@
     }
 
     /* ============================================================
-       SIDEBAR – HARDCODED
+       SIDEBAR CONTAINER – injected by sidebar.js
        ============================================================ */
     #sidebarContainer {
       position: fixed;
@@ -80,6 +88,9 @@
       z-index: 1000;
       width: 280px;
     }
+    /* The injected sidebar uses the same classes as the hardcoded one,
+       so the styles below apply. We keep them here to ensure
+       consistent appearance. */
     .sidebar {
       width: 100%;
       height: 100%;
@@ -248,56 +259,6 @@
     }
     @media (max-width: 1024px) {
       .main-content { margin-left: 0; padding: 100px 20px 20px; }
-    }
-
-    /* ===== FLOATING HEADER ===== */
-    .floating-header {
-      position:fixed; top:12px; left:292px; right:12px; z-index:99;
-      display:flex; align-items:center; justify-content:space-between; gap:8px;
-      padding:6px 14px; background:rgba(0,0,0,0.4); backdrop-filter:blur(16px);
-      border:1px solid rgba(141,235,0,0.2); border-radius:30px; min-height:40px;
-      transition:background 0.3s ease, box-shadow 0.3s ease;
-    }
-    .floating-header:hover { background:rgba(0,0,0,0.6); box-shadow:0 4px 30px rgba(0,0,0,0.3); }
-    .floating-left-group, .floating-right-group { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-    .floating-center-group { display:flex; align-items:center; gap:8px; flex:1; justify-content:center; }
-    .floating-home-icon { font-size:15px; color:var(--green); transition:transform 0.3s var(--transition-smooth), color 0.3s ease; }
-    .floating-home-icon:hover { color:#a0f520; transform:scale(1.1); }
-    .floating-toggle { display:none; background:none; border:none; color:var(--green); font-size:20px; cursor:pointer; transition:transform 0.3s ease; }
-    .floating-toggle:hover { transform:scale(1.1); }
-    .logout-btn {
-      background:transparent; border:1px solid var(--green); color:var(--green);
-      padding:2px 10px; border-radius:20px; cursor:pointer;
-      font-family:'Space Mono',monospace; font-size:10px;
-      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease;
-      min-height:22px; line-height:1.2;
-    }
-    .logout-btn:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform:scale(1.02); }
-    .logout-btn:active { transform:scale(0.95); }
-    .role-tier-badge {
-      background:rgba(10,10,10,0.9); border:1px solid rgba(141,235,0,0.3);
-      border-radius:14px; padding:2px 12px; font-size:10px; color:var(--green);
-      display:inline-flex; align-items:center; gap:4px; white-space:nowrap;
-      transition:border-color 0.3s ease;
-    }
-    .role-tier-badge:hover { border-color:var(--green); box-shadow:0 0 20px rgba(141,235,0,0.1); }
-    .glow-role { font-weight:700; text-shadow:0 0 8px #8deb00, 0 0 12px #8deb00; }
-    .cart-header-link {
-      display:inline-flex; align-items:center; gap:4px;
-      border:1px solid var(--green); border-radius:20px; padding:2px 10px;
-      color:var(--green); font-family:'Space Mono',monospace; font-size:10px;
-      transition: all 0.25s var(--transition-smooth), box-shadow 0.3s ease;
-      text-decoration:none; min-height:22px; line-height:1.2;
-    }
-    .cart-header-link:hover { background:rgba(141,235,0,0.1); box-shadow:0 0 20px rgba(141,235,0,0.2); transform:scale(1.02); }
-    .cart-count-badge { background:var(--green); color:#000; border-radius:50%; padding:0 4px; font-size:8px; font-weight:700; display:inline-block; min-width:14px; text-align:center; line-height:14px; }
-
-    @media (max-width: 1024px) {
-      .floating-header { left:10px; right:10px; top:70px; padding:6px 12px; }
-      .floating-toggle { display:block !important; }
-    }
-    @media (min-width: 1025px) {
-      .floating-toggle { display:none !important; }
     }
 
     /* ===== DASHBOARD SPECIFIC STYLES ===== */
@@ -543,84 +504,8 @@
 </head>
 <body>
 
-  <!-- ===== FLOATING HEADER ===== -->
-  <div class="floating-header">
-    <div class="floating-left-group">
-      <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
-      <span id="roleTierBadge" class="role-tier-badge" style="display:none;">
-        <span class="glow-role" id="headerRole">Partner</span> · <span id="headerTier" class="tier-text">Signal</span>
-      </span>
-    </div>
-    <div class="floating-center-group"></div>
-    <div class="floating-right-group">
-      <a href="cart.html" class="cart-header-link" id="cartHeaderLink">
-        <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
-        <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
-      </a>
-      <button class="logout-btn" onclick="handleLogout()">Logout</button>
-      <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
-    </div>
-  </div>
-
-  <!-- ===== SIDEBAR ===== -->
-  <div id="sidebarContainer">
-    <aside class="sidebar" id="sidebar">
-      <div class="logo"><a href="https://camerasdecoded.com"><img src="cameras-decoded-logo.png" alt="Cameras Decoded" /></a></div>
-      <div class="sidebar-profile">
-        <div class="profile-avatar" id="profileAvatar" style="background-image:url('cameras-decoded-logo.png');"></div>
-        <div class="profile-name" id="sidebarUsername">Partner</div>
-        <div class="profile-email" id="sidebarEmail">loading...</div>
-      </div>
-      <nav class="sidebar-nav">
-        <div class="nav-group">
-          <a href="partner-dashboard.html" class="nav-item active"><i class="fas fa-chart-simple"></i> Dashboard</a>
-          <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-        </div>
-        <hr class="sidebar-divider">
-        <div class="nav-group">
-          <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-          <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-          <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-          <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-        </div>
-        <hr class="sidebar-divider">
-        <div class="nav-group">
-          <a href="journey.html" class="nav-item"><i class="fas fa-route"></i> Journey</a>
-          <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-          <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-          <a href="snapshot-library.html" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-          <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-        </div>
-        <hr class="sidebar-divider">
-        <div class="nav-group">
-          <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-          <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-          <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-        </div>
-        <hr class="sidebar-divider">
-
-        <!-- PRIVATE (shown when logged in) -->
-        <div class="nav-group private-links" id="privateLinks">
-          <a href="profile.html" class="nav-item"><i class="fas fa-id-card"></i> Profile</a>
-          <a href="#" class="nav-item"><i class="fas fa-cog"></i> Settings</a>
-          <a href="#" class="nav-item"><i class="fas fa-credit-card"></i> Billing</a>
-          <a href="#" class="nav-item" onclick="handleLogout(); return false;" style="color:#ff4a4a;"><i class="fas fa-sign-out-alt"></i> Logout</a>
-        </div>
-
-        <!-- AUTH CTA (shown when logged out) -->
-        <div class="nav-group auth-cta" id="authCta" style="display:flex; flex-direction:column; gap:8px; padding-top:4px;">
-          <a href="login.html" class="nav-item"><i class="fas fa-sign-in-alt"></i> Log in</a>
-          <a href="signup.html" class="nav-item signup"><i class="fas fa-user-plus"></i> Sign Up</a>
-        </div>
-      </nav>
-
-      <div class="sidebar-notification" id="sidebarNotification">
-        <div class="notif-header"><i class="fas fa-bullhorn"></i><span>Announcement</span></div>
-        <div class="notif-message empty" id="sidebarAnnouncement">No active announcement</div>
-        <div class="notif-timestamp" id="sidebarAnnouncementTimestamp"></div>
-      </div>
-    </aside>
-  </div>
+  <!-- ===== SIDEBAR INJECTION POINT (sidebar.js will fill this) ===== -->
+  <div id="sidebarContainer"></div>
 
   <!-- ===== MAIN CONTENT ===== -->
   <main class="main-content">
@@ -777,19 +662,19 @@
     </div><!-- /dashboardContent -->
   </main>
 
-  <!-- ===== BOTTOM NAV ===== -->
+  <!-- ===== BOTTOM NAV CONTAINER (master-loader injects the nav) ===== -->
   <div id="bottomNavContainer"></div>
-  <script src="bottom-nav.js"></script>
 
-  <!-- ===== COMMISSION CARD ===== -->
+  <!-- ===== COMMISSION CARD (optional) ===== -->
   <script src="/scripts/commission-card.js"></script>
 
-  <!-- ===== PAGE-SPECIFIC JAVASCRIPT – REDIRECT GUESTS + FALLBACK FOR USERS ===== -->
+  <!-- ===== PAGE-SPECIFIC JAVASCRIPT – AUTH, RENDERING, COMMISSIONS ===== -->
   <script>
     // ================================================================
-    // PARTNER DASHBOARD – FINAL LOGIC
+    // PARTNER DASHBOARD – STANDARDISED PATTERN
     // ================================================================
 
+    // ---- Toast fallback ----
     if (typeof cdToast === 'undefined') {
       window.cdToast = function(msg, type) { alert(msg); };
     }
@@ -798,101 +683,72 @@
     var auth = window.auth || firebase.auth();
     var db = window.db || firebase.firestore();
 
-    // ---- ensureUserDoc – NO FIRESTORE CALLS, just return default data ----
-    async function ensureUserDoc(user) {
+    // ---- Fetch (or create) user document from Firestore ----
+    async function getUserData(user) {
       var uid = user.uid;
-      var email = user.email || '';
-      var username = email ? email.split('@')[0] : 'user' + uid.slice(0,6);
-      return {
-        uid: uid,
-        email: email,
-        displayName: user.displayName || '',
-        username: username,
-        role: 'Partner',
-        partnerTier: 'signal',
-        billingInterval: 'monthly',
-        companyName: '',
-        partnerId: 'PART-' + uid.slice(0,6).toUpperCase(),
-        clicks: 0,
-        downloads: 0,
-        agreements: 0,
-        referredStudents: 0,
-        referralCode: username,
-        totalReferrals: 0,
-        totalCommissionEarned: 0,
-        ambassadorTier: 'partner',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        tourCompleted: false
-      };
-    }
+      var docRef = db.collection('users').doc(uid);
+      var doc = await docRef.get();
 
-    // ---- Render functions ----
-    function renderProfile(u) {
-      var sidebarUsername = document.getElementById('sidebarUsername');
-      if (sidebarUsername) sidebarUsername.textContent = u ? (u.username || 'Partner') : 'Partner';
-      var sidebarEmail = document.getElementById('sidebarEmail');
-      if (sidebarEmail) sidebarEmail.textContent = u ? (u.email || 'loading...') : 'loading...';
-      var avatar = document.querySelector('.profile-avatar');
-      if (avatar) {
-        if (u && u.photoURL) {
-          avatar.style.backgroundImage = 'url(' + u.photoURL + ')';
-          avatar.innerHTML = '';
-          localStorage.setItem('profilePhoto', u.photoURL);
-        } else {
-          var cached = localStorage.getItem('profilePhoto');
-          if (cached) {
-            avatar.style.backgroundImage = 'url(' + cached + ')';
-            avatar.innerHTML = '';
-          } else {
-            avatar.style.backgroundImage = "url('cameras-decoded-logo.png')";
-            avatar.innerHTML = '';
-          }
-        }
-      }
-      var badge = document.getElementById('roleTierBadge');
-      if (badge) {
-        if (u && u.uid) {
-          badge.style.display = 'inline-flex';
-          badge.innerHTML = '<span class="glow-role">' + (u.role || 'Partner') + '</span> · <span class="tier-text">' + (u.partnerTier || 'Signal') + '</span>';
-        } else {
-          badge.style.display = 'none';
-        }
-      }
-
-      var privateLinks = document.getElementById('privateLinks');
-      var authCta = document.getElementById('authCta');
-      if (u && u.uid) {
-        if (privateLinks) privateLinks.style.display = 'flex';
-        if (authCta) authCta.style.display = 'none';
+      if (doc.exists) {
+        return doc.data();
       } else {
-        if (privateLinks) privateLinks.style.display = 'none';
-        if (authCta) authCta.style.display = 'flex';
+        // Create a default partner document
+        var email = user.email || '';
+        var username = email ? email.split('@')[0] : 'partner' + uid.slice(0, 6);
+        var defaultData = {
+          uid: uid,
+          email: email,
+          displayName: user.displayName || '',
+          username: username,
+          role: 'Partner',
+          partnerTier: 'signal',
+          billingInterval: 'monthly',
+          companyName: '',
+          partnerId: 'PART-' + uid.slice(0, 6).toUpperCase(),
+          clicks: 0,
+          downloads: 0,
+          agreements: 0,
+          referredStudents: 0,
+          referralCode: username,
+          totalReferrals: 0,
+          totalCommissionEarned: 0,
+          ambassadorTier: 'partner',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          tourCompleted: false
+        };
+        await docRef.set(defaultData);
+        return defaultData;
       }
     }
 
-    function renderStats(u) {
+    // ---- Render main content (stats, profile, referral, commissions) ----
+    function renderMainContent(userData) {
       function safeSet(id, value) {
         var el = document.getElementById(id);
         if (el) el.textContent = value;
       }
-      safeSet('clickCount', u.clicks || 0);
-      safeSet('downloadCount', u.downloads || 0);
-      safeSet('agreementCount', u.agreements || 0);
-      safeSet('studentCountPartner', u.referredStudents || 0);
-      safeSet('profileUsername', u.username || '—');
-      safeSet('profileName', u.displayName || u.name || '—');
-      safeSet('profileEmail', u.email || '—');
-      safeSet('profileCompany', u.companyName || '—');
-      safeSet('profileLicense', (u.partnerTier || 'signal').charAt(0).toUpperCase() + (u.partnerTier || 'signal').slice(1));
-      safeSet('profileBilling', (u.billingInterval || 'monthly').charAt(0).toUpperCase() + (u.billingInterval || 'monthly').slice(1));
-      safeSet('partnerUniqueId', u.partnerId || '—');
-      safeSet('referralLink', 'camerasdecoded.com/ref/' + (u.referralCode || ''));
-      safeSet('totalReferrals', u.totalReferrals || 0);
-      safeSet('totalCommission', '$' + (u.totalCommissionEarned || 0).toFixed(2));
+
+      safeSet('clickCount', userData.clicks || 0);
+      safeSet('downloadCount', userData.downloads || 0);
+      safeSet('agreementCount', userData.agreements || 0);
+      safeSet('studentCountPartner', userData.referredStudents || 0);
+      safeSet('profileUsername', userData.username || '—');
+      safeSet('profileName', userData.displayName || userData.name || '—');
+      safeSet('profileEmail', userData.email || '—');
+      safeSet('profileCompany', userData.companyName || '—');
+      var tier = (userData.partnerTier || 'signal');
+      safeSet('profileLicense', tier.charAt(0).toUpperCase() + tier.slice(1));
+      var billing = (userData.billingInterval || 'monthly');
+      safeSet('profileBilling', billing.charAt(0).toUpperCase() + billing.slice(1));
+      safeSet('partnerUniqueId', userData.partnerId || '—');
+      safeSet('referralLink', 'camerasdecoded.com/ref/' + (userData.referralCode || ''));
+      safeSet('totalReferrals', userData.totalReferrals || 0);
+      safeSet('totalCommission', '$' + (userData.totalCommissionEarned || 0).toFixed(2));
       safeSet('ambassadorTier', 'Partner (20%)');
     }
 
+    // ---- Render commission history ----
     function renderCommissionHistory(commissions) {
       var list = document.getElementById('commissionList');
       if (!list) return;
@@ -917,6 +773,7 @@
       }
       list.innerHTML = html;
 
+      // Check for demo commission
       var hasDemo = false;
       for (var j = 0; j < commissions.length; j++) {
         if (commissions[j].isDemo === true) {
@@ -947,7 +804,7 @@
       }
     }
 
-    // ---- Commission functions (require userDocRef) ----
+    // ---- Commission functions ----
     var userDocRef = null;
 
     function simulatePurchase() {
@@ -980,6 +837,8 @@
         });
       }).then(function() {
         cdToast('✅ Demo commission: $' + commissionAmount.toFixed(2) + ' earned (20% rate).');
+        // Refresh commissions
+        loadCommissions();
       }).catch(function(err) {
         console.error('Simulate error:', err);
         cdToast('Error creating test commission: ' + err.message, 'error');
@@ -1004,9 +863,26 @@
       }).then(function() {
         window.demoCommissionId = null;
         cdToast('Demo commission removed.');
+        loadCommissions();
       }).catch(function(err) {
         console.error('Reset demo error:', err);
         cdToast('Could not reset demo: ' + err.message, 'error');
+      });
+    }
+
+    function loadCommissions() {
+      if (!userDocRef) return;
+      userDocRef.collection('commissions').orderBy('createdAt', 'desc').limit(50).get().then(function(snapshot) {
+        var commissions = [];
+        snapshot.forEach(function(doc) {
+          var data = doc.data();
+          data.id = doc.id;
+          commissions.push(data);
+        });
+        renderCommissionHistory(commissions);
+      }).catch(function(err) {
+        console.warn('Could not load commissions:', err);
+        renderCommissionHistory([]);
       });
     }
 
@@ -1016,40 +892,37 @@
 
     async function loadDashboard(user) {
       try {
-        console.log('🔄 Loading partner dashboard for user:', user.uid);
-
-        var userData = await ensureUserDoc(user);
-        console.log('✅ Using default partner data:', userData);
-
+        // 1. Fetch user data from Firestore (or create)
+        var userData = await getUserData(user);
         userDocRef = db.collection('users').doc(user.uid);
 
-        renderProfile(userData);
-        renderStats(userData);
-
-        // Try to load commissions, but if it fails, just show empty
-        var commissions = [];
-        try {
-          var commissionsSnapshot = await userDocRef.collection('commissions').orderBy('createdAt', 'desc').limit(50).get();
-          commissionsSnapshot.forEach(function(doc) {
-            var data = doc.data();
-            data.id = doc.id;
-            commissions.push(data);
-          });
-        } catch (commErr) {
-          console.warn('Could not load commissions, using empty list:', commErr);
-          // keep commissions = []
+        // 2. Update shared components
+        if (window.Header && typeof window.Header.setUserData === 'function') {
+          window.Header.setUserData(user, userData);
         }
-        renderCommissionHistory(commissions);
+        if (window.BottomNav) {
+          window.BottomNav.updateBadges(userData);
+          window.BottomNav.setRole(userData.role);
+        }
+        if (window.Sidebar && typeof window.Sidebar.updateProfile === 'function') {
+          window.Sidebar.updateProfile(userData);
+        } else {
+          console.warn('Sidebar.updateProfile not available – ensure sidebar.js is loaded.');
+        }
 
+        // 3. Render main content
+        renderMainContent(userData);
+
+        // 4. Load commissions (if any)
+        await loadCommissions();
+
+        // 5. Show content
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
 
+        // 6. Optional: insert commission card
         if (document.getElementById('statsGrid') && typeof insertCommissionCard === 'function') {
           insertCommissionCard('statsGrid', 'after');
-        }
-
-        if (window.BottomNav) {
-          window.BottomNav.updateBadges(userData);
         }
 
       } catch (err) {
@@ -1061,17 +934,16 @@
       }
     }
 
-    // ---- AUTH LISTENER – REDIRECT UNAUTHENTICATED ----
+    // ---- Auth listener – redirect unauthenticated ----
     auth.onAuthStateChanged(function(user) {
       if (user) {
-        // Logged in → load the dashboard with default data
         loadDashboard(user);
       } else {
-        // Not logged in → redirect immediately to login
         window.location.href = 'login.html';
       }
     });
 
+    // ---- Logout ----
     window.handleLogout = function() {
       auth.signOut().then(function() {
         window.location.href = 'login.html';
@@ -1080,21 +952,9 @@
       });
     };
 
-    // ---- Sidebar toggle ----
-    document.addEventListener('DOMContentLoaded', function() {
-      var toggleBtn = document.getElementById('floatingToggle');
-      if (toggleBtn) {
-        toggleBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          var sidebar = document.getElementById('sidebar');
-          if (sidebar) {
-            sidebar.classList.toggle('open');
-          }
-        });
-      }
-    });
+    // ---- Sidebar toggle is handled by sidebar.js – no duplicate listener here ----
 
-    // ---- Cart ----
+    // ---- Cart UI (localStorage) ----
     function getCart() { return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]'); }
     function updateCartUI() {
       var cart = getCart();
@@ -1112,9 +972,13 @@
         labelEl.textContent = totalItems > 0 ? 'Cart (' + totalItems + ')' : 'Cart';
       }
     }
-    updateCartUI();
+    // Header updates its own cart count via Header.setUserData, but we can also keep this.
+    // We'll just call it once on load.
+    document.addEventListener('DOMContentLoaded', function() {
+      updateCartUI();
+    });
 
-    // ---- Reveal ----
+    // ---- Reveal animations ----
     document.addEventListener('DOMContentLoaded', function() {
       var reveals = document.querySelectorAll('.reveal');
       var observer = new IntersectionObserver(function(entries) {
@@ -1130,7 +994,7 @@
       }
     });
 
-    // ---- Expose ----
+    // ---- Expose functions globally ----
     window.copyReferralLink = function() {
       var link = document.getElementById('referralLink').textContent;
       navigator.clipboard.writeText('https://' + link).then(function() {
@@ -1145,7 +1009,6 @@
         cdToast('Copied!');
       });
     };
-    window.handleLogout = handleLogout;
     window.simulatePurchase = simulatePurchase;
     window.resetDemoCommission = resetDemoCommission;
     window.viewPDF = function(filename) {
