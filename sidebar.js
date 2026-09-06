@@ -90,19 +90,32 @@
       document.body.prepend(div);
     }
 
-    // Set active link based on current page
+    setActiveLink();
+    updateAuthVisibility();
+    checkAndShowAdminLinks();
+  }
+
+  // ---- Set active link (FIXED: handle profile page variants) ----
+  function setActiveLink() {
     const path = window.location.pathname.split('/').pop() || 'index.html';
     document.querySelectorAll('.sidebar-nav .nav-item').forEach(link => {
       const href = link.getAttribute('data-page');
+      
+      // Exact match first
       if (href === path) {
         link.classList.add('active');
-      } else {
-        link.classList.remove('active');
+        return;
       }
+      
+      // If on any profile page (profile.html, instructor-profile.html, operator-profile.html, etc),
+      // highlight the profile link (profile.html)
+      if (path.includes('profile.html') && href === 'profile.html') {
+        link.classList.add('active');
+        return;
+      }
+      
+      link.classList.remove('active');
     });
-
-    updateAuthVisibility();
-    checkAndShowAdminLinks();
   }
 
   // ---- Toggle visibility ----
@@ -204,20 +217,20 @@
     });
   };
 
-  // ---- Toggle sidebar with hamburger ----
+  // ---- Toggle sidebar with hamburger (FIXED: use capture phase + stopImmediatePropagation) ----
   function setupToggle() {
-    // Use event delegation on the document to catch clicks on #floatingToggle
     document.addEventListener('click', function(e) {
       const target = e.target.closest('#floatingToggle');
       if (target) {
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
         const sidebar = document.getElementById('sidebar');
         if (sidebar) {
           sidebar.classList.toggle('open');
         }
       }
-    });
+    }, true); // CAPTURE PHASE
   }
 
   // ---- Auto‑init ----
