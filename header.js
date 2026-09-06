@@ -5,13 +5,15 @@
   console.log('[Header] Loading...');
 
   // ================================================================
-  // SIDEBAR TOGGLE
+  // SIDEBAR TOGGLE – WITH RETRY
   // ================================================================
   function setupSidebarToggle() {
     const toggleBtn = document.getElementById('floatingToggle');
     const sidebar = document.getElementById('sidebar');
+    
     if (!toggleBtn || !sidebar) {
-      console.warn('[Header] Toggle button or sidebar not found yet.');
+      console.warn('[Header] Elements not ready yet, retrying in 500ms...');
+      setTimeout(setupSidebarToggle, 500);
       return;
     }
 
@@ -33,7 +35,7 @@
       });
     });
 
-    console.log('[Header] Sidebar toggle set up.');
+    console.log('[Header] ✅ Sidebar toggle set up.');
   }
 
   // ================================================================
@@ -79,7 +81,7 @@
     const badge = document.getElementById('roleTierBadge');
 
     if (user && userData && user.isLoggedIn) {
-      console.log('[Header] User logged in. Updating UI...');
+      console.log('[Header] ✅ User logged in. Updating UI...');
       
       // Hide login/signup buttons
       if (authButtons) {
@@ -91,14 +93,12 @@
         const role = userData.role || 'Operator';
         const tierLabel = (userData.tier === 'pro' || userData.tier === 'Pro') ? 'Pro' : 'Free';
         
-        badge.innerHTML = `
-          <span class="glow-role">${role}</span> · <span class="tier-text">${tierLabel}</span>
-        `;
+        badge.innerHTML = `<span class="glow-role">${role}</span> · <span class="tier-text">${tierLabel}</span>`;
         badge.style.display = 'inline-flex';
-        console.log('[Header] Badge shown:', role, tierLabel);
+        console.log('[Header] ✅ Badge shown:', role, tierLabel);
       }
     } else {
-      console.log('[Header] User not logged in. Showing auth buttons...');
+      console.log('[Header] ❌ User not logged in. Showing auth buttons...');
       
       // Show login/signup buttons
       if (authButtons) {
@@ -118,7 +118,7 @@
 
   // Listen for userStateReady event from user-state.js
   window.addEventListener('userStateReady', (e) => {
-    console.log('[Header] userStateReady event received', e.detail);
+    console.log('[Header] 🎯 userStateReady event received');
     const user = e.detail;
     updateAuthUI(user, user);
     updateCartUI();
@@ -127,9 +127,11 @@
   // Fallback: if window.USER is already set when header loads
   setTimeout(() => {
     if (window.USER && typeof window.USER === 'object') {
-      console.log('[Header] window.USER already exists, updating UI');
+      console.log('[Header] ✅ window.USER already exists, updating UI');
       updateAuthUI(window.USER, window.USER);
       updateCartUI();
+    } else {
+      console.log('[Header] ⏳ window.USER not ready yet');
     }
   }, 500);
 
@@ -158,9 +160,10 @@
   // AUTO-INIT
   // ================================================================
   function init() {
-    setupSidebarToggle();
+    console.log('[Header] Initializing...');
+    setupSidebarToggle();  // Will retry if elements not ready
     updateCartUI();
-    console.log('[Header] Initialized');
+    console.log('[Header] ✅ Initialized');
   }
 
   if (document.readyState === 'loading') {
@@ -168,4 +171,6 @@
   } else {
     init();
   }
+
+  console.log('[Header] ✅ Script loaded');
 })();
