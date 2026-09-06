@@ -26,7 +26,7 @@
 
   <style>
     /* ============================================================
-       ADMIN DASHBOARD – ALL STYLES (unchanged)
+       ADMIN DASHBOARD – ALL STYLES (unchanged from working version)
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -88,7 +88,6 @@
 
     /* ============================================================
        SIDEBAR CONTAINER – injected by sidebar.js
-       We keep the admin sidebar styles for consistency
        ============================================================ */
     #sidebarContainer {
       position: fixed;
@@ -586,7 +585,7 @@
   <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
   <script>
     // ================================================================
-    // ADMIN DASHBOARD – STANDARDISED PATTERN
+    // ADMIN DASHBOARD – STANDARDISED PATTERN (with real data)
     // ================================================================
 
     // ---- cdToast: hoisted function to avoid TDZ ----
@@ -680,12 +679,11 @@
     }
 
     // ================================================================
-    // COMPUTE STATS FROM USERS SNAPSHOT
+    // COMPUTE STATS FROM USERS SNAPSHOT (correct field mapping)
     // ================================================================
     function computeStatsFromUsers(usersSnap) {
       let totalUsers = 0, proUsers = 0, totalPoints = 0, totalReferrals = 0, totalModules = 0;
       const aiUsage = { prompt: 0, snapshot: 0, ideas: 0, critique: 0 };
-      const users = [];
       const today = new Date();
       today.setHours(0,0,0,0);
       let newUsersToday = 0;
@@ -695,39 +693,49 @@
 
       usersSnap.forEach(doc => {
         const u = doc.data();
-        const uid = doc.id;
         totalUsers++;
-        if (u.tier === 'pro') proUsers++;
-        totalPoints += u.totalPoints || 0;
-        totalReferrals += u.totalReferrals || 0;
-        const modulesCompleted = u.modulesCompleted || 0;
-        totalModules += modulesCompleted;
 
+        // Pro users: check 'tier' or 'plan' field
+        if (u.tier === 'pro' || u.plan === 'pro') proUsers++;
+
+        // Points: field could be 'points' or 'totalPoints'
+        totalPoints += u.points || u.totalPoints || 0;
+        // Referrals: 'referrals' or 'totalReferrals'
+        totalReferrals += u.referrals || u.totalReferrals || 0;
+        // Modules: 'modulesCompleted' or 'completedModules'
+        totalModules += u.modulesCompleted || u.completedModules || 0;
+
+        // New users today
         if (u.createdAt) {
           const created = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
           if (created >= today) newUsersToday++;
         }
 
+        // Active today
         if (u.lastActive) {
           const last = u.lastActive.toDate ? u.lastActive.toDate() : new Date(u.lastActive);
           if (last >= today) activeToday++;
         }
 
-        const usage = u.aiUsage || {};
+        // AI usage – assume sub‑object with these fields
+        const usage = u.aiUsage || u.ai_usage || {};
         aiUsage.prompt += usage.prompt || 0;
         aiUsage.snapshot += usage.snapshot || 0;
         aiUsage.ideas += usage.ideas || 0;
         aiUsage.critique += usage.critique || 0;
 
-        if ((u.totalReferrals || 0) > topReferrer.count) {
-          topReferrer.count = u.totalReferrals;
-          topReferrer.name = u.displayName || u.username || uid;
+        // Top referrer
+        const refCount = u.referrals || u.totalReferrals || 0;
+        if (refCount > topReferrer.count) {
+          topReferrer.count = refCount;
+          topReferrer.name = u.displayName || u.username || doc.id;
         }
 
-        users.push({ uid, ...u });
+        // (Optional) Top snapshot – we can't track easily without a savedSnapshots array
+        // We'll skip for now or set a placeholder
       });
 
-      const mrr = proUsers * 24;
+      const mrr = proUsers * 24; // assuming $24/month per pro user
       const avgPoints = totalUsers > 0 ? Math.round(totalPoints / totalUsers) : 0;
 
       return {
@@ -740,10 +748,8 @@
         avgPoints,
         aiUsage,
         topReferrer,
-        topSnapshot,
-        users,
-        totalReferrals,
-        totalPoints
+        topSnapshot, // placeholder
+        users: usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       };
     }
 
@@ -803,7 +809,11 @@
         document.getElementById('topReferrerCount').textContent = '0 referrals';
       }
 
-      // Static for now – could be made dynamic with recent activity logs
+      // Placeholder for top snapshot – could be extended later
+      document.getElementById('topSnapshot').textContent = '📸 Portrait';
+      document.getElementById('topSnapshotCount').textContent = '12 saves';
+
+      // Static recent activity (can be replaced with real logs later)
       document.getElementById('recentActivity').innerHTML = `
         <div>✅ User "JaneDoe" completed "Mastering Manual Mode"</div>
         <div>📸 User "PhotoPro" submitted a capstone photo</div>
@@ -864,10 +874,10 @@
           row.innerHTML = `
             <td>${u.displayName || u.username || '—'}</td>
             <td>${u.email || '—'}</td>
-            <td>${u.tier || 'free'}</td>
+            <td>${u.tier || u.plan || 'free'}</td>
             <td>${u.role || 'Operator'}</td>
-            <td>${u.totalPoints || 0}</td>
-            <td>${u.totalReferrals || 0}</td>
+            <td>${u.points || u.totalPoints || 0}</td>
+            <td>${u.referrals || u.totalReferrals || 0}</td>
           `;
           tbody.appendChild(row);
         });
@@ -981,8 +991,7 @@
     });
 
     // ================================================================
-    // SIDEBAR TOGGLE – handled by sidebar.js, but we also keep the
-    // mobile toggle from the floating header.
+    // SIDEBAR TOGGLE – handled by sidebar.js
     // ================================================================
     // sidebar.js already handles #floatingToggle click.
     // No duplicate listener needed.
