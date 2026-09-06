@@ -1,4 +1,5 @@
 // bottom-nav.js – Premium with auth/role logic and reliable Font Awesome 6 icons
+// NOW supports data-role="partner|instructor|operator|admin" on #bottomNavContainer
 (function() {
   'use strict';
   
@@ -202,6 +203,23 @@
   // ================================================================
 
   async function init() {
+    // ★★★ NEW: Read data-role from container before building ★★★
+    const container = document.getElementById('bottomNavContainer');
+    if (container && container.dataset.role) {
+      const roleFromData = container.dataset.role;
+      // Normalize: capitalize first letter to match ROLE_MAP keys
+      const normalizedRole = roleFromData.charAt(0).toUpperCase() + roleFromData.slice(1).toLowerCase();
+      if (ROLE_MAP[normalizedRole]) {
+        currentRole = normalizedRole;
+        console.log('[BottomNav] Using data-role:', currentRole);
+      } else {
+        console.warn('[BottomNav] Unknown data-role:', roleFromData, 'fallback to Operator');
+        currentRole = 'Operator';
+      }
+    } else {
+      console.log('[BottomNav] No data-role, defaulting to Operator');
+    }
+
     await waitForFontAwesome();
     injectNav();
     listenToUserState();
