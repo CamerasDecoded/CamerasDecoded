@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+  <title>Enter the Signal — Cameras Decoded</title>
+  <meta name="description" content="Start your journey with Cameras Decoded." />
+
+  <!-- ===== FONTS & ICONS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    /* ================================================================
+       ROOT & RESET
+       ================================================================ */
+    :root {
+      --green: #8deb00;
+      --green-glow: rgba(141, 235, 0, 0.3);
+      --cyan: #00e5ff;
+      --gold: #e0b12d;
+      --dark-card: rgba(10, 10, 10, 0.7);
+      --border-dim: rgba(255, 255, 255, 0.06);
+      --text-muted: #b4b4b4;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #050705;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(141, 235, 0, 0.08) 0%, transparent 55%),
+        radial-gradient(circle at 80% 70%, rgba(141, 235, 0, 0.04) 0%, transparent 45%),
+        linear-gradient(rgba(141, 235, 0, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(141, 235, 0, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+      background-attachment: fixed;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, .mono {
+      font-family: 'Space Mono', monospace;
+    }
+
+    /* ================================================================
+       CHASING BORDER (reusable)
+       ================================================================ */
+    @property --angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+    @keyframes spinBorder {
+      to { --angle: 360deg; }
+    }
+
+    .chasing-border {
+      position: relative;
+      border-color: transparent !important;
+      background-clip: padding-box;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .chasing-border::before {
+      content: '';
+      position: absolute;
+      inset: -1.5px;
+      border-radius: inherit;
+      padding: 1.5px;
+      background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
+      -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      mask-composite: exclude;
+      animation: spinBorder 4s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+      will-change: transform;
+    }
+    .chasing-border > * {
+      position: relative;
+      z-index: 1;
+    }
+    .chasing-border:hover {
+      transform: scale(1.03);
+    }
+
+    /* ================================================================
+       CONTAINER
+       ================================================================ */
+    .intro-container {
+      width: 100%;
+      max-width: 480px;
+      padding: 24px 20px 40px;
+      margin: 0 auto;
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .intro-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* ================================================================
+       SCREENS (stacked with fade + slide)
+       ================================================================ */
+    .screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      animation: fadeSlideIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    .screen.active {
+      display: flex;
+    }
+
+    @keyframes fadeSlideIn {
+      0% {
+        opacity: 0;
+        transform: translateY(24px) scale(0.96);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* ================================================================
+       WELCOME SCREEN
+       ================================================================ */
+    #welcome .logo {
+      width: 120px;
+      height: auto;
+      margin-bottom: 20px;
+      filter: drop-shadow(0 0 40px rgba(141, 235, 0, 0.15));
+      animation: logoFloat 3s ease-in-out infinite;
+    }
+    #welcome .logo img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    @keyframes logoFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    #welcome h1 {
+      font-size: clamp(28px, 7vw, 40px);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    #welcome h1 span {
+      color: var(--green);
+      background: linear-gradient(135deg, #8deb00, #a0f520);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    #welcome .tagline {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      max-width: 320px;
+      line-height: 1.6;
+    }
+
+    .pulse-ring-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+    .pulse-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: calc(100% + 20px);
+      height: calc(100% + 20px);
+      border-radius: 9999px;
+      border: 2px solid rgba(141, 235, 0, 0.25);
+      transform: translate(-50%, -50%) scale(1);
+      animation: pulseRing 2s ease-out infinite;
+      pointer-events: none;
+    }
+    .pulse-ring:nth-child(2) {
+      animation-delay: 0.7s;
+      width: calc(100% + 40px);
+      height: calc(100% + 40px);
+    }
+    @keyframes pulseRing {
+      0% {
+        transform: translate(-50%, -50%) scale(0.8);
+        opacity: 0.8;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(1.4);
+        opacity: 0;
+      }
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 40px;
+      background: transparent;
+      border: 1.5px solid var(--green);
+      border-radius: 60px;
+      color: #fff;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 30px rgba(141, 235, 0, 0.1);
+      text-decoration: none;
+      letter-spacing: 0.5px;
+      position: relative;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(4px);
+    }
+    .btn-primary:hover {
+      background: rgba(141, 235, 0, 0.08);
+      box-shadow: 0 0 50px var(--green-glow);
+      transform: scale(1.04);
+    }
+    .btn-primary .btn-icon {
+      font-size: 20px;
+      transition: transform 0.3s ease;
+    }
+    .btn-primary:hover .btn-icon {
+      transform: rotate(15deg) scale(1.1);
+    }
+
+    .skip-link {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      color: #666;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 6px 14px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(4px);
+      z-index: 5;
+    }
+    .skip-link:hover {
+      color: var(--green);
+      border-color: var(--green);
+      box-shadow: 0 0 20px var(--green-glow);
+    }
+
+    /* ================================================================
+       SLIDE SCREENS
+       ================================================================ */
+    .slide {
+      padding: 16px 0;
+      position: relative;
+    }
+    .slide .slide-image {
+      width: 100%;
+      max-width: 340px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      aspect-ratio: 16 / 10;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      transition: transform 0.4s ease;
+    }
+    .slide .slide-image:hover {
+      transform: scale(1.02);
+    }
+    .slide .slide-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.6s ease;
+    }
+    .slide .slide-image:hover img {
+      transform: scale(1.04);
+    }
+
+    .slide h2 {
+      font-size: clamp(22px, 5vw, 30px);
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #fff 60%, #8deb00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .slide p {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 360px;
+      line-height: 1.7;
+      margin: 0 auto 12px;
+    }
+
+    .slide .badge-pro {
+      display: inline-block;
+      background: rgba(224, 177, 45, 0.12);
+      border: 1px solid var(--gold);
+      border-radius: 30px;
+      padding: 4px 18px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--gold);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      box-shadow: 0 0 20px rgba(224, 177, 45, 0.1);
+    }
+
+    /* ================================================================
+       SLIDE NAVIGATION
+       ================================================================ */
+    .slide-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+      justify-content: center;
+    }
+    .slide-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #333;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      cursor: pointer;
+      border: none;
+      padding: 0;
+    }
+    .slide-dot.active {
+      background: var(--green);
+      box-shadow: 0 0 16px var(--green-glow);
+      transform: scale(1.25);
+    }
+    .slide-dot:hover {
+      background: #555;
+    }
+
+    .slide-counter {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: #666;
+      margin-left: 8px;
+    }
+
+    .slide-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-secondary {
+      padding: 10px 28px;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 40px;
+      color: #b4b4b4;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(4px);
+    }
+    .btn-secondary:hover {
+      border-color: var(--green);
+      color: var(--green);
+      background: rgba(141, 235, 0, 0.04);
+      box-shadow: 0 0 20px var(--green-glow);
+    }
+
+    .btn-pro {
+      padding: 12px 32px;
+      background: transparent;
+      border: 1.5px solid var(--green);
+      border-radius: 40px;
+      color: #fff;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(4px);
+      position: relative;
+    }
+    .btn-pro::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 42px;
+      padding: 2px;
+      background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
+      -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
+      mask-composite: exclude;
+      animation: spinBorder 4s linear infinite;
+      pointer-events: none;
+      z-index: -1;
+    }
+    @property --angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+    .btn-pro:hover {
+      transform: scale(1.04);
+      background: rgba(141, 235, 0, 0.08);
+      box-shadow: 0 0 40px var(--green-glow);
+    }
+
+    /* ================================================================
+       RESPONSIVE
+       ================================================================ */
+    @media (max-width: 500px) {
+      .intro-container {
+        padding: 16px 12px 30px;
+        min-height: 90vh;
+      }
+      .slide .slide-image {
+        max-width: 280px;
+      }
+      .btn-primary {
+        padding: 14px 28px;
+        font-size: 16px;
+      }
+      .btn-pro {
+        padding: 10px 24px;
+        font-size: 15px;
+      }
+      .skip-link {
+        top: 12px;
+        right: 12px;
+        font-size: 11px;
+        padding: 4px 10px;
+      }
+      #welcome .logo {
+        width: 90px;
+      }
+      .pulse-ring {
+        width: calc(100% + 16px);
+        height: calc(100% + 16px);
+      }
+      .pulse-ring:nth-child(2) {
+        width: calc(100% + 32px);
+        height: calc(100% + 32px);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="intro-container" id="app">
+
+    <!-- ============================================================
+         WELCOME SCREEN
+         ============================================================ -->
+    <div class="screen active" id="welcome">
+      <div class="logo">
+        <img src="cameras-decoded-logo.png" alt="Cameras Decoded" />
+      </div>
+      <h1>Enter the <span>Signal</span></h1>
+      <p class="tagline">Your journey to confident camera operation starts here.</p>
+
+      <div class="pulse-ring-wrapper">
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+        <button class="btn-primary" id="beginBtn">
+          <span>Begin</span>
+          <span class="btn-icon"><i class="fas fa-arrow-right"></i></span>
+        </button>
+      </div>
+
+      <a href="signup.html" class="skip-link">Skip →</a>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 1 – Snapshot Cards
+         ============================================================ -->
+    <div class="screen slide" id="slide-1">
+      <div class="slide-image">
+        <img src="intro-slide-1.png" alt="Snapshot Cards" />
+      </div>
+      <h2>Snapshot Cards</h2>
+      <p>Create and save your own visual reference cards. AI‑generated, instant learning.</p>
+      <div class="slide-nav">
+        <button class="slide-dot active" data-slide="0"></button>
+        <button class="slide-dot" data-slide="1"></button>
+        <button class="slide-dot" data-slide="2"></button>
+        <button class="slide-dot" data-slide="3"></button>
+        <span class="slide-counter">1 / 4</span>
+      </div>
+      <div class="slide-actions">
+        <button class="btn-secondary" id="nextSlide1">Next →</button>
+      </div>
+      <a href="signup.html" class="skip-link">Skip →</a>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 2 – AI Critique
+         ============================================================ -->
+    <div class="screen slide" id="slide-2">
+      <div class="slide-image">
+        <img src="intro-slide-2.png" alt="AI Critique" />
+      </div>
+      <h2>AI‑Powered Critique</h2>
+      <p>Upload your photos and get instant, actionable feedback from Cynetis‑7.</p>
+      <div class="slide-nav">
+        <button class="slide-dot" data-slide="0"></button>
+        <button class="slide-dot active" data-slide="1"></button>
+        <button class="slide-dot" data-slide="2"></button>
+        <button class="slide-dot" data-slide="3"></button>
+        <span class="slide-counter">2 / 4</span>
+      </div>
+      <div class="slide-actions">
+        <button class="btn-secondary" id="prevSlide2">← Back</button>
+        <button class="btn-secondary" id="nextSlide2">Next →</button>
+      </div>
+      <a href="signup.html" class="skip-link">Skip →</a>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 3 – Protocols
+         ============================================================ -->
+    <div class="screen slide" id="slide-3">
+      <div class="slide-image">
+        <img src="intro-slide-3.png" alt="Protocols" />
+      </div>
+      <h2>Step‑by‑Step Protocols</h2>
+      <p>Follow guided workflows that teach you real‑world photography techniques.</p>
+      <div class="slide-nav">
+        <button class="slide-dot" data-slide="0"></button>
+        <button class="slide-dot" data-slide="1"></button>
+        <button class="slide-dot active" data-slide="2"></button>
+        <button class="slide-dot" data-slide="3"></button>
+        <span class="slide-counter">3 / 4</span>
+      </div>
+      <div class="slide-actions">
+        <button class="btn-secondary" id="prevSlide3">← Back</button>
+        <button class="btn-secondary" id="nextSlide3">Next →</button>
+      </div>
+      <a href="signup.html" class="skip-link">Skip →</a>
+    </div>
+
+    <!-- ============================================================
+         SLIDE 4 – Pro Benefits
+         ============================================================ -->
+    <div class="screen slide" id="slide-4">
+      <div class="slide-image">
+        <img src="intro-slide-4.png" alt="Pro Benefits" />
+      </div>
+      <div class="badge-pro">⭐ Pro</div>
+      <h2>Unlock the Full Signal</h2>
+      <p>Get unlimited Snapshot Cards, advanced AI critique, priority support, and exclusive protocols.</p>
+      <div class="slide-nav">
+        <button class="slide-dot" data-slide="0"></button>
+        <button class="slide-dot" data-slide="1"></button>
+        <button class="slide-dot" data-slide="2"></button>
+        <button class="slide-dot active" data-slide="3"></button>
+        <span class="slide-counter">4 / 4</span>
+      </div>
+      <div class="slide-actions">
+        <button class="btn-secondary" id="prevSlide4">← Back</button>
+        <button class="btn-pro" id="goSignup">Sign Up Now →</button>
+      </div>
+      <a href="signup.html" class="skip-link">Skip →</a>
+    </div>
+
+  </div>
+
+  <!-- ================================================================
+       JAVASCRIPT – pure, no localStorage, no redirects
+       ================================================================ -->
+  <script>
+    (function() {
+      'use strict';
+
+      // ---- DOM refs ----
+      const screens = {
+        welcome: document.getElementById('welcome'),
+        slide1: document.getElementById('slide-1'),
+        slide2: document.getElementById('slide-2'),
+        slide3: document.getElementById('slide-3'),
+        slide4: document.getElementById('slide-4'),
+      };
+      let currentScreenId = 'welcome';
+      let currentSlideIndex = 0;
+
+      const dots = document.querySelectorAll('.slide-dot');
+      const counters = document.querySelectorAll('.slide-counter');
+      const skipLinks = document.querySelectorAll('.skip-link');
+
+      // ---- Navigation helpers ----
+      function showScreen(id) {
+        // Remove active from all screens
+        Object.values(screens).forEach(el => el.classList.remove('active'));
+        const newEl = screens[id];
+        if (newEl) newEl.classList.add('active');
+        currentScreenId = id;
+
+        if (id.startsWith('slide-')) {
+          const slideNum = parseInt(id.split('-')[1], 10) - 1;
+          currentSlideIndex = slideNum;
+          updateSlideIndicators(slideNum);
+        }
+        // Scroll to top of container
+        document.querySelector('.intro-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      function updateSlideIndicators(index) {
+        dots.forEach((dot, i) => {
+          dot.classList.toggle('active', i === index);
+        });
+        counters.forEach(c => { c.textContent = `${index + 1} / 4`; });
+      }
+
+      function goToSlide(index) {
+        if (index < 0) index = 0;
+        if (index > 3) index = 3;
+        const slideId = 'slide-' + (index + 1);
+        showScreen(slideId);
+      }
+
+      // ---- Welcome CTA ----
+      document.getElementById('beginBtn').addEventListener('click', function() {
+        goToSlide(0);
+      });
+
+      // ---- Skip links (all go to signup) ----
+      skipLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          window.location.href = 'signup.html';
+        });
+      });
+
+      // ---- Slide navigation buttons ----
+      document.getElementById('nextSlide1').addEventListener('click', () => goToSlide(1));
+      document.getElementById('prevSlide2').addEventListener('click', () => goToSlide(0));
+      document.getElementById('nextSlide2').addEventListener('click', () => goToSlide(2));
+      document.getElementById('prevSlide3').addEventListener('click', () => goToSlide(1));
+      document.getElementById('nextSlide3').addEventListener('click', () => goToSlide(3));
+      document.getElementById('prevSlide4').addEventListener('click', () => goToSlide(2));
+
+      // ---- Dots ----
+      dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => goToSlide(index));
+      });
+
+      // ---- Final CTA: go to signup ----
+      document.getElementById('goSignup').addEventListener('click', function() {
+        window.location.href = 'signup.html';
+      });
+
+      // ---- Keyboard navigation ----
+      document.addEventListener('keydown', function(e) {
+        if (currentScreenId === 'welcome') {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            document.getElementById('beginBtn').click();
+          }
+          return;
+        }
+        if (currentScreenId.startsWith('slide-')) {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const next = Math.min(currentSlideIndex + 1, 3);
+            goToSlide(next);
+          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prev = Math.max(currentSlideIndex - 1, 0);
+            goToSlide(prev);
+          } else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (currentSlideIndex === 3) {
+              document.getElementById('goSignup').click();
+            } else {
+              goToSlide(currentSlideIndex + 1);
+            }
+          }
+        }
+      });
+
+      // ---- Prefetch signup page for faster redirect ----
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = 'signup.html';
+      document.head.appendChild(link);
+
+      // ---- Preload slide images ----
+      ['intro-slide-1.png', 'intro-slide-2.png', 'intro-slide-3.png', 'intro-slide-4.png'].forEach(name => {
+        const img = new Image();
+        img.src = name;
+      });
+
+      console.log('🚀 Cameras Decoded Intro – self-contained, no redirects, ready for campaigns.');
+    })();
+  </script>
+
+</body>
+</html>
