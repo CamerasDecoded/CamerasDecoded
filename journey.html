@@ -1748,7 +1748,7 @@
     }
 
     // ================================================================
-    // COMPLETE STEP (now uses subcollection)
+    // COMPLETE STEP (now uses subcollection + syncs to main user doc)
     // ================================================================
     window.completeStep = async function(stepId) {
       if (!currentUser) return;
@@ -1793,6 +1793,7 @@
           earnedBadges.push('signal_pioneer');
         }
 
+        // 1. Save to subcollection (per‑level progress)
         const progressRef = db.collection('userJourney')
           .doc(currentUser.uid)
           .collection('levels')
@@ -1804,6 +1805,20 @@
           badgesEarned: newBadges
         }, { merge: true });
 
+        // 2. 🔥 SYNC TO MAIN USER DOC – so the dashboard updates in real time
+        const mainUserRef = db.collection('users').doc(currentUser.uid);
+        const mainUpdate = {
+          totalPoints: firebase.firestore.FieldValue.increment(step.points || 0),
+        };
+
+        if (earnedBadges.length > 0) {
+          mainUpdate.badgesEarned = firebase.firestore.FieldValue.arrayUnion(...earnedBadges);
+        }
+
+        await mainUserRef.set(mainUpdate, { merge: true });
+        console.log('[Journey] Synced points and badges to main user doc.');
+
+        // Update local state
         userProgress.completedSteps = newCompleted;
         userProgress.totalPoints = newPoints;
         userProgress.badgesEarned = newBadges;

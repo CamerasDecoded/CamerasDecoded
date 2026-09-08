@@ -1676,6 +1676,110 @@
     window.startTour = startTour;
     window.copyReferralLink = copyReferralLink;
     window.handleLogout = handleLogout;
+  // ================================================================
+    // REAL-TIME ACTIVITY TRACKER
+    // ================================================================
+
+    let userUnsubscribe = null; // to clean up listener
+
+    function listenToUserUpdates(userId) {
+      // Unsubscribe from any previous listener
+      if (userUnsubscribe) {
+        userUnsubscribe();
+        userUnsubscribe = null;
+      }
+
+      console.log('[ActivityTracker] Listening to user:', userId);
+
+      // Set up Firestore onSnapshot listener
+      userUnsubscribe = db.collection('users').doc(userId)
+        .onSnapshot((docSnapshot) => {
+          if (!docSnapshot.exists) {
+            console.warn('[ActivityTracker] User doc not found.');
+            return;
+          }
+
+          const updatedUserData = docSnapshot.data();
+          console.log('[ActivityTracker] User data updated:', updatedUserData);
+
+          // 1. Update the rings, multiplier, bonus, signal bars
+          updateProgressOverview(updatedUserData, true); // animate
+
+          // 2. Update stats (protocols, cards, community)
+          renderStats(updatedUserData);
+
+          // 3. Update AI usage (workbench)
+          renderAIWidget(updatedUserData);
+
+          // 4. Update journey snapshot (points, progress)
+          // We need to re-fetch journey data, but we can reuse existing journeyData.
+          // Since journeyData is loaded once, we can just update the points display.
+          // But the journey progress (nodes) might also change – we'll handle it later.
+          // For now, update the points display and progress bar.
+          // If the user has a journey loaded, we can refresh it.
+          if (window.journeyData && window.userProgress) {
+            // This is a bit tricky because journeyData is page-specific.
+            // We'll just update the journey progress if the page is journey.html
+            // For dashboard, only points and snapshot card are shown.
+            // We can fetch fresh journey data for the snapshot card.
+            fetchJourneyData(userId).then(journeyData => {
+              renderJourney(updatedUserData, journeyData);
+            });
+          }
+
+          // 5. Update challenge (streak, daily challenge, log)
+          renderChallenge(updatedUserData);
+
+          // 6. Update referral section
+          renderReferral(updatedUserData);
+
+          // 7. Update protocol library (if saved protocols changed)
+          renderProtocols(updatedUserData);
+
+          // 8. Update the badge in the bottom nav (if any)
+          if (window.BottomNav && typeof window.BottomNav.updateBadges === 'function') {
+            window.BottomNav.updateBadges(updatedUserData);
+          }
+
+          // 9. Update the header role/tier badge (if needed)
+          if (window.Header && typeof window.Header.setUserData === 'function') {
+            window.Header.setUserData(auth.currentUser, updatedUserData);
+          }
+
+          console.log('[ActivityTracker] Dashboard updated from Firestore.');
+        }, (error) => {
+          console.error('[ActivityTracker] Listener error:', error);
+        });
+    }
+
+    // Modify the existing loadDashboard function to start the listener after loading.
+    // We'll add a call to listenToUserUpdates(user.uid) right after the initial render.
+
+    // But since loadDashboard is already defined, we'll patch it.
+    // We'll override the loadDashboard function or extend it.
+
+    // To avoid breaking existing code, we'll wrap the original loadDashboard.
+    const originalLoadDashboard = loadDashboard;
+
+    loadDashboard = async function(user) {
+      // Call the original function first
+      await originalLoadDashboard(user);
+
+      // Now start listening for updates
+      if (user) {
+        listenToUserUpdates(user.uid);
+      }
+    };
+
+    // Also ensure that when the page unloads, we detach the listener.
+    window.addEventListener('beforeunload', function() {
+      if (userUnsubscribe) {
+        userUnsubscribe();
+        userUnsubscribe = null;
+      }
+    });
+
+    console.log('[ActivityTracker] Real-time tracker installed.');
   </script>
 </body>
 </html>
