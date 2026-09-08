@@ -1432,7 +1432,6 @@
     // ================================================================
     async function loadJourneyData(level = currentLevel) {
       currentLevel = level;
-      // Update dropdown to match
       if (levelSelect) levelSelect.value = level;
 
       try {
@@ -1445,14 +1444,37 @@
           journeyDoc = await db.collection('journeys').doc(level).get();
         }
 
-        // 3. Fallback to beginner if still missing
+        // 3. FALLBACK: if STILL missing, use hardcoded minimal journey
         if (!journeyDoc.exists) {
-          journeyDoc = await db.collection('journeys').doc('beginner').get();
+          console.warn('Journey data still missing after seeding – using fallback.');
+          journeyData = {
+            id: 'beginner',
+            title: 'Beginner Journey',
+            modules: [{
+              id: 'mod_01',
+              title: 'Start Here',
+              description: 'Introductory module.',
+              steps: [{
+                id: 'step_001',
+                type: 'text',
+                title: 'Welcome',
+                description: 'Start here.',
+                content: 'Welcome!',
+                duration: 5,
+                points: 50,
+                badge: null,
+                prerequisites: [],
+                recommendedProducts: [],
+                completionAction: 'mark_complete'
+              }],
+              totalPoints: 50
+            }]
+          };
           currentLevel = 'beginner';
-          levelSelect.value = 'beginner';
+          if (levelSelect) levelSelect.value = 'beginner';
+        } else {
+          journeyData = journeyDoc.data();
         }
-
-        journeyData = journeyDoc.data();
 
         // 4. Load user progress for this level (subcollection)
         if (currentUser) {
@@ -1465,13 +1487,11 @@
 
           if (progressDoc.exists) {
             userProgress = progressDoc.data();
-            // Ensure arrays exist
             if (!userProgress.completedSteps) userProgress.completedSteps = [];
             if (!userProgress.completedModules) userProgress.completedModules = [];
             if (!userProgress.totalPoints) userProgress.totalPoints = 0;
             if (!userProgress.badgesEarned) userProgress.badgesEarned = [];
           } else {
-            // Create fresh progress for this level
             userProgress = {
               completedSteps: [],
               completedModules: [],
@@ -1482,13 +1502,13 @@
             await progressRef.set(userProgress);
           }
 
-          // 5. Save the user's preferred level to their main profile (cross-device sync)
+          // 5. Save preferred level
           await db.collection('users').doc(currentUser.uid).set({
             preferredJourneyLevel: currentLevel
           }, { merge: true });
         }
 
-        // 6. Find the first incomplete module
+        // 6. Find first incomplete module
         if (journeyData.modules && journeyData.modules.length > 0) {
           let found = false;
           for (let i = 0; i < journeyData.modules.length; i++) {
@@ -1506,7 +1526,6 @@
           }
         }
 
-        // 7. Render everything
         renderAll();
         updateTopBar();
         updateAssistantTip();
@@ -1573,7 +1592,6 @@
       if (completedCount === totalSteps && totalSteps > 0) {
         if (!(userProgress.completedModules || []).includes(mod.id)) {
           userProgress.completedModules.push(mod.id);
-          // Save to subcollection
           db.collection('userJourney')
             .doc(currentUser.uid)
             .collection('levels')
@@ -1754,7 +1772,7 @@
           earnedBadges.push(step.badge);
         }
 
-        // Some bonus badges
+        // Bonus badges
         if (newCompleted.length === 3 && !newBadges.includes('first_steps')) {
           newBadges.push('first_steps');
           earnedBadges.push('first_steps');
@@ -1764,7 +1782,6 @@
           earnedBadges.push('signal_pioneer');
         }
 
-        // Save to subcollection
         const progressRef = db.collection('userJourney')
           .doc(currentUser.uid)
           .collection('levels')
@@ -1776,7 +1793,6 @@
           badgesEarned: newBadges
         }, { merge: true });
 
-        // Update local state
         userProgress.completedSteps = newCompleted;
         userProgress.totalPoints = newPoints;
         userProgress.badgesEarned = newBadges;
@@ -1791,7 +1807,7 @@
         renderAll();
         updateAssistantTip();
 
-        // Check if module is complete
+        // Check module completion
         const modSteps = mod.steps.map(s => s.id);
         if (modSteps.every(id => newCompleted.includes(id))) {
           if (!(userProgress.completedModules || []).includes(mod.id)) {
@@ -2041,7 +2057,6 @@
         const userDoc = await db.collection('users').doc(user.uid).get();
         if (userDoc.exists) {
           userData = userDoc.data();
-          // Restore preferred level if saved
           if (userData.preferredJourneyLevel) {
             currentLevel = userData.preferredJourneyLevel;
             if (levelSelect) levelSelect.value = currentLevel;
