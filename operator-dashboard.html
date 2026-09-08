@@ -27,6 +27,9 @@
   <!-- ===== FIREBASE INIT ===== -->
   <script src="/scripts/firebase-init.js"></script>
 
+  <!-- ===== BADGE DEFINITIONS ===== -->
+  <script src="/scripts/badge-definitions.js"></script>
+
   <!-- ===== SHEPHERD.JS (Tour) ===== -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/css/shepherd.css"/>
   <script src="https://cdn.jsdelivr.net/npm/shepherd.js@11.1.1/dist/js/shepherd.min.js"></script>
@@ -159,6 +162,57 @@
       gap: 10px;
     }
     .activity-title i { color: var(--green); font-size: 16px; }
+
+    /* ============================================================
+       BADGE COLLECTION – Dashboard
+       ============================================================ */
+    .badge-collection {
+      background: rgba(10, 10, 10, 0.6);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 16px 20px 20px;
+      margin-bottom: 24px;
+      border: 1px solid rgba(255,255,255,0.04);
+      animation: fadeInUp 0.6s var(--transition-smooth) forwards;
+      opacity: 0;
+      transition: border-color 0.3s ease;
+    }
+    .badge-collection:hover {
+      border-color: rgba(141, 235, 0, 0.12);
+    }
+    .badge-collection .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .badge-collection .header i {
+      color: var(--gold);
+      font-size: 18px;
+    }
+    .badge-collection .header span {
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      color: #fff;
+    }
+    .badge-collection .header .count {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+    }
+    .badge-collection .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      min-height: 50px;
+    }
+    .badge-collection .container .empty {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
 
     /* ============================================================
        SIDEBAR STYLES (unchanged)
@@ -819,6 +873,20 @@
         </div>
       </div>
 
+      <!-- ============================================================
+           BADGE COLLECTION – NEW
+           ============================================================ -->
+      <div class="badge-collection" id="badgeCollection">
+        <div class="header">
+          <i class="fas fa-medal"></i>
+          <span>Badge Collection</span>
+          <span class="count" id="badgeCount">0</span>
+        </div>
+        <div class="container" id="badgeContainer">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
       <!-- TOUR BUTTON -->
       <div style="display:flex; justify-content:flex-start; margin-top:-16px; margin-bottom:12px;">
         <button onclick="startTour()" style="background:transparent; border:none; color:var(--text-muted); font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; transition:0.3s; display:flex; align-items:center; gap:4px;">
@@ -1029,11 +1097,11 @@
   </main>
 
   <!-- ================================================================
-       JAVASCRIPT (unchanged)
+       JAVASCRIPT
        ================================================================ -->
   <script>
     // ================================================================
-    // DASHBOARD LOGIC (unchanged – all functions stay the same)
+    // DASHBOARD LOGIC
     // ================================================================
     const auth = window.auth;
     const db = window.db;
@@ -1279,6 +1347,37 @@
 
       const badges = userData.badgesEarned || [];
       document.getElementById('snapBadgeName').textContent = badges.length > 0 ? badges.join(', ') : 'No badges yet';
+    }
+
+    // ---- NEW: Render Badges on Dashboard ----
+    function renderBadges(userData) {
+      const container = document.getElementById('badgeContainer');
+      const countEl = document.getElementById('badgeCount');
+      const badges = userData?.badgesEarned || [];
+
+      if (countEl) countEl.textContent = badges.length;
+
+      if (window.renderBadges && typeof window.renderBadges === 'function') {
+        // Use the global renderBadges if available (from badge-definitions.js)
+        window.renderBadges(badges, container);
+        return;
+      }
+
+      // Fallback (if badge-definitions.js not loaded)
+      if (badges.length === 0) {
+        container.innerHTML = `<span class="empty">No badges earned yet. Start your journey!</span>`;
+      } else {
+        container.innerHTML = badges.map(id => {
+          const def = window.BADGE_DEFS && window.BADGE_DEFS[id];
+          if (!def) return '';
+          return `<div style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;margin:0 4px;cursor:default;transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+            <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.04);border:2px solid ${def.color};display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 20px ${def.color}40;">
+              ${def.icon}
+            </div>
+            <span style="font-size:8px;color:var(--text-muted);font-family:'Space Mono',monospace;text-transform:uppercase;">${def.tier}</span>
+          </div>`;
+        }).join('');
+      }
     }
 
     function renderChallenge(u) {
@@ -1555,6 +1654,7 @@
         renderChallenge(userData);
         renderProtocols(userData);
         renderReferral(userData);
+        renderBadges(userData); // <-- NEW: render badges
 
         animateRingsOnLoad(userData);
 
@@ -1676,7 +1776,8 @@
     window.startTour = startTour;
     window.copyReferralLink = copyReferralLink;
     window.handleLogout = handleLogout;
-  // ================================================================
+
+    // ================================================================
     // REAL-TIME ACTIVITY TRACKER
     // ================================================================
 
@@ -1712,20 +1813,9 @@
           renderAIWidget(updatedUserData);
 
           // 4. Update journey snapshot (points, progress)
-          // We need to re-fetch journey data, but we can reuse existing journeyData.
-          // Since journeyData is loaded once, we can just update the points display.
-          // But the journey progress (nodes) might also change – we'll handle it later.
-          // For now, update the points display and progress bar.
-          // If the user has a journey loaded, we can refresh it.
-          if (window.journeyData && window.userProgress) {
-            // This is a bit tricky because journeyData is page-specific.
-            // We'll just update the journey progress if the page is journey.html
-            // For dashboard, only points and snapshot card are shown.
-            // We can fetch fresh journey data for the snapshot card.
-            fetchJourneyData(userId).then(journeyData => {
-              renderJourney(updatedUserData, journeyData);
-            });
-          }
+          fetchJourneyData(userId).then(journeyData => {
+            renderJourney(updatedUserData, journeyData);
+          });
 
           // 5. Update challenge (streak, daily challenge, log)
           renderChallenge(updatedUserData);
@@ -1736,12 +1826,15 @@
           // 7. Update protocol library (if saved protocols changed)
           renderProtocols(updatedUserData);
 
-          // 8. Update the badge in the bottom nav (if any)
+          // 8. Update badges
+          renderBadges(updatedUserData);
+
+          // 9. Update the badge in the bottom nav (if any)
           if (window.BottomNav && typeof window.BottomNav.updateBadges === 'function') {
             window.BottomNav.updateBadges(updatedUserData);
           }
 
-          // 9. Update the header role/tier badge (if needed)
+          // 10. Update the header role/tier badge (if needed)
           if (window.Header && typeof window.Header.setUserData === 'function') {
             window.Header.setUserData(auth.currentUser, updatedUserData);
           }
