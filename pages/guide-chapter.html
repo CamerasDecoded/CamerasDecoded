@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chapter — Cameras Decoded</title>
+  <script src="/scripts/master-loader.js"></script>
+  <link rel="stylesheet" href="/styles/guide-styles.css" />
+  <link rel="stylesheet" href="/styles/quiz-styles.css" />
+  <link rel="stylesheet" href="header.css" />
+  <link rel="stylesheet" href="bottom-nav.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/user-state.js"></script>
+  <script src="/header.js"></script>
+  <script src="/sidebar.js"></script>
+  <script src="/bottom-nav.js"></script>
+  <link rel="stylesheet" href="/header.css" />
+  <link rel="stylesheet" href="/bottom-nav.css" />
+  <script src="/scripts/guide-loader.js"></script>
+  <script src="/scripts/guide-quiz.js"></script>
+  <script src="/scripts/guide-progress.js"></script>
+  <script src="/scripts/discussion-threads.js"></script>
+  <script src="/scripts/certificate-generator.js"></script>
+</head>
+<body>
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div class="chapter-container" id="chapterContainer">
+      <div id="chapterHeader">
+        <h1 id="chapterTitle"></h1>
+        <p id="chapterSummary"></p>
+        <div class="chapter-actions">
+          <a id="pdfLink" class="btn-primary" target="_blank">📄 Read PDF</a>
+          <button id="startQuizBtn" class="btn-primary">🧠 Start Quiz</button>
+        </div>
+      </div>
+
+      <div id="quizContainer" style="display:none;">
+        <div id="quizQuestion"></div>
+        <div id="quizOptions"></div>
+        <button id="quizSubmitBtn" class="btn-primary">Submit</button>
+        <div id="quizFeedback"></div>
+        <div id="quizProgress"></div>
+      </div>
+
+      <div id="threadsContainer">
+        <h2>Discussion</h2>
+        <div id="threadsList"></div>
+        <div id="newThreadForm" style="display:none;">
+          <input type="text" id="threadTitle" placeholder="Thread title" />
+          <textarea id="threadContent" placeholder="Your question or tip..."></textarea>
+          <button id="createThreadBtn" class="btn-primary">Post Thread</button>
+        </div>
+        <button id="showThreadFormBtn" class="btn-secondary">+ New Thread</button>
+      </div>
+    </div>
+  </main>
+  <div id="bottomNavContainer" data-role="operator"></div>
+  <script>
+    let currentQuiz = null;
+    const chapterId = new URLSearchParams(window.location.search).get('chapterId');
+    if (!chapterId) { window.location.href = '/pages/learning-guide.html'; }
+
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) { window.location.href = '/login.html'; return; }
+      const userId = user.uid;
+      try {
+        // Load chapter and quiz data
+        const { chapter, quiz } = await GuideLoader.loadChapter('guide_v1', chapterId);
+        document.getElementById('chapterTitle').textContent = chapter.title;
+        document.getElementById('chapterSummary').textContent = chapter.summary;
+        document.getElementById('pdfLink').href = chapter.pdfUrl;
+
+        // Mark chapter as started
+        await GuideProgress.markChapterStarted(userId, chapterId);
+
+        // Load discussion threads
+        const threads = await DiscussionThreads.loadThreadsForChapter(chapterId);
+        renderThreads(threads, userId);
+
+        // Check user role for thread creation
+        const userData = window.USER;
+        if (['Instructor', 'Partner'].includes(userData.role)) {
+          document.getElementById('showThreadFormBtn').style.display = 'block';
+        } else {
+          document.getElementById('showThreadFormBtn').style.display = 'none';
+        }
+
+        // Quiz setup
+        if (quiz && quiz.questions) {
+          document.getElementById('startQuizBtn').style.display = 'block';
+          document.getElementById('startQuizBtn').addEventListener('click', () => {
+            document.getElementById('quizContainer').style.display = 'block';
+            currentQuiz = new GuideQuiz(quiz.questions);
+            renderQuizQuestion(currentQuiz);
+          });
+        } else {
+          document.getElementById('startQuizBtn').style.display = 'none';
+        }
+
+        // Quiz submit handler
+        document.getElementById('quizSubmitBtn').addEventListener('click', async () => {
+          if (!currentQuiz) return;
+          const selected = document.querySelector('input[name="quizOption"]:checked');
+          if (!selected) { alert('Please select an answer.'); return; }
+          const idx = parseInt(selected.value);
+          const result = currentQuiz.submitAnswer(idx);
+          document.getElementById('quizFeedback').textContent = result.isCorrect ? '✅ Correct!' : `❌ ${result.explanation}`;
+          document.getElementById('quizProgress').textContent = `Progress: ${Math.round(result.progress)}%`;
+          if (currentQuiz.currentIndex < currentQuiz.questions.length) {
+            renderQuizQuestion(currentQuiz);
+          } else {
+            // Quiz finished
+            document.getElementById('quizSubmitBtn').style.display = 'none';
+            document.getElementById('quizFeedback').innerHTML += '<br>Quiz complete! Submitting...';
+            const final = await currentQuiz.finishQuiz(userId, chapterId);
+            document.getElementById('quizFeedback').innerHTML += `<br>Final score: ${final.score}% ${final.passed ? '✅ Passed! Certificate generated.' : '❌ Try again later.'}`;
+          }
+        });
+
+        // Thread creation
+        document.getElementById('showThreadFormBtn').addEventListener('click', () => {
+          document.getElementById('newThreadForm').style.display = 'block';
+          document.getElementById('showThreadFormBtn').style.display = 'none';
+        });
+        document.getElementById('createThreadBtn').addEventListener('click', async () => {
+          const title = document.getElementById('threadTitle').value.trim();
+          const content = document.getElementById('threadContent').value.trim();
+          if (!title || !content) { alert('Please fill in both fields.'); return; }
+          await DiscussionThreads.createThread(userId, userData.name, userData.role, chapterId, title, content);
+          location.reload(); // simple refresh to show new thread
+        });
+
+        // Reply buttons – we can add dynamic reply forms later
+      } catch (err) {
+        console.error(err);
+        document.getElementById('chapterContainer').innerHTML = `<p class="error">${err.message}</p>`;
+      }
+    });
+
+    function renderQuizQuestion(quiz) {
+      const q = quiz.questions[quiz.currentIndex];
+      document.getElementById('quizQuestion').textContent = q.question;
+      const optionsHtml = q.options.map((opt, i) => `
+        <div>
+          <input type="radio" name="quizOption" value="${i}" id="opt${i}" />
+          <label for="opt${i}">${opt}</label>
+        </div>
+      `).join('');
+      document.getElementById('quizOptions').innerHTML = optionsHtml;
+      document.getElementById('quizSubmitBtn').style.display = 'block';
+      document.getElementById('quizFeedback').textContent = '';
+    }
+
+    function renderThreads(threads, userId) {
+      const container = document.getElementById('threadsList');
+      if (threads.length === 0) {
+        container.innerHTML = '<p>No discussions yet. Be the first!</p>';
+        return;
+      }
+      container.innerHTML = threads.map(thread => `
+        <div class="thread">
+          <h4>${thread.title}</h4>
+          <p>${thread.content}</p>
+          <div class="thread-meta">by ${thread.authorName} · ${new Date(thread.createdAt?.seconds * 1000).toLocaleDateString()}</div>
+          <div class="thread-replies">
+            ${thread.replies.map(reply => `
+              <div class="reply">
+                <strong>${reply.authorName}</strong> (${reply.authorRole}): ${reply.content}
+                <div class="reply-meta">${new Date(reply.createdAt?.seconds * 1000).toLocaleDateString()}</div>
+              </div>
+            `).join('')}
+          </div>
+          <button class="reply-btn" data-thread-id="${thread.id}">Reply</button>
+          <div class="reply-form" style="display:none; margin-top:8px;">
+            <textarea class="reply-content" placeholder="Write your reply..."></textarea>
+            <button class="submit-reply-btn" data-thread-id="${thread.id}">Post Reply</button>
+          </div>
+        </div>
+      `).join('');
+
+      // Attach reply events
+      container.querySelectorAll('.reply-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const form = btn.parentElement.querySelector('.reply-form');
+          form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        });
+      });
+      container.querySelectorAll('.submit-reply-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const threadId = e.target.dataset.threadId;
+          const textarea = e.target.parentElement.querySelector('.reply-content');
+          const content = textarea.value.trim();
+          if (!content) return;
+          const userData = window.USER;
+          await DiscussionThreads.replyToThread(userId, userData.name, userData.role, threadId, content);
+          location.reload();
+        });
+      });
+    }
+  </script>
+</body>
+</html>

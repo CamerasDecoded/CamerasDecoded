@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Certificates — Cameras Decoded</title>
+  <script src="/scripts/master-loader.js"></script>
+  <link rel="stylesheet" href="/styles/guide-styles.css" />
+  <link rel="stylesheet" href="header.css" />
+  <link rel="stylesheet" href="bottom-nav.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/user-state.js"></script>
+  <script src="/header.js"></script>
+  <script src="/sidebar.js"></script>
+  <script src="/bottom-nav.js"></script>
+  <link rel="stylesheet" href="/header.css" />
+  <link rel="stylesheet" href="/bottom-nav.css" />
+  <script src="/scripts/certificate-generator.js"></script>
+</head>
+<body>
+  <div id="sidebarContainer"></div>
+  <main class="main-content">
+    <div class="certificates-container">
+      <h1>Your Certificates</h1>
+      <div id="certificatesList" class="certificates-grid">
+        <p>Loading...</p>
+      </div>
+    </div>
+  </main>
+  <div id="bottomNavContainer" data-role="operator"></div>
+  <script>
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) { window.location.href = '/login.html'; return; }
+      const snap = await firebase.firestore()
+        .collection('certificates')
+        .where('userId', '==', user.uid)
+        .get();
+      const certs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const container = document.getElementById('certificatesList');
+      if (certs.length === 0) {
+        container.innerHTML = '<p>No certificates yet. Complete a chapter quiz to earn one!</p>';
+        return;
+      }
+      container.innerHTML = certs.map(c => `
+        <div class="certificate-card">
+          <h3>${c.chapterTitle}</h3>
+          <p>Completed: ${new Date(c.completionDate.seconds * 1000).toLocaleDateString()}</p>
+          <p>Score: ${c.quizScore}%</p>
+          <p>Code: ${c.certificateCode}</p>
+          <button onclick="downloadCert('${c.id}')" class="btn-primary">Download PDF</button>
+        </div>
+      `).join('');
+    });
+
+    async function downloadCert(certId) {
+      await CertificateGenerator.generatePdf(certId);
+    }
+  </script>
+</body>
+</html>
