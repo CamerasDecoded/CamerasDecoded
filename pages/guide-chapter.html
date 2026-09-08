@@ -4,21 +4,33 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chapter — Cameras Decoded</title>
+
+  <!-- Master Loader -->
   <script src="/scripts/master-loader.js"></script>
+
+  <!-- Guide & Quiz Styles -->
   <link rel="stylesheet" href="/styles/guide-styles.css" />
   <link rel="stylesheet" href="/styles/quiz-styles.css" />
-  <link rel="stylesheet" href="header.css" />
-  <link rel="stylesheet" href="bottom-nav.css" />
+
+  <!-- Root CSS (absolute paths) -->
+  <link rel="stylesheet" href="/header.css" />
+  <link rel="stylesheet" href="/bottom-nav.css" />
+
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- Firebase Init & User State -->
   <script src="/scripts/firebase-init.js"></script>
   <script src="/scripts/user-state.js"></script>
+
+  <!-- Shared components (absolute paths) -->
   <script src="/header.js"></script>
   <script src="/sidebar.js"></script>
   <script src="/bottom-nav.js"></script>
-  <link rel="stylesheet" href="/header.css" />
-  <link rel="stylesheet" href="/bottom-nav.css" />
+
+  <!-- Guide-specific scripts -->
   <script src="/scripts/guide-loader.js"></script>
   <script src="/scripts/guide-quiz.js"></script>
   <script src="/scripts/guide-progress.js"></script>
@@ -27,6 +39,7 @@
 </head>
 <body>
   <div id="sidebarContainer"></div>
+
   <main class="main-content">
     <div class="chapter-container" id="chapterContainer">
       <div id="chapterHeader">
@@ -58,15 +71,23 @@
       </div>
     </div>
   </main>
+
   <div id="bottomNavContainer" data-role="operator"></div>
+
   <script>
     let currentQuiz = null;
     const chapterId = new URLSearchParams(window.location.search).get('chapterId');
-    if (!chapterId) { window.location.href = '/pages/learning-guide.html'; }
+    if (!chapterId) {
+      window.location.href = '/pages/learning-guide.html';
+    }
 
     auth.onAuthStateChanged(async (user) => {
-      if (!user) { window.location.href = '/login.html'; return; }
+      if (!user) {
+        window.location.href = '/login.html';
+        return;
+      }
       const userId = user.uid;
+
       try {
         // Load chapter and quiz data
         const { chapter, quiz } = await GuideLoader.loadChapter('guide_v1', chapterId);
@@ -105,7 +126,10 @@
         document.getElementById('quizSubmitBtn').addEventListener('click', async () => {
           if (!currentQuiz) return;
           const selected = document.querySelector('input[name="quizOption"]:checked');
-          if (!selected) { alert('Please select an answer.'); return; }
+          if (!selected) {
+            alert('Please select an answer.');
+            return;
+          }
           const idx = parseInt(selected.value);
           const result = currentQuiz.submitAnswer(idx);
           document.getElementById('quizFeedback').textContent = result.isCorrect ? '✅ Correct!' : `❌ ${result.explanation}`;
@@ -129,12 +153,16 @@
         document.getElementById('createThreadBtn').addEventListener('click', async () => {
           const title = document.getElementById('threadTitle').value.trim();
           const content = document.getElementById('threadContent').value.trim();
-          if (!title || !content) { alert('Please fill in both fields.'); return; }
+          if (!title || !content) {
+            alert('Please fill in both fields.');
+            return;
+          }
           await DiscussionThreads.createThread(userId, userData.name, userData.role, chapterId, title, content);
           location.reload(); // simple refresh to show new thread
         });
 
-        // Reply buttons – we can add dynamic reply forms later
+        // Reply buttons
+        // (they are attached in renderThreads)
       } catch (err) {
         console.error(err);
         document.getElementById('chapterContainer').innerHTML = `<p class="error">${err.message}</p>`;

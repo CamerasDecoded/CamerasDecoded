@@ -4,40 +4,103 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Learning Guide — Cameras Decoded</title>
+
+  <!-- Master Loader (injects header, sidebar, bottom-nav) -->
   <script src="/scripts/master-loader.js"></script>
+
+  <!-- Guide Styles -->
   <link rel="stylesheet" href="/styles/guide-styles.css" />
-  <!-- The following are now absolute paths -->
+
+  <!-- Root CSS files (absolute paths) -->
   <link rel="stylesheet" href="/header.css" />
   <link rel="stylesheet" href="/bottom-nav.css" />
+
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- Firebase Init & User State -->
   <script src="/scripts/firebase-init.js"></script>
   <script src="/scripts/user-state.js"></script>
-  <!-- Now with absolute paths -->
+
+  <!-- Shared components (absolute paths) -->
   <script src="/header.js"></script>
   <script src="/sidebar.js"></script>
   <script src="/bottom-nav.js"></script>
+
+  <!-- Guide-specific scripts -->
   <script src="/scripts/guide-loader.js"></script>
   <script src="/scripts/guide-progress.js"></script>
 </head>
 <body>
+
+  <!-- Sidebar injection point -->
   <div id="sidebarContainer"></div>
+
+  <!-- Main content -->
   <main class="main-content">
     <div class="guide-container">
       <h1>Learning Guide</h1>
+
       <div class="progress-summary" id="progressSummary">
         <p>You've completed <strong id="chaptersComplete">0</strong> of <strong id="totalChapters">0</strong> chapters</p>
         <progress id="overallProgress" value="0" max="100"></progress>
       </div>
+
       <div id="chaptersList" class="chapters-grid">
-        <!-- dynamically rendered -->
+        <!-- Dynamically rendered -->
       </div>
     </div>
   </main>
+
+  <!-- Bottom nav injection point -->
   <div id="bottomNavContainer" data-role="operator"></div>
+
   <script>
-    // ... (the rest of your script is unchanged) ...
+    // Check user is logged in
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      const userId = user.uid;
+      const guideId = 'guide_v1';
+
+      try {
+        const chapters = await GuideLoader.loadGuideChapters(guideId, userId);
+        const progress = await GuideProgress.getUserProgress(userId);
+
+        document.getElementById('chaptersComplete').textContent = progress.chaptersCompleted;
+        document.getElementById('totalChapters').textContent = chapters.length;
+
+        const pct = chapters.length > 0 ? (progress.chaptersCompleted / chapters.length) * 100 : 0;
+        document.getElementById('overallProgress').value = pct;
+
+        // Render chapter cards
+        const container = document.getElementById('chaptersList');
+        container.innerHTML = chapters.map((ch, idx) => `
+          <div class="chapter-card" data-chapter-id="${ch.id}">
+            <div class="chapter-header">
+              <span class="chapter-number">${idx + 1}</span>
+              <h3>${ch.title}</h3>
+              <span class="chapter-status">${ch.userProgress.completed ? '✅' : (ch.userProgress.started ? '📖' : '🔒')}</span>
+            </div>
+            <p class="chapter-summary">${ch.summary}</p>
+            <div class="chapter-meta">
+              <span>${ch.contentType}</span>
+              <span>⏱️ ${ch.estimatedTime} min</span>
+              <span>${ch.userProgress.quizScore !== null ? `Score: ${ch.userProgress.quizScore}%` : 'Not attempted'}</span>
+            </div>
+            <a href="/pages/guide-chapter.html?chapterId=${ch.id}" class="btn-start">${ch.userProgress.completed ? 'Review' : 'Start'}</a>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error(err);
+        document.getElementById('chaptersList').innerHTML = '<p class="error">Failed to load guide. Please try again.</p>';
+      }
+    });
   </script>
 </body>
 </html>
