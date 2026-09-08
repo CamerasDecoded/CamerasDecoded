@@ -32,7 +32,7 @@
 
   <style>
     /* ================================================================
-       ROOT
+       ROOT & GLOBAL
        ================================================================ */
     :root {
       --green: #8deb00;
@@ -200,7 +200,39 @@
       align-items: center;
       gap: 10px;
       flex-shrink: 0;
+      flex-wrap: wrap;
     }
+
+    /* ---- Level dropdown ---- */
+    .level-dropdown {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-dim);
+      border-radius: 30px;
+      color: #fff;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      padding: 6px 14px 6px 12px;
+      cursor: pointer;
+      outline: none;
+      transition: all var(--transition);
+      min-height: 38px;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239a9a9a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 32px;
+    }
+    .level-dropdown:hover,
+    .level-dropdown:focus {
+      border-color: var(--green);
+      background-color: rgba(141, 235, 0, 0.06);
+    }
+    .level-dropdown option {
+      background: #0a0a0a;
+      color: #fff;
+    }
+
     .btn-exit {
       display: inline-flex;
       align-items: center;
@@ -739,7 +771,7 @@
   <main class="main-content" id="mainContent">
 
     <!-- ============================================================
-         TOP BAR – profile, announcement, exit
+         TOP BAR – profile, announcement, exit + LEVEL SELECTOR
          ============================================================ -->
     <div class="top-bar" id="topBar">
       <div class="profile">
@@ -754,6 +786,12 @@
         <span class="text" id="announcementText">No active announcement</span>
       </div>
       <div class="actions">
+        <!-- LEVEL SELECTOR -->
+        <select id="levelSelect" class="level-dropdown" aria-label="Select journey level">
+          <option value="beginner">🌱 Beginner</option>
+          <option value="intermediate">⚡ Intermediate</option>
+          <option value="advanced">🚀 Advanced</option>
+        </select>
         <a href="operator-dashboard.html" class="btn-exit" title="Exit Journey">
           <i class="fas fa-sign-out-alt"></i> Exit
         </a>
@@ -859,6 +897,7 @@
     let userProgress = null;
     let currentModuleIndex = 0;
     let assistantOpen = false;
+    let currentLevel = 'beginner';  // default
 
     // ================================================================
     // DOM REFS
@@ -874,6 +913,7 @@
     const cynetisPanel = document.getElementById('cynetisPanel');
     const cynetisMessage = document.getElementById('cynetisMessage');
     const cynetisActions = document.getElementById('cynetisActions');
+    const levelSelect = document.getElementById('levelSelect');
 
     // Top bar
     const userDisplayName = document.getElementById('userDisplayName');
@@ -916,239 +956,522 @@
     }
 
     // ================================================================
-    // SEED DATA (one-time setup)
+    // SEED DATA – all three levels
     // ================================================================
-    async function seedJourneyData() {
+    async function seedAllJourneyLevels() {
       try {
-        const check = await db.collection('journeys').doc('beginner').get();
-        if (check.exists) return;
+        const levels = ['beginner', 'intermediate', 'advanced'];
+        for (const level of levels) {
+          const check = await db.collection('journeys').doc(level).get();
+          if (check.exists) continue;
 
-        const beginnerJourney = {
-          id: 'beginner',
-          title: 'Beginner Operator Journey',
-          level: 'beginner',
-          description: 'Master the fundamentals of photography and build your confidence.',
-          modules: [
-            {
-              id: 'mod_01',
-              title: 'Welcome & Basics',
-              description: 'Get started with Cameras Decoded and the Exposure Triangle.',
-              steps: [
-                {
-                  id: 'step_001',
-                  type: 'text',
-                  title: 'Welcome to Cameras Decoded',
-                  description: 'Learn what it means to be an Operator and how this platform will transform your photography.',
-                  content: 'Welcome to your journey. Over the next several steps, you\'ll learn the fundamentals of photography, master your camera, and build the confidence to create stunning images.',
-                  duration: 5,
-                  points: 50,
-                  badge: null,
-                  prerequisites: [],
-                  recommendedProducts: [],
-                  completionAction: 'mark_complete'
-                },
-                {
-                  id: 'step_002',
-                  type: 'video',
-                  title: 'Understanding the Exposure Triangle',
-                  description: 'Watch this video to understand how aperture, shutter speed, and ISO work together.',
-                  content: '<iframe src="https://www.youtube.com/embed/example1" frameborder="0" allowfullscreen></iframe>',
-                  duration: 12,
-                  points: 100,
-                  badge: 'aperture_adept',
-                  prerequisites: ['step_001'],
-                  recommendedProducts: ['guide_exposure_triangle'],
-                  completionAction: 'watch_video'
-                },
-                {
-                  id: 'step_003',
-                  type: 'snapshot',
-                  title: 'Create Your First Snapshot Card',
-                  description: 'Generate a Snapshot Card on Aperture to solidify your understanding.',
-                  content: 'Open the Snapshot Card AI and create a card about aperture.',
-                  duration: 8,
-                  points: 75,
-                  badge: 'snapshot_collector',
-                  prerequisites: ['step_002'],
-                  recommendedProducts: [],
-                  completionAction: 'launch_snapshot'
-                }
-              ]
-            },
-            {
-              id: 'mod_02',
-              title: 'Exposure & Composition',
-              description: 'Dive deeper into shutter speed, composition, and the Rule of Thirds.',
-              steps: [
-                {
-                  id: 'step_004',
-                  type: 'text',
-                  title: 'Mastering Shutter Speed',
-                  description: 'Learn how shutter speed affects motion blur and freezing action.',
-                  content: 'Shutter speed is the length of time your camera\'s sensor is exposed to light. Fast shutter speeds freeze action; slow shutter speeds create motion blur.',
-                  duration: 6,
-                  points: 50,
-                  badge: null,
-                  prerequisites: ['step_002'],
-                  recommendedProducts: [],
-                  completionAction: 'mark_complete'
-                },
-                {
-                  id: 'step_005',
-                  type: 'quiz',
-                  title: 'Exposure Triangle Quiz',
-                  description: 'Test your knowledge of aperture, shutter speed, and ISO.',
-                  content: '5 questions to reinforce your understanding.',
-                  duration: 5,
-                  points: 100,
-                  badge: 'shutter_surgeon',
-                  prerequisites: ['step_003', 'step_004'],
-                  recommendedProducts: [],
-                  completionAction: 'open_quiz'
-                },
-                {
-                  id: 'step_006',
-                  type: 'video',
-                  title: 'Composition & The Rule of Thirds',
-                  description: 'Learn the fundamental rules of composition.',
-                  content: '<iframe src="https://www.youtube.com/embed/example2" frameborder="0" allowfullscreen></iframe>',
-                  duration: 10,
-                  points: 75,
-                  badge: 'composition_master',
-                  prerequisites: ['step_005'],
-                  recommendedProducts: ['guide_composition'],
-                  completionAction: 'watch_video'
-                }
-              ]
-            },
-            {
-              id: 'mod_03',
-              title: 'Advanced Practice',
-              description: 'Apply your skills with protocols, AI tools, and real challenges.',
-              steps: [
-                {
-                  id: 'step_007',
-                  type: 'protocol',
-                  title: 'Complete Your First Protocol',
-                  description: 'Follow the "Mastering Real Estate HDR" protocol.',
-                  content: 'Open the Protocol Library and complete the Real Estate HDR protocol.',
-                  duration: 15,
-                  points: 150,
-                  badge: 'protocol_pioneer',
-                  prerequisites: ['step_006'],
-                  recommendedProducts: [],
-                  completionAction: 'launch_protocol'
-                },
-                {
-                  id: 'step_008',
-                  type: 'tool',
-                  title: 'Try the Prompt Generator',
-                  description: 'Use the Prompt Generator to create your first AI prompt.',
-                  content: 'Open the Prompt Generator and create a prompt for a portrait photo.',
-                  duration: 5,
-                  points: 50,
-                  badge: null,
-                  prerequisites: ['step_007'],
-                  recommendedProducts: [],
-                  completionAction: 'launch_tool'
-                },
-                {
-                  id: 'step_009',
-                  type: 'challenge',
-                  title: 'Daily Challenge: Golden Hour Portrait',
-                  description: 'Complete today\'s photography challenge.',
-                  content: 'Go out and capture a portrait during golden hour using the techniques you\'ve learned.',
-                  duration: 20,
-                  points: 200,
-                  badge: 'challenge_champion',
-                  prerequisites: ['step_008'],
-                  recommendedProducts: [],
-                  completionAction: 'mark_complete'
-                }
-              ]
-            }
-          ]
-        };
-
-        beginnerJourney.modules.forEach(mod => {
-          mod.totalPoints = mod.steps.reduce((sum, s) => sum + s.points, 0);
-        });
-
-        await db.collection('journeys').doc('beginner').set(beginnerJourney);
-
-        // Seed badges
-        const badgeData = [
-          { id: 'aperture_adept', name: 'Aperture Adept', description: 'Mastered aperture settings', icon: '📸', color: '#cd7f32', tier: 'bronze' },
-          { id: 'shutter_surgeon', name: 'Shutter Surgeon', description: 'Mastered shutter speed', icon: '⏱️', color: '#c0c0c0', tier: 'silver' },
-          { id: 'composition_master', name: 'Composition Master', description: 'Mastered composition rules', icon: '🎨', color: '#ffd700', tier: 'gold' },
-          { id: 'snapshot_collector', name: 'Snapshot Collector', description: 'Created your first Snapshot Card', icon: '🗂️', color: '#cd7f32', tier: 'bronze' },
-          { id: 'protocol_pioneer', name: 'Protocol Pioneer', description: 'Completed your first protocol', icon: '📖', color: '#c0c0c0', tier: 'silver' },
-          { id: 'challenge_champion', name: 'Challenge Champion', description: 'Completed your first daily challenge', icon: '🏆', color: '#ffd700', tier: 'gold' }
-        ];
-
-        for (const b of badgeData) {
-          await db.collection('badges').doc(b.id).set(b);
-        }
-
-        cdToast('🌱 Journey data seeded!');
-      } catch (err) {
-        console.warn('Seed error (permissions likely):', err.message);
-      }
-    }
-
-    // ================================================================
-    // LOAD JOURNEY DATA
-    // ================================================================
-    async function loadJourneyData(level = 'beginner') {
-      try {
-        const journeyDoc = await db.collection('journeys').doc(level).get();
-        if (!journeyDoc.exists) {
+          let modules = [];
           if (level === 'beginner') {
-            await seedJourneyData();
-            const retry = await db.collection('journeys').doc('beginner').get();
-            if (retry.exists) {
-              journeyData = retry.data();
-            } else {
-              journeyData = {
-                id: 'beginner',
-                title: 'Beginner Journey',
-                modules: [{
-                  id: 'mod_01',
-                  title: 'Start Here',
-                  description: 'Introductory module.',
-                  steps: [{
+            // ---- BEGINNER ----
+            modules = [
+              {
+                id: 'mod_01',
+                title: 'Welcome & Basics',
+                description: 'Get started with Cameras Decoded and the Exposure Triangle.',
+                steps: [
+                  {
                     id: 'step_001',
                     type: 'text',
-                    title: 'Welcome',
-                    description: 'Start here.',
-                    content: 'Welcome!',
+                    title: 'Welcome to Cameras Decoded',
+                    description: 'Learn what it means to be an Operator and how this platform will transform your photography.',
+                    content: 'Welcome to your journey. Over the next several steps, you\'ll learn the fundamentals of photography, master your camera, and build the confidence to create stunning images.',
                     duration: 5,
                     points: 50,
                     badge: null,
                     prerequisites: [],
                     recommendedProducts: [],
                     completionAction: 'mark_complete'
-                  }],
-                  totalPoints: 50
-                }]
-              };
-            }
-          } else {
-            return loadJourneyData('beginner');
+                  },
+                  {
+                    id: 'step_002',
+                    type: 'video',
+                    title: 'Understanding the Exposure Triangle',
+                    description: 'Watch this video to understand how aperture, shutter speed, and ISO work together.',
+                    content: '<iframe src="https://www.youtube.com/embed/example1" frameborder="0" allowfullscreen></iframe>',
+                    duration: 12,
+                    points: 100,
+                    badge: 'aperture_adept',
+                    prerequisites: ['step_001'],
+                    recommendedProducts: ['guide_exposure_triangle'],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'step_003',
+                    type: 'snapshot',
+                    title: 'Create Your First Snapshot Card',
+                    description: 'Generate a Snapshot Card on Aperture to solidify your understanding.',
+                    content: 'Open the Snapshot Card AI and create a card about aperture.',
+                    duration: 8,
+                    points: 75,
+                    badge: 'snapshot_collector',
+                    prerequisites: ['step_002'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_snapshot'
+                  }
+                ]
+              },
+              {
+                id: 'mod_02',
+                title: 'Exposure & Composition',
+                description: 'Dive deeper into shutter speed, composition, and the Rule of Thirds.',
+                steps: [
+                  {
+                    id: 'step_004',
+                    type: 'text',
+                    title: 'Mastering Shutter Speed',
+                    description: 'Learn how shutter speed affects motion blur and freezing action.',
+                    content: 'Shutter speed is the length of time your camera\'s sensor is exposed to light. Fast shutter speeds freeze action; slow shutter speeds create motion blur.',
+                    duration: 6,
+                    points: 50,
+                    badge: null,
+                    prerequisites: ['step_002'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'step_005',
+                    type: 'quiz',
+                    title: 'Exposure Triangle Quiz',
+                    description: 'Test your knowledge of aperture, shutter speed, and ISO.',
+                    content: '5 questions to reinforce your understanding.',
+                    duration: 5,
+                    points: 100,
+                    badge: 'shutter_surgeon',
+                    prerequisites: ['step_003', 'step_004'],
+                    recommendedProducts: [],
+                    completionAction: 'open_quiz'
+                  },
+                  {
+                    id: 'step_006',
+                    type: 'video',
+                    title: 'Composition & The Rule of Thirds',
+                    description: 'Learn the fundamental rules of composition.',
+                    content: '<iframe src="https://www.youtube.com/embed/example2" frameborder="0" allowfullscreen></iframe>',
+                    duration: 10,
+                    points: 75,
+                    badge: 'composition_master',
+                    prerequisites: ['step_005'],
+                    recommendedProducts: ['guide_composition'],
+                    completionAction: 'watch_video'
+                  }
+                ]
+              },
+              {
+                id: 'mod_03',
+                title: 'Advanced Practice',
+                description: 'Apply your skills with protocols, AI tools, and real challenges.',
+                steps: [
+                  {
+                    id: 'step_007',
+                    type: 'protocol',
+                    title: 'Complete Your First Protocol',
+                    description: 'Follow the "Mastering Real Estate HDR" protocol.',
+                    content: 'Open the Protocol Library and complete the Real Estate HDR protocol.',
+                    duration: 15,
+                    points: 150,
+                    badge: 'protocol_pioneer',
+                    prerequisites: ['step_006'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_protocol'
+                  },
+                  {
+                    id: 'step_008',
+                    type: 'tool',
+                    title: 'Try the Prompt Generator',
+                    description: 'Use the Prompt Generator to create your first AI prompt.',
+                    content: 'Open the Prompt Generator and create a prompt for a portrait photo.',
+                    duration: 5,
+                    points: 50,
+                    badge: null,
+                    prerequisites: ['step_007'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_tool'
+                  },
+                  {
+                    id: 'step_009',
+                    type: 'challenge',
+                    title: 'Daily Challenge: Golden Hour Portrait',
+                    description: 'Complete today\'s photography challenge.',
+                    content: 'Go out and capture a portrait during golden hour using the techniques you\'ve learned.',
+                    duration: 20,
+                    points: 200,
+                    badge: 'challenge_champion',
+                    prerequisites: ['step_008'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  }
+                ]
+              }
+            ];
+          } else if (level === 'intermediate') {
+            // ---- INTERMEDIATE ----
+            modules = [
+              {
+                id: 'mod_01',
+                title: 'Histograms & Exposure Mastery',
+                description: 'Stop guessing – read the light like a pro.',
+                steps: [
+                  {
+                    id: 'int_step_001',
+                    type: 'video',
+                    title: 'How to Read a Histogram',
+                    description: 'Understand the 5‑zone system and avoid clipping.',
+                    content: '<iframe src="https://www.youtube.com/embed/histogram_example" frameborder="0" allowfullscreen></iframe>',
+                    duration: 10,
+                    points: 80,
+                    badge: 'histogram_hero',
+                    prerequisites: [],
+                    recommendedProducts: ['guide_histogram'],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'int_step_002',
+                    type: 'text',
+                    title: 'Metering Modes: Matrix, Centre, Spot',
+                    description: 'Learn when to use each mode for perfect exposure.',
+                    content: 'Matrix evaluates the whole scene. Centre‑weighted ignores the edges. Spot measures a tiny 1‑5% circle. Use Spot for backlit subjects or high‑contrast scenes.',
+                    duration: 6,
+                    points: 60,
+                    badge: null,
+                    prerequisites: ['int_step_001'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'int_step_003',
+                    type: 'quiz',
+                    title: 'Exposure & Metering Quiz',
+                    description: 'Test your knowledge of histograms and metering.',
+                    content: '6 questions to cement your understanding.',
+                    duration: 5,
+                    points: 100,
+                    badge: 'exposure_expert',
+                    prerequisites: ['int_step_002'],
+                    recommendedProducts: [],
+                    completionAction: 'open_quiz'
+                  }
+                ]
+              },
+              {
+                id: 'mod_02',
+                title: 'Off‑Camera Flash & Lighting',
+                description: 'Take control of light, not just available light.',
+                steps: [
+                  {
+                    id: 'int_step_004',
+                    type: 'video',
+                    title: 'Strobe Basics: Power, Modifiers, and Triggering',
+                    description: 'Learn the difference between TTL and manual flash.',
+                    content: '<iframe src="https://www.youtube.com/embed/flash_basics" frameborder="0" allowfullscreen></iframe>',
+                    duration: 14,
+                    points: 100,
+                    badge: 'flash_pioneer',
+                    prerequisites: ['int_step_003'],
+                    recommendedProducts: ['guide_off_camera_flash'],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'int_step_005',
+                    type: 'challenge',
+                    title: 'One‑Light Portrait Challenge',
+                    description: 'Use one off‑camera flash to create a dramatic portrait.',
+                    content: 'Set up your strobe at 45° with a softbox. Shoot 10 frames, adjusting power and distance.',
+                    duration: 20,
+                    points: 150,
+                    badge: 'lighting_artist',
+                    prerequisites: ['int_step_004'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'int_step_006',
+                    type: 'snapshot',
+                    title: 'Snapshot Card: Lighting Ratios',
+                    description: 'Create a Snapshot Card that explains lighting ratios.',
+                    content: 'Use the Snapshot Card tool to visualise 2:1 vs 4:1 lighting.',
+                    duration: 6,
+                    points: 75,
+                    badge: null,
+                    prerequisites: ['int_step_005'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_snapshot'
+                  }
+                ]
+              },
+              {
+                id: 'mod_03',
+                title: 'Editing Workflow (White Balance & Curves)',
+                description: 'Polish your images with confidence.',
+                steps: [
+                  {
+                    id: 'int_step_007',
+                    type: 'text',
+                    title: 'Understanding White Balance',
+                    description: 'Kelvin, tint, and using the eyedropper tool.',
+                    content: 'Daylight = 5500K. Shade = 7500K. Tungsten = 3200K. Use the eyedropper on a neutral grey surface for instant correction.',
+                    duration: 5,
+                    points: 50,
+                    badge: null,
+                    prerequisites: ['int_step_006'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'int_step_008',
+                    type: 'video',
+                    title: 'Mastering the Tone Curve',
+                    description: 'Move beyond basic sliders – control contrast and colour.',
+                    content: '<iframe src="https://www.youtube.com/embed/tone_curve" frameborder="0" allowfullscreen></iframe>',
+                    duration: 12,
+                    points: 100,
+                    badge: 'curve_master',
+                    prerequisites: ['int_step_007'],
+                    recommendedProducts: ['guide_tone_curve'],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'int_step_009',
+                    type: 'tool',
+                    title: 'AI Critique Your Best Edit',
+                    description: 'Upload your best portrait and let Cynetis‑7 analyse it.',
+                    content: 'Use the Photo Critique tool to get a composition, colour, and exposure report.',
+                    duration: 5,
+                    points: 80,
+                    badge: 'critique_ready',
+                    prerequisites: ['int_step_008'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_tool'
+                  }
+                ]
+              }
+            ];
+          } else if (level === 'advanced') {
+            // ---- ADVANCED ----
+            modules = [
+              {
+                id: 'mod_01',
+                title: 'Studio Workflows & Tethering',
+                description: 'Professional capture from camera to screen.',
+                steps: [
+                  {
+                    id: 'adv_step_001',
+                    type: 'text',
+                    title: 'Tethering Setup (Capture One / Lightroom)',
+                    description: 'Connect your camera to a computer for instant review.',
+                    content: 'Use a USB‑C tether cable. In Capture One, go to Camera → Open Tether. In Lightroom, go to File → Tethered Capture. Pro tip: use Live View for precise focus.',
+                    duration: 8,
+                    points: 70,
+                    badge: 'tether_tech',
+                    prerequisites: [],
+                    recommendedProducts: ['guide_tethering'],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'adv_step_002',
+                    type: 'video',
+                    title: 'Styling & Set Design',
+                    description: 'How to direct a shoot and style a set.',
+                    content: '<iframe src="https://www.youtube.com/embed/set_design" frameborder="0" allowfullscreen></iframe>',
+                    duration: 18,
+                    points: 120,
+                    badge: 'set_designer',
+                    prerequisites: ['adv_step_001'],
+                    recommendedProducts: [],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'adv_step_003',
+                    type: 'protocol',
+                    title: 'Advanced Portrait Protocol: 3‑Light Setup',
+                    description: 'Execute a professional 3‑light portrait session.',
+                    content: 'Key light, fill light, and a rim/hair light. Open the Protocol Library and follow the "3‑Light Studio" protocol.',
+                    duration: 20,
+                    points: 200,
+                    badge: 'studio_master',
+                    prerequisites: ['adv_step_002'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_protocol'
+                  }
+                ]
+              },
+              {
+                id: 'mod_02',
+                title: 'Colour Science & Grading',
+                description: 'Go beyond presets – understand the math of colour.',
+                steps: [
+                  {
+                    id: 'adv_step_004',
+                    type: 'video',
+                    title: 'Understanding Colour Spaces (sRGB, Adobe RGB, ProPhoto)',
+                    description: 'Choose the right space for print vs web.',
+                    content: '<iframe src="https://www.youtube.com/embed/colour_space" frameborder="0" allowfullscreen></iframe>',
+                    duration: 12,
+                    points: 100,
+                    badge: 'colour_scientist',
+                    prerequisites: ['adv_step_003'],
+                    recommendedProducts: ['guide_colour_science'],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'adv_step_005',
+                    type: 'challenge',
+                    title: 'Create a Custom LUT',
+                    description: 'Use the AI Style tool to generate a unique LUT for your work.',
+                    content: 'Upload 3 sample images. Use the Style tool to extract a colour palette and generate a .cube LUT file.',
+                    duration: 15,
+                    points: 180,
+                    badge: 'lut_creator',
+                    prerequisites: ['adv_step_004'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_tool'
+                  },
+                  {
+                    id: 'adv_step_006',
+                    type: 'quiz',
+                    title: 'Colour Theory & Grading Final',
+                    description: 'Prove you can manage colour across any project.',
+                    content: '8 questions covering spaces, grading, and consistency.',
+                    duration: 6,
+                    points: 120,
+                    badge: 'colour_authority',
+                    prerequisites: ['adv_step_005'],
+                    recommendedProducts: [],
+                    completionAction: 'open_quiz'
+                  }
+                ]
+              },
+              {
+                id: 'mod_03',
+                title: 'Business, Branding & Client Delivery',
+                description: 'Turn your skills into a sustainable career.',
+                steps: [
+                  {
+                    id: 'adv_step_007',
+                    type: 'tool',
+                    title: 'Brand Identity Generator',
+                    description: 'Let AI generate a brand style guide for your photography.',
+                    content: 'Use the Brand tool to create a logo concept, colour palette, and tagline.',
+                    duration: 8,
+                    points: 100,
+                    badge: 'brand_architect',
+                    prerequisites: ['adv_step_006'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_tool'
+                  },
+                  {
+                    id: 'adv_step_008',
+                    type: 'text',
+                    title: 'Client Contract & Pricing Strategy',
+                    description: 'Learn how to price your work and protect it with a contract.',
+                    content: 'Use the Proposal tool to draft a standard contract. Include usage rights, deposit structure, and delivery timelines. Always charge 50% upfront.',
+                    duration: 10,
+                    points: 150,
+                    badge: 'business_sharp',
+                    prerequisites: ['adv_step_007'],
+                    recommendedProducts: ['template_contract'],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'adv_step_009',
+                    type: 'snapshot',
+                    title: 'Portfolio Snapshot Card',
+                    description: 'Create a Snapshot Card that acts as a mini‑portfolio.',
+                    content: 'Select your 3 best images. Use the Snapshot Card tool to build a project story.',
+                    duration: 10,
+                    points: 100,
+                    badge: 'portfolio_pro',
+                    prerequisites: ['adv_step_008'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_snapshot'
+                  },
+                  {
+                    id: 'adv_step_010',
+                    type: 'challenge',
+                    title: 'The "Decoded" Capstone Project',
+                    description: 'Plan, shoot, edit, and deliver a complete mini‑campaign.',
+                    content: 'Create a 10‑image series for a fictional brand. Include a moodboard, shot list, final gallery, and a pricing proposal.',
+                    duration: 45,
+                    points: 300,
+                    badge: 'operator_elite',
+                    prerequisites: ['adv_step_009'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  }
+                ]
+              }
+            ];
           }
-        } else {
-          journeyData = journeyDoc.data();
+
+          // Calculate total points per module
+          modules.forEach(mod => {
+            mod.totalPoints = mod.steps.reduce((sum, s) => sum + (s.points || 0), 0);
+          });
+
+          await db.collection('journeys').doc(level).set({
+            id: level,
+            title: `${level.charAt(0).toUpperCase() + level.slice(1)} Journey`,
+            level: level,
+            description: `The ${level} path to photographic mastery.`,
+            modules: modules
+          });
+          console.log(`✅ Seeded ${level} journey.`);
+        }
+        cdToast('🌱 All journey levels seeded!');
+      } catch (err) {
+        console.warn('Seed error (permissions likely):', err.message);
+      }
+    }
+
+    // ================================================================
+    // LOAD JOURNEY DATA for a specific level
+    // ================================================================
+    async function loadJourneyData(level = currentLevel) {
+      currentLevel = level;
+      // Update dropdown to match
+      if (levelSelect) levelSelect.value = level;
+
+      try {
+        // 1. Load journey doc
+        let journeyDoc = await db.collection('journeys').doc(level).get();
+
+        // 2. If missing, seed all levels and retry
+        if (!journeyDoc.exists) {
+          await seedAllJourneyLevels();
+          journeyDoc = await db.collection('journeys').doc(level).get();
         }
 
+        // 3. Fallback to beginner if still missing
+        if (!journeyDoc.exists) {
+          journeyDoc = await db.collection('journeys').doc('beginner').get();
+          currentLevel = 'beginner';
+          levelSelect.value = 'beginner';
+        }
+
+        journeyData = journeyDoc.data();
+
+        // 4. Load user progress for this level (subcollection)
         if (currentUser) {
-          const ujDoc = await db.collection('userJourney').doc(currentUser.uid).get();
-          if (ujDoc.exists) {
-            userProgress = ujDoc.data();
+          const progressRef = db.collection('userJourney')
+            .doc(currentUser.uid)
+            .collection('levels')
+            .doc(currentLevel);
+
+          const progressDoc = await progressRef.get();
+
+          if (progressDoc.exists) {
+            userProgress = progressDoc.data();
+            // Ensure arrays exist
             if (!userProgress.completedSteps) userProgress.completedSteps = [];
             if (!userProgress.completedModules) userProgress.completedModules = [];
             if (!userProgress.totalPoints) userProgress.totalPoints = 0;
             if (!userProgress.badgesEarned) userProgress.badgesEarned = [];
           } else {
+            // Create fresh progress for this level
             userProgress = {
               completedSteps: [],
               completedModules: [],
@@ -1156,16 +1479,22 @@
               badgesEarned: [],
               startedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            await db.collection('userJourney').doc(currentUser.uid).set(userProgress);
+            await progressRef.set(userProgress);
           }
+
+          // 5. Save the user's preferred level to their main profile (cross-device sync)
+          await db.collection('users').doc(currentUser.uid).set({
+            preferredJourneyLevel: currentLevel
+          }, { merge: true });
         }
 
+        // 6. Find the first incomplete module
         if (journeyData.modules && journeyData.modules.length > 0) {
           let found = false;
           for (let i = 0; i < journeyData.modules.length; i++) {
             const mod = journeyData.modules[i];
             const allSteps = mod.steps.map(s => s.id);
-            const completedSteps = userProgress.completedSteps.filter(id => allSteps.includes(id));
+            const completedSteps = (userProgress.completedSteps || []).filter(id => allSteps.includes(id));
             if (completedSteps.length < allSteps.length) {
               currentModuleIndex = i;
               found = true;
@@ -1177,6 +1506,7 @@
           }
         }
 
+        // 7. Render everything
         renderAll();
         updateTopBar();
         updateAssistantTip();
@@ -1231,7 +1561,7 @@
       totalPointsDisplay.textContent = userProgress.totalPoints || 0;
 
       const allStepIds = mod.steps.map(s => s.id);
-      const completedCount = allStepIds.filter(id => userProgress.completedSteps.includes(id)).length;
+      const completedCount = allStepIds.filter(id => (userProgress.completedSteps || []).includes(id)).length;
       const totalSteps = allStepIds.length;
       const pct = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
       progressFill.style.width = pct + '%';
@@ -1241,11 +1571,17 @@
       renderSteps(mod);
 
       if (completedCount === totalSteps && totalSteps > 0) {
-        if (!userProgress.completedModules.includes(mod.id)) {
+        if (!(userProgress.completedModules || []).includes(mod.id)) {
           userProgress.completedModules.push(mod.id);
-          db.collection('userJourney').doc(currentUser.uid).set({
-            completedModules: userProgress.completedModules
-          }, { merge: true });
+          // Save to subcollection
+          db.collection('userJourney')
+            .doc(currentUser.uid)
+            .collection('levels')
+            .doc(currentLevel)
+            .set({
+              completedModules: userProgress.completedModules
+            }, { merge: true })
+            .catch(err => console.warn('Could not save module completion:', err));
           showModuleComplete(mod);
         }
       } else {
@@ -1383,7 +1719,7 @@
     }
 
     // ================================================================
-    // COMPLETE STEP
+    // COMPLETE STEP (now uses subcollection)
     // ================================================================
     window.completeStep = async function(stepId) {
       if (!currentUser) return;
@@ -1395,19 +1731,19 @@
         return;
       }
 
-      if (userProgress.completedSteps.includes(stepId)) {
+      if ((userProgress.completedSteps || []).includes(stepId)) {
         cdToast('Already completed this step.');
         return;
       }
 
-      const missing = (step.prerequisites || []).filter(pre => !userProgress.completedSteps.includes(pre));
+      const missing = (step.prerequisites || []).filter(pre => !(userProgress.completedSteps || []).includes(pre));
       if (missing.length > 0) {
         cdToast('Complete the prerequisites first.');
         return;
       }
 
       try {
-        const newCompleted = [...userProgress.completedSteps, stepId];
+        const newCompleted = [...(userProgress.completedSteps || []), stepId];
         const newPoints = (userProgress.totalPoints || 0) + (step.points || 0);
 
         const newBadges = [...(userProgress.badgesEarned || [])];
@@ -1418,6 +1754,7 @@
           earnedBadges.push(step.badge);
         }
 
+        // Some bonus badges
         if (newCompleted.length === 3 && !newBadges.includes('first_steps')) {
           newBadges.push('first_steps');
           earnedBadges.push('first_steps');
@@ -1427,12 +1764,19 @@
           earnedBadges.push('signal_pioneer');
         }
 
-        await db.collection('userJourney').doc(currentUser.uid).set({
+        // Save to subcollection
+        const progressRef = db.collection('userJourney')
+          .doc(currentUser.uid)
+          .collection('levels')
+          .doc(currentLevel);
+
+        await progressRef.set({
           completedSteps: newCompleted,
           totalPoints: newPoints,
           badgesEarned: newBadges
         }, { merge: true });
 
+        // Update local state
         userProgress.completedSteps = newCompleted;
         userProgress.totalPoints = newPoints;
         userProgress.badgesEarned = newBadges;
@@ -1447,11 +1791,12 @@
         renderAll();
         updateAssistantTip();
 
+        // Check if module is complete
         const modSteps = mod.steps.map(s => s.id);
         if (modSteps.every(id => newCompleted.includes(id))) {
-          if (!userProgress.completedModules.includes(mod.id)) {
+          if (!(userProgress.completedModules || []).includes(mod.id)) {
             userProgress.completedModules.push(mod.id);
-            await db.collection('userJourney').doc(currentUser.uid).set({
+            await progressRef.set({
               completedModules: userProgress.completedModules
             }, { merge: true });
             showModuleComplete(mod);
@@ -1475,8 +1820,8 @@
           <h2>Module Complete!</h2>
           <p>You've finished <strong style="color:var(--green);">${module.title}</strong>.</p>
           <div style="display:flex; justify-content:center; gap:16px; font-size:14px; color:var(--text-muted); flex-wrap:wrap; margin:4px 0 12px;">
-            <span>🏅 ${userProgress.badgesEarned.length} badges</span>
-            <span>⭐ ${userProgress.totalPoints} points</span>
+            <span>🏅 ${(userProgress.badgesEarned || []).length} badges</span>
+            <span>⭐ ${userProgress.totalPoints || 0} points</span>
           </div>
           <div class="btn-group">
             ${currentModuleIndex < journeyData.modules.length - 1 ? `<button class="btn-step" onclick="goToModule(${currentModuleIndex + 1})">Next Module →</button>` : `<button class="btn-step" onclick="cdToast('🎉 You\'ve completed all modules!')">🏁 All Done!</button>`}
@@ -1493,7 +1838,7 @@
       if (index < 0 || index >= journeyData.modules.length) return;
       if (index > 0) {
         const prevMod = journeyData.modules[index - 1];
-        if (!userProgress.completedModules.includes(prevMod.id)) {
+        if (!(userProgress.completedModules || []).includes(prevMod.id)) {
           cdToast('🔒 Complete the previous module first.');
           return;
         }
@@ -1529,7 +1874,7 @@
     };
 
     // ================================================================
-    // ASSISTANT
+    // ASSISTANT (unchanged)
     // ================================================================
     function updateAssistantTip() {
       if (!journeyData || !userProgress) {
@@ -1696,6 +2041,11 @@
         const userDoc = await db.collection('users').doc(user.uid).get();
         if (userDoc.exists) {
           userData = userDoc.data();
+          // Restore preferred level if saved
+          if (userData.preferredJourneyLevel) {
+            currentLevel = userData.preferredJourneyLevel;
+            if (levelSelect) levelSelect.value = currentLevel;
+          }
         } else {
           userData = { name: 'Operator', role: 'Operator', tier: 'free', email: user.email || '' };
         }
@@ -1706,24 +2056,37 @@
 
       updateComponents(user, userData);
       updateTopBar();
-      await loadJourneyData('beginner');
+      await loadJourneyData(currentLevel);
     });
 
     // ================================================================
-    // INIT
+    // LEVEL SELECTOR CHANGE
+    // ================================================================
+    if (levelSelect) {
+      levelSelect.addEventListener('change', function(e) {
+        const newLevel = e.target.value;
+        if (newLevel !== currentLevel) {
+          moduleCompleteDiv.style.display = 'none';
+          loadJourneyData(newLevel);
+        }
+      });
+    }
+
+    // ================================================================
+    // INIT – seed if empty
     // ================================================================
     (async function init() {
       try {
         const check = await db.collection('journeys').limit(1).get();
         if (check.empty) {
-          await seedJourneyData();
+          await seedAllJourneyLevels();
         }
       } catch (err) {
         console.warn('Init check failed, will retry on load:', err);
       }
     })();
 
-    console.log('🚀 Cameras Decoded Journey (with logo and custom title image).');
+    console.log('🚀 Cameras Decoded Journey with levels (Beginner/Intermediate/Advanced).');
   </script>
 </body>
 </html>
