@@ -19,11 +19,12 @@
   }
 
   function loadSharedCSS() {
+    // ✅ All paths are now absolute (start with /)
     const files = [
       '/styles/design-system.css',
       '/styles/components.css',
-      'bottom-nav.css',
-      'header.css'
+      '/bottom-nav.css',   // ✅ absolute path
+      '/header.css'        // ✅ absolute path
     ];
     files.forEach(href => {
       if (document.querySelector(`link[href="${href}"]`)) return;
@@ -36,7 +37,7 @@
 
   function loadParticles() { /* optional – skip if not used */ }
 
-  // ----- NEW HEADER INJECTION -----
+  // ----- HEADER INJECTION -----
   function injectFloatingHeader() {
     // Remove any existing header to avoid duplicates
     const oldHeaders = document.querySelectorAll('.floating-header');
@@ -53,10 +54,10 @@
         <div class="floating-center-group"></div>
         <div class="floating-right-group">
           <div id="headerAuthButtons" style="display:flex; gap:6px; align-items:center;">
-            <a href="login.html" class="header-auth-btn btn-login-header">Log in</a>
-            <a href="signup.html" class="header-auth-btn btn-signup-header">Sign Up</a>
+            <a href="/login.html" class="header-auth-btn btn-login-header">Log in</a>
+            <a href="/signup.html" class="header-auth-btn btn-signup-header">Sign Up</a>
           </div>
-          <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
+          <a href="/cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
             <i class="fas fa-shopping-cart"></i>
             <span id="cartHeaderLabel">Cart</span>
             <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
@@ -82,7 +83,8 @@
   function loadBottomNav() {
     if (document.querySelector('script[src*="bottom-nav.js"]')) return;
     const script = document.createElement('script');
-    script.src = 'bottom-nav.js?v=' + Date.now();
+    // ✅ absolute path
+    script.src = '/bottom-nav.js?v=' + Date.now();
     document.body.appendChild(script);
   }
 
@@ -91,7 +93,7 @@
     loadGoogleFonts();
     loadSharedCSS();
     loadParticles();
-    injectFloatingHeader();   // this injects the new header
+    injectFloatingHeader();
     injectBottomNavContainer();
     loadBottomNav();
     console.log('✅ Master loader complete.');
