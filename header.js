@@ -128,16 +128,33 @@
     updateCartUI();
   });
 
-  // Fallback: if window.USER is already set when header loads
-  setTimeout(() => {
-    if (window.USER && typeof window.USER === 'object') {
-      console.log('[Header] ✅ window.USER already exists, updating UI');
+  // ================================================================
+  // RETRY MECHANISM – waits for window.USER to be ready
+  // ================================================================
+  let retryCount = 0;
+  const maxRetries = 20; // 20 * 250ms = 5 seconds max
+
+  function checkUserReady() {
+    if (window.USER && window.USER.isLoggedIn === true) {
+      console.log('[Header] ✅ window.USER ready, updating UI');
       updateAuthUI(window.USER, window.USER);
       updateCartUI();
-    } else {
-      console.log('[Header] ⏳ window.USER not ready yet');
+      return;
     }
-  }, 500);
+    
+    retryCount++;
+    if (retryCount < maxRetries) {
+      console.log(`[Header] ⏳ window.USER not ready, retry ${retryCount}...`);
+      setTimeout(checkUserReady, 250);
+    } else {
+      console.log('[Header] ❌ window.USER not ready after max retries');
+      // One last try with whatever we have
+      if (window.USER) {
+        updateAuthUI(window.USER, window.USER);
+        updateCartUI();
+      }
+    }
+  }
 
   // ================================================================
   // PUBLIC API
@@ -157,6 +174,10 @@
     console.log('[Header] Initializing...');
     setupSidebarToggle();
     updateCartUI();
+    
+    // Start retry mechanism after a short delay
+    setTimeout(checkUserReady, 300);
+    
     console.log('[Header] ✅ Initialized');
   }
 
