@@ -1,20 +1,26 @@
-// operator-dashboard.js – View model, data loading, rendering, event handlers
-
+// operator-dashboard.js – Premium Dashboard Logic
 (function() {
   'use strict';
 
   console.log('[Dashboard] Loading...');
 
   // ================================================================
-  // DOM REFS – with proper wait
+  // DOM REFS – with retry and better error handling
   // ================================================================
   let loadingEl = null;
   let contentEl = null;
+  let isReady = false;
 
   function getElements() {
     loadingEl = document.getElementById('loadingState');
     contentEl = document.getElementById('dashboardContent');
-    return loadingEl && contentEl;
+    const found = !!(loadingEl && contentEl);
+    if (found) {
+      console.log('[Dashboard] DOM elements found.');
+    } else {
+      console.warn('[Dashboard] DOM elements not found. loadingEl:', !!loadingEl, 'contentEl:', !!contentEl);
+    }
+    return found;
   }
 
   // ================================================================
@@ -35,15 +41,13 @@
   // ================================================================
   async function loadDashboardData(userId) {
     try {
-      // 1. Load user doc
+      console.log('[Dashboard] Loading data for user:', userId);
       const userDoc = await firebase.firestore().collection('users').doc(userId).get();
       if (!userDoc.exists) throw new Error('User document not found');
       const userData = userDoc.data();
+      console.log('[Dashboard] User data loaded:', userData);
 
-      // 2. Load journey progress
       const journeyData = await fetchJourneyData(userId);
-
-      // 3. Load recent activity
       const activity = await fetchRecentActivity(userId);
 
       dashboard.user = {
@@ -78,6 +82,7 @@
 
       dashboard.recentActivity = activity;
 
+      console.log('[Dashboard] View model updated:', dashboard);
       return true;
     } catch (err) {
       console.error('[Dashboard] Error loading data:', err);
@@ -86,7 +91,7 @@
   }
 
   // ================================================================
-  // JOURNEY DATA HELPER
+  // JOURNEY DATA
   // ================================================================
   async function fetchJourneyData(userId) {
     try {
@@ -122,9 +127,6 @@
     }
   }
 
-  // ================================================================
-  // LEARNING DATA
-  // ================================================================
   function buildLearningData(journeyData, userData) {
     if (journeyData.nextNode && journeyData.nextNode !== 'Start your journey') {
       return {
@@ -157,7 +159,7 @@
         const completed = data.completedNodes || [];
         return completed.slice(-3).map((nodeId, idx) => ({
           id: nodeId,
-          text: `Completed node: ${nodeId}`,
+          text: `Completed: ${nodeId}`,
           time: new Date(Date.now() - (idx * 3600000)).toLocaleString()
         }));
       }
@@ -169,19 +171,19 @@
   }
 
   // ================================================================
-  // RENDER FUNCTIONS
+  // RENDER FUNCTIONS – with safe element checks
   // ================================================================
   function renderDashboard() {
-    if (!loadingEl || !contentEl) {
-      if (!getElements()) {
-        console.warn('[Dashboard] Elements not ready, skipping render');
-        return;
-      }
+    console.log('[Dashboard] Rendering...');
+
+    if (!getElements()) {
+      console.warn('[Dashboard] Elements not ready, retrying in 500ms');
+      setTimeout(renderDashboard, 500);
+      return;
     }
 
-    // Show content, hide loading
-    loadingEl.style.display = 'none';
-    contentEl.style.display = 'block';
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (contentEl) contentEl.style.display = 'block';
 
     renderHero();
     renderStats();
@@ -189,37 +191,45 @@
     renderActivity();
     renderCollections();
     renderAI();
-    // Challenge, Protocols, Referral, Quiz will be added
+    renderChallenge();
+    renderProtocols();
+    renderReferral();
+    renderQuiz();
+
+    console.log('[Dashboard] ✅ Render complete.');
   }
 
   function renderHero() {
     const l = dashboard.learning;
     const titleEl = document.getElementById('heroLessonTitle');
-    const progressEl = document.getElementById('heroProgress');
+    const fillEl = document.getElementById('heroProgressFill');
     const labelEl = document.getElementById('heroProgressLabel');
     const stepEl = document.getElementById('heroStepInfo');
     const estimateEl = document.getElementById('heroEstimate');
     const cta = document.getElementById('heroCta');
     const hero = document.getElementById('continueLearning');
     const empty = document.getElementById('heroEmpty');
-    const content = hero?.querySelector('.hero-content');
+    const body = hero?.querySelector('.hero-inner');
 
-    if (!hero || !content) return;
-
-    if (!l.lessonId || l.progressPct >= 100) {
-      content.style.display = 'none';
-      if (empty) empty.style.display = 'block';
-      if (hero) hero.classList.remove('chasing-border');
+    if (!hero) {
+      console.warn('[Dashboard] Hero card not found');
       return;
     }
 
-    content.style.display = 'flex';
+    if (!l.lessonId || l.progressPct >= 100) {
+      if (body) body.style.display = 'none';
+      if (empty) empty.style.display = 'block';
+      hero.classList.remove('chasing-border');
+      return;
+    }
+
+    if (body) body.style.display = 'flex';
     if (empty) empty.style.display = 'none';
-    if (hero) hero.classList.add('chasing-border');
+    hero.classList.add('chasing-border');
 
     if (titleEl) titleEl.textContent = l.title || 'Continue your journey';
-    if (progressEl) progressEl.value = l.progressPct;
-    if (labelEl) labelEl.textContent = Math.round(l.progressPct) + '%';
+    if (fillEl) fillEl.style.width = Math.min(l.progressPct, 100) + '%';
+    if (labelEl) labelEl.textContent = Math.round(Math.min(l.progressPct, 100)) + '%';
     if (stepEl) stepEl.textContent = `Step ${l.step} of ${l.total}`;
     if (estimateEl) estimateEl.textContent = '~5 min';
     if (cta) cta.href = l.href || 'journey.html';
@@ -228,11 +238,11 @@
   function renderStats() {
     const a = dashboard.activity;
     const el = document.getElementById('statStreak');
-    if (el) el.textContent = a.streakDays;
+    if (el) el.textContent = a.streakDays || 0;
     const el2 = document.getElementById('statXpToday');
-    if (el2) el2.textContent = a.xpToday;
+    if (el2) el2.textContent = a.xpToday || 0;
     const el3 = document.getElementById('statRank');
-    if (el3) el3.textContent = a.rank;
+    if (el3) el3.textContent = a.rank || '—';
   }
 
   function renderGoalAndJourney() {
@@ -240,33 +250,36 @@
     const j = dashboard.journey;
 
     const currentEl = document.getElementById('goalCurrent');
-    if (currentEl) currentEl.textContent = Math.min(a.xpToday, a.xpGoal);
+    if (currentEl) currentEl.textContent = Math.min(a.xpToday || 0, a.xpGoal || 100);
     const targetEl = document.getElementById('goalTarget');
-    if (targetEl) targetEl.textContent = a.xpGoal;
-    const barEl = document.getElementById('goalProgressBar');
-    if (barEl) {
-      const pct = a.xpGoal > 0 ? (a.xpToday / a.xpGoal) * 100 : 0;
-      barEl.value = Math.min(pct, 100);
+    if (targetEl) targetEl.textContent = a.xpGoal || 100;
+    const fillEl = document.getElementById('goalProgressFill');
+    if (fillEl) {
+      const pct = (a.xpGoal || 100) > 0 ? ((a.xpToday || 0) / (a.xpGoal || 100)) * 100 : 0;
+      fillEl.style.width = Math.min(pct, 100) + '%';
     }
     const remainingEl = document.getElementById('goalRemaining');
-    if (remainingEl) remainingEl.textContent = `Remaining: ${Math.max(a.xpGoal - a.xpToday, 0)} XP`;
+    if (remainingEl) {
+      const remaining = Math.max((a.xpGoal || 100) - (a.xpToday || 0), 0);
+      remainingEl.textContent = `Remaining: ${remaining} XP`;
+    }
 
     const nodeEl = document.getElementById('journeyNodeName');
     if (nodeEl) nodeEl.textContent = j.nextNode || 'No next node';
     const textEl = document.getElementById('journeyProgressText');
-    if (textEl) textEl.textContent = `${j.completed} / ${j.total} completed`;
-    const jBarEl = document.getElementById('journeyProgressBar');
-    if (jBarEl) {
-      const pct = j.total > 0 ? (j.completed / j.total) * 100 : 0;
-      jBarEl.value = Math.min(pct, 100);
+    if (textEl) textEl.textContent = `${j.completed || 0} / ${j.total || 0} completed`;
+    const jFillEl = document.getElementById('journeyProgressFill');
+    if (jFillEl) {
+      const pct = (j.total || 0) > 0 ? ((j.completed || 0) / (j.total || 0)) * 100 : 0;
+      jFillEl.style.width = Math.min(pct, 100) + '%';
     }
   }
 
   function renderActivity() {
     const list = document.getElementById('activityList');
     if (!list) return;
-    const activities = dashboard.recentActivity;
-    if (!activities || activities.length === 0) {
+    const activities = dashboard.recentActivity || [];
+    if (activities.length === 0) {
       list.innerHTML = '<div class="activity-empty">No recent activity yet.</div>';
       return;
     }
@@ -279,23 +292,26 @@
   }
 
   function renderCollections() {
-    const c = dashboard.counts;
+    const c = dashboard.counts || { protocols: 0, snapshots: 0, posts: 0 };
     const el = document.getElementById('protocolCount');
-    if (el) el.textContent = c.protocols;
+    if (el) el.textContent = c.protocols || 0;
     const el2 = document.getElementById('snapshotCount');
-    if (el2) el2.textContent = c.snapshots;
+    if (el2) el2.textContent = c.snapshots || 0;
     const el3 = document.getElementById('postCount');
-    if (el3) el3.textContent = c.posts;
+    if (el3) el3.textContent = c.posts || 0;
   }
 
   function renderAI() {
     const userData = window.USER;
-    if (!userData) return;
+    if (!userData) {
+      console.warn('[Dashboard] USER not available for AI render');
+      return;
+    }
     const usage = userData.aiUsage || { total: 0 };
     const limit = userData.tier === 'pro' ? 50 : 5;
     const pct = Math.min((usage.total / limit) * 100, 100);
     const usedEl = document.getElementById('aiUsed');
-    if (usedEl) usedEl.textContent = usage.total;
+    if (usedEl) usedEl.textContent = usage.total || 0;
     const limitEl = document.getElementById('aiLimit');
     if (limitEl) limitEl.textContent = limit === 50 ? '∞' : limit;
     const percentEl = document.getElementById('aiPercent');
@@ -306,6 +322,22 @@
     if (badgeEl) badgeEl.textContent = userData.tier === 'pro' ? 'Pro' : 'Free';
   }
 
+  function renderChallenge() {
+    // Placeholder – challenge logic will be added later
+  }
+
+  function renderProtocols() {
+    // Placeholder – protocol logic will be added later
+  }
+
+  function renderReferral() {
+    // Placeholder – referral logic will be added later
+  }
+
+  function renderQuiz() {
+    // Placeholder – quiz logic will be added later
+  }
+
   // ================================================================
   // REAL-TIME LISTENER
   // ================================================================
@@ -313,8 +345,7 @@
     firebase.firestore().collection('users').doc(userId)
       .onSnapshot((doc) => {
         if (doc.exists) {
-          const data = doc.data();
-          // Reload and re-render
+          console.log('[Dashboard] Real-time update received');
           loadDashboardData(userId).then(() => {
             renderDashboard();
           });
@@ -325,14 +356,34 @@
   }
 
   // ================================================================
+  // COPY REFERRAL
+  // ================================================================
+  window.copyReferralLink = function() {
+    const link = document.getElementById('referralLink');
+    if (!link) return;
+    const text = link.textContent || '';
+    navigator.clipboard.writeText('https://' + text).then(() => {
+      console.log('[Dashboard] Referral link copied');
+    }).catch(() => {
+      const input = document.createElement('input');
+      input.value = 'https://' + text;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+    });
+  };
+
+  // ================================================================
   // INIT
   // ================================================================
   async function init() {
+    console.log('[Dashboard] init() called');
+
     // Make sure DOM elements exist
     if (!getElements()) {
-      console.warn('[Dashboard] DOM not ready, waiting...');
-      // Try again in 500ms
-      setTimeout(init, 500);
+      console.warn('[Dashboard] DOM not ready, retrying...');
+      setTimeout(init, 300);
       return;
     }
 
@@ -345,25 +396,30 @@
 
     const user = auth.currentUser;
     if (!user) {
+      console.warn('[Dashboard] No user logged in');
       if (loadingEl) loadingEl.innerHTML = '<p>Please <a href="login.html">log in</a>.</p>';
       return;
     }
 
-    // Show loading
+    console.log('[Dashboard] User:', user.uid);
+
+    // Show loading state
     if (loadingEl) loadingEl.style.display = 'block';
     if (contentEl) contentEl.style.display = 'none';
 
     const success = await loadDashboardData(user.uid);
     if (!success) {
+      console.error('[Dashboard] Data loading failed');
       if (loadingEl) {
         loadingEl.innerHTML = '<p class="error">Failed to load dashboard. <button onclick="location.reload()">Retry</button></p>';
       }
       return;
     }
 
+    // Render the dashboard
     renderDashboard();
 
-    // Start listener
+    // Start real-time listener
     listenToUserUpdates(user.uid);
 
     // Update bottom nav
@@ -384,9 +440,10 @@
   // ================================================================
   if (window.auth) {
     window.auth.onAuthStateChanged((user) => {
+      console.log('[Dashboard] Auth state changed, user:', !!user);
       if (user) {
+        // Check if user state is ready
         if (window.USER && window.USER.isLoggedIn) {
-          // Check DOM first
           if (getElements()) {
             init();
           } else {
@@ -409,9 +466,6 @@
     console.error('[Dashboard] auth not available');
   }
 
-  // ================================================================
-  // EXPOSE FOR DEBUGGING
-  // ================================================================
   window.dashboard = dashboard;
   window.renderDashboard = renderDashboard;
 
