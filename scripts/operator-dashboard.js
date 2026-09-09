@@ -15,6 +15,22 @@
   const $ = (id) => document.getElementById(id);
   const setText = (id, value) => { const el = $(id); if (el) el.textContent = value; };
   const announce = (message) => setText('dashboardAnnouncements', message);
+  function toast(message) {
+    let el = $('dashboardToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'dashboardToast';
+      el.className = 'dashboard-toast';
+      el.setAttribute('role', 'status');
+      el.hidden = true;
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.hidden = false;
+    announce(message);
+    window.clearTimeout(state.toastTimer);
+    state.toastTimer = window.setTimeout(() => { el.hidden = true; }, 2600);
+  }
   const safeArray = (value) => Array.isArray(value) ? value : [];
   const firstString = (...values) => values.find((v) => typeof v === 'string' && v.trim()) || '';
   const cap = (value, fallback) => {
@@ -58,7 +74,7 @@
     button.innerHTML = '<i class="fas fa-bell" aria-hidden="true"></i><span class="header-notification-dot" id="notificationCount"></span>';
     const authButtons = $('headerAuthButtons');
     right.insertBefore(button, authButtons || right.firstChild);
-    button.addEventListener('click', () => announce('Notifications panel is not connected yet.'));
+    button.addEventListener('click', () => toast('Notifications panel is not connected yet.'));
     updateNotificationCount();
   }
 
