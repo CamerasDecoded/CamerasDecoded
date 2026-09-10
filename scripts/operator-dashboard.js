@@ -1,299 +1,346 @@
-/* operator-dashboard.js — auth-aware, responsive Cameras Decoded dashboard */
+// operator-dashboard.js — Full data wiring for redesigned dashboard
 (function () {
   'use strict';
+  console.log('[Dashboard] Loading...');
 
-  const state = {
-    authUser: null,
-    user: {},
-    journey: { title: 'Beginner', nextNode: 'Start your journey', completed: 0, total: 0 },
-    activity: [],
-    unsubscribe: null,
-    menuOpen: false,
-    lastFocus: null
-  };
-
+  // ================================================================
+  // DOM SHORTCUTS
+  // ================================================================
   const $ = (id) => document.getElementById(id);
-  const setText = (id, value) => { const el = $(id); if (el) el.textContent = value; };
-  const announce = (message) => setText('dashboardAnnouncements', message);
-  function toast(message) {
-    let el = $('dashboardToast');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'dashboardToast';
-      el.className = 'dashboard-toast';
-      el.setAttribute('role', 'status');
-      el.hidden = true;
-      document.body.appendChild(el);
-    }
-    el.textContent = message;
-    el.hidden = false;
-    announce(message);
-    window.clearTimeout(state.toastTimer);
-    state.toastTimer = window.setTimeout(() => { el.hidden = true; }, 2600);
-  }
-  const safeArray = (value) => Array.isArray(value) ? value : [];
-  const firstString = (...values) => values.find((v) => typeof v === 'string' && v.trim()) || '';
-  const cap = (value, fallback) => {
-    const text = firstString(value, fallback);
-    return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+  const qs = (sel) => document.querySelector(sel);
+  const qsa = (sel) => document.querySelectorAll(sel);
+
+  // ================================================================
+  // VIEW MODEL
+  // ================================================================
+  const dashboard = {
+    user:  { name:'Operator', role:'Operator', tier:'free', avatar:'O' },
+    learning: { title:'', step:0, total:0, pct:0, href:'/journey.html' },
+    activity: { streak:0, xpToday:0, xpGoal:100, totalXp:0, rank:'—' },
+    journey:  { stage:'Beginner', nextNode:'Start your journey', completed:0, total:0 },
+    counts:   { protocols:0, snapshots:0, posts:0 },
+    recent:   []
   };
-  const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-  const escapeText = (value) => String(value == null ? '' : value);
 
-  function normalizedUser(data, authUser) {
-    const subscription = data.subscription && typeof data.subscription === 'object' ? data.subscription : {};
-    return Object.assign({}, data, {
-      name: firstString(data.displayName, data.name, data.username, authUser && authUser.displayName, 'Operator'),
-      email: firstString(data.email, authUser && authUser.email),
-      role: cap(firstString(data.role, data.roleName, data.accountRole, data.userRole), 'Operator'),
-      tier: cap(firstString(data.tier, data.plan, data.planName, data.planTier, data.subscriptionTier, data.membershipTier, data.membershipLevel, typeof data.subscription === 'string' ? data.subscription : '', subscription.tier, subscription.plan, subscription.name), 'Free')
-    });
+  // ================================================================
+  // UTILITIES
+  // ================================================================
+  function setProgress(barId, fillId, pct) {
+    const bar = $(barId);
+    const fill = $(fillId);
+    const clamped = Math.max(0, Math.min(100, pct));
+    if (fill) fill.style.width = clamped + '%';
+    if (bar) bar.setAttribute('aria-valuenow', Math.round(clamped));
   }
 
-  function syncHeader() {
-    const signedIn = Boolean(state.authUser);
-    const authButtons = $('headerAuthButtons');
-    const roleBadge = $('roleTierBadge');
-    if (authButtons) authButtons.style.display = signedIn ? 'none' : 'flex';
-    if (roleBadge) roleBadge.style.display = signedIn ? 'inline-flex' : 'none';
-    if (signedIn) {
-      setText('headerRole', state.user.role || 'Operator');
-      setText('headerTier', state.user.tier || 'Free');
-    }
-    ensureNotificationButton();
+  function setText(id, value) {
+    const el = $(id);
+    if (el) el.textContent = value;
   }
 
-  function ensureNotificationButton() {
-    const right = document.querySelector('.floating-right-group');
-    if (!right || $('headerNotificationButton')) return;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.id = 'headerNotificationButton';
-    button.className = 'header-notification-button';
-    button.setAttribute('aria-label', 'Notifications');
-    button.innerHTML = '<i class="fas fa-bell" aria-hidden="true"></i><span class="header-notification-dot" id="notificationCount"></span>';
-    const authButtons = $('headerAuthButtons');
-    right.insertBefore(button, authButtons || right.firstChild);
-    button.addEventListener('click', () => toast('Notifications panel is not connected yet.'));
-    updateNotificationCount();
+  function announce(msg) {
+    const el = $('dashboardAnnouncements');
+    if (el) el.textContent = msg;
   }
 
-  function updateNotificationCount() {
-    const unread = number(state.user.unreadNotifications, safeArray(state.user.notifications).filter((item) => !item.read).length);
-    const dot = $('notificationCount');
-    if (!dot) return;
-    dot.textContent = unread > 99 ? '99+' : String(unread);
-    dot.style.display = unread > 0 ? 'block' : 'none';
-    const button = $('headerNotificationButton');
-    if (button) button.setAttribute('aria-label', unread ? `Notifications, ${unread} unread` : 'Notifications');
-  }
-  function progress(id, value) {
-    const pct = Math.max(0, Math.min(100, number(value)));
-    const track = $(id);
-    if (!track) return;
-    track.setAttribute('aria-valuenow', String(Math.round(pct)));
-    const fill = track.querySelector('span');
-    if (fill) fill.style.width = `${pct}%`;
-  }
-
-  async function loadJourney(uid) {
+  function fmtDate(ts) {
+    if (!ts) return '';
     try {
-      const [journeyDoc, progressDoc] = await Promise.all([
-        window.db.collection('journeys').doc('beginner').get(),
-        window.db.collection('userJourney').doc(uid).get()
+      const d = ts.toDate ? ts.toDate() : new Date(ts);
+      return d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+    } catch { return ''; }
+  }
+
+  // ================================================================
+  // DATA LOADING
+  // ================================================================
+  async function loadAll(userId) {
+    try {
+      console.log('[Dashboard] Loading for uid:', userId);
+
+      const [userDoc, journeyDoc, userJourneyDoc] = await Promise.all([
+        firebase.firestore().collection('users').doc(userId).get(),
+        firebase.firestore().collection('journeys').doc('beginner').get(),
+        firebase.firestore().collection('userJourney').doc(userId).get()
       ]);
-      const journey = journeyDoc.exists ? journeyDoc.data() : {};
-      const userProgress = progressDoc.exists ? progressDoc.data() : {};
-      const nodes = safeArray(journey.nodes);
-      const completedIds = safeArray(userProgress.completedNodes);
-      const next = nodes.find((node) => !completedIds.includes(node.id));
-      state.journey = {
-        title: firstString(journey.title, 'Beginner'),
-        nextNode: next ? firstString(next.title, next.name, 'Next lesson') : (nodes.length ? 'Journey complete' : 'Start your journey'),
-        completed: completedIds.length,
-        total: nodes.length
+
+      const userData = userDoc.exists ? userDoc.data() : {};
+      const journeyData = journeyDoc.exists ? journeyDoc.data() : { nodes: [], title: 'Beginner' };
+      const userJourney = userJourneyDoc.exists ? userJourneyDoc.data() : { completedNodes: [] };
+
+      // ---- USER ----
+      dashboard.user = {
+        name: userData.displayName || userData.username || 'Operator',
+        role: userData.role || 'Operator',
+        tier: userData.tier || 'free',
+        avatar: (userData.displayName || userData.username || 'O').charAt(0).toUpperCase()
       };
-      state.activity = completedIds.slice(-3).reverse().map((id) => ({ label: `Completed: ${id}`, date: null }));
-    } catch (error) {
-      console.warn('[Dashboard] Journey data unavailable:', error);
+
+      // ---- JOURNEY ----
+      const allNodes = journeyData.nodes || [];
+      const completedIds = userJourney.completedNodes || [];
+      const completedCount = completedIds.length;
+      const totalCount = allNodes.length;
+      const nextNode = allNodes.find(n => !completedIds.includes(n.id));
+
+      dashboard.journey = {
+        stage: journeyData.title || 'Beginner',
+        nextNode: nextNode ? (nextNode.title || 'Next node') : 'All caught up',
+        completed: completedCount,
+        total: totalCount
+      };
+
+      // ---- LEARNING (Hero) ----
+      if (nextNode && totalCount > 0) {
+        dashboard.learning = {
+          title: nextNode.title || 'Continue your journey',
+          step: completedCount + 1,
+          total: totalCount,
+          pct: (completedCount / totalCount) * 100,
+          href: '/journey.html'
+        };
+      } else {
+        dashboard.learning = { title:'', step:0, total:0, pct:100, href:'/journey.html' };
+      }
+
+      // ---- ACTIVITY / STATS ----
+      const todayKey = new Date().toISOString().slice(0,10);
+      const xpToday = userData.xpToday || 0;
+      const xpGoal = userData.xpGoal || 100;
+
+      dashboard.activity = {
+        streak: userData.dailyChallengeStreak || 0,
+        xpToday,
+        xpGoal,
+        totalXp: userData.totalPoints || 0,
+        rank: userData.rank || userData.level || '—'
+      };
+
+      // ---- COLLECTIONS ----
+      dashboard.counts = {
+        protocols: (userData.savedProtocols || []).length,
+        snapshots: (userData.savedCards || []).length,
+        posts: (userData.savedCommunityPosts || []).length
+      };
+
+      // ---- RECENT ACTIVITY ----
+      dashboard.recent = buildRecentActivity(completedIds, allNodes);
+
+      // Store extra bits for later renders
+      dashboard._raw = { userData, allNodes, completedIds, todayKey };
+
+      return true;
+    } catch (err) {
+      console.error('[Dashboard] Load failed:', err);
+      return false;
     }
   }
 
-  function renderIdentity() {
-    const user = state.user;
-    setText('userName', user.name || 'Operator');
-    setText('tierBadge', `● ${user.tier || 'Free'}`);
-    setText('sidebarName', user.name || 'Operator');
-    setText('sidebarPlan', `${user.tier || 'Free'} plan`);
-    setText('sheetUserName', user.name || 'Operator');
-    setText('sheetUserPlan', user.tier || 'Free');
-    const avatar = firstString(user.name, 'O').charAt(0).toUpperCase();
-    setText('sidebarAvatar', avatar);
-    syncHeader();
+  function buildRecentActivity(completedIds, allNodes) {
+    if (!completedIds || completedIds.length === 0) return [];
+    // Newest first, last 3
+    return completedIds
+      .slice(-3)
+      .reverse()
+      .map(id => {
+        const node = allNodes.find(n => n.id === id);
+        return { text: node ? `Completed: ${node.title}` : `Completed: ${id}`, time: 'Recently' };
+      });
   }
 
-  function renderLearning() {
-    const journey = state.journey;
-    const complete = journey.total > 0 && journey.completed >= journey.total;
-    const pct = journey.total ? journey.completed / journey.total * 100 : 0;
-    const heroInner = document.querySelector('#continueLearning .hero-inner');
+  // ================================================================
+  // RENDERERS
+  // ================================================================
+  function renderGreeting() {
+    setText('userName', dashboard.user.name);
+    setText('sidebarName', dashboard.user.name);
+    setText('sidebarPlan', dashboard.user.tier === 'pro' ? 'Pro plan' : 'Free plan');
+    setText('sidebarAvatar', dashboard.user.avatar);
+    setText('sheetUserName', dashboard.user.name);
+    setText('sheetUserPlan', dashboard.user.tier === 'pro' ? 'Pro' : 'Free');
+
+    const tierBadge = $('tierBadge');
+    if (tierBadge) tierBadge.textContent = '● ' + (dashboard.user.tier === 'pro' ? 'Pro' : 'Free');
+  }
+
+  function renderHero() {
+    const l = dashboard.learning;
+    const card = $('continueLearning');
+    const inner = card ? card.querySelector('.hero-inner') : null;
     const empty = $('heroEmpty');
-    if (heroInner) heroInner.hidden = complete;
-    if (empty) empty.hidden = !complete;
-    setText('heroLessonTitle', journey.nextNode);
-    setText('heroProgressLabel', `${Math.round(pct)}%`);
-    setText('heroStepInfo', journey.total ? `Step ${Math.min(journey.completed + 1, journey.total)} of ${journey.total}` : 'Ready to begin');
-    progress('heroProgress', pct);
+    if (!card || !inner) return;
+
+    if (l.pct >= 100 || !l.title) {
+      inner.hidden = true;
+      if (empty) empty.hidden = false;
+      card.classList.remove('chasing-border');
+      return;
+    }
+    inner.hidden = false;
+    if (empty) empty.hidden = true;
+    card.classList.add('chasing-border');
+
+    setText('heroLessonTitle', l.title);
+    setText('heroProgressLabel', Math.round(l.pct) + '%');
+    setText('heroStepInfo', `Step ${l.step} of ${l.total}`);
+    setText('heroEstimate', '~5 min');
+    setProgress('heroProgress', 'heroProgressFill', l.pct);
+    const cta = $('heroCta');
+    if (cta) cta.href = l.href;
   }
 
   function renderStats() {
-    const user = state.user;
-    const streak = number(user.dailyChallengeStreak || user.streakDays || user.streak);
-    const xpToday = number(user.xpToday || user.dailyXp);
-    const goal = Math.max(1, number(user.xpGoal || user.dailyXpGoal, 100));
-    setText('statStreak', streak);
-    setText('statXpToday', xpToday);
-    setText('statRank', firstString(user.rank, user.operatorRank, '—'));
-    setText('goalCurrent', Math.min(xpToday, goal));
-    setText('goalTarget', goal);
-    setText('goalRemaining', xpToday >= goal ? 'Daily goal complete' : `Remaining: ${goal - xpToday} XP`);
-    progress('goalProgress', xpToday / goal * 100);
-    setText('logStreak', streak);
-    renderWeek(user.challengeLog || user.dailyChallengeLog);
-  }
-  function renderWeek(log) {
-    const host = $('logDays');
-    if (!host) return;
-    host.replaceChildren();
-    const completed = safeArray(log);
-    const formatter = new Intl.DateTimeFormat(undefined, { weekday: 'narrow' });
-    for (let offset = 6; offset >= 0; offset -= 1) {
-      const date = new Date();
-      date.setHours(12, 0, 0, 0);
-      date.setDate(date.getDate() - offset);
-      const key = date.toISOString().slice(0, 10);
-      const day = document.createElement('span');
-      day.className = `log-day${completed.includes(key) ? ' complete' : ''}`;
-      day.textContent = formatter.format(date);
-      day.title = key;
-      host.appendChild(day);
-    }
+    const a = dashboard.activity;
+    setText('statStreak', a.streak);
+    setText('statXpToday', a.xpToday);
+    setText('statRank', a.rank);
   }
 
-  function renderJourney() {
-    const journey = state.journey;
-    const pct = journey.total ? journey.completed / journey.total * 100 : 0;
-    setText('journeyNodeName', journey.nextNode);
-    setText('journeyProgressText', `${journey.completed} / ${journey.total} completed`);
-    progress('journeyProgress', pct);
+  function renderGoalAndJourney() {
+    const a = dashboard.activity;
+    const j = dashboard.journey;
+
+    setText('goalCurrent', Math.min(a.xpToday, a.xpGoal));
+    setText('goalTarget', a.xpGoal);
+    setText('goalRemaining', `Remaining: ${Math.max(a.xpGoal - a.xpToday, 0)} XP`);
+    setProgress('goalProgress', 'goalProgressFill', a.xpGoal ? (a.xpToday / a.xpGoal) * 100 : 0);
+
+    setText('journeyNodeName', j.nextNode);
+    setText('journeyProgressText', `${j.completed} / ${j.total} completed`);
+    setProgress('journeyProgress', 'journeyProgressFill', j.total ? (j.completed / j.total) * 100 : 0);
   }
 
   function renderActivity() {
-    const host = $('activityList');
-    if (!host) return;
-    host.replaceChildren();
-    const items = safeArray(state.user.recentActivity).length ? state.user.recentActivity : state.activity;
-    if (!items.length) {
-      const empty = document.createElement('p');
-      empty.className = 'empty-state';
-      empty.textContent = 'No recent activity yet.';
-      host.appendChild(empty);
+    const list = $('activityList');
+    if (!list) return;
+    if (dashboard.recent.length === 0) {
+      list.innerHTML = '<p class="empty-state">No recent activity yet.</p>';
       return;
     }
-    items.slice(0, 4).forEach((item) => {
-      const row = document.createElement('article');
-      row.className = 'activity-item';
-      const label = document.createElement('span');
-      label.textContent = firstString(item.label, item.text, item.title, 'Activity');
-      const time = document.createElement('time');
-      time.textContent = firstString(item.time, item.date, 'Recent');
-      row.append(label, time);
-      host.appendChild(row);
-    });
+    list.innerHTML = dashboard.recent.map(r => `
+      <div class="activity-item">
+        <span>${r.text}</span>
+        <time>${r.time}</time>
+      </div>
+    `).join('');
   }
 
   function renderCollections() {
-    const user = state.user;
-    setText('protocolCount', safeArray(user.savedProtocols).length);
-    setText('snapshotCount', safeArray(user.savedCards || user.savedSnapshots).length);
-    setText('postCount', safeArray(user.savedCommunityPosts).length);
+    setText('protocolCount', dashboard.counts.protocols);
+    setText('snapshotCount', dashboard.counts.snapshots);
+    setText('postCount', dashboard.counts.posts);
   }
 
   function renderAI() {
-    const user = state.user;
-    const usage = user.aiUsage && typeof user.aiUsage === 'object' ? number(user.aiUsage.total || user.aiUsage.today) : number(user.aiUsageToday);
-    const isPro = /pro|premium|founder/i.test(user.tier || '');
-    const limit = Math.max(1, number(user.aiDailyLimit, isPro ? 50 : 5));
-    const pct = usage / limit * 100;
-    setText('aiUsed', usage);
-    setText('aiLimit', limit);
-    setText('aiPercent', `${Math.round(Math.min(100, pct))}%`);
-    setText('aiBadge', user.tier || 'Free');
-    progress('aiProgress', pct);
+    const u = dashboard._raw?.userData || {};
+    const usage = u.aiUsage || { total: 0 };
+    const isPro = u.tier === 'pro';
+    const limit = isPro ? 50 : 5;
+    const pct = isPro ? 0 : Math.min((usage.total / limit) * 100, 100);
+
+    setText('aiBadge', isPro ? 'Pro' : 'Free');
+    setText('aiUsed', usage.total || 0);
+    setText('aiLimit', isPro ? '∞' : limit);
+    setText('aiPercent', isPro ? '∞' : Math.round(pct) + '%');
+    setProgress('aiProgress', 'aiFill', pct);
   }
 
   function renderChallenge() {
-    const challenge = state.user.dailyChallenge && typeof state.user.dailyChallenge === 'object' ? state.user.dailyChallenge : null;
-    const link = $('challengeBtn');
-    if (challenge) {
-      setText('challengeTitle', firstString(challenge.title, 'Today’s challenge'));
-      setText('challengeDesc', firstString(challenge.description, challenge.prompt, 'Complete today’s field mission.'));
-      if (link) link.href = firstString(challenge.href, '/dailyprotocol.html');
-    } else {
-      setText('challengeTitle', 'No challenge published yet');
-      setText('challengeDesc', 'Today’s field mission will appear here when it is ready.');
-      if (link) { link.textContent = 'Browse protocols'; link.href = '/protocols.html'; }
+    const u = dashboard._raw?.userData || {};
+    const todayKey = dashboard._raw?.todayKey;
+    const completed = u.dailyChallengesCompleted || [];
+    const done = completed.includes(todayKey);
+
+    const CHALLENGES = [
+      { title:'Golden Hour Portrait', desc:'Capture a portrait during golden hour. Focus on warm tones and backlighting.' },
+      { title:'Street Scene',         desc:'Capture a candid street moment with strong composition.' },
+      { title:'Minimalist Still Life',desc:'Arrange 3 objects and create a simple, clean composition.' },
+      { title:'Macro Details',        desc:'Find a small subject and capture it in extreme detail.' },
+      { title:'Reflection Hunt',      desc:'Find a reflection (water, glass, mirror) and use it as the main subject.' }
+    ];
+
+    const dayIndex = Math.floor(Date.now() / 86400000) % CHALLENGES.length;
+    const challenge = CHALLENGES[dayIndex];
+
+    setText('challengeTitle', challenge.title);
+    setText('challengeDesc', challenge.desc);
+
+    const btn = $('challengeBtn');
+    if (btn) {
+      if (done) {
+        btn.textContent = 'Completed today';
+        btn.setAttribute('aria-disabled', 'true');
+        btn.style.opacity = '0.5';
+        btn.style.pointerEvents = 'none';
+      } else {
+        btn.innerHTML = 'Start challenge';
+        btn.href = '/dailyprotocol.html';
+        btn.removeAttribute('aria-disabled');
+        btn.style.opacity = '';
+        btn.style.pointerEvents = '';
+      }
     }
+
+    // Streak log — 7 day dots
+    const logDays = $('logDays');
+    if (logDays) {
+      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      let html = '';
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0,10);
+        const isDone = completed.includes(key);
+        html += `<span class="log-day${isDone ? ' complete' : ''}">${dayNames[d.getDay()][0]}</span>`;
+      }
+      logDays.innerHTML = html;
+    }
+
+    setText('logStreak', u.dailyChallengeStreak || 0);
   }
+
   function renderProtocols() {
-    const host = $('protocolGrid');
-    if (!host) return;
-    host.replaceChildren();
-    const protocols = safeArray(state.user.savedProtocols);
-    if (!protocols.length) {
-      const empty = document.createElement('p');
-      empty.className = 'empty-state';
-      empty.textContent = 'No saved protocols yet.';
-      host.appendChild(empty);
+    const grid = $('protocolGrid');
+    if (!grid) return;
+    const u = dashboard._raw?.userData || {};
+    const saved = u.savedProtocols || [];
+
+    if (saved.length === 0) {
+      grid.innerHTML = '<p class="empty-state">No saved protocols yet.</p>';
       return;
     }
-    protocols.slice(0, 6).forEach((entry) => {
-      const protocol = typeof entry === 'string' ? { title: entry } : entry;
-      const article = document.createElement('article');
-      article.className = 'protocol-card';
-      const title = document.createElement('h3');
-      title.textContent = firstString(protocol.title, protocol.name, 'Saved protocol');
-      const description = document.createElement('p');
-      description.textContent = firstString(protocol.description, 'Saved to your library.');
-      const tag = document.createElement('span');
-      tag.className = 'genre-tag';
-      tag.textContent = cap(firstString(protocol.category, protocol.genre, 'Protocol'));
-      article.append(title, description, tag);
-      host.appendChild(article);
-    });
+    grid.innerHTML = saved.slice(0, 4).map(p => {
+      const title = typeof p === 'string' ? p : (p.title || 'Protocol');
+      const desc  = typeof p === 'string' ? '' : (p.description || '');
+      return `<article class="protocol-card"><h3>${title}</h3>${desc ? `<p>${desc}</p>` : ''}</article>`;
+    }).join('');
   }
 
   function renderReferral() {
-    const user = state.user;
-    const slug = firstString(user.referralCode, user.username, state.authUser && state.authUser.uid, '—');
-    setText('referralLink', `camerasdecoded.com/ref/${slug}`);
-    setText('totalReferrals', number(user.totalReferrals || user.referralCount));
-    const commission = number(user.totalCommission || user.commissionTotal);
-    setText('totalCommission', new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(commission));
-    setText('ambassadorTier', firstString(user.ambassadorTier, '—'));
+    const u = dashboard._raw?.userData || {};
+    const code = u.referralCode || '—';
+    setText('referralLink', `camerasdecoded.com/ref/${code}`);
+    setText('totalReferrals', u.totalReferrals || 0);
+    setText('totalCommission', '$' + (u.totalCommissionEarned || 0).toFixed(2));
+    const tierMap = { signal:'Signal Creator', operator:'Operator Creator', transmission_elite:'Transmission Elite' };
+    setText('ambassadorTier', tierMap[u.ambassadorTier] || u.ambassadorTier || 'Signal Creator');
   }
 
   function renderQuiz() {
-    setText('quizStreak', number(state.user.quizStreak));
-    const score = state.user.lastQuizScore;
-    setText('lastScoreDisplay', score == null ? '—' : `${number(score)}%`);
+    const u = dashboard._raw?.userData || {};
+    setText('quizStreak', u.quizStreak || 0);
+    const last = u.quizLastScore;
+    if (last && last.score != null && last.total != null) {
+      setText('lastScoreDisplay', `${last.score}/${last.total}`);
+    } else {
+      setText('lastScoreDisplay', '—');
+    }
   }
 
   function renderAll() {
-    renderIdentity();
-    renderLearning();
+    renderGreeting();
+    renderHero();
     renderStats();
-    renderJourney();
+    renderGoalAndJourney();
     renderActivity();
     renderCollections();
     renderAI();
@@ -301,203 +348,168 @@
     renderProtocols();
     renderReferral();
     renderQuiz();
-    updateNotificationCount();
-    const loading = $('loadingState');
-    const content = $('dashboardContent');
-    if (loading) loading.hidden = true;
-    if (content) content.hidden = false;
   }
 
-  function showLoadError(message) {
-    const loading = $('loadingState');
-    if (!loading) return;
-    loading.hidden = false;
-    loading.innerHTML = '';
-    const box = document.createElement('div');
-    box.className = 'loading-error';
-    const text = document.createElement('p');
-    text.textContent = message;
-    const retry = document.createElement('button');
-    retry.className = 'btn-secondary';
-    retry.type = 'button';
-    retry.textContent = 'Retry';
-    retry.addEventListener('click', () => window.location.reload());
-    box.append(text, retry);
-    loading.appendChild(box);
+  // ================================================================
+  // LOADING SWAP
+  // ================================================================
+  function showLoading() {
+    const l = $('loadingState'); if (l) l.hidden = false;
+    const c = $('dashboardContent'); if (c) c.hidden = true;
+  }
+  function showDashboard() {
+    const l = $('loadingState'); if (l) l.hidden = true;
+    const c = $('dashboardContent'); if (c) c.hidden = false;
   }
 
-  async function hydrateUser(user) {
-    state.authUser = user;
-    syncHeader();
-    try {
-      const [doc] = await Promise.all([
-        window.db.collection('users').doc(user.uid).get(),
-        loadJourney(user.uid)
-      ]);
-      state.user = normalizedUser(doc.exists ? doc.data() : {}, user);
-      renderAll();
-      subscribeToUser(user.uid);
-    } catch (error) {
-      console.error('[Dashboard] Could not load user:', error);
-      state.user = normalizedUser({}, user);
-      renderAll();
-      announce('Some dashboard data could not be loaded.');
-    }
-  }
-  function subscribeToUser(uid) {
-    if (state.unsubscribe) state.unsubscribe();
-    state.unsubscribe = window.db.collection('users').doc(uid).onSnapshot((doc) => {
-      if (!doc.exists) return;
-      state.user = normalizedUser(doc.data(), state.authUser);
-      renderAll();
-      if (window.BottomNav && typeof window.BottomNav.updateBadges === 'function') window.BottomNav.updateBadges(state.user);
-    }, (error) => console.warn('[Dashboard] Live updates unavailable:', error));
-  }
-
-  async function copyReferral() {
-    const text = $('referralLink') ? $('referralLink').textContent : '';
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(`https://${text}`);
-      announce('Referral link copied.');
-    } catch (_) {
-      const input = document.createElement('textarea');
-      input.value = `https://${text}`;
-      input.style.position = 'fixed';
-      input.style.opacity = '0';
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand('copy');
-      input.remove();
-      announce('Referral link copied.');
-    }
-  }
-
-  function updateQuizLink() {
-    const select = $('diffSelect');
-    const link = $('quizLaunchBtn');
-    if (select && link) link.href = `/quiz-full.html?difficulty=${encodeURIComponent(select.value)}`;
-  }
-
-  async function logout() {
-    if (!window.auth) return;
-    await window.auth.signOut();
-    window.location.assign('/login.html');
-  }
-
-  function openMenu() {
-    if (window.innerWidth > 1024 || state.menuOpen) return;
-    const menu = $('dashboardMenu');
-    const backdrop = $('dashboardMenuBackdrop');
-    const toggle = $('floatingToggle');
-    if (!menu || !backdrop) return;
-    state.lastFocus = document.activeElement;
-    state.menuOpen = true;
-    menu.hidden = false;
-    backdrop.hidden = false;
+  // ================================================================
+  // MOBILE SHEET MENU
+  // ================================================================
+  function openSheet() {
+    const bd = $('dashboardMenuBackdrop');
+    const sheet = $('dashboardMenu');
+    if (!bd || !sheet) return;
+    bd.hidden = false;
+    sheet.hidden = false;
     document.body.style.overflow = 'hidden';
-    if (toggle) { toggle.setAttribute('aria-expanded', 'true'); toggle.setAttribute('aria-controls', 'dashboardMenu'); }
     const close = $('closeDashboardMenu');
     if (close) close.focus();
   }
-
-  function closeMenu() {
-    if (!state.menuOpen) return;
-    state.menuOpen = false;
-    const menu = $('dashboardMenu');
-    const backdrop = $('dashboardMenuBackdrop');
-    if (menu) menu.hidden = true;
-    if (backdrop) backdrop.hidden = true;
+  function closeSheet() {
+    const bd = $('dashboardMenuBackdrop');
+    const sheet = $('dashboardMenu');
+    if (!bd || !sheet) return;
+    bd.hidden = true;
+    sheet.hidden = true;
     document.body.style.overflow = '';
-    const toggle = $('floatingToggle');
-    if (toggle) toggle.setAttribute('aria-expanded', 'false');
-    if (state.lastFocus && typeof state.lastFocus.focus === 'function') state.lastFocus.focus();
   }
 
-  function trapFocus(event) {
-    if (!state.menuOpen || event.key !== 'Tab') return;
-    const menu = $('dashboardMenu');
-    const focusables = menu ? Array.from(menu.querySelectorAll('a[href],button:not([disabled]),select,[tabindex]:not([tabindex="-1"])')).filter((el) => !el.hidden) : [];
-    if (!focusables.length) return;
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-  }
-  function bindUI() {
-    $('copyReferralBtn')?.addEventListener('click', copyReferral);
-    $('diffSelect')?.addEventListener('change', updateQuizLink);
-    $('sidebarLogout')?.addEventListener('click', logout);
-    $('sheetLogout')?.addEventListener('click', logout);
-    $('closeDashboardMenu')?.addEventListener('click', closeMenu);
-    $('dashboardMenuBackdrop')?.addEventListener('click', closeMenu);
-    document.addEventListener('click', (event) => {
-      const toggle = event.target.closest('#floatingToggle');
-      if (!toggle) return;
-      event.preventDefault();
-      state.menuOpen ? closeMenu() : openMenu();
-    });
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeMenu();
-      trapFocus(event);
-    });
-    window.addEventListener('resize', () => { if (window.innerWidth > 1024) closeMenu(); });
-    updateQuizLink();
+  function ensureMobileMenuTrigger() {
+    if ($('mobileMenuTrigger')) return;
+    const sheet = $('dashboardMenu');
+    if (!sheet) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'mobileMenuTrigger';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Open menu');
+    btn.className = 'icon-button';
+    btn.style.cssText = 'position:fixed;top:16px;right:16px;z-index:10000;background:rgba(12,12,14,.9);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(14px);display:none;';
+    btn.innerHTML = '<i class="fas fa-bars"></i>';
+    btn.addEventListener('click', openSheet);
+    document.body.appendChild(btn);
+
+    const mq = window.matchMedia('(max-width: 1024px)');
+    const update = () => { btn.style.display = mq.matches ? 'grid' : 'none'; };
+    mq.addEventListener('change', update);
+    update();
   }
 
-  function waitForFirebase(timeout = 8000) {
-    return new Promise((resolve, reject) => {
-      const started = Date.now();
-      const timer = setInterval(() => {
-        if (window.auth && window.db) { clearInterval(timer); resolve(); }
-        else if (Date.now() - started >= timeout) { clearInterval(timer); reject(new Error('Firebase did not initialize')); }
-      }, 100);
+  // ================================================================
+  // EVENT WIRING
+  // ================================================================
+  function wireEvents() {
+    // Mobile sheet
+    ensureMobileMenuTrigger();
+    const closeBtn = $('closeDashboardMenu');
+    const backdrop = $('dashboardMenuBackdrop');
+    if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+    if (backdrop) backdrop.addEventListener('click', closeSheet);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSheet();
     });
-  }
 
-  function watchHeaderInjection() {
-    syncHeader();
-    const observer = new MutationObserver(() => {
-      if ($('headerAuthButtons') || $('roleTierBadge')) syncHeader();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    window.setTimeout(() => observer.disconnect(), 10000);
-  }
+    // Logout (sidebar + sheet)
+    const logout = () => firebase.auth().signOut().then(() => { window.location.href = '/login.html'; });
+    const sl = $('sidebarLogout'); if (sl) sl.addEventListener('click', logout);
+    const shl = $('sheetLogout'); if (shl) shl.addEventListener('click', logout);
 
-  async function boot() {
-    bindUI();
-    watchHeaderInjection();
-    try {
-      await waitForFirebase();
-      window.auth.onAuthStateChanged((user) => {
-        if (user) hydrateUser(user);
-        else {
-          state.authUser = null;
-          state.user = {};
-          syncHeader();
-          showLoadError('Please log in to open your operator dashboard.');
-          const loading = $('loadingState');
-          if (loading) {
-            const link = document.createElement('a');
-            link.className = 'btn-primary';
-            link.href = '/login.html';
-            link.textContent = 'Log in';
-            loading.querySelector('.loading-error')?.appendChild(link);
-          }
-        }
+    // Copy referral
+    const copy = $('copyReferralBtn');
+    if (copy) {
+      copy.addEventListener('click', () => {
+        const text = ($('referralLink')?.textContent || '').trim();
+        const url = 'https://' + text;
+        navigator.clipboard.writeText(url).then(() => {
+          announce('Referral link copied');
+          const old = copy.innerHTML;
+          copy.innerHTML = '<i class="fas fa-check"></i> Copied';
+          setTimeout(() => { copy.innerHTML = old; }, 1600);
+        }).catch(() => {
+          const i = document.createElement('input');
+          i.value = url; document.body.appendChild(i); i.select();
+          document.execCommand('copy'); document.body.removeChild(i);
+        });
       });
-    } catch (error) {
-      console.error('[Dashboard] Initialization failed:', error);
-      showLoadError('The dashboard could not connect.');
+    }
+
+    // Quiz difficulty → update launch href
+    const diff = $('diffSelect');
+    const launch = $('quizLaunchBtn');
+    if (diff && launch) {
+      const update = () => { launch.href = `/quiz-full.html?difficulty=${diff.value}`; };
+      diff.addEventListener('change', update);
+      update();
     }
   }
 
-  window.addEventListener('userStateReady', (event) => {
-    if (!event.detail || !state.authUser) return;
-    state.user = Object.assign({}, state.user, normalizedUser(event.detail, state.authUser));
-    renderIdentity();
-  });
+  // ================================================================
+  // REAL-TIME
+  // ================================================================
+  let unsub = null;
+  function listen(userId) {
+    if (unsub) unsub();
+    unsub = firebase.firestore().collection('users').doc(userId)
+      .onSnapshot(async (snap) => {
+        if (!snap.exists) return;
+        const ok = await loadAll(userId);
+        if (ok) renderAll();
+      }, (err) => console.warn('[Dashboard] listener error:', err));
+  }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
-  else boot();
+  // ================================================================
+  // AUTH + BOOT
+  // ================================================================
+  async function boot(user) {
+    showLoading();
+    const ok = await loadAll(user.uid);
+    if (!ok) {
+      const l = $('loadingState');
+      if (l) l.innerHTML = '<p class="loading-error">Failed to load. <button onclick="location.reload()">Retry</button></p>';
+      return;
+    }
+    renderAll();
+    showDashboard();
+    listen(user.uid);
+    console.log('[Dashboard] ✅ Ready.');
+  }
+
+  function waitForAuth() {
+    if (!window.auth) {
+      console.warn('[Dashboard] auth not ready, retrying...');
+      return setTimeout(waitForAuth, 200);
+    }
+    window.auth.onAuthStateChanged((user) => {
+      if (user) {
+        // Wait for user-state.js (optional; we load straight from Firestore anyway)
+        if (window.USER?.isLoggedIn) boot(user);
+        else {
+          // Fallback: just boot after 300ms regardless
+          setTimeout(() => boot(user), 300);
+        }
+      } else {
+        window.location.href = '/login.html';
+      }
+    });
+  }
+
+  // Wire events as soon as DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireEvents);
+  } else {
+    wireEvents();
+  }
+
+  waitForAuth();
+  console.log('[Dashboard] Script loaded.');
 })();
