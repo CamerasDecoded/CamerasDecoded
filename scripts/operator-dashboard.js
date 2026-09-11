@@ -192,8 +192,6 @@
       if (inner) inner.hidden = true;
       if (photo) photo.hidden = true;
       if (empty) empty.hidden = false;
-      card.classList.remove('chasing-border');
-      return;
     }
 
     if (inner) inner.hidden = false;
