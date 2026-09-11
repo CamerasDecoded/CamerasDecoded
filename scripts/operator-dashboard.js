@@ -178,44 +178,44 @@
     set('xpRemaining', `${Math.max(xpGoal - xpToday, 0)} XP`);
   }
 
-  function renderLearning() {
+    function renderLearning() {
     const l = vm.journey;
     const card = $('continueLearning');
     const empty = $('heroEmpty');
     if (!card) return;
 
-    const hasNext = !!l.next && l.total > 0;
     const inner = card.querySelector('.resume-copy');
     const photo = card.querySelector('.resume-photo');
+    const hasNext = !!l.next && l.total > 0;
+
+    // Chasing border stays on the card, always — never toggled off.
+    card.classList.add('chasing-border');
 
     if (!hasNext) {
+      // No next lesson: hide the photo+copy, show the empty state.
       if (inner) inner.hidden = true;
       if (photo) photo.hidden = true;
       if (empty) empty.hidden = false;
+      return;
     }
 
     if (inner) inner.hidden = false;
     if (photo) photo.hidden = false;
     if (empty) empty.hidden = true;
-    card.classList.add('chasing-border');
 
-    const title = l.next.title || l.next.name || 'Next lesson';
+    const next = l.next;
+    const title = next.title || next.name || 'Next lesson';
     const pct = l.total ? (l.completedCount / l.total) * 100 : 0;
 
-    $('heroLessonTitle') && ($('heroLessonTitle').textContent = title);
-    $('heroLessonDesc') && ($('heroLessonDesc').textContent = 'Continue your journey from where you left off.');
-    $('heroEstimate') && ($('heroEstimate').textContent = '~5 min left');
-    $('heroBadge') && ($('heroBadge').textContent = `LESSON ${String(l.completedCount + 1).padStart(2,'0')} · IN PROGRESS`);
-    $('heroProgressLabel') && ($('heroProgressLabel').textContent = `${l.completedCount} of ${l.total}`);
-    const bar = $('heroProgress');
-    if (bar) bar.setAttribute('aria-valuenow', Math.round(pct));
-    const fill = $('heroProgressFill');
-    if (fill) fill.style.width = pct + '%';
-
-    const cta = $('heroCta');
-    const ctaLabel = $('heroCtaLabel');
-    if (cta) cta.href = '/journey.html';
-    if (ctaLabel) ctaLabel.textContent = 'Continue lesson';
+    const t = $('heroLessonTitle'); if (t) t.textContent = title;
+    const d = $('heroLessonDesc'); if (d) d.textContent = 'Continue your journey from where you left off.';
+    const e = $('heroEstimate'); if (e) e.textContent = '~5 min left';
+    const b = $('heroBadge'); if (b) b.textContent = `LESSON ${String(l.completedCount + 1).padStart(2,'0')} · IN PROGRESS`;
+    const pl = $('heroProgressLabel'); if (pl) pl.textContent = `${l.completedCount} of ${l.total}`;
+    const bar = $('heroProgress'); if (bar) bar.setAttribute('aria-valuenow', Math.round(pct));
+    const fill = $('heroProgressFill'); if (fill) fill.style.width = pct + '%';
+    const cta = $('heroCta'); if (cta) cta.href = '/journey.html';
+    const ctaLabel = $('heroCtaLabel'); if (ctaLabel) ctaLabel.textContent = 'Continue lesson';
   }
 
   function renderJourneyList() {
