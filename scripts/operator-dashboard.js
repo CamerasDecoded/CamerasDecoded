@@ -1,14 +1,16 @@
-// operator-dashboard.js — full Firebase wiring for the redesigned dashboard
+// operator-dashboard.js — Cameras Decoded
 (function () {
   'use strict';
   console.log('[Dashboard] dashboard JS loaded');
-  const stage = (msg) => { const el = document.getElementById('loadingStage'); if (el) el.textContent = msg; console.log('[Dashboard]', msg); };
+  const stage = (msg) => {
+    const el = document.getElementById('loadingStage');
+    if (el) el.textContent = msg;
+    console.log('[Dashboard]', msg);
+  };
 
-  // ---- DOM helpers ----
   const $ = (id) => document.getElementById(id);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  // ---- View model (fills from Firestore) ----
   const vm = {
     user: { uid:'', name:'Operator', email:'', role:'Operator', tier:'free', avatar:'O' },
     stats: { streak:0, xpToday:0, xpGoal:100, rank:'—' },
@@ -34,9 +36,6 @@
     });
   }
 
-  // ============================================================
-  // SAFE FIELD READERS (tolerate the live schema's many aliases)
-  // ============================================================
   const pick = (obj, keys, fallback) => {
     for (const k of keys) if (obj && obj[k] !== undefined && obj[k] !== null) return obj[k];
     return fallback;
@@ -67,7 +66,6 @@
       avatar: String(display).trim().charAt(0).toUpperCase() || 'O'
     };
 
-    // Stats
     vm.stats = {
       streak: toNum(pick(u, ['dailyChallengeStreak','streakDays','streak'], 0)),
       xpToday: toNum(pick(u, ['xpToday','dailyXp'], 0)),
@@ -75,14 +73,12 @@
       rank: pick(u, ['rank','operatorRank','level'], '—')
     };
 
-    // Counts
     vm.counts = {
       protocols: (u.savedProtocols || []).length,
       snapshots: (u.savedCards || u.savedSnapshots || []).length,
       posts: (u.savedCommunityPosts || []).length
     };
 
-    // Recent activity
     vm.activity = Array.isArray(u.recentActivity)
       ? u.recentActivity.slice(0,4).map(a => ({
           text: pick(a, ['label','text','title'], 'Activity'),
@@ -91,10 +87,7 @@
         }))
       : [];
 
-    // Notifications
-    vm.notifications = Array.isArray(u.notifications)
-      ? u.notifications.slice(0,6)
-      : [];
+    vm.notifications = Array.isArray(u.notifications) ? u.notifications.slice(0,6) : [];
 
     vm.raw = u;
     return vm;
@@ -139,26 +132,21 @@
   function renderIdentity() {
     const { name, avatar, role, tier } = vm.user;
     const greet = `${greetingText()}, ${name}`;
-
     const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     set('userName', greet);
     set('userNameMobile', greet);
     set('sidebarName', name);
     set('sidebarAvatar', avatar);
     set('sidebarPlan', tier === 'pro' ? 'Pro tier' : 'Free tier');
-
     const roleEl = $('sidebarRole'); if (roleEl) roleEl.textContent = role;
-
     const tb = $('tierBadge');
     if (tb) tb.innerHTML = `<i class="fas fa-circle"></i> ${tier === 'pro' ? 'Pro' : 'Free'}`;
-
     const greeting = $('userGreeting');
     if (greeting) greeting.textContent = 'Your next useful action is ready.';
   }
 
   function renderStats() {
     const { streak, xpToday, xpGoal, rank } = vm.stats;
-
     const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     set('statStreak', streak + (streak === 1 ? ' day' : ' days'));
     set('statStreakPill', streak);
@@ -166,7 +154,6 @@
     set('statRank', rank || '—');
     set('mobileStreakPill', `${streak} day streak`);
 
-    // Ring
     const pct = xpGoal > 0 ? Math.min(100, (xpToday / xpGoal) * 100) : 0;
     const ring = $('xpRing');
     if (ring) {
@@ -178,7 +165,7 @@
     set('xpRemaining', `${Math.max(xpGoal - xpToday, 0)} XP`);
   }
 
-    function renderLearning() {
+  function renderLearning() {
     const l = vm.journey;
     const card = $('continueLearning');
     const empty = $('heroEmpty');
@@ -188,11 +175,10 @@
     const photo = card.querySelector('.resume-photo');
     const hasNext = !!l.next && l.total > 0;
 
-    // Chasing border stays on the card, always — never toggled off.
+    // Chasing border stays on the card, always.
     card.classList.add('chasing-border');
 
     if (!hasNext) {
-      // No next lesson: hide the photo+copy, show the empty state.
       if (inner) inner.hidden = true;
       if (photo) photo.hidden = true;
       if (empty) empty.hidden = false;
@@ -232,7 +218,6 @@
 
     const firstIncompleteIdx = l.nodes.findIndex(n => !l.completed.includes(n.id));
     const visible = [];
-    // Show: last completed (if any), current (first incomplete), next 1–2 upcoming
     if (firstIncompleteIdx > 0) visible.push({ ...l.nodes[firstIncompleteIdx - 1], _state:'done' });
     if (firstIncompleteIdx >= 0) visible.push({ ...l.nodes[firstIncompleteIdx], _state:'current' });
     for (let i = firstIncompleteIdx + 1; i < l.nodes.length && visible.length < 3; i++) {
@@ -243,15 +228,11 @@
       return;
     }
 
-    list.innerHTML = visible.map((n, i) => {
+    list.innerHTML = visible.map((n) => {
       const num = String(l.nodes.indexOf(n) + 1).padStart(2,'0');
       const nodeClass = n._state === 'done' ? 'done' : (n._state === 'current' ? 'current' : '');
-      const nodeIcon = n._state === 'done'
-        ? '<i class="fas fa-check"></i>'
-        : num;
-      const status = n._state === 'done' ? 'Complete'
-        : n._state === 'current' ? 'In progress'
-        : 'Up next';
+      const nodeIcon = n._state === 'done' ? '<i class="fas fa-check"></i>' : num;
+      const status = n._state === 'done' ? 'Complete' : n._state === 'current' ? 'In progress' : 'Up next';
       const subtitle = n.description || n.summary || '';
       return `<article class="journey-item ${nodeClass}">
         <div class="lesson-node" aria-hidden="true">${nodeIcon}</div>
@@ -279,10 +260,9 @@
 
   function renderCollections() {
     const c = vm.counts;
-    ['protocolCount','snapshotCount','postCount'].forEach((id, i) => {
-      const el = $(id);
-      if (el) el.textContent = [c.protocols, c.snapshots, c.posts][i];
-    });
+    const ids = ['protocolCount','snapshotCount','postCount'];
+    const vals = [c.protocols, c.snapshots, c.posts];
+    ids.forEach((id, i) => { const el = $(id); if (el) el.textContent = vals[i]; });
   }
 
   function renderAI() {
@@ -292,7 +272,6 @@
     const total = toNum(pick(usage, ['total','today'], toNum(u.aiUsageToday, 0)));
     const limit = toNum(u.aiDailyLimit, isPro ? 50 : 5);
     const pct = limit > 0 ? Math.min(100, (total / limit) * 100) : 0;
-
     const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     set('aiBadge', isPro ? 'Pro' : 'Free');
     set('aiUsed', total);
@@ -385,9 +364,7 @@
 
     const box = $('notificationsList');
     if (!box) return;
-    const items = vm.notifications.length
-      ? vm.notifications
-      : [{ text: 'You are all caught up.' }];
+    const items = vm.notifications.length ? vm.notifications : [{ text: 'You are all caught up.' }];
     box.innerHTML = items.map(n => {
       const text = n.text || n.message || n.title || 'Notification';
       const time = n.time || n.date || '';
@@ -411,7 +388,7 @@
   }
 
   // ============================================================
-  // EVENTS / UI
+  // UI
   // ============================================================
   const toast = $('toast');
   let toastTimer;
@@ -454,6 +431,11 @@
     $('mobileNoticeButton')?.setAttribute('aria-expanded','false');
   }
 
+  function logout() {
+    window.auth.signOut().then(() => { window.location.href = '/login.html'; })
+      .catch(() => { window.location.href = '/login.html'; });
+  }
+
   function bindUI() {
     $$('[data-scroll]').forEach(btn => btn.addEventListener('click', () => {
       const id = btn.dataset.scroll;
@@ -480,7 +462,6 @@
     $('moreButton')?.addEventListener('click', () => openModal('more'));
     $('moreLogout')?.addEventListener('click', logout);
 
-    // Quiz / drill choice handlers
     $$('[data-quiz]').forEach(group => {
       const feedback = group.parentElement.querySelector('.feedback');
       const finish = group.dataset.quiz === 'lesson' ? $('lessonFinish') : $('drillFinish');
@@ -499,7 +480,6 @@
       }));
     });
 
-    // Drill completion — real Firestore write, then snapshot re-renders.
     $('drillFinish')?.addEventListener('click', async () => {
       const uid = vm.user.uid;
       if (!uid) return;
@@ -520,7 +500,6 @@
       }
     });
 
-    // Lesson preview completion — mark journey progress.
     $('lessonFinish')?.addEventListener('click', async () => {
       const uid = vm.user.uid;
       const nextId = vm.journey.next && vm.journey.next.id;
@@ -542,7 +521,6 @@
       closeModal($('lessonModal'));
     });
 
-    // Escape closes everything
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         const open = document.querySelector('.scrim.open');
@@ -559,7 +537,6 @@
       }
     });
 
-    // Referral copy
     $('copyReferralBtn')?.addEventListener('click', () => {
       const text = ($('referralLink')?.textContent || '').trim();
       const url = 'https://' + text;
@@ -570,7 +547,6 @@
       });
     });
 
-    // Quiz difficulty → launch href
     const diff = $('diffSelect'), launch = $('quizLaunchBtn');
     if (diff && launch) {
       const update = () => { launch.href = `/quiz-full.html?difficulty=${diff.value}`; };
@@ -578,14 +554,7 @@
       update();
     }
 
-    // Logout
     $('sidebarLogout')?.addEventListener('click', logout);
-  }
-
-  function logout() {
-    window.auth.signOut()
-      .then(() => { window.location.href = '/login.html'; })
-      .catch(() => { window.location.href = '/login.html'; });
   }
 
   // ============================================================
@@ -614,13 +583,13 @@
     if (!ok) { showLoadError('Firebase did not load.'); return; }
     stage('Firebase globals found');
 
-    // userStateReady (optional merge)
-    window.addEventListener('userStateReady', () => { /* user-state has run; nothing required */ }, { once: true });
+    window.addEventListener('userStateReady', () => {}, { once: true });
 
     window.auth.onAuthStateChanged(async (user) => {
       stage('auth callback fired');
       if (!user) {
-        $('loadingState').innerHTML = '<p>Please <a href="/login.html" style="color:var(--green)">log in</a>.</p>';
+        const l = $('loadingState');
+        if (l) l.innerHTML = '<p>Please <a href="/login.html" style="color:var(--green)">log in</a>.</p>';
         return;
       }
       try {
@@ -628,8 +597,8 @@
         await loadJourney(user.uid);
         renderAll();
         subscribeToUser(user.uid);
-        $('loadingState').hidden = true;
-        $('dashboardContent').hidden = false;
+        const l = $('loadingState'); if (l) l.hidden = true;
+        const c = $('dashboardContent'); if (c) c.hidden = false;
         console.log('[Dashboard] ✅ Ready.');
       } catch (err) {
         console.error('[Dashboard] boot error', err);
@@ -650,4 +619,74 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindUI);
   else bindUI();
   boot();
+
+  // ============================================================
+  // Pull-to-refresh (mobile only) — Cynetis-7 indicator
+  // ============================================================
+  (function pullToRefresh() {
+    const isTouch = 'ontouchstart' in window;
+    const isMobile = window.matchMedia('(max-width:820px)').matches;
+    if (!isTouch || !isMobile) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'ptr-wrap';
+    wrap.innerHTML = '<div class="ptr-sphere"></div><div class="ptr-label">Refreshing</div>';
+    document.body.appendChild(wrap);
+
+    const sphere = wrap.querySelector('.ptr-sphere');
+
+    const BASE_Y = -120;
+    const THRESHOLD = 100;
+    const MAX_PULL = 130;
+
+    let startY = 0;
+    let pull = 0;
+    let dragging = false;
+    let refreshing = false;
+
+    const setPos = (y) => { wrap.style.transform = `translate(-50%, ${y}px)`; };
+    const setSphere = (deg, scale) => { sphere.style.transform = `rotate(${deg}deg) scale(${scale})`; };
+
+    document.addEventListener('touchstart', (e) => {
+      if (refreshing || window.scrollY > 0) return;
+      startY = e.touches[0].clientY;
+      dragging = true;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!dragging || refreshing || window.scrollY > 0) return;
+      const delta = e.touches[0].clientY - startY;
+      if (delta <= 0) { pull = 0; return; }
+
+      pull = Math.min(delta * 0.55, MAX_PULL);
+
+      wrap.classList.add('visible');
+      setPos(BASE_Y + pull);
+
+      const t = Math.min(pull / MAX_PULL, 1);
+      setSphere(pull * 2.4, 0.85 + t * 0.15);
+
+      wrap.classList.toggle('ready', pull >= THRESHOLD);
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      if (!dragging || refreshing) return;
+      dragging = false;
+
+      if (pull >= THRESHOLD) {
+        refreshing = true;
+        wrap.classList.add('refreshing');
+        setPos(24);
+        if (navigator.vibrate) navigator.vibrate(12);
+        setTimeout(() => window.location.reload(), 650);
+      } else {
+        wrap.classList.remove('visible', 'ready');
+        setPos(BASE_Y);
+        setSphere(0, 1);
+      }
+      pull = 0;
+    }, { passive: true });
+  })();
+
+  console.log('[Dashboard] Script loaded.');
 })();
