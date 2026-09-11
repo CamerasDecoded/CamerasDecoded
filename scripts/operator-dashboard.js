@@ -621,72 +621,95 @@
   boot();
 
   // ============================================================
-  // Pull-to-refresh (mobile only) — Cynetis-7 indicator
-  // ============================================================
-  (function pullToRefresh() {
-    const isTouch = 'ontouchstart' in window;
-    const isMobile = window.matchMedia('(max-width:820px)').matches;
-    if (!isTouch || !isMobile) return;
+// Pull-to-refresh (mobile only) — Cynetis-7 indicator
+// ============================================================
+(function pullToRefresh() {
+  const isTouch  = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isNarrow = window.matchMedia('(max-width:820px)').matches;
 
-    const wrap = document.createElement('div');
-    wrap.className = 'ptr-wrap';
-    wrap.innerHTML = '<div class="ptr-sphere"></div><div class="ptr-label">Refreshing</div>';
-    document.body.appendChild(wrap);
+  if (!isTouch || !isNarrow) {
+    console.log('[PTR] disabled:', { isTouch, isNarrow, ua: navigator.userAgent });
+    return;
+  }
+  console.log('[PTR] active');
 
-    const sphere = wrap.querySelector('.ptr-sphere');
+  const wrap = document.createElement('div');
+  wrap.className = 'ptr-wrap';
+  wrap.innerHTML = '<div class="ptr-sphere"></div><div class="ptr-label">Refreshing</div>';
+  document.body.appendChild(wrap);
 
-    const BASE_Y = -120;
-    const THRESHOLD = 100;
-    const MAX_PULL = 130;
+  const sphere = wrap.querySelector('.ptr-sphere');
 
-    let startY = 0;
-    let pull = 0;
-    let dragging = false;
-    let refreshing = false;
+  const BASE_Y    = -120;
+  const THRESHOLD = 100;
+  const MAX_PULL  = 130;
 
-    const setPos = (y) => { wrap.style.transform = `translate(-50%, ${y}px)`; };
-    const setSphere = (deg, scale) => { sphere.style.transform = `rotate(${deg}deg) scale(${scale})`; };
+  let startY     = 0;
+  let pull       = 0;
+  let dragging   = false;
+  let refreshing = false;
 
-    document.addEventListener('touchstart', (e) => {
-      if (refreshing || window.scrollY > 0) return;
-      startY = e.touches[0].clientY;
-      dragging = true;
-    }, { passive: true });
+  const setPos    = (y)         => { wrap.style.transform = `translate(-50%, ${y}px)`; };
+  const setSphere = (deg, scale) => { sphere.style.transform = `rotate(${deg}deg) scale(${scale})`; };
 
-    document.addEventListener('touchmove', (e) => {
-      if (!dragging || refreshing || window.scrollY > 0) return;
-      const delta = e.touches[0].clientY - startY;
-      if (delta <= 0) { pull = 0; return; }
+  const getScrollY = () =>
+    window.scrollY ||
+    document.documentElement.scrollTop ||
+    document.body.scrollTop ||
+    0;
 
-      pull = Math.min(delta * 0.55, MAX_PULL);
+  // Listen on window, not document — iOS Safari dispatches some top-of-page
+  // overscroll gestures only on the top-level element.
+  window.addEventListener('touchstart', (e) => {
+    if (refreshing) return;
+    if (e.touches.length !== 1) return;
+    if (getScrollY() > 0) return;
+    startY = e.touches[0].clientY;
+    dragging = true;
+  }, { passive: true });
 
-      wrap.classList.add('visible');
-      setPos(BASE_Y + pull);
+  window.addEventListener('touchmove', (e) => {
+    if (!dragging || refreshing) return;
+    if (getScrollY() > 0) { dragging = false; return; }
 
-      const t = Math.min(pull / MAX_PULL, 1);
-      setSphere(pull * 2.4, 0.85 + t * 0.15);
+    const delta = e.touches[0].clientY - startY;
+    if (delta <= 0) { pull = 0; return; }
 
-      wrap.classList.toggle('ready', pull >= THRESHOLD);
-    }, { passive: true });
+    pull = Math.min(delta * 0.55, MAX_PULL);
 
-    document.addEventListener('touchend', () => {
-      if (!dragging || refreshing) return;
-      dragging = false;
+    wrap.classList.add('visible');
+    setPos(BASE_Y + pull);
 
-      if (pull >= THRESHOLD) {
-        refreshing = true;
-        wrap.classList.add('refreshing');
-        setPos(24);
-        if (navigator.vibrate) navigator.vibrate(12);
-        setTimeout(() => window.location.reload(), 650);
-      } else {
-        wrap.classList.remove('visible', 'ready');
-        setPos(BASE_Y);
-        setSphere(0, 1);
-      }
-      pull = 0;
-    }, { passive: true });
-  })();
+    const t = Math.min(pull / MAX_PULL, 1);
+    setSphere(pull * 2.4, 0.85 + t * 0.15);
+    wrap.classList.toggle('ready', pull >= THRESHOLD);
+  }, { passive: true });
 
-  console.log('[Dashboard] Script loaded.');
+  window.addEventListener('touchend', () => {
+    if (!dragging || refreshing) return;
+    dragging = false;
+
+    if (pull >= THRESHOLD) {
+      refreshing = true;
+      wrap.classList.add('refreshing');
+      setPos(24);
+      if (navigator.vibrate) navigator.vibrate(12);
+      setTimeout(() => window.location.reload(), 650);
+    } else {
+      wrap.classList.remove('visible', 'ready');
+      setPos(BASE_Y);
+      setSphere(0, 1);
+    }
+    pull = 0;
+  }, { passive: true });
+
+  // Without this, an interrupted drag (incoming call, gesture cancel)
+  // leaves the sphere stranded mid-screen.
+  window.addEventListener('touchcancel', () => {
+    dragging = false;
+    pull = 0;
+    wrap.classList.remove('visible', 'ready');
+    setPos(BASE_Y);
+    setSphere(0, 1);
+  }, { passive: true });
 })();
