@@ -113,6 +113,12 @@
   // ================================================================
   const SEEN_KEY = 'cd_seen_announcement';
   let currentAnnouncement = '';
+  // Personal notifications, fed by app pages (e.g. the dashboard) via
+  // window.Header.setNotifications(items, unread). Pages that never call it
+  // keep the announcements-only bell.
+  let personalNotifs = [];
+  let personalUnread = 0;
+  let notifsEnabled = false;
 
   function getHeaderEls() {
     return {
@@ -145,33 +151,53 @@
     return !!(panel && !panel.hidden && panel.classList.contains('open'));
   }
 
-  // X button: dismiss the announcement AND clear the dot (persisted).
+  // X button: dismiss the announcement (persisted). The dot stays on while
+  // there are unread personal notifications.
   function dismissAnnouncement() {
     try {
       if (currentAnnouncement) localStorage.setItem(SEEN_KEY, currentAnnouncement);
     } catch (e) { /* storage unavailable */ }
-    const { dot } = getHeaderEls();
-    if (dot) dot.hidden = true;
+    renderBell();
     closePanel();
     console.log('[Header] Announcement dismissed.');
   }
 
-  function renderAnnouncement(data) {
+  function isSeen(msg) {
+    try { return localStorage.getItem(SEEN_KEY) === msg; } catch (e) { return false; }
+  }
+
+  // Single bell render: pinned announcement (if unseen) + personal notifications.
+  function renderBell() {
     const { dot, body } = getHeaderEls();
-    const active = !!(data && data.active && data.message);
-    currentAnnouncement = active ? String(data.message) : '';
+    const showAnn = !!(currentAnnouncement && !isSeen(currentAnnouncement));
 
     if (body) {
-      body.innerHTML = active
-        ? `<div class="announce-item"><span class="announce-mark" aria-hidden="true"></span><div><p>${escapeHtml(data.message)}</p></div></div>`
-        : '<p class="announce-empty">No announcements right now.</p>';
+      let html = '';
+      if (showAnn) {
+        html += `<div class="announce-item"><span class="announce-mark" aria-hidden="true"></span><div><p>${escapeHtml(currentAnnouncement)}</p></div></div>`;
+      }
+      if (personalNotifs.length) {
+        html += personalNotifs.map((n) => {
+          const text = n.text || n.message || n.title || 'Notification';
+          const time = n.time || n.date || '';
+          return `<div class="announce-item notif"><span class="announce-mark" aria-hidden="true"></span><div><p>${escapeHtml(String(text))}</p>${time ? `<time>${escapeHtml(String(time))}</time>` : ''}</div></div>`;
+        }).join('');
+      }
+      if (!html) {
+        html = notifsEnabled
+          ? '<p class="announce-empty">You are all caught up.</p>'
+          : '<p class="announce-empty">No announcements right now.</p>';
+      }
+      body.innerHTML = html;
     }
 
-    if (dot) {
-      let seen = '';
-      try { seen = localStorage.getItem(SEEN_KEY) || ''; } catch (e) { /* ignore */ }
-      dot.hidden = !active || seen === currentAnnouncement;
-    }
+    if (dot) dot.hidden = !(personalUnread > 0 || showAnn);
+  }
+
+  // Back-compat: older callers rendered announcements directly.
+  function renderAnnouncement(data) {
+    currentAnnouncement = (data && data.active && data.message) ? String(data.message) : '';
+    renderBell();
   }
 
   function initAnnouncements() {
@@ -224,7 +250,17 @@
 
   let retryCount = 0;
   const maxRetries = 20;
+  // Pages that hydrate after the header (e.g. the dashboard's Firestore read)
+  // stash their notifications here; the header picks them up.
+  function consumePendingNotifs() {
+    const p = window.__CDPendingNotifs;
+    if (p && window.Header && typeof window.Header.setNotifications === 'function') {
+      window.__CDPendingNotifs = null;
+      window.Header.setNotifications(p.items, p.unread);
+    }
+  }
   function checkUserReady() {
+    consumePendingNotifs();
     if (window.USER && window.USER.isLoggedIn === true) {
       updateAuthUI(window.USER, window.USER);
       updateCartUI();
@@ -245,6 +281,13 @@
   window.Header = {
     updateAuth: updateAuthUI,
     updateCart: updateCartUI,
+    setNotifications: function(items, unread) {
+      personalNotifs = Array.isArray(items) ? items.slice(0, 6) : [];
+      const n = Number(unread);
+      personalUnread = Number.isFinite(n) && n > 0 ? n : 0;
+      notifsEnabled = true;
+      renderBell();
+    },
     setUserData: function(user, userData) {
       updateAuthUI(user, userData);
     },
@@ -266,6 +309,7 @@
   function init() {
     initAnnouncements();
     updateCartUI();
+    consumePendingNotifs();
     // Default greeting even before auth resolves.
     const greetingEl = document.getElementById('headerGreeting');
     if (greetingEl) greetingEl.textContent = `${greetingText()}, Operator`;

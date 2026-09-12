@@ -39,27 +39,18 @@
   };
   const toNum = (v, fb=0) => typeof v === 'number' && isFinite(v) ? v : (parseInt(v,10) || fb);
 
-  // ---- Global announcements (Firestore admin/announcement) ----
-  const SEEN_ANNOUNCEMENT_KEY = 'cd_seen_announcement';
-  let announcement = { active: false, message: '' };
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  function seenAnnouncement(msg) {
-    try { return localStorage.getItem(SEEN_ANNOUNCEMENT_KEY) === msg; } catch (e) { return false; }
-  }
-  function dismissAnnouncement() {
-    try { localStorage.setItem(SEEN_ANNOUNCEMENT_KEY, announcement.message); } catch (e) {}
-    renderNotifications();
-  }
-  function initAnnouncements() {
-    try {
-      window.db.collection('admin').doc('announcement').onSnapshot((snap) => {
-        const d = snap.exists ? snap.data() : null;
-        announcement = (d && d.active && d.message)
-          ? { active: true, message: String(d.message) }
-          : { active: false, message: '' };
-        renderNotifications();
-      }, () => { /* announcements unavailable; personal notifications still work */ });
-    } catch (e) { /* ignore */ }
+  // ---- Shared header bell: announcements are owned by header.js now.
+  // The dashboard only feeds its personal notifications into the shared bell.
+  function pushNotificationsToHeader() {
+    const u = vm.raw || {};
+    const unread = toNum(pick(u, ['unreadNotifications','unreadNotices'], 0));
+    const payload = { items: vm.notifications, unread };
+    if (window.Header && typeof window.Header.setNotifications === 'function') {
+      window.Header.setNotifications(payload.items, payload.unread);
+    } else {
+      // Header loads after this script; it picks the payload up on init.
+      window.__CDPendingNotifs = payload;
+    }
   }
 
   async function hydrateUser(uid) {
@@ -129,27 +120,14 @@
     return vm.journey;
   }
 
-  function greetingText() {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 18) return 'Good afternoon';
-    return 'Good evening';
-  }
-
   function renderIdentity() {
+    // Greeting + tier badge are owned by the shared header (header.js) now.
     const { name, avatar, role, tier } = vm.user;
-    const greet = `${greetingText()}, ${name}`;
     const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-    set('userName', greet);
-    set('userNameMobile', greet);
     set('sidebarName', name);
     set('sidebarAvatar', avatar);
     set('sidebarPlan', tier === 'pro' ? 'Pro tier' : 'Free tier');
     const roleEl = $('sidebarRole'); if (roleEl) roleEl.textContent = role;
-    const tb = $('tierBadge');
-    if (tb) tb.innerHTML = `<i class="fas fa-circle"></i> ${tier === 'pro' ? 'Pro' : 'Free'}`;
-    const greeting = $('userGreeting');
-    if (greeting) greeting.textContent = 'Your next useful action is ready.';
   }
 
   function renderStats() {
@@ -368,32 +346,6 @@
     else set('lastScoreDisplay', '—');
   }
 
-  function renderNotifications() {
-    const u = vm.raw;
-    const unread = toNum(pick(u, ['unreadNotifications','unreadNotices'], 0));
-    const showAnn = announcement.active && announcement.message && !seenAnnouncement(announcement.message);
-    const dots = [$('noticeDot'), $('mobileNoticeDot')];
-    dots.forEach(d => { if (d) d.hidden = !(unread > 0 || showAnn); });
-
-    const box = $('notificationsList');
-    if (!box) return;
-    let html = '';
-    if (showAnn) {
-      html += `<div class="notice announcement"><span class="notice-mark"></span><div><p><strong>Announcement</strong></p><p>${esc(announcement.message)}</p></div><button type="button" class="notice-dismiss" data-dismiss-announcement aria-label="Dismiss announcement"><i class="fas fa-xmark" aria-hidden="true"></i></button></div>`;
-    }
-    const items = vm.notifications;
-    if (items.length) {
-      html += items.map(n => {
-        const text = n.text || n.message || n.title || 'Notification';
-        const time = n.time || n.date || '';
-        return `<div class="notice"><span class="notice-mark"></span><div><p>${text}</p>${time ? `<time>${time}</time>` : ''}</div></div>`;
-      }).join('');
-    } else if (!showAnn) {
-      html += `<div class="notice"><span class="notice-mark"></span><div><p>You are all caught up.</p></div></div>`;
-    }
-    box.innerHTML = html;
-  }
-
   function renderAll() {
     renderIdentity();
     renderStats();
@@ -406,7 +358,7 @@
     renderProtocols();
     renderReferral();
     renderQuiz();
-    renderNotifications();
+    pushNotificationsToHeader();
   }
 
   const toast = $('toast');
@@ -422,7 +374,6 @@
 
   let lastFocus = null;
   function openModal(id) {
-    closePopover();
     const modal = document.getElementById(id + 'Modal');
     if (!modal) return;
     lastFocus = document.activeElement;
@@ -437,19 +388,6 @@
     document.body.style.overflow = '';
     lastFocus?.focus();
   }
-  function togglePopover() {
-    const pop = $('notifications');
-    const open = !pop.classList.contains('open');
-    pop.classList.toggle('open', open);
-    $('noticeButton')?.setAttribute('aria-expanded', String(open));
-    $('mobileNoticeButton')?.setAttribute('aria-expanded', String(open));
-  }
-  function closePopover() {
-    $('notifications')?.classList.remove('open');
-    $('noticeButton')?.setAttribute('aria-expanded','false');
-    $('mobileNoticeButton')?.setAttribute('aria-expanded','false');
-  }
-
   function logout() {
     window.auth.signOut().then(() => { window.location.href = '/login.html'; })
       .catch(() => { window.location.href = '/login.html'; });
@@ -462,14 +400,6 @@
     }));
     $$('.scrim').forEach(s => s.addEventListener('click', e => { if (e.target === s) closeModal(s); }));
 
-    $('noticeButton')?.addEventListener('click', (e) => { e.stopPropagation(); togglePopover(); });
-    $('mobileNoticeButton')?.addEventListener('click', (e) => { e.stopPropagation(); togglePopover(); });
-    $('notificationsList')?.addEventListener('click', (e) => {
-      if (e.target.closest('[data-dismiss-announcement]')) dismissAnnouncement();
-    });
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('#notifications') && !e.target.closest('#noticeButton') && !e.target.closest('#mobileNoticeButton')) closePopover();
-    });
 
     $('moreLogout')?.addEventListener('click', logout);
 
@@ -536,7 +466,6 @@
       if (e.key === 'Escape') {
         const open = document.querySelector('.scrim.open');
         if (open) closeModal(open);
-        closePopover();
       }
       const open = document.querySelector('.scrim.open');
       if (e.key === 'Tab' && open) {
@@ -587,7 +516,6 @@
     const ok = await waitForFirebase();
     if (!ok) { showLoadError('Firebase did not load.'); return; }
     stage('Firebase globals found');
-    initAnnouncements();
 
     window.addEventListener('userStateReady', () => {}, { once: true });
 
