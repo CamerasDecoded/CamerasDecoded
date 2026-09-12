@@ -425,16 +425,6 @@
   }
 
   function bindUI() {
-    $$('[data-scroll]').forEach(btn => btn.addEventListener('click', () => {
-      const id = btn.dataset.scroll;
-      const node = id === 'main' ? $('main') : document.getElementById(id);
-      node?.scrollIntoView({behavior:'smooth', block:'start'});
-      $$('.bottom-link').forEach(b => {
-        const on = b.dataset.scroll === id;
-        b.classList.toggle('active', on);
-        on ? b.setAttribute('aria-current','page') : b.removeAttribute('aria-current');
-      });
-    }));
     $$('[data-open]').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.open)));
     $$('[data-close]').forEach(btn => btn.addEventListener('click', () => {
       const scrim = btn.closest('.scrim'); if (scrim) closeModal(scrim);
@@ -447,7 +437,6 @@
       if (!e.target.closest('#notifications') && !e.target.closest('#noticeButton') && !e.target.closest('#mobileNoticeButton')) closePopover();
     });
 
-    $('moreButton')?.addEventListener('click', () => openModal('more'));
     $('moreLogout')?.addEventListener('click', logout);
 
     $$('[data-quiz]').forEach(group => {
