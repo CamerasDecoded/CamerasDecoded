@@ -73,7 +73,7 @@
             <circle cx="12" cy="12" r="9"/>
             <path d="M12 7v5l3 2"/>
           </svg>
-          <span>Journey</span>
+          <span>Missions</span>
           <span class="badge-dot" id="badgeJourney"></span>
         </a>
         <a href="cynetis-7.html" data-page="cynetis-7.html" class="nav-link">
