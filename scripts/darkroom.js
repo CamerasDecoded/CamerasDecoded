@@ -13,8 +13,10 @@
 
 const ROUTES = {
   login:  '/login.html',
-  lesson: '/lesson.html',      // TODO: confirm — skill lessons live where?
-  drill:  '/quick-drill.html', // TODO: confirm — Quick Drill route
+  // Interim destinations until dedicated lesson/drill pages exist.
+  // Swap these two strings when /lesson.html and /quick-drill.html are built.
+  lesson: '/quiz-full.html',
+  drill:  '/dailyprotocol.html',
 };
 
 let ACTIVE_TREE = 'photo-foundations';
