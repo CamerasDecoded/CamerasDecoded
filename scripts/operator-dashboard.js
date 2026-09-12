@@ -21,9 +21,6 @@
     raw: {}
   };
 
-  // ============================================================
-  // WAIT FOR FIREBASE
-  // ============================================================
   function waitForFirebase(maxWaitMs = 8000) {
     return new Promise((resolve) => {
       const start = Date.now();
@@ -42,9 +39,6 @@
   };
   const toNum = (v, fb=0) => typeof v === 'number' && isFinite(v) ? v : (parseInt(v,10) || fb);
 
-  // ============================================================
-  // HYDRATE USER
-  // ============================================================
   async function hydrateUser(uid) {
     const snap = await window.db.collection('users').doc(uid).get();
     if (!snap.exists) throw new Error('User doc not found');
@@ -58,8 +52,7 @@
     const isPro = tier.includes('pro') || tier.includes('premium') || tier.includes('paid');
 
     vm.user = {
-      uid,
-      name: display,
+      uid, name: display,
       email: pick(u, ['email'], ''),
       role,
       tier: isPro ? 'pro' : 'free',
@@ -88,14 +81,10 @@
       : [];
 
     vm.notifications = Array.isArray(u.notifications) ? u.notifications.slice(0,6) : [];
-
     vm.raw = u;
     return vm;
   }
 
-  // ============================================================
-  // LOAD JOURNEY
-  // ============================================================
   async function loadJourney(uid) {
     const [jDoc, uDoc] = await Promise.all([
       window.db.collection('journeys').doc('beginner').get().catch(() => null),
@@ -109,9 +98,7 @@
 
     vm.journey = {
       title: journey.title || 'Beginner',
-      nodes,
-      completed,
-      next,
+      nodes, completed, next,
       completedCount: completed.length,
       total: nodes.length,
       pct: nodes.length ? (completed.length / nodes.length) * 100 : 0
@@ -119,9 +106,6 @@
     return vm.journey;
   }
 
-  // ============================================================
-  // RENDERERS
-  // ============================================================
   function greetingText() {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning';
@@ -175,7 +159,6 @@
     const photo = card.querySelector('.resume-photo');
     const hasNext = !!l.next && l.total > 0;
 
-    // Chasing border stays on the card, always.
     card.classList.add('chasing-border');
 
     if (!hasNext) {
@@ -200,8 +183,16 @@
     const pl = $('heroProgressLabel'); if (pl) pl.textContent = `${l.completedCount} of ${l.total}`;
     const bar = $('heroProgress'); if (bar) bar.setAttribute('aria-valuenow', Math.round(pct));
     const fill = $('heroProgressFill'); if (fill) fill.style.width = pct + '%';
-    const cta = $('heroCta'); if (cta) cta.href = '/journey.html';
-    const ctaLabel = $('heroCtaLabel'); if (ctaLabel) ctaLabel.textContent = 'Continue lesson';
+
+    const cta = $('heroCta');
+    const ctaLabel = $('heroCtaLabel');
+    if (cta) {
+      const skillId = next.skillId || next.id;
+      cta.href = skillId
+        ? `/darkroom.html#skill=${encodeURIComponent(skillId)}`
+        : '/journey.html';
+    }
+    if (ctaLabel) ctaLabel.textContent = 'Continue skill';
   }
 
   function renderJourneyList() {
@@ -387,9 +378,6 @@
     renderNotifications();
   }
 
-  // ============================================================
-  // UI
-  // ============================================================
   const toast = $('toast');
   let toastTimer;
   function showToast(msg) {
@@ -557,9 +545,6 @@
     $('sidebarLogout')?.addEventListener('click', logout);
   }
 
-  // ============================================================
-  // SUBSCRIPTION
-  // ============================================================
   let unsub = null;
   function subscribeToUser(uid) {
     if (unsub) unsub();
@@ -574,9 +559,6 @@
     }, (err) => console.warn('[Dashboard] listener error', err));
   }
 
-  // ============================================================
-  // BOOT
-  // ============================================================
   async function boot() {
     stage('boot started');
     const ok = await waitForFirebase();
@@ -613,16 +595,10 @@
     el.innerHTML = `<p style="color:#ff8888">${msg}</p><button class="btn btn-secondary" onclick="location.reload()" style="margin-top:12px">Retry</button>`;
   }
 
-  // ============================================================
-  // START
-  // ============================================================
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindUI);
   else bindUI();
   boot();
 
-  // ============================================================
-  // Pull-to-refresh (mobile only) — Cynetis-7 indicator
-  // ============================================================
   (function pullToRefresh() {
     const isTouch  = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
     const isNarrow = window.matchMedia('(max-width:820px)').matches;
@@ -658,8 +634,6 @@
       document.body.scrollTop ||
       0;
 
-    // window, not document — iOS Safari dispatches some top-of-page
-    // overscroll gestures only on the top-level element.
     window.addEventListener('touchstart', (e) => {
       if (refreshing) return;
       if (e.touches.length !== 1) return;
@@ -703,8 +677,6 @@
       pull = 0;
     }, { passive: true });
 
-    // Gesture cancel (incoming call, system gesture) — otherwise the
-    // sphere gets stranded mid-screen.
     window.addEventListener('touchcancel', () => {
       dragging = false;
       pull = 0;
