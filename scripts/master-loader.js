@@ -24,7 +24,7 @@
       '/styles/design-system.css',
       '/styles/components.css',
       '/bottom-nav.css?v=20260912d',
-      '/header.css?v=20260912d'
+      '/header.css?v=20260912e'
     ];
     files.forEach(href => {
       if (document.querySelector(`link[href="${href}"]`)) return;
@@ -99,7 +99,7 @@
   function loadHeaderBehavior() {
     if (document.querySelector('script[src*="header.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/header.js?v=20260912d';
+    script.src = '/header.js?v=20260912e';
     document.body.appendChild(script);
   }
 
