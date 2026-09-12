@@ -59,7 +59,7 @@
   // ---------- routes ----------
   var TABS = [
     { id: 'home',     label: 'Home',     href: '/operator-dashboard.html', icon: 'home' },
-    { id: 'journey',  label: 'Journey',  href: '/journey.html',            icon: 'journey' },
+    { id: 'journey',  label: 'Missions',  href: '/journey.html',            icon: 'journey' },
     { id: 'practice', label: 'Practice', sheet: 'practice',                icon: 'practice' },
     { id: 'library',  label: 'Library',  href: '/protocols.html',          icon: 'library' },
     { id: 'more',     label: 'More',     sheet: 'more',                    icon: 'more' }
