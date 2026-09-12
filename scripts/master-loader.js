@@ -24,7 +24,7 @@
       '/styles/design-system.css',
       '/styles/components.css',
       '/bottom-nav.css?v=20260912d',
-      '/header.css?v=20260912e'
+      '/header.css?v=20260912f'
     ];
     files.forEach(href => {
       if (document.querySelector(`link[href="${href}"]`)) return;

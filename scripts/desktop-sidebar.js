@@ -153,7 +153,20 @@
     var tmp = document.createElement('div');
     tmp.innerHTML = buildSidebar();
     document.body.prepend(tmp.firstElementChild);
-    document.body.classList.add('cd-ds-on');
+    // cd-ds-on means "the desktop sidebar is actually visible". Gate it on the
+    // desktop breakpoint: on mobile the sidebar is display:none, and shared
+    // chrome (e.g. the floating header's --hdr-left) keys off this class.
+    // A stray class on mobile would squash the header to a sliver.
+    var desktopMQ = window.matchMedia('(min-width:' + DESKTOP_MIN + 'px)');
+    function syncSidebarClass() {
+      document.body.classList.toggle('cd-ds-on', desktopMQ.matches);
+    }
+    syncSidebarClass();
+    if (typeof desktopMQ.addEventListener === 'function') {
+      desktopMQ.addEventListener('change', syncSidebarClass);
+    } else if (typeof desktopMQ.addListener === 'function') {
+      desktopMQ.addListener(syncSidebarClass);
+    }
   }
 
   if (document.readyState === 'loading') {
