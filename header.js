@@ -1,41 +1,47 @@
-// header.js – Auth UI, cart badge, sidebar toggle (header injected by master-loader)
+// header.js – Shared floating header behavior (injected by master-loader)
+// Greeting, tier badge, announcements bell (Firestore), cart.
 (function() {
   'use strict';
+
+  if (window.__CDHeader) {
+    console.log('[Header] already loaded — skipping');
+    return;
+  }
+  window.__CDHeader = true;
 
   console.log('[Header] Loading...');
 
   // ================================================================
-  // SIDEBAR TOGGLE – WITH RETRY
+  // HELPERS
   // ================================================================
-  function setupSidebarToggle() {
-    const toggleBtn = document.getElementById('floatingToggle');
-    const sidebar = document.getElementById('sidebar');
-    
-    if (!toggleBtn || !sidebar) {
-      console.warn('[Header] Elements not ready yet, retrying in 500ms...');
-      setTimeout(setupSidebarToggle, 500);
-      return;
+  function pick(obj, keys, fallback) {
+    if (!obj) return fallback;
+    for (const k of keys) {
+      const v = obj[k];
+      if (v !== undefined && v !== null && v !== '') return v;
     }
+    return fallback;
+  }
 
-    function toggleSidebar() {
-      sidebar.classList.toggle('open');
-      document.body.style.overflow = sidebar.classList.contains('open') ? 'hidden' : '';
-    }
+  function toNum(v, fallback) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  }
 
-    function closeSidebar() {
-      sidebar.classList.remove('open');
-      document.body.style.overflow = '';
-    }
+  function greetingText() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 18) return 'Good afternoon';
+    return 'Good evening';
+  }
 
-    toggleBtn.addEventListener('click', toggleSidebar);
-
-    document.querySelectorAll('.sidebar .nav-item, .sidebar .logout-link').forEach(link => {
-      link.addEventListener('click', function() {
-        if (window.innerWidth <= 1024) closeSidebar();
-      });
-    });
-
-    console.log('[Header] ✅ Sidebar toggle set up.');
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // ================================================================
@@ -62,97 +68,174 @@
     if (labelEl) {
       labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart';
     }
-
-    console.log('[Header] Cart updated:', totalItems, 'items');
   }
 
-  // Listen for cart changes in localStorage
   window.addEventListener('storage', function(e) {
-    if (e.key === 'cameras_decoded_cart') {
-      updateCartUI();
-    }
+    if (e.key === 'cameras_decoded_cart') updateCartUI();
   });
 
   // ================================================================
-  // AUTH UI MANAGEMENT
+  // AUTH UI: greeting, tier badge
   // ================================================================
   function updateAuthUI(user, userData) {
     const authButtons = document.getElementById('headerAuthButtons');
-    const badge = document.getElementById('roleTierBadge');
+    const badge = document.getElementById('headerTierBadge');
+    const badgeText = document.getElementById('headerTierText');
+    const greetingEl = document.getElementById('headerGreeting');
 
-    // SIMPLIFIED: If user or userData exists, user is logged in
-    const isLoggedIn = !!(user || userData);
+    // NOTE: user-state.js dispatches a truthy { isLoggedIn:false, uid:null } object
+    // when signed out — so "any object" is NOT a valid logged-in check.
+    const signedIn = (u) => !!(u && (u.isLoggedIn === true || u.uid));
+    const isLoggedIn = signedIn(user) || signedIn(userData);
+    const name = pick(userData, ['displayName', 'name', 'username'],
+               pick(user, ['displayName', 'name'], 'Operator'));
+
+    if (greetingEl) greetingEl.textContent = `${greetingText()}, ${name}`;
 
     if (isLoggedIn) {
-      console.log('[Header] ✅ User logged in. Updating UI...');
-      
-      // Hide login/signup buttons
-      if (authButtons) {
-        authButtons.style.display = 'none';
-      }
+      if (authButtons) authButtons.style.display = 'none';
 
-      // Show role/tier badge
-      if (badge) {
-        const role = (userData && userData.role) || (user && user.role) || 'Operator';
-        const tier = (userData && userData.tier) || (user && user.tier) || 'free';
-        const tierLabel = (tier === 'pro' || tier === 'Pro') ? 'Pro' : 'Free';
-        
-        badge.innerHTML = `<span class="glow-role">${role}</span> · <span class="tier-text">${tierLabel}</span>`;
-        badge.style.display = 'inline-flex';
-        console.log('[Header] ✅ Badge shown:', role, tierLabel);
-      }
+      const tier = String(pick(userData, ['tier'], pick(user, ['tier'], 'free'))).toLowerCase();
+      const tierLabel = tier === 'pro' ? 'Pro' : 'Free';
+      if (badge) badge.hidden = false;
+      if (badgeText) badgeText.textContent = tierLabel;
+
+      console.log('[Header] Logged in:', name, '| tier:', tierLabel);
     } else {
-      console.log('[Header] ❌ User not logged in. Showing auth buttons...');
-      
-      // Show login/signup buttons
-      if (authButtons) {
-        authButtons.style.display = 'flex';
-      }
-
-      // Hide badge
-      if (badge) {
-        badge.style.display = 'none';
-      }
+      if (authButtons) authButtons.style.display = 'flex';
+      if (badge) badge.hidden = true;
+      console.log('[Header] Logged out: auth buttons shown.');
     }
+  }
+
+  // ================================================================
+  // ANNOUNCEMENTS (Firestore admin/announcement)
+  // ================================================================
+  const SEEN_KEY = 'cd_seen_announcement';
+  let currentAnnouncement = '';
+
+  function getHeaderEls() {
+    return {
+      bell: document.getElementById('headerNoticeButton'),
+      dot: document.getElementById('headerNoticeDot'),
+      panel: document.getElementById('headerAnnouncePanel'),
+      close: document.getElementById('headerAnnounceClose'),
+      body: document.getElementById('headerAnnounceBody')
+    };
+  }
+
+  function openPanel() {
+    const { bell, panel } = getHeaderEls();
+    if (!panel) return;
+    panel.hidden = false;
+    requestAnimationFrame(() => panel.classList.add('open'));
+    if (bell) bell.setAttribute('aria-expanded', 'true');
+  }
+
+  function closePanel() {
+    const { bell, panel } = getHeaderEls();
+    if (!panel || panel.hidden) return;
+    panel.classList.remove('open');
+    if (bell) bell.setAttribute('aria-expanded', 'false');
+    setTimeout(() => { panel.hidden = true; }, 180);
+  }
+
+  function isPanelOpen() {
+    const { panel } = getHeaderEls();
+    return !!(panel && !panel.hidden && panel.classList.contains('open'));
+  }
+
+  // X button: dismiss the announcement AND clear the dot (persisted).
+  function dismissAnnouncement() {
+    try {
+      if (currentAnnouncement) localStorage.setItem(SEEN_KEY, currentAnnouncement);
+    } catch (e) { /* storage unavailable */ }
+    const { dot } = getHeaderEls();
+    if (dot) dot.hidden = true;
+    closePanel();
+    console.log('[Header] Announcement dismissed.');
+  }
+
+  function renderAnnouncement(data) {
+    const { dot, body } = getHeaderEls();
+    const active = !!(data && data.active && data.message);
+    currentAnnouncement = active ? String(data.message) : '';
+
+    if (body) {
+      body.innerHTML = active
+        ? `<div class="announce-item"><span class="announce-mark" aria-hidden="true"></span><div><p>${escapeHtml(data.message)}</p></div></div>`
+        : '<p class="announce-empty">No announcements right now.</p>';
+    }
+
+    if (dot) {
+      let seen = '';
+      try { seen = localStorage.getItem(SEEN_KEY) || ''; } catch (e) { /* ignore */ }
+      dot.hidden = !active || seen === currentAnnouncement;
+    }
+  }
+
+  function initAnnouncements() {
+    const { bell, close, panel } = getHeaderEls();
+    if (!bell || !panel) {
+      setTimeout(initAnnouncements, 500);
+      return;
+    }
+
+    bell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isPanelOpen() ? closePanel() : openPanel();
+    });
+    if (close) close.addEventListener('click', (e) => { e.stopPropagation(); dismissAnnouncement(); });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#headerAnnouncePanel') && !e.target.closest('#headerNoticeButton')) closePanel();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+
+    // Live Firestore listener (same doc the Missions page uses).
+    let attempts = 0;
+    function subscribe() {
+      const db = window.db;
+      if (!db || typeof db.collection !== 'function') {
+        attempts++;
+        if (attempts < 20) setTimeout(subscribe, 500);
+        else console.warn('[Header] Firestore unavailable; announcements disabled.');
+        return;
+      }
+      db.collection('admin').doc('announcement').onSnapshot((doc) => {
+        renderAnnouncement(doc.exists ? doc.data() : null);
+      }, (err) => {
+        console.warn('[Header] Announcement listener error:', err && err.code);
+        renderAnnouncement(null);
+      });
+      console.log('[Header] Announcement listener subscribed.');
+    }
+    subscribe();
   }
 
   // ================================================================
   // EVENT LISTENERS
   // ================================================================
-
-  // Listen for userStateReady event from user-state.js
   window.addEventListener('userStateReady', (e) => {
-    console.log('[Header] 🎯 userStateReady event received');
     const user = e.detail;
     updateAuthUI(user, user);
     updateCartUI();
   });
 
-  // ================================================================
-  // RETRY MECHANISM – waits for window.USER to be ready
-  // ================================================================
   let retryCount = 0;
-  const maxRetries = 20; // 20 * 250ms = 5 seconds max
-
+  const maxRetries = 20;
   function checkUserReady() {
     if (window.USER && window.USER.isLoggedIn === true) {
-      console.log('[Header] ✅ window.USER ready, updating UI');
       updateAuthUI(window.USER, window.USER);
       updateCartUI();
       return;
     }
-    
     retryCount++;
     if (retryCount < maxRetries) {
-      console.log(`[Header] ⏳ window.USER not ready, retry ${retryCount}...`);
       setTimeout(checkUserReady, 250);
-    } else {
-      console.log('[Header] ❌ window.USER not ready after max retries');
-      // One last try with whatever we have
-      if (window.USER) {
-        updateAuthUI(window.USER, window.USER);
-        updateCartUI();
-      }
+    } else if (window.USER) {
+      updateAuthUI(window.USER, window.USER);
+      updateCartUI();
     }
   }
 
@@ -164,6 +247,16 @@
     updateCart: updateCartUI,
     setUserData: function(user, userData) {
       updateAuthUI(user, userData);
+    },
+    setCartCount: function(count) {
+      const countEl = document.getElementById('cartHeaderCount');
+      const labelEl = document.getElementById('cartHeaderLabel');
+      const n = toNum(count, 0);
+      if (countEl) {
+        countEl.textContent = n;
+        countEl.style.display = n > 0 ? 'inline-block' : 'none';
+      }
+      if (labelEl) labelEl.textContent = n > 0 ? `Cart (${n})` : 'Cart';
     }
   };
 
@@ -171,14 +264,13 @@
   // AUTO-INIT
   // ================================================================
   function init() {
-    console.log('[Header] Initializing...');
-    setupSidebarToggle();
+    initAnnouncements();
     updateCartUI();
-    
-    // Start retry mechanism after a short delay
+    // Default greeting even before auth resolves.
+    const greetingEl = document.getElementById('headerGreeting');
+    if (greetingEl) greetingEl.textContent = `${greetingText()}, Operator`;
     setTimeout(checkUserReady, 300);
-    
-    console.log('[Header] ✅ Initialized');
+    console.log('[Header] Initialized.');
   }
 
   if (document.readyState === 'loading') {
@@ -186,6 +278,4 @@
   } else {
     init();
   }
-
-  console.log('[Header] ✅ Script loaded');
 })();

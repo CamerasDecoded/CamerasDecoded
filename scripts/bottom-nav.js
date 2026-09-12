@@ -1,5 +1,5 @@
 // /scripts/bottom-nav.js
-// Shared mobile bottom navigation for all authenticated pages EXCEPT the dashboard.
+// Shared mobile bottom navigation — site-wide (dashboard + all master-loader pages).
 // Self-injects its own <style> + DOM. Namespaced .cd-* — do not override externally.
 //
 // Opt-outs:
@@ -7,7 +7,7 @@
 //   window.__BOTTOMNAV_DISABLED    — disable at runtime
 //   /login.html, /signup.html      — auto-skipped
 //
-// Exposes window.BottomNav = { updateBadges(user), close } for callers.
+// Exposes window.BottomNav = { updateBadges(user), close, setRole(role) } for callers.
 
 (function () {
   'use strict';
@@ -70,9 +70,9 @@
       title: 'Practice',
       sub: 'Quick drills and daily work.',
       rows: [
+        { href: '/darkroom.html',      icon: 'darkroom', title: 'The Darkroom',      sub: 'Your skill tree' },
         { href: '/dailyprotocol.html', icon: 'bolt',     title: "Today's challenge", sub: 'Keep your streak alive' },
-        { href: '/quiz-full.html',     icon: 'zap',      title: 'Quiz Arena',        sub: 'Test what you know' },
-        { href: '/darkroom.html',      icon: 'darkroom', title: 'The Darkroom',      sub: 'Your skill tree' }
+        { href: '/quiz-full.html',     icon: 'zap',      title: 'Quiz Arena',        sub: 'Test what you know' }
       ]
     },
     more: {
@@ -80,13 +80,52 @@
       sub: 'Secondary destinations.',
       rows: [
         { href: '/snapshot-library.html', icon: 'camera', title: 'Snapshots',    sub: 'Your saved cards' },
-        { href: '/community.html',        icon: 'comm',   title: 'Community',    sub: 'Signal and discussion' },
+        // Community cut for launch — returns as a post-launch web-app update.
         { href: '/ai-tools.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
         { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { action: 'logout',               icon: 'exit',   title: 'Log out',      sub: 'End this session' }
       ]
     }
   };
+
+  // ---------- role-aware routes (preserves legacy root-nav behavior) ----------
+  var ROLE_MAP = {
+    'Operator':   { dashboard: '/operator-dashboard.html',   profile: '/profile.html' },
+    'Partner':    { dashboard: '/partner-dashboard.html',    profile: '/partner-profile.html' },
+    'Instructor': { dashboard: '/instructor-dashboard.html', profile: '/instructor-profile.html' },
+    'Admin':      { dashboard: '/admin-dashboard.html',      profile: '/admin-profile.html' }
+  };
+  var currentRole = 'Operator';
+
+  function roleConfig() { return ROLE_MAP[currentRole] || ROLE_MAP['Operator']; }
+
+  function normalizeRole(role) {
+    var r = String(role || 'Operator').toLowerCase();
+    r = r.charAt(0).toUpperCase() + r.slice(1);
+    return ROLE_MAP[r] ? r : 'Operator';
+  }
+
+  // Updates role-dependent links in an already-built nav.
+  function applyRole() {
+    var cfg = roleConfig();
+    var home = document.querySelector('.cd-bn-nav [data-cd-tab="home"]');
+    if (home) home.setAttribute('href', cfg.dashboard);
+    var prof = document.querySelector('[data-cd-role-link="profile"]');
+    if (prof) prof.setAttribute('href', cfg.profile);
+  }
+
+  function setRole(role) {
+    currentRole = normalizeRole(role);
+    applyRole();
+    console.log('[BottomNav] role set to:', currentRole);
+  }
+
+  function detectInitialRole() {
+    var c = document.getElementById('bottomNavContainer');
+    if (c && c.dataset && c.dataset.role) return c.dataset.role;
+    if (window.USER && window.USER.role) return window.USER.role;
+    return 'Operator';
+  }
 
   // ---------- styles ----------
   var CSS = ''
@@ -103,6 +142,9 @@
     +     'border-top:1px solid var(--cd-bn-border);'
     +     'font-family:"Montserrat",system-ui,sans-serif;'
     +     'transform:translateZ(0);}'
+    +   '.cd-bn-nav::before{content:"";position:absolute;top:-1px;left:0;right:0;height:2px;'
+    +     'background:linear-gradient(90deg,transparent 8%,var(--cd-bn-green) 50%,transparent 92%);'
+    +     'box-shadow:0 0 12px rgba(141,235,0,.55);pointer-events:none}'
     +   'body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}'
     + '}'
     + '.cd-bn-link{min-width:0;min-height:50px;border:0;background:transparent;'
@@ -171,7 +213,7 @@
       var tag = isSheet ? 'button' : 'a';
       var attrs = isSheet
         ? ' type="button" data-cd-sheet="' + t.sheet + '"'
-        : ' href="' + t.href + '"';
+        : ' href="' + ((t.id === 'home') ? roleConfig().dashboard : t.href) + '"';
       return '<' + tag + ' class="cd-bn-link" data-cd-tab="' + t.id + '"' + attrs + '>'
            +   iconSVG(t.icon)
            +   '<span>' + t.label + '</span>'
@@ -191,7 +233,10 @@
                +   '<span class="cd-bn-rc"><b>' + r.title + '</b><span>' + r.sub + '</span></span>'
                + '</button>';
         }
-        return '<a class="cd-bn-row" href="' + r.href + '">'
+        var isProfile = (r.title === 'Profile');
+        var href = isProfile ? roleConfig().profile : r.href;
+        return '<a class="cd-bn-row" href="' + href + '"'
+             + (isProfile ? ' data-cd-role-link="profile"' : '') + '>'
              +   '<span class="cd-bn-ic">' + iconSVG(r.icon) + '</span>'
              +   '<span class="cd-bn-rc"><b>' + r.title + '</b><span>' + r.sub + '</span></span>'
              + '</a>';
@@ -235,7 +280,8 @@
     if (matches(['/community.html', '/ai-tools.html', '/profile.html'], p)) {
       return 'more';
     }
-    if (matches(['/operator-dashboard.html', '/index.html'], p) || p === '/' || p === '') {
+    if (matches(['/operator-dashboard.html', '/partner-dashboard.html', '/instructor-dashboard.html',
+        '/admin-dashboard.html', '/index.html'], p) || p === '/' || p === '') {
       return 'home';
     }
     return null;
@@ -362,6 +408,13 @@
     // Remove any prior instance (defensive against double-load)
     document.querySelectorAll('.cd-bn-nav, .cd-bn-scrim').forEach(function (n) { n.remove(); });
 
+    // Role-aware links (preserves legacy nav behavior for Partner/Instructor/Admin)
+    currentRole = normalizeRole(detectInitialRole());
+    window.addEventListener('userStateReady', function (e) {
+      var r = e && e.detail && e.detail.role;
+      if (r) setRole(r);
+    });
+
     var nav = buildNav();
     var sheets = buildSheets();
     document.body.appendChild(sheets);
@@ -371,7 +424,7 @@
     wire(nav);
 
     window.__CDBottomNav = true;
-    window.BottomNav = { updateBadges: updateBadges, close: closeAllSheets };
+    window.BottomNav = { updateBadges: updateBadges, close: closeAllSheets, setRole: setRole };
     console.log('[BottomNav] ready');
   }
 

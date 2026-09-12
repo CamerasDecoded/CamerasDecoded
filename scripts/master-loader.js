@@ -23,8 +23,8 @@
     const files = [
       '/styles/design-system.css',
       '/styles/components.css',
-      '/bottom-nav.css',   // ✅ absolute path
-      '/header.css'        // ✅ absolute path
+      '/bottom-nav.css?v=20260912d',
+      '/header.css?v=20260912d'
     ];
     files.forEach(href => {
       if (document.querySelector(`link[href="${href}"]`)) return;
@@ -45,26 +45,42 @@
 
     const headerHTML = `
       <div id="master-floating-header" class="floating-header">
-        <!-- LEFT: Role/Tier Badge -->
+        <!-- LEFT: Logo + time-based greeting -->
         <div class="floating-left-group">
-          <span id="roleTierBadge" class="role-tier-badge" style="display:none;">
-            <span class="glow-role" id="headerRole">Operator</span> · <span class="tier-text" id="headerTier">Free</span>
-          </span>
+          <a href="/index.html" class="header-logo-link" aria-label="Cameras Decoded home">
+            <img src="/cameras-decoded-logo.png" alt="Cameras Decoded" class="header-logo" />
+          </a>
+          <div class="header-identity">
+            <strong id="headerGreeting">Good morning, Operator</strong>
+          </div>
         </div>
         <div class="floating-center-group"></div>
         <div class="floating-right-group">
-          <div id="headerAuthButtons" style="display:flex; gap:6px; align-items:center;">
+          <span class="tier-badge" id="headerTierBadge" hidden><i class="fas fa-circle" aria-hidden="true"></i><span id="headerTierText">Free</span></span>
+          <button class="icon-btn" id="headerNoticeButton" type="button" aria-label="Open announcements" aria-expanded="false">
+            <i class="fas fa-bell" aria-hidden="true"></i>
+            <span class="alert-dot" id="headerNoticeDot" aria-hidden="true" hidden></span>
+          </button>
+          <div id="headerAuthButtons" class="header-auth-buttons">
             <a href="/login.html" class="header-auth-btn btn-login-header">Log in</a>
             <a href="/signup.html" class="header-auth-btn btn-signup-header">Sign Up</a>
           </div>
-          <a href="/cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
-            <i class="fas fa-shopping-cart"></i>
+          <a href="/cart.html" class="cart-header-link" id="cartHeaderLink" aria-label="Cart">
+            <i class="fas fa-shopping-cart" aria-hidden="true"></i>
             <span id="cartHeaderLabel">Cart</span>
             <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
           </a>
-          <button class="floating-toggle" id="floatingToggle" aria-label="Menu" style="margin-left: 6px;">
-            <i class="fas fa-bars"></i>
+        </div>
+      </div>
+      <div class="announce-popover" id="headerAnnouncePanel" role="dialog" aria-labelledby="headerAnnounceTitle" hidden>
+        <div class="announce-head">
+          <h2 id="headerAnnounceTitle">Announcements</h2>
+          <button class="announce-close" id="headerAnnounceClose" type="button" aria-label="Dismiss announcements">
+            <i class="fas fa-xmark" aria-hidden="true"></i>
           </button>
+        </div>
+        <div class="announce-body" id="headerAnnounceBody">
+          <p class="announce-empty">No announcements right now.</p>
         </div>
       </div>
     `;
@@ -80,11 +96,18 @@
     document.body.appendChild(container);
   }
 
+  function loadHeaderBehavior() {
+    if (document.querySelector('script[src*="header.js"]')) return;
+    const script = document.createElement('script');
+    script.src = '/header.js?v=20260912d';
+    document.body.appendChild(script);
+  }
+
   function loadBottomNav() {
     if (document.querySelector('script[src*="bottom-nav.js"]')) return;
     const script = document.createElement('script');
-    // ✅ absolute path
-    script.src = '/bottom-nav.js?v=' + Date.now();
+    // ✅ absolute path — dashboard nav, site-wide
+    script.src = '/scripts/bottom-nav.js?v=20260912d';
     document.body.appendChild(script);
   }
 
@@ -94,6 +117,7 @@
     loadSharedCSS();
     loadParticles();
     injectFloatingHeader();
+    loadHeaderBehavior();
     injectBottomNavContainer();
     loadBottomNav();
     console.log('✅ Master loader complete.');
