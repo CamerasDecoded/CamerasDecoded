@@ -39,6 +39,29 @@
   };
   const toNum = (v, fb=0) => typeof v === 'number' && isFinite(v) ? v : (parseInt(v,10) || fb);
 
+  // ---- Global announcements (Firestore admin/announcement) ----
+  const SEEN_ANNOUNCEMENT_KEY = 'cd_seen_announcement';
+  let announcement = { active: false, message: '' };
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function seenAnnouncement(msg) {
+    try { return localStorage.getItem(SEEN_ANNOUNCEMENT_KEY) === msg; } catch (e) { return false; }
+  }
+  function dismissAnnouncement() {
+    try { localStorage.setItem(SEEN_ANNOUNCEMENT_KEY, announcement.message); } catch (e) {}
+    renderNotifications();
+  }
+  function initAnnouncements() {
+    try {
+      window.db.collection('admin').doc('announcement').onSnapshot((snap) => {
+        const d = snap.exists ? snap.data() : null;
+        announcement = (d && d.active && d.message)
+          ? { active: true, message: String(d.message) }
+          : { active: false, message: '' };
+        renderNotifications();
+      }, () => { /* announcements unavailable; personal notifications still work */ });
+    } catch (e) { /* ignore */ }
+  }
+
   async function hydrateUser(uid) {
     const snap = await window.db.collection('users').doc(uid).get();
     if (!snap.exists) throw new Error('User doc not found');
@@ -133,10 +156,8 @@
     const { streak, xpToday, xpGoal, rank } = vm.stats;
     const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     set('statStreak', streak + (streak === 1 ? ' day' : ' days'));
-    set('statStreakPill', streak);
     set('statXpToday', `${xpToday} / ${xpGoal}`);
     set('statRank', rank || '—');
-    set('mobileStreakPill', `${streak} day streak`);
 
     const pct = xpGoal > 0 ? Math.min(100, (xpToday / xpGoal) * 100) : 0;
     const ring = $('xpRing');
@@ -350,17 +371,27 @@
   function renderNotifications() {
     const u = vm.raw;
     const unread = toNum(pick(u, ['unreadNotifications','unreadNotices'], 0));
+    const showAnn = announcement.active && announcement.message && !seenAnnouncement(announcement.message);
     const dots = [$('noticeDot'), $('mobileNoticeDot')];
-    dots.forEach(d => { if (d) d.hidden = unread <= 0; });
+    dots.forEach(d => { if (d) d.hidden = !(unread > 0 || showAnn); });
 
     const box = $('notificationsList');
     if (!box) return;
-    const items = vm.notifications.length ? vm.notifications : [{ text: 'You are all caught up.' }];
-    box.innerHTML = items.map(n => {
-      const text = n.text || n.message || n.title || 'Notification';
-      const time = n.time || n.date || '';
-      return `<div class="notice"><span class="notice-mark"></span><div><p>${text}</p>${time ? `<time>${time}</time>` : ''}</div></div>`;
-    }).join('');
+    let html = '';
+    if (showAnn) {
+      html += `<div class="notice announcement"><span class="notice-mark"></span><div><p><strong>Announcement</strong></p><p>${esc(announcement.message)}</p></div><button type="button" class="notice-dismiss" data-dismiss-announcement aria-label="Dismiss announcement"><i class="fas fa-xmark" aria-hidden="true"></i></button></div>`;
+    }
+    const items = vm.notifications;
+    if (items.length) {
+      html += items.map(n => {
+        const text = n.text || n.message || n.title || 'Notification';
+        const time = n.time || n.date || '';
+        return `<div class="notice"><span class="notice-mark"></span><div><p>${text}</p>${time ? `<time>${time}</time>` : ''}</div></div>`;
+      }).join('');
+    } else if (!showAnn) {
+      html += `<div class="notice"><span class="notice-mark"></span><div><p>You are all caught up.</p></div></div>`;
+    }
+    box.innerHTML = html;
   }
 
   function renderAll() {
@@ -433,6 +464,9 @@
 
     $('noticeButton')?.addEventListener('click', (e) => { e.stopPropagation(); togglePopover(); });
     $('mobileNoticeButton')?.addEventListener('click', (e) => { e.stopPropagation(); togglePopover(); });
+    $('notificationsList')?.addEventListener('click', (e) => {
+      if (e.target.closest('[data-dismiss-announcement]')) dismissAnnouncement();
+    });
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#notifications') && !e.target.closest('#noticeButton') && !e.target.closest('#mobileNoticeButton')) closePopover();
     });
@@ -553,6 +587,7 @@
     const ok = await waitForFirebase();
     if (!ok) { showLoadError('Firebase did not load.'); return; }
     stage('Firebase globals found');
+    initAnnouncements();
 
     window.addEventListener('userStateReady', () => {}, { once: true });
 
