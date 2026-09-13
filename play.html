@@ -155,21 +155,11 @@
 
 <div id="cdToast"></div>
 
-<!-- Firebase (compat) — required for ?slot= mode. Paste your web config
-     from login.html into firebase.initializeApp below. -->
+<!-- Firebase (compat) — required for ?slot= mode. Canonical init. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script>
-  firebase.initializeApp({
-    apiKey: "PASTE_FROM_LOGIN_HTML",
-    authDomain: "PASTE_FROM_LOGIN_HTML",
-    projectId: "PASTE_FROM_LOGIN_HTML",
-    storageBucket: "PASTE_FROM_LOGIN_HTML",
-    messagingSenderId: "PASTE_FROM_LOGIN_HTML",
-    appId: "PASTE_FROM_LOGIN_HTML"
-  });
-</script>
+<script src="/scripts/firebase-init.js"></script>
 <script src="games/cdgames.js"></script>
 <script>
 (function () {
@@ -352,7 +342,46 @@
         detail: rec.detail,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch(function () {});
+      updateLeaderboard(currentUid(), rec.xp, 1); // best-effort
     } catch (e) {}
+  }
+
+  /* ============ leaderboard hook (best-effort; per-write caps in rules) ============ */
+  var _lbName = null;
+  function lbWeekKey(d) {
+    d = d || new Date();
+    var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    var day = (t.getUTCDay() + 6) % 7;
+    t.setUTCDate(t.getUTCDate() - day + 3);
+    var first = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+    var week = 1 + Math.round(((t - first) / 864e5 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
+    return t.getUTCFullYear() + '-W' + ('0' + week).slice(-2);
+  }
+  async function updateLeaderboard(uid, xp, plays) {
+    var d = db();
+    if (!d || !uid || !(xp > 0)) return;
+    try {
+      if (!_lbName) {
+        var u = firebase.auth().currentUser;
+        _lbName = (u && u.displayName) || null;
+        if (!_lbName && u) {
+          try {
+            var ud = await d.collection('users').doc(u.uid).get();
+            _lbName = (ud.data() || {}).displayName || (ud.data() || {}).name || null;
+          } catch (e) {}
+        }
+        if (!_lbName) _lbName = 'Operator ' + String(uid).slice(0, 4);
+      }
+      var wk = lbWeekKey();
+      var upd = {
+        displayName: _lbName,
+        xp: firebase.firestore.FieldValue.increment(xp),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      upd['weeks.' + wk] = firebase.firestore.FieldValue.increment(xp);
+      if (plays) upd.plays = firebase.firestore.FieldValue.increment(plays);
+      await d.collection('leaderboard').doc(uid).set(upd, { merge: true });
+    } catch (e) { /* leaderboard is best-effort */ }
   }
 
   function showResult(score, xp, durationMs, detail) {
