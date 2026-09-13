@@ -48,11 +48,13 @@
     ]},
     { label: 'Practice', links: [
       { id: 'darkroom', label: 'The Darkroom',  icon: 'fa-circle-notch',     href: '/darkroom.html' },
+      { id: 'arcade',   label: 'Game Arcade',   icon: 'fa-gamepad',          href: '/arcade.html' },
       { id: 'challenge',label: "Today's Challenge", icon: 'fa-bolt',        href: '/dailyprotocol.html' },
       { id: 'quiz',     label: 'Quiz Arena',    icon: 'fa-clipboard-question', href: '/quiz-full.html' }
     ]},
     { label: 'More', links: [
       { id: 'snapshots',label: 'Snapshots',     icon: 'fa-camera',           href: '/snapshot-library.html' },
+      { id: 'leaderboard', label: 'Leaderboard', icon: 'fa-trophy',           href: '/leaderboard.html' },
       { id: 'ai',       label: 'AI Workbench',  icon: 'fa-brain',            href: '/ai-tools.html' },
       { id: 'profile',  label: 'Profile',       icon: 'fa-circle-user',      href: '/profile.html', role: 'profile' }
     ]}
