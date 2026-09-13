@@ -47,6 +47,7 @@
     more:     svg('<circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/>'),
     bolt:     svg('<path d="M13 2 5 14h7l-1 8 8-12h-7l1-8z"/>'),
     zap:      svg('<path d="M13 2 5 14h7l-1 8 8-12h-7l1-8z"/>'),
+    quiz:     svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 1 1 3.7 2.4c-.8.4-1.2.9-1.2 1.9"/><circle cx="12" cy="17.2" r="1.1" fill="currentColor" stroke="none"/>'),
     darkroom: svg('<circle cx="12" cy="12" r="9"/><path d="M12 3v9l7.8-4.5M21 12h-9l7.8 4.5M12 21v-9l-7.8 4.5M3 12h9l-7.8-4.5"/>'),
     camera:   svg('<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 7l1.5-2.5h5L16 7"/>'),
     comm:     svg('<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20.5l1.5-4.7A8.4 8.4 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/>'),
@@ -75,7 +76,7 @@
         { href: '/darkroom.html',      icon: 'darkroom', title: 'The Darkroom',      sub: 'Your skill tree' },
         { href: '/arcade.html',        icon: 'gamepad',  title: 'Game Arcade',       sub: 'Play drills, earn XP' },
         { href: '/dailyprotocol.html', icon: 'bolt',     title: "Today's challenge", sub: 'Keep your streak alive' },
-        { href: '/quiz-full.html',     icon: 'zap',      title: 'Quiz Arena',        sub: 'Test what you know' }
+        { href: '/quiz-full.html',     icon: 'quiz',     title: 'Quiz Arena',        sub: 'Test what you know' }
       ]
     },
     more: {
