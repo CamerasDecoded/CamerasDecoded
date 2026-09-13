@@ -256,6 +256,13 @@
     }
     .btn-begin:hover { transform: translateY(-1px); box-shadow: 0 10px 34px rgba(141,235,0,0.45); }
     .btn-begin:active { transform: translateY(0); }
+    a.btn-begin { text-decoration: none; }
+    .daily-card { margin-top: 2px; }
+    .daily-streak { margin-left: auto; font-size: 11px; letter-spacing: 2px; color: var(--green); white-space: nowrap; }
+    .daily-tip { margin: 12px 0 0; font-size: 13px; opacity: .78; border-top: 1px solid rgba(255,255,255,.08); padding-top: 10px; }
+    .daily-lb { margin: 10px 0 0; font-size: 13px; }
+    .daily-lb a { color: var(--green-soft); text-decoration: none; font-family: var(--font-display); font-size: 12px; letter-spacing: 1px; }
+    .daily-lb a:hover { color: var(--green); }
 
     /* ============ CAMPAIGN PROGRESS ============ */
     .campaign {
@@ -484,6 +491,7 @@
       border: 1px solid rgba(141,235,0,0.3); cursor: default;
     }
     .btn-step.completed-btn:hover { transform: none; box-shadow: none; }
+    a.btn-step { text-decoration: none; }
 
     /* ============ DEBRIEF ============ */
     .debrief {
@@ -665,6 +673,26 @@
         <button class="btn-begin" id="briefingCta" type="button">
           Begin mission <i class="fas fa-arrow-right" aria-hidden="true"></i>
         </button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         DAILY DRILL
+         ============================================================ -->
+    <section class="briefing" aria-label="Daily drill">
+      <div class="briefing-card daily-card">
+        <div class="briefing-kicker"><span class="kicker-dot" aria-hidden="true"></span>Daily drill<span class="daily-streak" id="dailyStreak"></span></div>
+        <div class="briefing-body">
+          <div class="briefing-text">
+            <h2 class="briefing-title" id="dailyTitle">Loading today's drill…</h2>
+            <p class="briefing-desc" id="dailyDesc"></p>
+            <p class="daily-tip"><strong>Decoder tip of the day — </strong><span id="dailyTipText"></span></p>
+          </div>
+        </div>
+        <a class="btn-begin" id="dailyCta" href="#">
+          Play today's drill <i class="fas fa-arrow-right" aria-hidden="true"></i>
+        </a>
+        <p class="daily-lb"><a href="leaderboard.html">View leaderboard <i class="fas fa-trophy" aria-hidden="true"></i></a></p>
       </div>
     </section>
 
@@ -899,6 +927,172 @@
     // ================================================================
     // SEED DATA – all three levels (unchanged)
     // ================================================================
+    // ================================================================
+    // GAME DRILLS — lesson game player wiring (client-side; no data changes)
+    // A "slotId" step opens play.html?slot=<id>. The step auto-completes
+    // via syncGameCompletions() when a game_sessions doc exists for it.
+    // ================================================================
+    const GAME_DRILLS_MODULE = {
+      id: 'mod_games',
+      title: 'Exposure Drills',
+      description: 'Learn by playing. Each drill opens in the lesson game player and completes automatically when you finish the game.',
+      steps: [
+        {
+          id: 'drill_001', type: 'challenge', title: 'Exposure Lab',
+          description: 'Dial in aperture, shutter, and ISO against real briefs in the exposure simulator.',
+          duration: 8, points: 50, badge: null, prerequisites: [],
+          recommendedProducts: [], slotId: 'exp-u1-l1-g1', completionAction: 'play_game'
+        },
+        {
+          id: 'drill_002', type: 'challenge', title: 'AR Viewfinder',
+          description: 'Read the meter and nail exposure through your camera in augmented reality.',
+          duration: 6, points: 50, badge: null, prerequisites: ['drill_001'],
+          recommendedProducts: [], slotId: 'exp-u1-l2-g1', completionAction: 'play_game'
+        },
+        {
+          id: 'drill_003', type: 'challenge', title: 'Blue Hour Sprint',
+          description: 'A focused Exposure Lab round: balance one tricky blue-hour scene.',
+          duration: 5, points: 30, badge: null, prerequisites: ['drill_002'],
+          recommendedProducts: [], slotId: 'exp-u1-l3-g1', completionAction: 'play_game'
+        },
+        {
+          id: 'drill_004', type: 'challenge', title: 'Golden Hour Rush',
+          description: '75 seconds. A sinking sun. Keep your exposure in the zone as the light changes.',
+          duration: 4, points: 60, badge: null, prerequisites: ['drill_003'],
+          recommendedProducts: [], slotId: 'exp-u1-l4-g1', completionAction: 'play_game'
+        }
+      ],
+      totalPoints: 190
+    };
+    function injectGameDrills() {
+      if (!journeyData || !journeyData.modules) return;
+      if (journeyData.modules.some(function (m) { return m.id === 'mod_games'; })) return;
+      journeyData.modules.push(GAME_DRILLS_MODULE);
+    }
+
+    // ================================================================
+    // DAILY DRILL — deterministic pick from the game slots, streak tracking.
+    // No new content to author: the drill rotates through the live slots.
+    // Streak lives on users/{uid} as dailyStreak { last, count }.
+    // ================================================================
+    const DAILY_SLOTS = [
+      { slotId: 'exp-u1-l1-g1', title: 'Exposure Lab', desc: 'Dial in the exposure triangle against live briefs.' },
+      { slotId: 'exp-u1-l2-g1', title: 'AR Viewfinder', desc: 'Read the meter through your camera and nail the exposure.' },
+      { slotId: 'exp-u1-l3-g1', title: 'Blue Hour Sprint', desc: 'One tricky blue-hour scene. Balance it.' },
+      { slotId: 'exp-u1-l4-g1', title: 'Golden Hour Rush', desc: '75 seconds of sinking sun. Stay in the zone.' }
+    ];
+    const TIP_POOL = [
+      'Expose for the highlights — shadows forgive, blown highlights don\u2019t.',
+      'f/8 and be there: when in doubt, f/8 keeps most scenes sharp.',
+      'Handheld rule: shutter speed at least 1/(focal length). 50mm \u2192 1/60 or faster.',
+      'Shoot RAW+JPEG while learning — RAW saves mistakes JPEG can\u2019t.',
+      'Back-button focus separates focusing from firing. Try it for a week.',
+      'Golden hour isn\u2019t an hour — it\u2019s about 20 good minutes. Be set up early.',
+      'In harsh sun, underexpose 1/3 stop to protect skin tones.',
+      'ISO 100\u2013400 is your clean zone. Climb only when the shot demands it.',
+      'Trust the histogram over the screen — your LCD lies in bright sunlight.',
+      'Aperture priority + exposure compensation covers 80% of real shooting.',
+      'Portraits: focus on the nearest eye. Always.',
+      'Clouds are a giant softbox — overcast days are portrait days.',
+      'Chimp less, shoot more: verify exposure once per scene, then trust it.',
+      'Clean your lens. Half of all \u201csoft focus\u201d complaints are fingerprints.'
+    ];
+    function dayOfYear(d) {
+      d = d || new Date();
+      return Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
+    }
+    function dateKey(d) {
+      d = d || new Date();
+      const p = n => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    }
+    function renderDaily() {
+      const title = document.getElementById('dailyTitle');
+      if (!title) return;
+      const pick = DAILY_SLOTS[dayOfYear() % DAILY_SLOTS.length];
+      title.textContent = 'Today\u2019s drill: ' + pick.title;
+      document.getElementById('dailyDesc').textContent = pick.desc;
+      document.getElementById('dailyCta').href = 'play.html?slot=' + pick.slotId;
+      document.getElementById('dailyTipText').textContent = TIP_POOL[dayOfYear() % TIP_POOL.length];
+    }
+    function renderDailyStreak(count, done) {
+      const el = document.getElementById('dailyStreak');
+      if (!el) return;
+      el.textContent = done
+        ? '\u2705 done \u00B7 \uD83D\uDD25 ' + count + ' day' + (count === 1 ? '' : 's')
+        : (count > 0 ? '\uD83D\uDD25 ' + count + ' day streak' : 'start your streak');
+    }
+    async function syncDaily() {
+      renderDaily();
+      if (!currentUser || !db) { renderDailyStreak(0, false); return; }
+      try {
+        const pick = DAILY_SLOTS[dayOfYear() % DAILY_SLOTS.length];
+        const today = dateKey();
+        const yest = dateKey(new Date(Date.now() - 864e5));
+        const snap = await db.collection('game_sessions')
+          .where('uid', '==', currentUser.uid)
+          .where('slotId', '==', pick.slotId).get();
+        let playedToday = false;
+        snap.forEach(function (doc) {
+          const c = (doc.data() || {}).createdAt;
+          const dt = c && c.toDate ? c.toDate() : null;
+          if (dt && dateKey(dt) === today) playedToday = true;
+        });
+        const userRef = db.collection('users').doc(currentUser.uid);
+        const userDoc = await userRef.get();
+        const streak = (userDoc.data() || {}).dailyStreak || { last: null, count: 0 };
+        let count = streak.count || 0;
+        if (playedToday && streak.last !== today) {
+          count = (streak.last === yest) ? count + 1 : 1;
+          await userRef.set({ dailyStreak: { last: today, count: count } }, { merge: true });
+        } else if (!playedToday && streak.last !== today && streak.last !== yest) {
+          count = 0; // lapsed — resets on next completion
+        }
+        renderDailyStreak(count, playedToday);
+      } catch (e) { renderDailyStreak(0, false); /* offline — card still playable */ }
+    }
+
+    // ================================================================
+    // LEADERBOARD HOOK — one doc per user in leaderboard/{uid}.
+    // xp = game XP + mission points; weeks.{ISO-week} powers the weekly tab.
+    // Writes are best-effort; per-write caps live in Firestore rules.
+    // ================================================================
+    let _lbName = null;
+    function lbWeekKey(d) {
+      d = d || new Date();
+      const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const day = (t.getUTCDay() + 6) % 7;
+      t.setUTCDate(t.getUTCDate() - day + 3);
+      const first = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+      const week = 1 + Math.round(((t - first) / 864e5 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
+      return t.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+    }
+    async function updateLeaderboard(uid, xp, plays) {
+      if (!db || !uid || !(xp > 0)) return;
+      try {
+        if (!_lbName) {
+          const u = firebase.auth().currentUser;
+          _lbName = (u && u.displayName) || null;
+          if (!_lbName && u) {
+            try {
+              const ud = await db.collection('users').doc(u.uid).get();
+              _lbName = (ud.data() || {}).displayName || (ud.data() || {}).name || null;
+            } catch (e) {}
+          }
+          if (!_lbName) _lbName = 'Operator ' + String(uid).slice(0, 4);
+        }
+        const wk = lbWeekKey();
+        const upd = {
+          displayName: _lbName,
+          xp: firebase.firestore.FieldValue.increment(xp),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        upd['weeks.' + wk] = firebase.firestore.FieldValue.increment(xp);
+        if (plays) upd.plays = firebase.firestore.FieldValue.increment(plays);
+        await db.collection('leaderboard').doc(uid).set(upd, { merge: true });
+      } catch (e) { /* leaderboard is best-effort */ }
+    }
+
     async function seedAllJourneyLevels() {
       try {
         const levels = ['beginner', 'intermediate', 'advanced'];
@@ -1469,6 +1663,10 @@
           }, { merge: true });
         }
 
+        // Game drills live in code (not in the journeys docs) — inject before
+        // the current-module picker so the new phase participates in it.
+        injectGameDrills();
+
         if (journeyData.modules && journeyData.modules.length > 0) {
           let found = false;
           for (let i = 0; i < journeyData.modules.length; i++) {
@@ -1488,6 +1686,8 @@
 
         renderAll();
         updateAssistantTip();
+        syncGameCompletions();
+        syncDaily();
 
       } catch (err) {
         console.error('Error loading journey data:', err);
@@ -1765,9 +1965,13 @@
               ${tipHtml}
               ${isActive ? `
                 <div class="dossier-actions">
-                  <button type="button" class="btn-step" onclick="completeStep('${step.id}')">
-                    <i class="fas fa-check" aria-hidden="true"></i> Complete &amp; Earn ${step.points || 0} pts
-                  </button>
+                  ${step.slotId ? `
+                    <a class="btn-step" href="play.html?slot=${step.slotId}">
+                      <i class="fas fa-play" aria-hidden="true"></i> Play &amp; Earn ${step.points || 0} pts
+                    </a>` : `
+                    <button type="button" class="btn-step" onclick="completeStep('${step.id}')">
+                      <i class="fas fa-check" aria-hidden="true"></i> Complete &amp; Earn ${step.points || 0} pts
+                    </button>`}
                   ${step.recommendedProducts && step.recommendedProducts.length > 0 ? `<button type="button" class="btn-step secondary" onclick="showProducts('${step.id}')"><i class="fas fa-box-open" aria-hidden="true"></i> Products</button>` : ''}
                 </div>
               ` : ''}
@@ -1861,6 +2065,7 @@
 
         await mainUserRef.set(mainUpdate, { merge: true });
         console.log('[Journey] Synced points and badges to main user doc.');
+        updateLeaderboard(currentUser.uid, step.points || 0, 0); // best-effort
 
         userProgress.completedSteps = newCompleted;
         userProgress.totalPoints = newPoints;
@@ -1901,6 +2106,32 @@
         cdToast('Error: ' + err.message);
       }
     };
+
+    // ================================================================
+    // SYNC GAME COMPLETIONS — auto-complete drill steps from play history
+    // A drill step (step.slotId) completes when the user has a
+    // game_sessions doc for that slot. Runs once after progress loads.
+    // ================================================================
+    async function syncGameCompletions() {
+      if (!currentUser || !journeyData) return;
+      try {
+        const snap = await db.collection('game_sessions')
+          .where('uid', '==', currentUser.uid).get();
+        const played = {};
+        snap.forEach(function (d) {
+          const s = d.data();
+          if (s && s.slotId) played[s.slotId] = true;
+        });
+        for (const mod of journeyData.modules || []) {
+          for (const step of mod.steps || []) {
+            const done = (userProgress.completedSteps || []).indexOf(step.id) !== -1;
+            if (step.slotId && played[step.slotId] && !done) {
+              await window.completeStep(step.id); // reuses points/badges/guards + re-render
+            }
+          }
+        }
+      } catch (e) { /* offline or rules deny — missions still render */ }
+    }
 
     // ================================================================
     // SHOW PHASE DEBRIEF
