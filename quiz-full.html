@@ -370,7 +370,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="/scripts/badges.js"></script>
 
   <script>
     // ============================================================
@@ -473,7 +472,7 @@
         { q: "What does 'hyperfocal distance' mean?", a: ["Focus point that maximises depth of field", "The closest focus distance", "The focus distance for infinity", "A lens calibration method"], c: 0, e: "Hyperfocal distance is the focus point that keeps everything from half that distance to infinity acceptably sharp – ideal for landscapes." },
         { q: "Which metering mode evaluates the entire scene for average exposure?", a: ["Spot", "Center‑weighted", "Evaluative (Matrix)", "Partial"], c: 2, e: "Evaluative metering analyses the whole frame, using algorithms to balance exposure across highlights and shadows." },
         { q: "What is 'reciprocity failure' in film photography?", a: ["Light reciprocity in digital", "Film's non‑linear response at long exposures", "Colour shifts", "Shutter delay"], c: 1, e: "At exposures longer than ~1 second, film requires more light than the meter suggests due to reciprocity failure." },
-        { q: "Which flash sync speed is typically the maximum for most mirrorless cameras?", a: ["1/60s", "1/125s", "1/250s", "1/1000s"], c: 2, e: "Most mirrorless bodies sync up to 1/200s or 1/250s; beyond that, you need high‑speed sync if your flash supports it." },
+        { q: "Which flash sync speed is typically the maximum for most DSLRs?", a: ["1/60s", "1/125s", "1/250s", "1/1000s"], c: 2, e: "Most cameras sync up to 1/200s or 1/250s; beyond that, you need high‑speed sync if your flash supports it." },
         { q: "What is 'focus stacking'?", a: ["Combining multiple exposures", "Combining different focus points to increase DOF", "Stacking filters", "A lens adjustment"], c: 1, e: "Focus stacking merges several images taken at different focus distances to achieve extreme depth of field, common in macro." },
         { q: "How do you achieve a 'high‑key' portrait?", a: ["Low contrast and bright tones", "High contrast and dark shadows", "Natural light only", "Black and white"], c: 0, e: "High‑key lighting uses bright, even light with minimal shadows, resulting in a light, airy look." },
       ],
@@ -575,46 +574,6 @@
         localStorage.setItem('quizStreak', streak.toString());
         localStorage.setItem('quizLastScore', JSON.stringify(scoreData));
       }
-
-      // ---- Leaderboard XP: 2 XP per correct answer ----
-      try {
-        const xp = (scoreData.score || 0) * 2;
-        const wk = isoWeekKey(new Date());
-        const upd = {
-          displayName: user.displayName || 'Operator',
-          xp: firebase.firestore.FieldValue.increment(xp),
-          plays: firebase.firestore.FieldValue.increment(1),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        upd['weeks.' + wk] = firebase.firestore.FieldValue.increment(xp);
-        await db.collection('leaderboard').doc(user.uid).set(upd, { merge: true });
-      } catch (e) { /* leaderboard is best-effort */ }
-
-      // ---- Badges ----
-      try {
-        if (window.CDBadges) {
-          if (scoreData.score === scoreData.total && scoreData.total > 0) {
-            CDBadges.award(user.uid, 'quiz-perfect', db);
-          }
-          const uref = db.collection('users').doc(user.uid);
-          await uref.set({ quizTotal: firebase.firestore.FieldValue.increment(1) }, { merge: true });
-          const usnap = await uref.get();
-          if (((usnap.data() || {}).quizTotal || 0) >= 10) {
-            CDBadges.award(user.uid, 'quiz-10', db);
-          }
-        }
-      } catch (e) { /* badges are best-effort */ }
-    }
-
-    // ISO week key: YYYY-Www (matches leaderboard weekly buckets)
-    function isoWeekKey(d) {
-      d = d || new Date();
-      var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-      var day = (t.getUTCDay() + 6) % 7;
-      t.setUTCDate(t.getUTCDate() - day + 3);
-      var first = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
-      var week = 1 + Math.round(((t - first) / 864e5 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
-      return t.getUTCFullYear() + '-W' + ('0' + week).slice(-2);
     }
 
     // ---- Difficulty buttons ----
