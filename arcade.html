@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+  <title>Game Arcade — Cameras Decoded</title>
+  <meta name="description" content="Play photography drills. Earn XP. Climb the leaderboard." />
+
+  <!-- ===== MASTER LOADER ===== -->
+  <script src="/scripts/master-loader.js?v=20260912d"></script>
+
+  <!-- ===== SHARED COMPONENT CSS ===== -->
+  <link rel="stylesheet" href="header.css?v=20260912f" />
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js"></script>
+
+  <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
+  <script src="/scripts/user-state.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="header.js?v=20260912e"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
+  <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
+
+  <!-- ===== FONTS & ICONS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    :root {
+      --green: #8deb00;
+      --green-soft: rgba(141, 235, 0, 0.78);
+      --green-glow: rgba(141, 235, 0, 0.35);
+      --green-dim: rgba(141, 235, 0, 0.12);
+      --dark: #0a0a0a;
+      --ink: #050705;
+      --card-bg: rgba(17, 19, 17, 0.88);
+      --card-solid: #101310;
+      --border: rgba(255, 255, 255, 0.09);
+      --text: #f2f5ef;
+      --text-muted: rgba(255, 255, 255, 0.55);
+      --text-faint: rgba(255, 255, 255, 0.35);
+      --radius: 18px;
+      --shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+      --font-display: 'Space Mono', monospace;
+      --font-body: 'Montserrat', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--ink);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    .main-content {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 20px 16px 120px;
+    }
+    .page-head { margin: 8px 0 18px; }
+    .page-head .kicker {
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--font-display); font-size: 11px; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--green-soft); margin-bottom: 10px;
+    }
+    .page-head h1 {
+      font-family: var(--font-display); font-size: 28px; margin: 0 0 6px;
+      letter-spacing: -0.5px;
+    }
+    .page-head h1 i { color: var(--green); margin-right: 8px; }
+    .page-head p { margin: 0; color: var(--text-muted); font-size: 14px; }
+
+    .arcade-grid { display: grid; gap: 12px; }
+    @media (min-width: 560px) {
+      .arcade-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .game-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      display: flex; flex-direction: column; gap: 12px;
+      box-shadow: var(--shadow);
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .game-card:hover { border-color: rgba(141, 235, 0, 0.35); }
+    .game-card:active { transform: scale(0.99); }
+    .game-top { display: flex; align-items: center; gap: 12px; }
+    .game-icon {
+      width: 48px; height: 48px; border-radius: 14px; flex: none;
+      background: var(--green-dim);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: var(--green);
+    }
+    .game-meta { flex: 1; min-width: 0; }
+    .game-meta b { display: block; font-size: 16px; letter-spacing: -0.2px; }
+    .game-meta span {
+      font-size: 11px; color: var(--text-faint);
+      font-family: var(--font-display); letter-spacing: 1px; text-transform: uppercase;
+    }
+    .game-xp {
+      font-family: var(--font-display); font-size: 13px; font-weight: 700;
+      color: var(--green); white-space: nowrap;
+    }
+    .game-desc { font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.5; }
+    .game-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; }
+    .game-best {
+      flex: 1; font-size: 12px; color: var(--text-faint);
+      font-family: var(--font-display);
+    }
+    .play-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--green); color: #0a0f02;
+      border: 0; border-radius: 12px; padding: 12px 20px;
+      font-family: var(--font-display); font-size: 14px; font-weight: 700;
+      letter-spacing: 1px; text-decoration: none; cursor: pointer;
+      min-height: 48px;
+    }
+    .play-btn:hover { filter: brightness(1.08); }
+    .play-btn:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+    .arcade-empty {
+      text-align: center; color: var(--text-muted); font-size: 14px;
+      padding: 40px 20px; border: 1px dashed var(--border); border-radius: var(--radius);
+    }
+    .arcade-note { margin-top: 16px; font-size: 12px; color: var(--text-faint); text-align: center; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+    }
+  </style>
+</head>
+<body class="arcade-page">
+
+  <main class="main-content" id="mainContent">
+    <div class="page-head">
+      <div class="kicker"><i class="fas fa-gamepad" aria-hidden="true"></i>Practice</div>
+      <h1>Game Arcade</h1>
+      <p>Play photography drills. Every run earns XP toward the leaderboard.</p>
+    </div>
+
+    <div class="arcade-grid" id="arcadeGrid" aria-live="polite">
+      <div class="arcade-empty">Loading games…</div>
+    </div>
+
+    <p class="arcade-note">New drills drop as you progress through Missions and the Darkroom.</p>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+      var db = null;
+      var gridEl = document.getElementById('arcadeGrid');
+
+      var GAME_ICONS = {
+        'exposure-lab': 'fa-sun',
+        'ar-viewfinder': 'fa-camera',
+        'golden-hour-rush': 'fa-bolt',
+        'blue-hour-sprint': 'fa-moon',
+        'focal-length-sniper': 'fa-crosshairs'
+      };
+      var GAME_BLURBS = {
+        'exposure-lab': 'Nail the exposure triangle under pressure.',
+        'ar-viewfinder': 'Read the meter and frame the shot in AR.',
+        'golden-hour-rush': 'Chase the light before the sun drops.',
+        'blue-hour-sprint': 'Balance ambient and flash at dusk.',
+        'focal-length-sniper': 'Read the glass — call the focal length.'
+      };
+
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      function renderGames(slots, bestBySlot) {
+        if (!slots.length) {
+          gridEl.innerHTML = '<div class="arcade-empty">No drills live yet.<br>Check back soon.</div>';
+          return;
+        }
+        gridEl.innerHTML = slots.map(function (s) {
+          var icon = GAME_ICONS[s.game] || 'fa-gamepad';
+          var blurb = GAME_BLURBS[s.game] || '';
+          var best = bestBySlot[s.id];
+          var bestHtml = best != null
+            ? 'Best: ' + best + '%'
+            : 'No signal yet';
+          return '<article class="game-card">' +
+            '<div class="game-top">' +
+              '<div class="game-icon"><i class="fas ' + icon + '" aria-hidden="true"></i></div>' +
+              '<div class="game-meta"><b>' + esc(s.title || s.game) + '</b>' +
+              '<span>' + esc(s.unit || '') + (s.lesson ? ' · ' + esc(s.lesson) : '') + '</span></div>' +
+              '<div class="game-xp">' + (s.xp || 0) + ' XP</div>' +
+            '</div>' +
+            (blurb ? '<p class="game-desc">' + esc(blurb) + '</p>' : '') +
+            '<div class="game-foot">' +
+              '<span class="game-best">' + esc(bestHtml) + '</span>' +
+              '<a class="play-btn" href="/play.html?slot=' + encodeURIComponent(s.id) + '">' +
+                '<i class="fas fa-play" aria-hidden="true"></i>Play</a>' +
+            '</div>' +
+          '</article>';
+        }).join('');
+      }
+
+      async function loadArcade() {
+        if (!db) return;
+        try {
+          var snap = await db.collection('lesson_slots').orderBy('order').get();
+          var slots = [];
+          snap.forEach(function (doc) {
+            slots.push(Object.assign({ id: doc.id }, doc.data() || {}));
+          });
+          var bestBySlot = {};
+          var user = firebase.auth().currentUser;
+          if (user) {
+            try {
+              var gs = await db.collection('game_sessions')
+                .where('uid', '==', user.uid).get();
+              gs.forEach(function (doc) {
+                var d = doc.data() || {};
+                var sid = d.slotId;
+                var score = d.score;
+                if (sid != null && typeof score === 'number') {
+                  if (bestBySlot[sid] == null || score > bestBySlot[sid]) bestBySlot[sid] = score;
+                }
+              });
+            } catch (e) { /* best scores are optional */ }
+          }
+          renderGames(slots, bestBySlot);
+        } catch (e) {
+          gridEl.innerHTML = '<div class="arcade-empty">Could not load games.<br>Check your connection and reload.</div>';
+        }
+      }
+
+      function boot() {
+        if (!window.firebase || !firebase.auth || !firebase.firestore) {
+          gridEl.innerHTML = '<div class="arcade-empty">Could not reach our servers.<br>Check your connection and reload.</div>';
+          return;
+        }
+        db = firebase.firestore();
+        firebase.auth().onAuthStateChanged(function () { loadArcade(); });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+      else boot();
+    })();
+  </script>
+</body>
+</html>
