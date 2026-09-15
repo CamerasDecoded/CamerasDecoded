@@ -88,14 +88,16 @@
     box-shadow:0 0 60px rgba(141,235,0,.12),0 30px 80px rgba(0,0,0,.6);
     animation:cdRise .55s cubic-bezier(.22,1,.36,1);}
   @keyframes cdRise{from{opacity:0;transform:translateY(26px) scale(.97)}to{opacity:1;transform:none}}
-  .cd-rcard{position:relative;z-index:1;}
-  /* Animated Cynetis-7 success backdrop — melts into the dark; degrades silently if the file is missing */
-  .cd-rvideo{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);
-    width:min(80vw,400px);aspect-ratio:1/1;object-fit:cover;border-radius:50%;
-    -webkit-mask-image:radial-gradient(circle,#000 50%,transparent 70%);
-    mask-image:radial-gradient(circle,#000 50%,transparent 70%);
-    opacity:.92;pointer-events:none;animation:cdRFade 1.4s ease both;}
-  @keyframes cdRFade{from{opacity:0}to{opacity:.92}}
+  .cd-rcard{position:relative;z-index:1;width:100%;max-width:460px;text-align:center;
+    background:transparent;border:none;box-shadow:none;padding:24px 26px;
+    animation:cdRise .55s cubic-bezier(.22,1,.36,1);}
+  /* Full-screen Cynetis-7 success backdrop — black video fills the screen, text overlaid on top */
+  .cd-rvideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    pointer-events:none;animation:cdRFade 1.2s ease both;}
+  @keyframes cdRFade{from{opacity:0}to{opacity:1}}
+  /* Matrix-ish terminal print for the detail lines */
+  .cd-rline{display:inline-block;animation:cdLineIn .45s cubic-bezier(.22,1,.36,1) both;}
+  @keyframes cdLineIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
   .cd-rkicker{font-family:var(--mono);font-size:10px;letter-spacing:4px;color:var(--acc);margin-bottom:10px;}
   .cd-rscore{font-family:var(--mono);font-size:76px;font-weight:700;color:var(--acc);line-height:1;
     text-shadow:0 0 30px rgba(141,235,0,.45);font-variant-numeric:tabular-nums;}
@@ -120,6 +122,7 @@
     #cdStage{transition:none;} .cd-pulse,.cd-loadbar i{animation:none;}
     .cd-rcard,.cd-rxp{animation:none;} .cd-progress-fill{transition:none;}
     .cd-rvideo{display:none;}
+    .cd-rline{animation:none;}
   }
 </style>
 </head>
@@ -150,12 +153,12 @@
 </div>
 
 <div id="cdResult" role="dialog" aria-modal="true" aria-label="Session result">
-  <video class="cd-rvideo" id="cdResultVideo" muted loop playsinline preload="auto" aria-hidden="true"
-    poster="/media/cynetis-7-loop-signal-poster.png" onerror="this.remove()">
-    <source src="/media/cynetis-7-loop-signal.mp4" type="video/mp4">
+  <video class="cd-rvideo" id="cdResultVideo" muted playsinline preload="auto" aria-hidden="true"
+    onerror="this.remove()">
+    <source src="/media/signal-decoded-success.mp4" type="video/mp4">
   </video>
   <div class="cd-rcard">
-    <div class="cd-rkicker">SIGNAL DECODED</div>
+    <div class="cd-rkicker" id="cdKicker">SIGNAL DECODED</div>
     <div class="cd-rscore" id="cdScoreNum">0</div>
     <div><span class="cd-rxp" id="cdXpLine">+0 XP</span></div>
     <div class="cd-rdetail" id="cdDetail"></div>
@@ -335,7 +338,7 @@
   }
 
   /* ============ session completion → XP → persistence ============ */
-  function completeSession() {
+  async function completeSession() {
     if (finished || !game) return;
     finished = true;
     if (game.pause) game.pause();
@@ -344,8 +347,41 @@
     var score = clamp(Math.round(snap.score) || 0, 0, 100);
     var xp = slot.xp ? Math.round(slot.xp * score / 100) : 0;
     var durationMs = Date.now() - startTime;
+    var tier = await resultTier(score);
     persist({ score: score, xp: xp, durationMs: durationMs, detail: snap.detail || {} });
-    showResult(score, xp, durationMs, snap.detail || {});
+    showResult(score, xp, durationMs, snap.detail || {}, tier);
+  }
+
+  /* Pick the result sting: first session on this slot → FIRST CONTACT,
+     new personal best → BEST LOCK, 70+ → CLEAN SIGNAL, else SIGNAL DECODED.
+     Firestore lookup is best-effort with a 1.2s timeout so the result screen
+     never waits on the network; demo mode falls back to the score tier. */
+  function baseTier(score) {
+    return score >= 70
+      ? { src: '/media/clean-signal-success.mp4', kick: 'CLEAN SIGNAL' }
+      : { src: '/media/signal-decoded-success.mp4', kick: 'SIGNAL DECODED' };
+  }
+  async function resultTier(score) {
+    var tier = baseTier(score);
+    var d = db();
+    if (!d || !slot || !slot.slotId) return tier;
+    try {
+      var qs = await Promise.race([
+        d.collection('game_sessions').where('uid', '==', currentUid()).limit(100).get(),
+        new Promise(function (_, rej) { setTimeout(function () { rej(new Error('tier-timeout')); }, 1200); })
+      ]);
+      var n = 0, best = -1;
+      qs.forEach(function (doc) {
+        var s = doc.data() || {};
+        if (s.slotId === slot.slotId) {
+          n++;
+          if (typeof s.score === 'number' && s.score > best) best = s.score;
+        }
+      });
+      if (!n) tier = { src: '/media/first-contact-success.mp4', kick: 'FIRST CONTACT' };
+      else if (score > 0 && score > best) tier = { src: '/media/best-lock-success.mp4', kick: 'BEST LOCK' };
+    } catch (e) {}
+    return tier;
   }
 
   function persist(rec) {
@@ -402,22 +438,55 @@
     } catch (e) { /* leaderboard is best-effort */ }
   }
 
-  function showResult(score, xp, durationMs, detail) {
+  /* Matrix-ish decode: glyphs cycle then resolve into the final text. */
+  function decodeText(el, text, dur) {
+    dur = dur || 1000;
+    var glyphs = '█▓▒░<>\\/[]{}=+*^?#01';
+    var t0 = null;
+    function frame(t) {
+      if (!t0) t0 = t;
+      var p = Math.min((t - t0) / dur, 1), out = '';
+      for (var i = 0; i < text.length; i++) {
+        out += (i / text.length < p) ? text[i]
+          : (text[i] === ' ' ? ' ' : glyphs[(Math.random() * glyphs.length) | 0]);
+      }
+      el.textContent = out;
+      if (p < 1) requestAnimationFrame(frame); else el.textContent = text;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function showResult(score, xp, durationMs, detail, tier) {
+    tier = tier || { src: '/media/signal-decoded-success.mp4', kick: 'SIGNAL DECODED' };
+    var RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     var secs = Math.round(durationMs / 1000);
     $('cdDetail').innerHTML =
       'SIGNAL ' + score + ' / 100 · TIME ' + Math.floor(secs / 60) + ':' + ('0' + (secs % 60)).slice(-2) +
       (detail && detail.briefs ? '<br>BRIEFS ' + JSON.stringify(detail.briefs) : '') +
       (detail && detail.shotsTaken != null ? '<br>SHOTS ' + detail.shotsTaken + ' · CHALLENGES ' + (detail.challengesDone || 0) : '') +
       (detail && detail.summary ? '<br>' + detail.summary : '');
+    // Terminal print: detail lines scroll up one by one.
+    if (!RM) {
+      var dEl = $('cdDetail');
+      dEl.innerHTML = dEl.innerHTML.split(/<br\s*\/?>/i).map(function (ln, i) {
+        return '<span class="cd-rline" style="animation-delay:' + (0.5 + i * 0.22).toFixed(2) + 's">' + ln + '</span>';
+      }).join('<br>');
+    }
     $('cdResult').classList.add('on');
-    // Animated success backdrop: play the Cynetis-7 signal loop behind the card.
+    // Animated success backdrop: tiered 3s sting behind the overlaid text (plays once, fades to black).
     try {
       var rv = $('cdResultVideo');
       if (rv) {
-        if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) rv.remove();
-        else { var vp = rv.play(); if (vp && vp.catch) vp.catch(function () {}); }
+        if (RM) rv.remove();
+        else {
+          var srcEl = rv.querySelector('source');
+          if (srcEl && srcEl.getAttribute('src') !== tier.src) { srcEl.setAttribute('src', tier.src); rv.load(); }
+          var vp = rv.play(); if (vp && vp.catch) vp.catch(function () {});
+        }
       }
     } catch (e) {}
+    var kick = $('cdKicker');
+    if (kick) { if (RM) kick.textContent = tier.kick; else decodeText(kick, tier.kick, 1100); }
     window.CDGames.fx.countUp($('cdScoreNum'), score, 900);
     setTimeout(function () {
       $('cdXpLine').textContent = '+' + xp + ' XP';
