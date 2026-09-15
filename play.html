@@ -88,6 +88,14 @@
     box-shadow:0 0 60px rgba(141,235,0,.12),0 30px 80px rgba(0,0,0,.6);
     animation:cdRise .55s cubic-bezier(.22,1,.36,1);}
   @keyframes cdRise{from{opacity:0;transform:translateY(26px) scale(.97)}to{opacity:1;transform:none}}
+  .cd-rcard{position:relative;z-index:1;}
+  /* Animated Cynetis-7 success backdrop — melts into the dark; degrades silently if the file is missing */
+  .cd-rvideo{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);
+    width:min(80vw,400px);aspect-ratio:1/1;object-fit:cover;border-radius:50%;
+    -webkit-mask-image:radial-gradient(circle,#000 50%,transparent 70%);
+    mask-image:radial-gradient(circle,#000 50%,transparent 70%);
+    opacity:.92;pointer-events:none;animation:cdRFade 1.4s ease both;}
+  @keyframes cdRFade{from{opacity:0}to{opacity:.92}}
   .cd-rkicker{font-family:var(--mono);font-size:10px;letter-spacing:4px;color:var(--acc);margin-bottom:10px;}
   .cd-rscore{font-family:var(--mono);font-size:76px;font-weight:700;color:var(--acc);line-height:1;
     text-shadow:0 0 30px rgba(141,235,0,.45);font-variant-numeric:tabular-nums;}
@@ -111,6 +119,7 @@
   @media(prefers-reduced-motion:reduce){
     #cdStage{transition:none;} .cd-pulse,.cd-loadbar i{animation:none;}
     .cd-rcard,.cd-rxp{animation:none;} .cd-progress-fill{transition:none;}
+    .cd-rvideo{display:none;}
   }
 </style>
 </head>
@@ -141,6 +150,10 @@
 </div>
 
 <div id="cdResult" role="dialog" aria-modal="true" aria-label="Session result">
+  <video class="cd-rvideo" id="cdResultVideo" muted loop playsinline preload="auto" aria-hidden="true"
+    poster="/media/cynetis-7-loop-signal-poster.png" onerror="this.remove()">
+    <source src="/media/cynetis-7-loop-signal.mp4" type="video/mp4">
+  </video>
   <div class="cd-rcard">
     <div class="cd-rkicker">SIGNAL DECODED</div>
     <div class="cd-rscore" id="cdScoreNum">0</div>
@@ -397,6 +410,14 @@
       (detail && detail.shotsTaken != null ? '<br>SHOTS ' + detail.shotsTaken + ' · CHALLENGES ' + (detail.challengesDone || 0) : '') +
       (detail && detail.summary ? '<br>' + detail.summary : '');
     $('cdResult').classList.add('on');
+    // Animated success backdrop: play the Cynetis-7 signal loop behind the card.
+    try {
+      var rv = $('cdResultVideo');
+      if (rv) {
+        if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) rv.remove();
+        else { var vp = rv.play(); if (vp && vp.catch) vp.catch(function () {}); }
+      }
+    } catch (e) {}
     window.CDGames.fx.countUp($('cdScoreNum'), score, 900);
     setTimeout(function () {
       $('cdXpLine').textContent = '+' + xp + ' XP';
