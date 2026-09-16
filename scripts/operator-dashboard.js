@@ -596,9 +596,10 @@
 
   const toast = $('toast');
   let toastTimer;
-  function showToast(msg) {
+  function showToast(msg, kind) {
     if (!toast) return;
     toast.textContent = msg;
+    toast.classList.toggle('error', kind === 'error');
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
@@ -693,7 +694,7 @@
         closeModal($('challengeModal'));
       } catch (err) {
         console.warn('[Dashboard] Challenge write failed:', err);
-        showToast('Could not save. Check your connection.');
+        showToast('Could not save. Check your connection.', 'error');
       } finally {
         if (btn) btn.disabled = false;
       }
@@ -850,7 +851,7 @@
   function showLoadError(msg) {
     const el = $('loadingState');
     if (!el) return;
-    el.innerHTML = `<p style="color:#ff8888">${msg}</p><button class="btn btn-secondary" onclick="location.reload()" style="margin-top:12px">Retry</button>`;
+    el.innerHTML = `<p style="color:var(--danger)">${msg}</p><button class="btn btn-secondary" onclick="location.reload()" style="margin-top:12px">Retry</button>`;
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindUI);
