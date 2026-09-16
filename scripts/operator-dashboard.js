@@ -610,6 +610,14 @@
   function bindUI() {
     $$('[data-open]').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.open)));
     $('streakNudgeCta')?.addEventListener('click', () => openModal('drill'));
+    $('moreToggle')?.addEventListener('click', () => {
+      const grid = document.querySelector('.dashboard-grid');
+      if (!grid) return;
+      const open = grid.classList.toggle('more-open');
+      $('moreToggle')?.setAttribute('aria-expanded', String(open));
+      const label = $('moreToggleLabel');
+      if (label) label.textContent = open ? 'Show less' : 'Show more';
+    });
     $$('[data-close]').forEach(btn => btn.addEventListener('click', () => {
       const scrim = btn.closest('.scrim'); if (scrim) closeModal(scrim);
     }));
