@@ -145,7 +145,9 @@
     const roleEl = $('sidebarRole'); if (roleEl) roleEl.textContent = role;
   }
 
+  let ringArmed = false;
   let ringObserver = null;
+  let userScrolled = false;
 
   function paintRing(ring, pct, target) {
     ring.style.setProperty('--p', pct);
@@ -157,23 +159,49 @@
     }
   }
 
-  // First scroll reveal: hold the gauge at 0 until the ring enters the viewport,
-  // then play the arc + count-up exactly once. Later stat updates paint live.
+  function playRingReveal(ring) {
+    if (!ring || ring.dataset.revealed === '1') return;
+    ring.dataset.revealed = '1';
+    if (ringObserver) { ringObserver.disconnect(); ringObserver = null; }
+    window.removeEventListener('scroll', markScrolled);
+    paintRing(ring, ring.dataset.target || '0', parseFloat(ring.dataset.vtarget || '0'));
+  }
+
+  function checkRingVisibility(ring) {
+    const r = ring.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    const visible = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+    if (visible >= r.height * 0.35) playRingReveal(ring);
+  }
+
+  function markScrolled() {
+    userScrolled = true;
+    const ring = $('xpRing');
+    if (ring && ring.dataset.revealed !== '1') checkRingVisibility(ring);
+  }
+
+  // First scroll reveal: hold the gauge at 0 until the user scrolls the ring
+  // into view, then play the arc + count-up exactly once. The observer's
+  // initial page-load report doesn't count — only a real scroll does.
+  // Later stat updates paint live.
   function armRingReveal(ring) {
-    if (!ring || ring.dataset.revealed === '1' || ringObserver) return;
-    if (!('IntersectionObserver' in window)) {
-      ring.dataset.revealed = '1';
-      paintRing(ring, ring.dataset.target || '0', parseFloat(ring.dataset.vtarget || '0'));
-      return;
+    if (!ring || ring.dataset.revealed === '1' || ringArmed) return;
+    ringArmed = true;
+    window.addEventListener('scroll', markScrolled, { passive: true });
+    if ('IntersectionObserver' in window) {
+      ringObserver = new IntersectionObserver((entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        if (!userScrolled) return;
+        playRingReveal(ring);
+      }, { threshold: 0.35 });
+      ringObserver.observe(ring);
     }
-    ringObserver = new IntersectionObserver((entries) => {
-      if (!entries.some((e) => e.isIntersecting)) return;
-      ring.dataset.revealed = '1';
-      ringObserver.disconnect();
-      ringObserver = null;
-      paintRing(ring, ring.dataset.target || '0', parseFloat(ring.dataset.vtarget || '0'));
-    }, { threshold: 0.35 });
-    ringObserver.observe(ring);
+    // Fallback: never leave the ring stuck at 0. If it's sitting in view and
+    // the user never scrolls, reveal it once the page settles.
+    setTimeout(() => {
+      const el = $('xpRing');
+      if (el && el.dataset.revealed !== '1') checkRingVisibility(el);
+    }, 3000);
   }
 
   function renderStats() {
