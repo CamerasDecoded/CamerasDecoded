@@ -62,7 +62,7 @@
   // ---------- routes ----------
   var TABS = [
     { id: 'home',     label: 'Home',     href: '/operator-dashboard.html', icon: 'home' },
-    { id: 'journey',  label: 'Missions',  href: '/journey.html',            icon: 'journey' },
+    { id: 'journey',  label: 'Missions',  href: '/missions.html',            icon: 'journey' },
     { id: 'practice', label: 'Practice', sheet: 'practice',                icon: 'practice' },
     { id: 'library',  label: 'Library',  href: '/protocols.html',          icon: 'library' },
     { id: 'more',     label: 'More',     sheet: 'more',                    icon: 'more' }
@@ -75,7 +75,7 @@
       rows: [
         { href: '/darkroom.html',      icon: 'darkroom', title: 'The Darkroom',      sub: 'Your skill tree' },
         { href: '/arcade.html',        icon: 'gamepad',  title: 'Game Arcade',       sub: 'Play drills, earn XP' },
-        { href: '/journey.html',        icon: 'bolt',     title: "Today's challenge", sub: 'Keep your streak alive' },
+        { href: '/missions.html',        icon: 'bolt',     title: "Today's challenge", sub: 'Keep your streak alive' },
         { href: '/quiz-full.html',     icon: 'quiz',     title: 'Quiz Arena',        sub: 'Test what you know' }
       ]
     },
@@ -276,7 +276,7 @@
         matches(['#skill=', '#branch='], hash)) {
       return 'practice';
     }
-    if (matches(['/journey.html', '/learning-guide.html', '/guide-chapter.html', '/guide-progress.html'], p)) {
+    if (matches(['/missions.html', '/learning-guide.html', '/guide-chapter.html', '/guide-progress.html'], p)) {
       return 'journey';
     }
     if (matches(['/protocols.html', '/snapshot-library.html'], p)) {

@@ -1,0 +1,2335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+  <title>Missions — Cameras Decoded</title>
+  <meta name="description" content="Your personalized mission board with Cynetis‑7." />
+
+  <!-- ===== MASTER LOADER ===== -->
+  <script src="/scripts/master-loader.js?v=20260912d"></script>
+
+  <!-- ===== SHARED COMPONENT CSS ===== -->
+  <link rel="stylesheet" href="header.css?v=20260912f" />
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/badges.js"></script>
+
+  <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
+  <script src="/scripts/user-state.js"></script>
+
+  <!-- ===== BADGE DEFINITIONS ===== -->
+  <script src="/scripts/badge-definitions.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="header.js?v=20260912e"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
+  <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
+
+  <!-- ===== FONTS & ICONS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+/* ================================================================
+   MISSIONS — Cameras Decoded
+   "A matured Duolingo": the path, the streak loop, the always-clear
+   next step, and the mentor presence — in the operator dashboard's
+   dark-neon visual language. Restrained, premium, motion-safe.
+   ================================================================ */
+:root{
+  --green:#8deb00;
+  --green-soft:rgba(141,235,0,.12);
+  --green-border:rgba(141,235,0,.35);
+  --bg:#070807;
+  --surface:#0e0f0e;
+  --surface-2:#121312;
+  --text:#ffffff;
+  --muted:#a9b8a2;
+  --muted-2:#6f7d68;
+  --border:rgba(255,255,255,.09);
+  --border-strong:rgba(255,255,255,.17);
+  --amber:#ffb020;
+  --danger:#ff5c6c;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --font-d:'Space Mono',monospace;
+  --font-b:'Montserrat',sans-serif;
+}
+@property --angle{syntax:'<angle>';initial-value:0deg;inherits:false;}
+
+/* ---------- base ---------- */
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:#000;scroll-behavior:smooth}
+body{
+  display:block!important;
+  padding:0!important;
+  min-height:100vh;
+  background:
+    radial-gradient(1100px 520px at 85% -8%, rgba(141,235,0,.055), transparent 60%),
+    radial-gradient(800px 480px at 8% 4%, rgba(141,235,0,.035), transparent 55%),
+    #070807!important;
+  color:var(--text);
+  font-family:var(--font-b);
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(141,235,0,.3);color:#fff}
+img{max-width:100%}
+button{font-family:inherit}
+:focus-visible{outline:2px solid rgba(141,235,0,.75);outline-offset:2px;border-radius:6px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+.mwrap{
+  max-width:1060px;
+  margin:0 auto;
+  padding:26px 20px calc(120px + env(safe-area-inset-bottom));
+  position:relative;
+  z-index:1;
+}
+
+/* entrance choreography */
+.rise{opacity:0;transform:translateY(14px);animation:riseIn .7s var(--ease) forwards;animation-delay:var(--d,0s)}
+@keyframes riseIn{to{opacity:1;transform:none}}
+
+/* ---------- command header ---------- */
+.cmd-head{margin:6px 0 20px}
+.cmd-kicker{
+  display:inline-flex;align-items:center;gap:8px;
+  font:700 11px var(--font-d);letter-spacing:.22em;text-transform:uppercase;
+  color:var(--green);margin-bottom:12px;
+}
+.cmd-kicker::before{content:'';width:22px;height:1px;background:var(--green);opacity:.7}
+.cmd-title{display:block;margin:0 0 10px}
+.cmd-title img{display:block;max-width:min(430px,86vw);height:auto}
+.fallback-title{
+  display:none;align-items:center;gap:12px;
+  font:800 clamp(30px,7vw,44px)/1.05 var(--font-b);letter-spacing:-.01em;color:#fff;
+}
+.fallback-title .sig{color:var(--green);font-family:var(--font-d);font-weight:700;font-size:.62em;letter-spacing:.18em}
+.cmd-tag{color:var(--muted);font-size:14px;line-height:1.6;max-width:60ch}
+
+/* ---------- operator strip ---------- */
+.op-strip{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:14px 16px;margin:0 0 16px;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0) 55%),var(--surface);
+  border:1px solid var(--border);border-radius:16px;
+}
+.op-avatar{
+  width:50px;height:50px;flex:0 0 50px;border-radius:50%;overflow:hidden;
+  border:1.5px solid rgba(141,235,0,.55);
+  background:radial-gradient(circle at 35% 30%, #1d2419, #0c0e0a);
+  display:flex;align-items:center;justify-content:center;
+  font:800 20px var(--font-b);color:var(--green);
+  box-shadow:0 0 18px rgba(141,235,0,.14);
+}
+.op-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.op-id{min-width:0;flex:1 1 130px}
+.op-name{font:800 15px var(--font-b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.op-level{font:700 10.5px var(--font-d);letter-spacing:.16em;color:var(--muted-2);margin-top:3px}
+.op-level-select{
+  appearance:none;-webkit-appearance:none;cursor:pointer;
+  background:rgba(255,255,255,.05) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238deb00' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+  border:1px solid var(--border-strong);border-radius:10px;color:#fff;
+  font:700 11px var(--font-d);letter-spacing:.1em;
+  padding:10px 32px 10px 14px;text-transform:uppercase;
+}
+.op-level-select option{background:#101010;color:#fff}
+.op-stats{display:flex;gap:8px;flex:1 1 100%;justify-content:stretch}
+.op-stat{
+  flex:1;display:flex;align-items:center;gap:9px;
+  padding:9px 12px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.025);
+  min-width:0;
+}
+.op-stat i{font-size:14px;color:var(--green);flex:0 0 auto}
+.op-stat.streak i{color:var(--amber)}
+.op-stat .v{font:700 15px var(--font-d);color:#fff;line-height:1}
+.op-stat .k{font:700 9.5px var(--font-d);letter-spacing:.14em;color:var(--muted-2);text-transform:uppercase;line-height:1.3}
+.op-stat.streak.done{border-color:rgba(255,176,32,.45);background:rgba(255,176,32,.06)}
+@media(min-width:640px){
+  .op-stats{flex:0 1 auto;margin-left:auto}
+  .op-stat{min-width:118px}
+}
+
+/* ---------- intel rail (briefing + daily/campaign) ---------- */
+.intel-rail{display:grid;gap:16px;margin-bottom:8px}
+@media(min-width:960px){
+  .intel-rail{grid-template-columns:1.32fr 1fr;align-items:stretch}
+  .rail-side{display:flex;flex-direction:column;gap:16px}
+  .rail-side>*{flex:1}
+}
+
+/* ---------- briefing hero ---------- */
+.briefing{
+  position:relative;overflow:hidden;border-radius:20px;
+  border:1px solid rgba(141,235,0,.22);
+  background:
+    radial-gradient(560px 280px at 12% 0%, rgba(141,235,0,.10), transparent 60%),
+    linear-gradient(180deg,#11140e,#0b0d09 70%);
+  padding:24px;
+  box-shadow:0 18px 50px rgba(0,0,0,.45);
+}
+.briefing::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(rgba(255,255,255,.028) 1px, transparent 1px);
+  background-size:26px 26px;opacity:.5;
+}
+.briefing>*{position:relative;z-index:1}
+.br-kicker{
+  display:inline-flex;align-items:center;gap:8px;
+  font:700 10.5px var(--font-d);letter-spacing:.2em;text-transform:uppercase;
+  color:var(--green);margin-bottom:14px;
+}
+.br-kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+.br-main{display:flex;gap:18px;align-items:flex-start}
+.signal-orb{
+  position:relative;flex:0 0 84px;width:84px;height:84px;border-radius:50%;
+  background:radial-gradient(circle at 34% 30%, #232b1e 0%, #12160e 52%, #070805 100%);
+  border:1px solid rgba(141,235,0,.4);
+  box-shadow:0 0 26px rgba(141,235,0,.22), inset 0 0 22px rgba(141,235,0,.08);
+  display:flex;align-items:center;justify-content:center;overflow:visible;
+}
+.orb-eye{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 40% 35%, #d6ff9e, var(--green) 55%, #4d8a00);box-shadow:0 0 16px rgba(141,235,0,.8)}
+.orb-ping{position:absolute;inset:-1px;border-radius:50%;border:1.5px solid rgba(141,235,0,.55);opacity:0;pointer-events:none}
+.br-copy{min-width:0;flex:1}
+.br-label{font:700 11px var(--font-d);letter-spacing:.16em;color:var(--muted-2);text-transform:uppercase;margin-bottom:6px}
+.br-title{font:800 clamp(21px,4.6vw,30px)/1.15 var(--font-b);letter-spacing:-.01em;margin-bottom:8px}
+.br-desc{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:52ch}
+.br-desc strong{color:#fff}
+.br-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn-begin{
+  position:relative;--angle:0deg;
+  display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+  margin-top:18px;padding:15px 20px;border-radius:12px;border:1px solid transparent;
+  font:800 15px var(--font-b);letter-spacing:.02em;color:#07130b;cursor:pointer;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 48%) padding-box,
+    linear-gradient(180deg,#a6f423,#86da00 58%,#70bc00) padding-box,
+    conic-gradient(from var(--angle),rgba(255,255,255,.75) 0%,rgba(255,255,255,0) 16%,rgba(255,255,255,0) 84%,rgba(255,255,255,.75) 100%) border-box;
+  box-shadow:0 12px 30px rgba(141,235,0,.30), inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.16);
+  transition:transform .25s var(--ease), box-shadow .25s var(--ease), filter .25s var(--ease);
+}
+.btn-begin:hover{transform:translateY(-2px);filter:brightness(1.05);box-shadow:0 16px 36px rgba(141,235,0,.38), inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.16)}
+.btn-begin:active{transform:translateY(0)}
+.btn-begin i{font-size:14px}
+
+/* ---------- daily drill strip ---------- */
+.daily-strip{
+  border:1px solid var(--border);border-radius:18px;padding:20px;
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,0) 50%),var(--surface);
+  display:flex;flex-direction:column;gap:14px;
+}
+.daily-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.daily-kicker{font:700 10.5px var(--font-d);letter-spacing:.2em;color:var(--amber);text-transform:uppercase;display:inline-flex;align-items:center;gap:8px}
+.daily-kicker i{font-size:12px}
+.daily-trophy{color:var(--muted-2);font-size:15px;text-decoration:none;transition:color .25s var(--ease), transform .25s var(--ease)}
+.daily-trophy:hover{color:var(--amber);transform:translateY(-1px)}
+.daily-title{font:800 17px var(--font-b)}
+.daily-desc{color:var(--muted);font-size:13px;line-height:1.6}
+.daily-tip{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--muted);line-height:1.6;background:rgba(255,176,32,.055);border:1px solid rgba(255,176,32,.2);border-radius:11px;padding:10px 12px}
+.daily-tip i{color:var(--amber);font-size:12px;margin-top:2px;flex:0 0 auto}
+.btn-daily{
+  display:flex;align-items:center;justify-content:center;gap:9px;width:100%;
+  padding:13px 18px;border-radius:12px;border:0;cursor:pointer;
+  font:800 14px var(--font-b);color:#0a1405;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,0) 48%),
+    linear-gradient(180deg,#a6f423,#86da00 60%,#74c200);
+  box-shadow:0 8px 24px rgba(141,235,0,.26), inset 0 1px 0 rgba(255,255,255,.4), inset 0 -2px 0 rgba(0,0,0,.15);
+  transition:transform .25s var(--ease), box-shadow .25s var(--ease), filter .25s var(--ease);
+}
+.btn-daily:hover{transform:translateY(-2px);filter:brightness(1.05)}
+.btn-daily i{font-size:13px}
+
+/* ---------- campaign ---------- */
+.campaign{
+  border:1px solid var(--border);border-radius:18px;padding:20px;
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,0) 50%),var(--surface);
+}
+.campaign-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.campaign-kicker{font:700 10.5px var(--font-d);letter-spacing:.2em;color:var(--muted-2);text-transform:uppercase}
+.campaign-pct{font:700 15px var(--font-d);color:var(--green)}
+.campaign-track{height:9px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden;position:relative}
+.campaign-fill{
+  display:block;height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,#6fbf00,#a6f423);
+  box-shadow:0 0 14px rgba(141,235,0,.5);
+  transition:width .9s var(--ease);
+}
+.campaign-note{margin-top:10px;font-size:12px;color:var(--muted-2);line-height:1.6}
+
+/* ---------- mission path ---------- */
+.path-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin:30px 0 20px}
+.path-head h2{font:800 clamp(19px,4.4vw,24px) var(--font-b);letter-spacing:-.01em}
+.path-head p{color:var(--muted-2);font-size:12.5px;margin-top:4px}
+.path-count{font:700 11px var(--font-d);letter-spacing:.14em;color:var(--muted-2);white-space:nowrap}
+
+.phase-group{margin-bottom:30px}
+.phase-head{display:flex;align-items:center;gap:14px;padding-left:12px;margin-bottom:2px}
+.phase-badge{
+  width:52px;height:52px;flex:0 0 52px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font:700 16px var(--font-d);color:var(--muted);
+  background:#141514;border:1px solid var(--border-strong);
+  transition:border-color .3s var(--ease), color .3s var(--ease), box-shadow .3s var(--ease), background .3s var(--ease);
+}
+.phase-group.current .phase-badge{color:#fff;border-color:rgba(141,235,0,.65);box-shadow:0 0 18px rgba(141,235,0,.28)}
+.phase-group.done .phase-badge{color:var(--green);border-color:rgba(141,235,0,.5);background:rgba(141,235,0,.08)}
+.phase-head-text{flex:1;min-width:0}
+.phase-kicker{font:700 10px var(--font-d);letter-spacing:.18em;color:var(--muted-2);text-transform:uppercase;margin-bottom:4px}
+.phase-group.current .phase-kicker{color:var(--green)}
+.phase-title{font:800 16.5px/1.3 var(--font-b);color:#fff}
+.phase-title-img{display:block;max-width:min(230px,60vw);height:auto;margin:2px 0}
+.phase-pct{font:700 13px var(--font-d);color:var(--green);white-space:nowrap}
+.phase-bar{height:4px;background:rgba(255,255,255,.07);border-radius:99px;margin:12px 0 6px 78px;overflow:hidden}
+.phase-bar>div{display:block;height:100%;width:0;background:linear-gradient(90deg,#6fbf00,#a6f423);border-radius:99px;transition:width .8s var(--ease)}
+.phase-desc{color:var(--muted-2);font-size:12.5px;line-height:1.6;margin:8px 0 0 78px;max-width:64ch}
+
+.phase-steps{position:relative;padding-top:10px}
+.phase-steps::before{
+  content:'';position:absolute;left:37px;top:14px;bottom:14px;width:2px;border-radius:2px;
+  background:rgba(255,255,255,.06);
+}
+.phase-group.current .phase-steps::before{background:linear-gradient(180deg,rgba(141,235,0,.5),rgba(141,235,0,.07))}
+.phase-group.done .phase-steps::before{background:rgba(141,235,0,.22)}
+
+/* dossier = a node on the path */
+.dossier{
+  position:relative;margin:0 0 10px;border:1px solid var(--border);border-radius:16px;
+  background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,0) 42%),#0f100f;
+  overflow:hidden;
+  transition:border-color .3s var(--ease), box-shadow .3s var(--ease), opacity .3s var(--ease), transform .3s var(--ease);
+}
+.dossier:hover{border-color:var(--border-strong)}
+.dossier.done{opacity:.72}
+.dossier.done:hover{opacity:1}
+.dossier.next-up{border-color:rgba(141,235,0,.42);box-shadow:0 8px 30px rgba(141,235,0,.09)}
+.dossier-head{
+  display:flex;align-items:center;gap:14px;width:100%;
+  padding:15px 16px;background:none;border:0;cursor:pointer;
+  color:inherit;text-align:left;
+}
+.dossier-status{
+  position:relative;z-index:1;flex:0 0 44px;width:44px;height:44px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:#151615;border:1px solid var(--border-strong);color:var(--muted);font-size:14px;
+  transition:background .3s var(--ease), border-color .3s var(--ease), color .3s var(--ease), box-shadow .3s var(--ease);
+}
+.dossier.done .dossier-status{background:rgba(141,235,0,.13);border-color:rgba(141,235,0,.5);color:var(--green)}
+.dossier.locked .dossier-status{opacity:.55}
+.dossier.next-up .dossier-status{
+  border-color:var(--green);color:var(--green);
+  box-shadow:0 0 0 4px rgba(141,235,0,.12), 0 0 20px rgba(141,235,0,.32);
+}
+.dossier-titles{flex:1;min-width:0}
+.dossier-kicker{font:700 10px var(--font-d);letter-spacing:.16em;color:var(--muted-2);text-transform:uppercase;display:block}
+.dossier.next-up .dossier-kicker::after{content:' · Next up';color:var(--green)}
+.dossier.done .dossier-kicker{color:rgba(141,235,0,.6)}
+.dossier-title{font:800 15.5px/1.3 var(--font-b);margin-top:3px;display:block}
+.dossier-chevron{flex:0 0 auto;color:var(--muted-2);font-size:13px;transition:transform .35s var(--ease), color .35s var(--ease)}
+.dossier-head[aria-expanded="true"] .dossier-chevron{transform:rotate(180deg);color:var(--green)}
+
+.dossier-body{padding:4px 16px 18px 74px}
+.dossier-body[hidden]{display:none}
+.dossier-desc{font-size:13.5px;line-height:1.7;color:#cfd8c9;max-width:62ch}
+.step-content{
+  font-size:13.5px;line-height:1.7;color:#d5dfcb;
+  background:rgba(0,0,0,.32);border:1px solid var(--border);border-radius:12px;
+  padding:14px;margin-top:12px;overflow-wrap:break-word;
+}
+.step-content iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:8px}
+.step-content img{max-width:100%;height:auto;border-radius:8px}
+.step-content a{color:var(--green)}
+.step-content ul,.step-content ol{margin:8px 0 8px 20px}
+.step-content p{margin:0 0 10px}
+.step-content p:last-child{margin-bottom:0}
+.dossier-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+.meta-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  font:700 11px var(--font-d);letter-spacing:.03em;color:var(--muted);
+  background:rgba(255,255,255,.045);border:1px solid var(--border);
+  padding:6px 11px;border-radius:99px;white-space:nowrap;
+}
+.meta-chip i{color:var(--green);font-size:11px}
+.meta-chip.points{color:var(--green);border-color:rgba(141,235,0,.32);background:var(--green-soft)}
+.cynetis-tip{
+  display:flex;gap:10px;margin-top:12px;padding:12px 14px;
+  background:rgba(141,235,0,.05);border:1px solid rgba(141,235,0,.17);border-radius:12px;
+  font-size:13px;line-height:1.6;color:#d5dfcb;
+}
+.tip-from{
+  display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;align-self:flex-start;
+  font:700 10px var(--font-d);letter-spacing:.12em;color:var(--green);text-transform:uppercase;
+  padding-top:2px;
+}
+.locked-note{display:flex;align-items:center;gap:9px;color:var(--muted-2);font-size:12.5px;margin-top:12px;line-height:1.5}
+.locked-note i{color:var(--amber);font-size:12px;flex:0 0 auto}
+.dossier-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.btn-step{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:11px 18px;border-radius:10px;cursor:pointer;
+  font:800 13px var(--font-b);color:var(--green);
+  background:rgba(141,235,0,.09);border:1px solid rgba(141,235,0,.35);
+  transition:background .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease);
+}
+.btn-step:hover{background:rgba(141,235,0,.17);transform:translateY(-1px);box-shadow:0 6px 18px rgba(141,235,0,.18)}
+.btn-step.secondary{background:rgba(255,255,255,.05);border-color:var(--border-strong);color:#fff}
+.btn-step.secondary:hover{background:rgba(255,255,255,.09);box-shadow:none}
+.btn-step:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
+.btn-step i{font-size:12px}
+
+/* ---------- cynetis assistant ---------- */
+.cynetis-assistant{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:1200}
+.cynetis-toggle{
+  width:58px;height:58px;border-radius:50%;cursor:pointer;border:1px solid rgba(141,235,0,.5);
+  background:radial-gradient(circle at 34% 30%, #222a1d 0%, #11150d 55%, #070805 100%);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 10px 30px rgba(0,0,0,.5), 0 0 22px rgba(141,235,0,.2);
+  transition:transform .3s var(--ease), box-shadow .3s var(--ease);
+}
+.cynetis-toggle:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.5), 0 0 28px rgba(141,235,0,.3)}
+.cynetis-toggle .orb-eye{width:22px;height:22px}
+.cynetis-panel{
+  position:fixed;right:16px;bottom:calc(162px + env(safe-area-inset-bottom));z-index:1200;
+  width:min(330px,calc(100vw - 32px));
+  background:linear-gradient(180deg,#141613,#0c0d0b);
+  border:1px solid rgba(141,235,0,.3);border-radius:18px;
+  box-shadow:0 24px 70px rgba(0,0,0,.6);
+  opacity:0;transform:translateY(14px) scale(.98);pointer-events:none;
+  transition:opacity .35s var(--ease), transform .35s var(--ease);
+  overflow:hidden;
+}
+.cynetis-panel.open{opacity:1;transform:none;pointer-events:auto}
+.cynetis-head{
+  display:flex;align-items:center;gap:10px;padding:14px 16px;
+  border-bottom:1px solid var(--border);
+  font:700 11px var(--font-d);letter-spacing:.18em;color:var(--green);text-transform:uppercase;
+}
+.cynetis-head .orb-eye{width:16px;height:16px}
+.cynetis-head button{margin-left:auto;background:none;border:0;color:var(--muted-2);font-size:15px;cursor:pointer;padding:4px}
+.cynetis-head button:hover{color:#fff}
+.cynetis-message{padding:16px;font-size:13.5px;line-height:1.7;color:#d5dfcb;max-height:300px;overflow-y:auto}
+.cynetis-message strong{color:var(--green)}
+.cynetis-actions{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 16px}
+.cynetis-actions .btn-step{padding:9px 14px;font-size:12px}
+@media(min-width:1024px){
+  .cynetis-assistant{bottom:26px}
+  .cynetis-panel{bottom:96px}
+}
+
+/* ---------- debrief ---------- */
+.debrief{
+  text-align:center;padding:36px 26px;margin:26px 0;
+  border:1px solid rgba(141,235,0,.28);border-radius:20px;
+  background:radial-gradient(500px 240px at 50% 0%, rgba(141,235,0,.09), transparent 65%), #0c0e0a;
+  box-shadow:0 18px 50px rgba(0,0,0,.45);
+}
+.debrief-kicker{font:700 10.5px var(--font-d);letter-spacing:.22em;color:var(--green);text-transform:uppercase;margin-bottom:16px}
+.debrief .icon{
+  width:66px;height:66px;margin:0 auto 18px;border-radius:50%;
+  background:rgba(141,235,0,.11);border:1px solid rgba(141,235,0,.45);
+  display:flex;align-items:center;justify-content:center;color:var(--green);font-size:26px;
+  box-shadow:0 0 30px rgba(141,235,0,.22);
+}
+.debrief h2{font:800 24px var(--font-b);margin-bottom:10px}
+.debrief p{color:var(--muted);font-size:14px;line-height:1.65;max-width:46ch;margin:0 auto}
+.debrief-stats{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:18px 0 6px}
+.debrief-stats span{
+  display:inline-flex;align-items:center;gap:8px;
+  font:700 12px var(--font-d);color:#fff;
+  background:rgba(255,255,255,.05);border:1px solid var(--border-strong);
+  padding:9px 15px;border-radius:99px;
+}
+.debrief-stats i{color:var(--green)}
+.debrief .btn-group{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+.empty-state{color:var(--muted-2);font-size:13.5px;line-height:1.7;padding:26px 10px;text-align:center}
+
+/* ---------- footer ---------- */
+.mfoot{
+  text-align:center;padding:30px 0 6px;
+  font:700 10.5px var(--font-d);letter-spacing:.24em;color:var(--muted-2);text-transform:uppercase;
+}
+.mfoot .sep{color:rgba(141,235,0,.5);margin:0 10px}
+
+/* ---------- motion ---------- */
+@media(prefers-reduced-motion:no-preference){
+  .btn-begin{animation:spin-angle 5s linear infinite}
+  .orb-ping{animation:orbPing 3.4s ease-out infinite}
+  .dossier.next-up .dossier-status{animation:nodePulse 2.8s ease-in-out infinite}
+  .br-kicker .dot{animation:blinkDot 2.4s ease-in-out infinite}
+}
+@keyframes spin-angle{to{--angle:360deg}}
+@keyframes orbPing{
+  0%{transform:scale(.72);opacity:.85}
+  70%{transform:scale(1.28);opacity:0}
+  100%{transform:scale(1.28);opacity:0}
+}
+@keyframes nodePulse{
+  0%,100%{box-shadow:0 0 0 4px rgba(141,235,0,.12), 0 0 20px rgba(141,235,0,.28)}
+  50%{box-shadow:0 0 0 8px rgba(141,235,0,.06), 0 0 30px rgba(141,235,0,.42)}
+}
+@keyframes blinkDot{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ---------- responsive ---------- */
+@media(max-width:640px){
+  .mwrap{padding:20px 16px calc(118px + env(safe-area-inset-bottom))}
+  .briefing{padding:20px 18px}
+  .br-main{gap:14px}
+  .signal-orb{flex:0 0 64px;width:64px;height:64px}
+  .orb-eye{width:23px;height:23px}
+  .op-strip{padding:12px}
+  .phase-bar{margin-left:70px}
+  .dossier-body{padding-left:16px}
+  .phase-steps::before{left:37px}
+}
+@media(min-width:641px) and (max-width:959px){
+  /* foldable / small-tablet band: single column, roomier touch targets */
+  .dossier-head{padding:17px 18px}
+  .btn-step{padding:13px 20px}
+}
+@media(min-width:1100px){
+  .mwrap{max-width:1120px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  html{scroll-behavior:auto}
+  .rise{opacity:1;transform:none}
+  .btn-begin{animation:none}
+}
+
+  </style>
+</head>
+<body>
+  <main class="mwrap" id="mainContent">
+
+    <!-- command header -->
+    <header class="cmd-head rise" style="--d:.02s">
+      <span class="cmd-kicker">Operations · Guided track</span>
+      <span class="cmd-title">
+        <img id="journeyTitleImg" src="/custom-site-titles/cynetis-7-journey.png" alt="Cynetis-7 Missions" onerror="this.style.display='none';var f=document.getElementById('fallbackTitle');if(f)f.style.display='inline-flex';" />
+        <span class="fallback-title" id="fallbackTitle" hidden><span class="sig">Cynetis-7</span> Missions</span>
+      </span>
+      <p class="cmd-tag">A coach-led sequence, not a syllabus. Cynetis-7 briefs your next mission — you execute it.</p>
+    </header>
+
+    <!-- operator strip -->
+    <section class="op-strip rise" style="--d:.08s" aria-label="Operator status">
+      <div class="op-avatar" aria-hidden="true">
+        <img id="operatorAvatarImg" alt="" hidden />
+        <span id="operatorAvatarInitial">O</span>
+      </div>
+      <div class="op-id">
+        <div class="op-name" id="operatorName">Operator</div>
+        <div class="op-level" id="operatorLevel">BEGINNER TRACK</div>
+      </div>
+      <label class="sr-only" for="levelSelect">Mission track</label>
+      <select id="levelSelect" class="op-level-select" aria-label="Mission track">
+        <option value="beginner">Beginner</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="advanced">Advanced</option>
+      </select>
+      <div class="op-stats">
+        <div class="op-stat" aria-label="Total points">
+          <i class="fas fa-star" aria-hidden="true"></i>
+          <div><div class="v" id="totalPointsDisplay">0</div><div class="k">Points</div></div>
+        </div>
+        <div class="op-stat streak" aria-label="Daily streak">
+          <i class="fas fa-fire" aria-hidden="true"></i>
+          <div><div class="v" id="dailyStreak">0</div><div class="k">Day streak</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- intel rail: briefing + daily/campaign -->
+    <div class="intel-rail">
+      <section class="briefing rise" style="--d:.14s" aria-label="Next mission briefing">
+        <span class="br-kicker"><span class="dot" aria-hidden="true"></span>Incoming briefing</span>
+        <div class="br-main">
+          <div class="signal-orb" aria-hidden="true">
+            <span class="orb-eye"></span>
+            <span class="orb-ping"></span>
+          </div>
+          <div class="br-copy">
+            <div class="br-label" id="briefingLabel">Your next mission</div>
+            <h2 class="br-title" id="briefingTitle">Loading your briefing…</h2>
+            <p class="br-desc" id="briefingDesc"></p>
+            <div class="br-meta" id="briefingMeta"></div>
+          </div>
+        </div>
+        <button type="button" class="btn-begin" id="briefingCta" style="display:none">
+          Begin mission <i class="fas fa-arrow-right" aria-hidden="true"></i>
+        </button>
+      </section>
+
+      <div class="rail-side">
+        <section class="daily-strip rise" style="--d:.2s" aria-label="Daily drill">
+          <div class="daily-top">
+            <span class="daily-kicker"><i class="fas fa-bolt" aria-hidden="true"></i>Daily drill</span>
+            <a class="daily-trophy" href="/leaderboard.html" aria-label="Leaderboard"><i class="fas fa-trophy" aria-hidden="true"></i></a>
+          </div>
+          <h3 class="daily-title" id="dailyTitle">Loading today's drill…</h3>
+          <p class="daily-desc" id="dailyDesc"></p>
+          <div class="daily-tip"><i class="fas fa-lightbulb" aria-hidden="true"></i><span id="dailyTipText"></span></div>
+          <a class="btn-daily" id="dailyCta" href="#"><i class="fas fa-play" aria-hidden="true"></i><span>Play drill</span></a>
+        </section>
+
+        <section class="campaign rise" style="--d:.26s" aria-label="Campaign progress">
+          <div class="campaign-top">
+            <span class="campaign-kicker">Campaign progress</span>
+            <span class="campaign-pct" id="campaignPct">0%</span>
+          </div>
+          <div class="campaign-track" id="campaignBar" role="progressbar" aria-label="Campaign progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span class="campaign-fill" id="campaignFill"></span>
+          </div>
+          <p class="campaign-note">Every mission decoded moves the campaign forward. Streaks keep the signal alive.</p>
+        </section>
+      </div>
+    </div>
+
+    <!-- mission path -->
+    <div class="path-head rise" style="--d:.3s">
+      <div>
+        <h2>Mission path</h2>
+        <p>Tap a node to open its dossier.</p>
+      </div>
+      <span class="path-count" id="pathCount"></span>
+    </div>
+    <div id="stepContainer" class="rise" style="--d:.34s"></div>
+    <div id="moduleComplete" style="display:none"></div>
+
+    <footer class="mfoot rise" style="--d:.4s">
+      Cameras Decoded<span class="sep">·</span>Signal decoded
+    </footer>
+  </main>
+
+  <!-- cynetis-7 assistant -->
+  <div class="cynetis-assistant" id="cynetisAssistant">
+    <button type="button" class="cynetis-toggle" id="cynetisToggle" aria-label="Ask Cynetis-7" aria-expanded="false">
+      <span class="orb-eye" aria-hidden="true"></span>
+    </button>
+    <div class="cynetis-panel" id="cynetisPanel" role="dialog" aria-label="Cynetis-7 assistant">
+      <div class="cynetis-head">
+        <span class="orb-eye" aria-hidden="true"></span>
+        Cynetis-7
+        <button type="button" id="cynetisClose" aria-label="Close assistant"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div class="cynetis-message" id="cynetisMessage">Systems online. Ask about any mission.</div>
+      <div class="cynetis-actions" id="cynetisActions"></div>
+    </div>
+  </div>
+
+  <script>
+    // ================================================================
+    // FIREBASE
+    // ================================================================
+    const auth = window.auth || firebase.auth();
+    const db = window.db || firebase.firestore();
+
+    // ================================================================
+    // STATE
+    // ================================================================
+    let currentUser = null;
+    let userData = null;
+    let journeyData = null;
+    let userProgress = null;
+    let currentModuleIndex = 0;
+    let assistantOpen = false;
+    let currentLevel = 'beginner';  // default
+
+    // ================================================================
+    // DOM REFS
+    // ================================================================
+    const totalPointsDisplay = document.getElementById('totalPointsDisplay');
+    const stepContainer = document.getElementById('stepContainer');
+    const moduleCompleteDiv = document.getElementById('moduleComplete');
+    const cynetisToggle = document.getElementById('cynetisToggle');
+    const cynetisPanel = document.getElementById('cynetisPanel');
+    const cynetisMessage = document.getElementById('cynetisMessage');
+    const cynetisActions = document.getElementById('cynetisActions');
+    const levelSelect = document.getElementById('levelSelect');
+
+    // Badge shelf lives on profile.html — the Missions page no longer renders
+    // the badge strip, so this is a no-op. Badge *awards* are untouched.
+    const journeyBadgeContainer = null;
+    const journeyBadgeCount = null;
+
+    // Title image fallback
+    const titleImg = document.getElementById('journeyTitleImg');
+    const fallbackTitle = document.getElementById('fallbackTitle');
+    if (titleImg) {
+      titleImg.addEventListener('error', function() {
+        this.style.display = 'none';
+        if (fallbackTitle) fallbackTitle.style.display = 'inline-flex';
+      });
+    }
+
+    // ================================================================
+    // HELPERS
+    // ================================================================
+    function cdToast(msg) {
+      const container = document.getElementById('cd-toast-container') || (() => {
+        const div = document.createElement('div');
+        div.id = 'cd-toast-container';
+        div.style.cssText = 'position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;max-width:90%;';
+        document.body.appendChild(div);
+        return div;
+      })();
+      const toast = document.createElement('div');
+      toast.className = 'cd-toast';
+      toast.style.cssText = 'background:rgba(10,10,10,0.94);border:1px solid rgba(141,235,0,0.15);color:#fff;font-family:"Space Mono",monospace;font-size:13px;padding:12px 22px;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.5);opacity:0;transform:translateY(-8px);transition:all 0.35s ease;pointer-events:auto;text-align:center;width:100%;';
+      toast.textContent = msg;
+      container.appendChild(toast);
+      requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    // ================================================================
+    // BADGE CELEBRATION
+    // ================================================================
+    function showBadgeCelebration(badgeId) {
+      const def = window.BADGE_DEFS && window.BADGE_DEFS[badgeId];
+      if (!def) return;
+
+      const overlay = document.createElement('div');
+      overlay.id = 'badge-celebration';
+      overlay.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.85);
+        backdrop-filter: blur(12px);
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.5s ease;
+      `;
+
+      overlay.innerHTML = `
+        <div style="text-align:center; max-width:400px; padding:20px; animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);">
+          <div style="font-size:80px; margin-bottom:8px; filter: drop-shadow(0 0 30px ${def.color});">${def.icon}</div>
+          <div style="font-family:'Space Mono',monospace; font-size:14px; color:${def.color}; text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;"><i class="fas fa-medal" aria-hidden="true"></i> Badge Unlocked</div>
+          <div style="font-family:'Space Mono',monospace; font-size:28px; font-weight:700; color:#fff; margin-bottom:4px;">${def.name}</div>
+          <div style="font-family:'Montserrat',sans-serif; font-size:14px; color:var(--text-muted);">${def.description}</div>
+          <div style="margin-top:20px; display:inline-block; padding:4px 16px; border-radius:30px; border:1px solid ${def.color}; color:${def.color}; font-family:'Space Mono',monospace; font-size:12px;">${def.tier}</div>
+          <button onclick="this.closest('#badge-celebration').remove()" style="margin-top:24px; background:transparent; border:1px solid var(--green); color:var(--green); padding:8px 24px; border-radius:30px; font-family:'Space Mono',monospace; cursor:pointer; transition:0.3s;">
+            Amazing!
+          </button>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      setTimeout(() => {
+        const el = document.getElementById('badge-celebration');
+        if (el) el.remove();
+      }, 5000);
+    }
+
+    // ================================================================
+    // RENDER BADGES
+    // ================================================================
+    function renderJourneyBadges() {
+      if (!journeyBadgeContainer) return; // badge shelf lives on profile.html
+      const badges = userProgress?.badgesEarned || [];
+      if (journeyBadgeCount) journeyBadgeCount.textContent = badges.length;
+
+      if (window.renderBadges && typeof window.renderBadges === 'function') {
+        window.renderBadges(badges, journeyBadgeContainer);
+      } else {
+        if (badges.length === 0) {
+          journeyBadgeContainer.innerHTML = `<span style="color:var(--text-muted); font-size:13px;">No badges yet</span>`;
+        } else {
+          journeyBadgeContainer.innerHTML = badges.map(id => {
+            const def = window.BADGE_DEFS && window.BADGE_DEFS[id];
+            if (!def) return '';
+            return `<span style="font-size:22px; margin:0 4px; transition:transform 0.2s; display:inline-block; cursor:default;" title="${def.name}: ${def.description}" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">${def.icon}</span>`;
+          }).join('');
+        }
+      }
+    }
+
+    // ================================================================
+    // SEED DATA – all three levels (unchanged)
+    // ================================================================
+    // ================================================================
+    // GAME DRILLS — lesson game player wiring (client-side; no data changes)
+    // A "slotId" step opens play.html?slot=<id>. The step auto-completes
+    // via syncGameCompletions() when a game_sessions doc exists for it.
+    // ================================================================
+    const GAME_DRILLS_MODULE = {
+      id: 'mod_games',
+      title: 'Exposure Drills',
+      description: 'Learn by playing. Each drill opens in the lesson game player and completes automatically when you finish the game.',
+      steps: [
+        {
+          id: 'drill_001', type: 'challenge', title: 'Exposure Lab',
+          description: 'Dial in aperture, shutter, and ISO against real briefs in the exposure simulator.',
+          duration: 8, points: 50, badge: null, prerequisites: [],
+          recommendedProducts: [], slotId: 'exp-u1-l1-g1', completionAction: 'play_game'
+        },
+        {
+          id: 'drill_002', type: 'challenge', title: 'AR Viewfinder',
+          description: 'Read the meter and nail exposure through your camera in augmented reality.',
+          duration: 6, points: 50, badge: null, prerequisites: ['drill_001'],
+          recommendedProducts: [], slotId: 'exp-u1-l2-g1', completionAction: 'play_game'
+        },
+        {
+          id: 'drill_003', type: 'challenge', title: 'Blue Hour Sprint',
+          description: 'A focused Exposure Lab round: balance one tricky blue-hour scene.',
+          duration: 5, points: 30, badge: null, prerequisites: ['drill_002'],
+          recommendedProducts: [], slotId: 'exp-u1-l3-g1', completionAction: 'play_game'
+        },
+        {
+          id: 'drill_004', type: 'challenge', title: 'Golden Hour Rush',
+          description: '75 seconds. A sinking sun. Keep your exposure in the zone as the light changes.',
+          duration: 4, points: 60, badge: null, prerequisites: ['drill_003'],
+          recommendedProducts: [], slotId: 'exp-u1-l4-g1', completionAction: 'play_game'
+        }
+      ],
+      totalPoints: 190
+    };
+    function injectGameDrills() {
+      if (!journeyData || !journeyData.modules) return;
+      if (journeyData.modules.some(function (m) { return m.id === 'mod_games'; })) return;
+      journeyData.modules.push(GAME_DRILLS_MODULE);
+    }
+
+    // ================================================================
+    // DAILY DRILL — deterministic pick from the game slots, streak tracking.
+    // No new content to author: the drill rotates through the live slots.
+    // Streak lives on users/{uid} as dailyStreak { last, count }.
+    // ================================================================
+    const DAILY_SLOTS = [
+      { slotId: 'exp-u1-l1-g1', title: 'Exposure Lab', desc: 'Dial in the exposure triangle against live briefs.' },
+      { slotId: 'exp-u1-l2-g1', title: 'AR Viewfinder', desc: 'Read the meter through your camera and nail the exposure.' },
+      { slotId: 'exp-u1-l3-g1', title: 'Blue Hour Sprint', desc: 'One tricky blue-hour scene. Balance it.' },
+      { slotId: 'exp-u1-l4-g1', title: 'Golden Hour Rush', desc: '75 seconds of sinking sun. Stay in the zone.' }
+    ];
+    const TIP_POOL = [
+      'Expose for the highlights — shadows forgive, blown highlights don\u2019t.',
+      'f/8 and be there: when in doubt, f/8 keeps most scenes sharp.',
+      'Handheld rule: shutter speed at least 1/(focal length). 50mm \u2192 1/60 or faster.',
+      'Shoot RAW+JPEG while learning — RAW saves mistakes JPEG can\u2019t.',
+      'Back-button focus separates focusing from firing. Try it for a week.',
+      'Golden hour isn\u2019t an hour — it\u2019s about 20 good minutes. Be set up early.',
+      'In harsh sun, underexpose 1/3 stop to protect skin tones.',
+      'ISO 100\u2013400 is your clean zone. Climb only when the shot demands it.',
+      'Trust the histogram over the screen — your LCD lies in bright sunlight.',
+      'Aperture priority + exposure compensation covers 80% of real shooting.',
+      'Portraits: focus on the nearest eye. Always.',
+      'Clouds are a giant softbox — overcast days are portrait days.',
+      'Chimp less, shoot more: verify exposure once per scene, then trust it.',
+      'Clean your lens. Half of all \u201csoft focus\u201d complaints are fingerprints.'
+    ];
+    function dayOfYear(d) {
+      d = d || new Date();
+      return Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
+    }
+    function dateKey(d) {
+      d = d || new Date();
+      const p = n => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    }
+    function renderDaily() {
+      const title = document.getElementById('dailyTitle');
+      if (!title) return;
+      const pick = DAILY_SLOTS[dayOfYear() % DAILY_SLOTS.length];
+      title.textContent = 'Today\u2019s drill: ' + pick.title;
+      document.getElementById('dailyDesc').textContent = pick.desc;
+      document.getElementById('dailyCta').href = 'play.html?slot=' + pick.slotId;
+      document.getElementById('dailyTipText').textContent = TIP_POOL[dayOfYear() % TIP_POOL.length];
+    }
+    function renderDailyStreak(count, done) {
+      const el = document.getElementById('dailyStreak');
+      if (!el) return;
+      el.textContent = count > 0 ? String(count) : '0';
+      const stat = el.closest('.op-stat');
+      if (stat) stat.classList.toggle('done', !!done);
+    }
+    async function syncDaily() {
+      renderDaily();
+      if (!currentUser || !db) { renderDailyStreak(0, false); return; }
+      try {
+        const pick = DAILY_SLOTS[dayOfYear() % DAILY_SLOTS.length];
+        const today = dateKey();
+        const yest = dateKey(new Date(Date.now() - 864e5));
+        const snap = await db.collection('game_sessions')
+          .where('uid', '==', currentUser.uid)
+          .where('slotId', '==', pick.slotId).get();
+        let playedToday = false;
+        snap.forEach(function (doc) {
+          const c = (doc.data() || {}).createdAt;
+          const dt = c && c.toDate ? c.toDate() : null;
+          if (dt && dateKey(dt) === today) playedToday = true;
+        });
+        const userRef = db.collection('users').doc(currentUser.uid);
+        const userDoc = await userRef.get();
+        const streak = (userDoc.data() || {}).dailyStreak || { last: null, count: 0 };
+        let count = streak.count || 0;
+        if (playedToday && streak.last !== today) {
+          count = (streak.last === yest) ? count + 1 : 1;
+          await userRef.set({ dailyStreak: { last: today, count: count } }, { merge: true });
+          if (count >= 7 && window.CDBadges) {
+            CDBadges.award(currentUser.uid, 'streak-7', db);
+          }
+        } else if (!playedToday && streak.last !== today && streak.last !== yest) {
+          count = 0; // lapsed — resets on next completion
+        }
+        renderDailyStreak(count, playedToday);
+      } catch (e) { renderDailyStreak(0, false); /* offline — card still playable */ }
+    }
+
+    // ================================================================
+    // LEADERBOARD HOOK — one doc per user in leaderboard/{uid}.
+    // xp = game XP + mission points; weeks.{ISO-week} powers the weekly tab.
+    // Writes are best-effort; per-write caps live in Firestore rules.
+    // ================================================================
+    let _lbName = null;
+    function lbWeekKey(d) {
+      d = d || new Date();
+      const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const day = (t.getUTCDay() + 6) % 7;
+      t.setUTCDate(t.getUTCDate() - day + 3);
+      const first = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+      const week = 1 + Math.round(((t - first) / 864e5 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
+      return t.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+    }
+    async function updateLeaderboard(uid, xp, plays) {
+      if (!db || !uid || !(xp > 0)) return;
+      try {
+        if (!_lbName) {
+          const u = firebase.auth().currentUser;
+          _lbName = (u && u.displayName) || null;
+          if (!_lbName && u) {
+            try {
+              const ud = await db.collection('users').doc(u.uid).get();
+              _lbName = (ud.data() || {}).displayName || (ud.data() || {}).name || null;
+            } catch (e) {}
+          }
+          if (!_lbName) _lbName = 'Operator ' + String(uid).slice(0, 4);
+        }
+        const wk = lbWeekKey();
+        const upd = {
+          displayName: _lbName,
+          xp: firebase.firestore.FieldValue.increment(xp),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        upd['weeks.' + wk] = firebase.firestore.FieldValue.increment(xp);
+        if (plays) upd.plays = firebase.firestore.FieldValue.increment(plays);
+        await db.collection('leaderboard').doc(uid).set(upd, { merge: true });
+      } catch (e) { /* leaderboard is best-effort */ }
+    }
+
+    async function seedAllJourneyLevels() {
+      try {
+        const levels = ['beginner', 'intermediate', 'advanced'];
+        for (const level of levels) {
+          const check = await db.collection('journeys').doc(level).get();
+          if (check.exists) continue;
+
+          let modules = [];
+          if (level === 'beginner') {
+            modules = [
+              {
+                id: 'mod_01',
+                title: 'Welcome & Basics',
+                description: 'Get started with Cameras Decoded and the Exposure Triangle.',
+                steps: [
+                  {
+                    id: 'step_001',
+                    type: 'text',
+                    title: 'Welcome to Cameras Decoded',
+                    description: 'Learn what it means to be an Operator and how this platform will transform your photography.',
+                    content: 'Welcome to your missions. Over the next several steps, you\'ll learn the fundamentals of photography, master your camera, and build the confidence to create stunning images.',
+                    duration: 5,
+                    points: 50,
+                    badge: null,
+                    prerequisites: [],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'step_002',
+                    type: 'video',
+                    title: 'Understanding the Exposure Triangle',
+                    description: 'Watch this video to understand how aperture, shutter speed, and ISO work together.',
+                    content: '<iframe src="https://www.youtube.com/embed/example1" frameborder="0" allowfullscreen></iframe>',
+                    duration: 12,
+                    points: 100,
+                    badge: 'aperture_adept',
+                    prerequisites: ['step_001'],
+                    recommendedProducts: ['guide_exposure_triangle'],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'step_003',
+                    type: 'snapshot',
+                    title: 'Create Your First Snapshot Card',
+                    description: 'Generate a Snapshot Card on Aperture to solidify your understanding.',
+                    content: 'Open the Snapshot Card AI and create a card about aperture.',
+                    duration: 8,
+                    points: 75,
+                    badge: 'snapshot_collector',
+                    prerequisites: ['step_002'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_snapshot'
+                  }
+                ]
+              },
+              {
+                id: 'mod_02',
+                title: 'Exposure & Composition',
+                description: 'Dive deeper into shutter speed, composition, and the Rule of Thirds.',
+                steps: [
+                  {
+                    id: 'step_004',
+                    type: 'text',
+                    title: 'Mastering Shutter Speed',
+                    description: 'Learn how shutter speed affects motion blur and freezing action.',
+                    content: 'Shutter speed is the length of time your camera\'s sensor is exposed to light. Fast shutter speeds freeze action; slow shutter speeds create motion blur.',
+                    duration: 6,
+                    points: 50,
+                    badge: null,
+                    prerequisites: ['step_002'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'step_005',
+                    type: 'quiz',
+                    title: 'Exposure Triangle Quiz',
+                    description: 'Test your knowledge of aperture, shutter speed, and ISO.',
+                    content: '5 questions to reinforce your understanding.',
+                    duration: 5,
+                    points: 100,
+                    badge: 'shutter_surgeon',
+                    prerequisites: ['step_003', 'step_004'],
+                    recommendedProducts: [],
+                    completionAction: 'open_quiz'
+                  },
+                  {
+                    id: 'step_006',
+                    type: 'video',
+                    title: 'Composition & The Rule of Thirds',
+                    description: 'Learn the fundamental rules of composition.',
+                    content: '<iframe src="https://www.youtube.com/embed/example2" frameborder="0" allowfullscreen></iframe>',
+                    duration: 10,
+                    points: 75,
+                    badge: 'composition_master',
+                    prerequisites: ['step_005'],
+                    recommendedProducts: ['guide_composition'],
+                    completionAction: 'watch_video'
+                  }
+                ]
+              },
+              {
+                id: 'mod_03',
+                title: 'Advanced Practice',
+                description: 'Apply your skills with protocols, AI tools, and real challenges.',
+                steps: [
+                  {
+                    id: 'step_007',
+                    type: 'protocol',
+                    title: 'Complete Your First Protocol',
+                    description: 'Follow the "Mastering Real Estate HDR" protocol.',
+                    content: 'Open the Protocol Library and complete the Real Estate HDR protocol.',
+                    duration: 15,
+                    points: 150,
+                    badge: 'protocol_pioneer',
+                    prerequisites: ['step_006'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_protocol'
+                  },
+                  {
+                    id: 'step_008',
+                    type: 'tool',
+                    title: 'Try the Prompt Generator',
+                    description: 'Use the Prompt Generator to create your first AI prompt.',
+                    content: 'Open the Prompt Generator and create a prompt for a portrait photo.',
+                    duration: 5,
+                    points: 50,
+                    badge: null,
+                    prerequisites: ['step_007'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_tool'
+                  },
+                  {
+                    id: 'step_009',
+                    type: 'challenge',
+                    title: 'Daily Challenge: Golden Hour Portrait',
+                    description: 'Complete today\'s photography challenge.',
+                    content: 'Go out and capture a portrait during golden hour using the techniques you\'ve learned.',
+                    duration: 20,
+                    points: 200,
+                    badge: 'challenge_champion',
+                    prerequisites: ['step_008'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  }
+                ]
+              }
+            ];
+          } else if (level === 'intermediate') {
+            modules = [
+              {
+                id: 'mod_01',
+                title: 'Histograms & Exposure Mastery',
+                description: 'Stop guessing – read the light like a pro.',
+                steps: [
+                  {
+                    id: 'int_step_001',
+                    type: 'video',
+                    title: 'How to Read a Histogram',
+                    description: 'Understand the 5‑zone system and avoid clipping.',
+                    content: '<iframe src="https://www.youtube.com/embed/histogram_example" frameborder="0" allowfullscreen></iframe>',
+                    duration: 10,
+                    points: 80,
+                    badge: 'histogram_hero',
+                    prerequisites: [],
+                    recommendedProducts: ['guide_histogram'],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'int_step_002',
+                    type: 'text',
+                    title: 'Metering Modes: Matrix, Centre, Spot',
+                    description: 'Learn when to use each mode for perfect exposure.',
+                    content: 'Matrix evaluates the whole scene. Centre‑weighted ignores the edges. Spot measures a tiny 1‑5% circle. Use Spot for backlit subjects or high‑contrast scenes.',
+                    duration: 6,
+                    points: 60,
+                    badge: null,
+                    prerequisites: ['int_step_001'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'int_step_003',
+                    type: 'quiz',
+                    title: 'Exposure & Metering Quiz',
+                    description: 'Test your knowledge of histograms and metering.',
+                    content: '6 questions to cement your understanding.',
+                    duration: 5,
+                    points: 100,
+                    badge: 'exposure_expert',
+                    prerequisites: ['int_step_002'],
+                    recommendedProducts: [],
+                    completionAction: 'open_quiz'
+                  }
+                ]
+              },
+              {
+                id: 'mod_02',
+                title: 'Off‑Camera Flash & Lighting',
+                description: 'Take control of light, not just available light.',
+                steps: [
+                  {
+                    id: 'int_step_004',
+                    type: 'video',
+                    title: 'Strobe Basics: Power, Modifiers, and Triggering',
+                    description: 'Learn the difference between TTL and manual flash.',
+                    content: '<iframe src="https://www.youtube.com/embed/flash_basics" frameborder="0" allowfullscreen></iframe>',
+                    duration: 14,
+                    points: 100,
+                    badge: 'flash_pioneer',
+                    prerequisites: ['int_step_003'],
+                    recommendedProducts: ['guide_off_camera_flash'],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'int_step_005',
+                    type: 'challenge',
+                    title: 'One‑Light Portrait Challenge',
+                    description: 'Use one off‑camera flash to create a dramatic portrait.',
+                    content: 'Set up your strobe at 45° with a softbox. Shoot 10 frames, adjusting power and distance.',
+                    duration: 20,
+                    points: 150,
+                    badge: 'lighting_artist',
+                    prerequisites: ['int_step_004'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'int_step_006',
+                    type: 'snapshot',
+                    title: 'Snapshot Card: Lighting Ratios',
+                    description: 'Create a Snapshot Card that explains lighting ratios.',
+                    content: 'Use the Snapshot Card tool to visualise 2:1 vs 4:1 lighting.',
+                    duration: 6,
+                    points: 75,
+                    badge: null,
+                    prerequisites: ['int_step_005'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_snapshot'
+                  }
+                ]
+              },
+              {
+                id: 'mod_03',
+                title: 'Editing Workflow (White Balance & Curves)',
+                description: 'Polish your images with confidence.',
+                steps: [
+                  {
+                    id: 'int_step_007',
+                    type: 'text',
+                    title: 'Understanding White Balance',
+                    description: 'Kelvin, tint, and using the eyedropper tool.',
+                    content: 'Daylight = 5500K. Shade = 7500K. Tungsten = 3200K. Use the eyedropper on a neutral grey surface for instant correction.',
+                    duration: 5,
+                    points: 50,
+                    badge: null,
+                    prerequisites: ['int_step_006'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'int_step_008',
+                    type: 'video',
+                    title: 'Mastering the Tone Curve',
+                    description: 'Move beyond basic sliders – control contrast and colour.',
+                    content: '<iframe src="https://www.youtube.com/embed/tone_curve" frameborder="0" allowfullscreen></iframe>',
+                    duration: 12,
+                    points: 100,
+                    badge: 'curve_master',
+                    prerequisites: ['int_step_007'],
+                    recommendedProducts: ['guide_tone_curve'],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'int_step_009',
+                    type: 'tool',
+                    title: 'AI Critique Your Best Edit',
+                    description: 'Upload your best portrait and let Cynetis‑7 analyse it.',
+                    content: 'Use the Photo Critique tool to get a composition, colour, and exposure report.',
+                    duration: 5,
+                    points: 80,
+                    badge: 'critique_ready',
+                    prerequisites: ['int_step_008'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_tool'
+                  }
+                ]
+              }
+            ];
+          } else if (level === 'advanced') {
+            modules = [
+              {
+                id: 'mod_01',
+                title: 'Studio Workflows & Tethering',
+                description: 'Professional capture from camera to screen.',
+                steps: [
+                  {
+                    id: 'adv_step_001',
+                    type: 'text',
+                    title: 'Tethering Setup (Capture One / Lightroom)',
+                    description: 'Connect your camera to a computer for instant review.',
+                    content: 'Use a USB‑C tether cable. In Capture One, go to Camera → Open Tether. In Lightroom, go to File → Tethered Capture. Pro tip: use Live View for precise focus.',
+                    duration: 8,
+                    points: 70,
+                    badge: 'tether_tech',
+                    prerequisites: [],
+                    recommendedProducts: ['guide_tethering'],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'adv_step_002',
+                    type: 'video',
+                    title: 'Styling & Set Design',
+                    description: 'How to direct a shoot and style a set.',
+                    content: '<iframe src="https://www.youtube.com/embed/set_design" frameborder="0" allowfullscreen></iframe>',
+                    duration: 18,
+                    points: 120,
+                    badge: 'set_designer',
+                    prerequisites: ['adv_step_001'],
+                    recommendedProducts: [],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'adv_step_003',
+                    type: 'protocol',
+                    title: 'Advanced Portrait Protocol: 3‑Light Setup',
+                    description: 'Execute a professional 3‑light portrait session.',
+                    content: 'Key light, fill light, and a rim/hair light. Open the Protocol Library and follow the "3‑Light Studio" protocol.',
+                    duration: 20,
+                    points: 200,
+                    badge: 'studio_master',
+                    prerequisites: ['adv_step_002'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_protocol'
+                  }
+                ]
+              },
+              {
+                id: 'mod_02',
+                title: 'Colour Science & Grading',
+                description: 'Go beyond presets – understand the math of colour.',
+                steps: [
+                  {
+                    id: 'adv_step_004',
+                    type: 'video',
+                    title: 'Understanding Colour Spaces (sRGB, Adobe RGB, ProPhoto)',
+                    description: 'Choose the right space for print vs web.',
+                    content: '<iframe src="https://www.youtube.com/embed/colour_space" frameborder="0" allowfullscreen></iframe>',
+                    duration: 12,
+                    points: 100,
+                    badge: 'colour_scientist',
+                    prerequisites: ['adv_step_003'],
+                    recommendedProducts: ['guide_colour_science'],
+                    completionAction: 'watch_video'
+                  },
+                  {
+                    id: 'adv_step_005',
+                    type: 'challenge',
+                    title: 'Create a Custom LUT',
+                    description: 'Use the AI Style tool to generate a unique LUT for your work.',
+                    content: 'Upload 3 sample images. Use the Style tool to extract a colour palette and generate a .cube LUT file.',
+                    duration: 15,
+                    points: 180,
+                    badge: 'lut_creator',
+                    prerequisites: ['adv_step_004'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_tool'
+                  },
+                  {
+                    id: 'adv_step_006',
+                    type: 'quiz',
+                    title: 'Colour Theory & Grading Final',
+                    description: 'Prove you can manage colour across any project.',
+                    content: '8 questions covering spaces, grading, and consistency.',
+                    duration: 6,
+                    points: 120,
+                    badge: 'colour_authority',
+                    prerequisites: ['adv_step_005'],
+                    recommendedProducts: [],
+                    completionAction: 'open_quiz'
+                  }
+                ]
+              },
+              {
+                id: 'mod_03',
+                title: 'Business, Branding & Client Delivery',
+                description: 'Turn your skills into a sustainable career.',
+                steps: [
+                  {
+                    id: 'adv_step_007',
+                    type: 'tool',
+                    title: 'Brand Identity Generator',
+                    description: 'Let AI generate a brand style guide for your photography.',
+                    content: 'Use the Brand tool to create a logo concept, colour palette, and tagline.',
+                    duration: 8,
+                    points: 100,
+                    badge: 'brand_architect',
+                    prerequisites: ['adv_step_006'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_tool'
+                  },
+                  {
+                    id: 'adv_step_008',
+                    type: 'text',
+                    title: 'Client Contract & Pricing Strategy',
+                    description: 'Learn how to price your work and protect it with a contract.',
+                    content: 'Use the Proposal tool to draft a standard contract. Include usage rights, deposit structure, and delivery timelines. Always charge 50% upfront.',
+                    duration: 10,
+                    points: 150,
+                    badge: 'business_sharp',
+                    prerequisites: ['adv_step_007'],
+                    recommendedProducts: ['template_contract'],
+                    completionAction: 'mark_complete'
+                  },
+                  {
+                    id: 'adv_step_009',
+                    type: 'snapshot',
+                    title: 'Portfolio Snapshot Card',
+                    description: 'Create a Snapshot Card that acts as a mini‑portfolio.',
+                    content: 'Select your 3 best images. Use the Snapshot Card tool to build a project story.',
+                    duration: 10,
+                    points: 100,
+                    badge: 'portfolio_pro',
+                    prerequisites: ['adv_step_008'],
+                    recommendedProducts: [],
+                    completionAction: 'launch_snapshot'
+                  },
+                  {
+                    id: 'adv_step_010',
+                    type: 'challenge',
+                    title: 'The "Decoded" Capstone Project',
+                    description: 'Plan, shoot, edit, and deliver a complete mini‑campaign.',
+                    content: 'Create a 10‑image series for a fictional brand. Include a moodboard, shot list, final gallery, and a pricing proposal.',
+                    duration: 45,
+                    points: 300,
+                    badge: 'operator_elite',
+                    prerequisites: ['adv_step_009'],
+                    recommendedProducts: [],
+                    completionAction: 'mark_complete'
+                  }
+                ]
+              }
+            ];
+          }
+
+          modules.forEach(mod => {
+            mod.totalPoints = mod.steps.reduce((sum, s) => sum + (s.points || 0), 0);
+          });
+
+          await db.collection('journeys').doc(level).set({
+            id: level,
+            title: `${level.charAt(0).toUpperCase() + level.slice(1)} Missions`,
+            level: level,
+            description: `The ${level} path to photographic mastery.`,
+            modules: modules
+          });
+          console.log(`✅ Seeded ${level} journey.`);
+        }
+        cdToast('🌱 All mission levels seeded!');
+      } catch (err) {
+        console.warn('Seed error (permissions likely):', err.message);
+      }
+    }
+
+    // ================================================================
+    // BADGE SYNC – ensure main user doc has all badges from subcollection
+    // ================================================================
+    async function syncBadgesToMainDoc() {
+      if (!currentUser || !userProgress) return;
+
+      const subBadges = userProgress.badgesEarned || [];
+      if (subBadges.length === 0) return;
+
+      const mainUserRef = db.collection('users').doc(currentUser.uid);
+      const mainDoc = await mainUserRef.get();
+      if (!mainDoc.exists) return;
+
+      const mainBadges = mainDoc.data().badgesEarned || [];
+      const missingBadges = subBadges.filter(id => !mainBadges.includes(id));
+
+      if (missingBadges.length > 0) {
+        console.log('[BadgeSync] Syncing missing badges to main doc:', missingBadges);
+        await mainUserRef.set({
+          badgesEarned: firebase.firestore.FieldValue.arrayUnion(...missingBadges)
+        }, { merge: true });
+        console.log('[BadgeSync] Main doc updated.');
+      }
+    }
+
+    // ================================================================
+    // LOAD JOURNEY DATA
+    // ================================================================
+    async function loadJourneyData(level = currentLevel) {
+      currentLevel = level;
+      if (levelSelect) levelSelect.value = level;
+
+      try {
+        let journeyDoc = await db.collection('journeys').doc(level).get();
+
+        if (!journeyDoc.exists) {
+          await seedAllJourneyLevels();
+          journeyDoc = await db.collection('journeys').doc(level).get();
+        }
+
+        if (!journeyDoc.exists) {
+          console.warn('Journey data still missing after seeding – using fallback.');
+          journeyData = {
+            id: 'beginner',
+            title: 'Beginner Missions',
+            modules: [{
+              id: 'mod_01',
+              title: 'Start Here',
+              description: 'Introductory module.',
+              steps: [{
+                id: 'step_001',
+                type: 'text',
+                title: 'Welcome',
+                description: 'Start here.',
+                content: 'Welcome!',
+                duration: 5,
+                points: 50,
+                badge: null,
+                prerequisites: [],
+                recommendedProducts: [],
+                completionAction: 'mark_complete'
+              }],
+              totalPoints: 50
+            }]
+          };
+          currentLevel = 'beginner';
+          if (levelSelect) levelSelect.value = 'beginner';
+        } else {
+          journeyData = journeyDoc.data();
+        }
+
+        if (currentUser) {
+          const progressRef = db.collection('userJourney')
+            .doc(currentUser.uid)
+            .collection('levels')
+            .doc(currentLevel);
+
+          const progressDoc = await progressRef.get();
+
+          if (progressDoc.exists) {
+            userProgress = progressDoc.data();
+            if (!userProgress.completedSteps) userProgress.completedSteps = [];
+            if (!userProgress.completedModules) userProgress.completedModules = [];
+            if (!userProgress.totalPoints) userProgress.totalPoints = 0;
+            if (!userProgress.badgesEarned) userProgress.badgesEarned = [];
+          } else {
+            userProgress = {
+              completedSteps: [],
+              completedModules: [],
+              totalPoints: 0,
+              badgesEarned: [],
+              startedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await progressRef.set(userProgress);
+          }
+
+          // ---- SYNC BADGES TO MAIN DOC ----
+          await syncBadgesToMainDoc();
+
+          // Save preferred level
+          await db.collection('users').doc(currentUser.uid).set({
+            preferredJourneyLevel: currentLevel
+          }, { merge: true });
+        }
+
+        // Game drills live in code (not in the journeys docs) — inject before
+        // the current-module picker so the new phase participates in it.
+        injectGameDrills();
+
+        if (journeyData.modules && journeyData.modules.length > 0) {
+          let found = false;
+          for (let i = 0; i < journeyData.modules.length; i++) {
+            const mod = journeyData.modules[i];
+            const allSteps = mod.steps.map(s => s.id);
+            const completedSteps = (userProgress.completedSteps || []).filter(id => allSteps.includes(id));
+            if (completedSteps.length < allSteps.length) {
+              currentModuleIndex = i;
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            currentModuleIndex = journeyData.modules.length - 1;
+          }
+        }
+
+        renderAll();
+        updateAssistantTip();
+        syncGameCompletions();
+        syncDaily();
+
+      } catch (err) {
+        console.error('Error loading journey data:', err);
+        cdToast('Error loading missions: ' + err.message);
+      }
+    }
+
+    // ================================================================
+    // RENDER ALL
+    // ================================================================
+    function renderAll() {
+      if (!journeyData || !journeyData.modules) return;
+
+      if (totalPointsDisplay) totalPointsDisplay.textContent = (userProgress && userProgress.totalPoints) || 0;
+
+      renderPath();
+      renderJourneyBadges();
+      renderBriefing();
+      updateCampaign();
+
+      // Phase completion is detected across the whole path (was: current module only).
+      const completedSteps = (userProgress && userProgress.completedSteps) || [];
+      const completedModules = (userProgress && userProgress.completedModules) || [];
+      let debrief = null;
+      journeyData.modules.forEach((m, mi) => {
+        const ids = (m.steps || []).map(s => s.id);
+        const done = ids.filter(id => completedSteps.includes(id)).length;
+        if (ids.length > 0 && done === ids.length && !completedModules.includes(m.id)) {
+          completedModules.push(m.id);
+          debrief = { mod: m, idx: mi };
+        }
+      });
+      if (debrief) {
+        userProgress.completedModules = completedModules;
+        if (currentUser && db) {
+          db.collection('userJourney')
+            .doc(currentUser.uid)
+            .collection('levels')
+            .doc(currentLevel)
+            .set({ completedModules: userProgress.completedModules }, { merge: true })
+            .catch(err => console.warn('Could not save module completion:', err));
+        }
+        showModuleComplete(debrief.mod, debrief.idx);
+      } else {
+        moduleCompleteDiv.style.display = 'none';
+      }
+    }
+
+    // ================================================================
+    // NEXT MISSION (coach logic – shared by briefing + CTA)
+    // ================================================================
+    function findNextMission() {
+      if (!journeyData || !journeyData.modules) return null;
+      const completed = (userProgress && userProgress.completedSteps) || [];
+      let firstIncomplete = null;
+      for (let mi = 0; mi < journeyData.modules.length; mi++) {
+        const mod = journeyData.modules[mi];
+        for (const s of (mod.steps || [])) {
+          if (completed.includes(s.id)) continue;
+          if (!firstIncomplete) firstIncomplete = { mod, modIndex: mi, step: s };
+          const locked = (s.prerequisites || []).some(pre => !completed.includes(pre));
+          if (!locked) return { mod, modIndex: mi, step: s };
+        }
+      }
+      return firstIncomplete; // may be a locked mission, or null when done
+    }
+
+    // ================================================================
+    // RENDER BRIEFING
+    // ================================================================
+    const briefingLabel = document.getElementById('briefingLabel');
+    const briefingTitle = document.getElementById('briefingTitle');
+    const briefingDesc = document.getElementById('briefingDesc');
+    const briefingMeta = document.getElementById('briefingMeta');
+    const briefingCta = document.getElementById('briefingCta');
+
+    function metaChipsFor(step) {
+      const badgeDef = step.badge && window.BADGE_DEFS && window.BADGE_DEFS[step.badge];
+      return `
+        <span class="meta-chip"><i class="fas fa-tag"></i>${step.type || 'task'}</span>
+        ${step.duration ? `<span class="meta-chip"><i class="fas fa-clock"></i>${step.duration} min</span>` : ''}
+        <span class="meta-chip points"><i class="fas fa-star"></i>+${step.points || 0} pts</span>
+        ${step.badge ? `<span class="meta-chip"><i class="fas fa-medal"></i>${badgeDef ? badgeDef.name : step.badge}</span>` : ''}
+      `;
+    }
+
+    function renderBriefing() {
+      if (!briefingTitle) return;
+      const target = findNextMission();
+      if (!target) {
+        const done = ((userProgress && userProgress.completedSteps) || []).length;
+        const pts = (userProgress && userProgress.totalPoints) || 0;
+        briefingLabel.textContent = 'Campaign complete';
+        briefingTitle.textContent = 'All missions complete, Operator.';
+        briefingDesc.textContent = 'You ran the full campaign. Review your phases, or take on the next level.';
+        briefingMeta.innerHTML = `
+          <span class="meta-chip points"><i class="fas fa-star"></i>${pts} pts earned</span>
+          <span class="meta-chip"><i class="fas fa-check-circle"></i>${done} missions done</span>
+        `;
+        briefingCta.innerHTML = 'Review phases <i class="fas fa-arrow-up" aria-hidden="true"></i>';
+        briefingCta.style.display = '';
+        return;
+      }
+      const { mod, modIndex, step } = target;
+      const completed = (userProgress && userProgress.completedSteps) || [];
+      const locked = (step.prerequisites || []).some(pre => !completed.includes(pre));
+      briefingLabel.textContent = locked
+        ? `Up next · Phase ${modIndex + 1} · Locked`
+        : `Your next mission · Phase ${modIndex + 1}`;
+      briefingTitle.textContent = step.title;
+      briefingDesc.textContent = locked
+        ? 'Complete the prerequisites to unlock this mission.'
+        : (step.description || '');
+      briefingMeta.innerHTML = metaChipsFor(step);
+      briefingCta.innerHTML = locked
+        ? 'View mission <i class="fas fa-arrow-right" aria-hidden="true"></i>'
+        : 'Begin mission <i class="fas fa-arrow-right" aria-hidden="true"></i>';
+      briefingCta.style.display = '';
+    }
+
+    if (briefingCta) {
+      briefingCta.addEventListener('click', () => {
+        const target = findNextMission();
+        if (!target) {
+          stepContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const card = stepContainer.querySelector(`[data-step-id="${target.step.id}"]`);
+          if (!card) return;
+          const head = card.querySelector('.dossier-head');
+          if (head && head.getAttribute('aria-expanded') !== 'true') head.click();
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }));
+      });
+    }
+
+    // ================================================================
+    // CAMPAIGN PROGRESS
+    // ================================================================
+    function updateCampaign() {
+      const fill = document.getElementById('campaignFill');
+      const pctEl = document.getElementById('campaignPct');
+      const bar = document.getElementById('campaignBar');
+      if (!fill || !journeyData || !journeyData.modules) return;
+      const completed = (userProgress && userProgress.completedSteps) || [];
+      let total = 0, done = 0;
+      journeyData.modules.forEach(mod => {
+        (mod.steps || []).forEach(s => {
+          total++;
+          if (completed.includes(s.id)) done++;
+        });
+      });
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      fill.style.width = pct + '%';
+      if (pctEl) pctEl.textContent = pct + '%';
+      if (bar) bar.setAttribute('aria-valuenow', String(pct));
+    }
+
+    // ================================================================
+    // RENDER MISSION PATH — every phase as a timeline group
+    // ================================================================
+    // PNG-first phase titles (text fallback if the image is missing)
+    const MODULE_TITLE_IMGS = { 'Exposure Drills':'exposure-drills.png', 'Welcome & Basics':'welcome-basics.png', 'Exposure & Composition':'exposure-composition.png', 'Advanced Practice':'advanced-practice.png' };
+    function phaseTitle(mod){
+      var f = MODULE_TITLE_IMGS[mod.title];
+      if(!f) return '<h3 class="phase-title">'+mod.title+'</h3>';
+      return '<h3 class="phase-title"><img src="/custom-site-titles/'+f+'" alt="'+mod.title+'" class="phase-title-img" onerror="this.style.display=\'none\';this.nextElementSibling.hidden=false;"><span hidden>'+mod.title+'</span></h3>';
+    }
+    function renderPath() {
+      if (!journeyData || !journeyData.modules) return;
+      const completed = (userProgress && userProgress.completedSteps) || [];
+      const completedModules = (userProgress && userProgress.completedModules) || [];
+      const next = findNextMission();
+      const nextId = next ? next.step.id : null;
+
+      let html = '';
+      journeyData.modules.forEach((mod, mi) => {
+        const steps = mod.steps || [];
+        const doneCount = steps.filter(s => completed.includes(s.id)).length;
+        const pct = steps.length > 0 ? Math.round((doneCount / steps.length) * 100) : 0;
+        const isDone = steps.length > 0 && doneCount === steps.length;
+        const isLocked = mi > 0 && !completedModules.includes(journeyData.modules[mi - 1].id);
+        const isCurrent = next ? next.modIndex === mi : (!isDone && !isLocked);
+        const num = String(mi + 1).padStart(2, '0');
+        const groupClass = isDone ? 'done' : (isLocked ? 'locked' : (isCurrent ? 'current' : ''));
+        html += `
+          <section class="phase-group ${groupClass}" id="phase-group-${mod.id}" aria-label="Phase ${mi + 1}: ${mod.title}">
+            <div class="phase-head">
+              <span class="phase-badge" aria-hidden="true">${isDone ? '✓' : num}</span>
+              <div class="phase-head-text">
+                <div class="phase-kicker">Phase ${mi + 1}${isDone ? ' · Complete' : ''}${isLocked ? ' · Locked' : ''}</div>
+                                ${phaseTitle(mod)}
+              </div>
+              <span class="phase-pct mono">${pct}%</span>
+            </div>
+            <div class="phase-bar" role="progressbar" aria-label="${mod.title} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+              <div style="width:${pct}%"></div>
+            </div>
+            ${mod.description ? `<p class="phase-desc">${mod.description}</p>` : ''}
+            <div class="phase-steps">
+              ${isLocked
+                ? `<p class="locked-note"><i class="fas fa-lock" aria-hidden="true"></i> Complete the previous phase to unlock these missions.</p>`
+                : steps.map((s, i) => renderDossier(s, i, nextId)).join('')}
+            </div>
+          </section>`;
+      });
+      stepContainer.innerHTML = html;
+      const pc = document.getElementById('pathCount');
+      if (pc) {
+        const total = journeyData.modules.reduce((n, m) => n + ((m.steps || []).length), 0);
+        pc.textContent = journeyData.modules.length + ' phases \u00B7 ' + total + ' missions';
+      }
+    }
+
+    // ================================================================
+    // RENDER ONE MISSION DOSSIER (markup unchanged — the working card)
+    // ================================================================
+    function renderDossier(step, i, nextId) {
+      const completed = (userProgress && userProgress.completedSteps) || [];
+
+      const typeIcons = {
+        'video': 'fa-video',
+        'text': 'fa-file-lines',
+        'audio': 'fa-microphone',
+        'quiz': 'fa-brain',
+        'challenge': 'fa-dumbbell',
+        'snapshot': 'fa-camera',
+        'protocol': 'fa-book-open',
+        'tool': 'fa-wrench',
+        'podcast': 'fa-podcast',
+        'blog': 'fa-newspaper',
+        'community': 'fa-comments',
+        'product': 'fa-bag-shopping'
+      };
+
+        const isCompleted = completed.includes(step.id);
+        const isLocked = step.prerequisites && step.prerequisites.some(pre => !completed.includes(pre));
+        const isActive = !isCompleted && !isLocked;
+        const statusClass = isCompleted ? 'completed' : (isLocked ? 'locked' : 'active');
+        const statusIcon = isCompleted ? '<i class="fas fa-check" aria-hidden="true"></i>' : (isLocked ? '<i class="fas fa-lock" aria-hidden="true"></i>' : '<i class="fas fa-play" aria-hidden="true"></i>');
+        const bodyId = `dossier-body-${step.id}`;
+        const badgeDef = step.badge && window.BADGE_DEFS && window.BADGE_DEFS[step.badge];
+
+        const contentHtml = step.content ? `<div class="step-content">${step.content}</div>` : '';
+
+        let tipHtml = '';
+        if (isActive) {
+          const tips = {
+            'video': 'Watch carefully – these concepts will appear in later challenges.',
+            'text': 'Take notes. This knowledge is the foundation of your confidence.',
+            'snapshot': 'Snapshot Cards are your knowledge anchors. Make it memorable.',
+            'protocol': 'Protocols are your practice field. Apply what you learn.',
+            'tool': 'AI tools are your creative accelerators. Experiment freely.',
+            'quiz': 'This tests your understanding. Don\'t worry – it\'s for you, not us.',
+            'challenge': 'This is where you become an Operator. Go out and shoot!',
+            'default': 'Every step brings you closer to mastery. You\'ve got this.'
+          };
+          tipHtml = `<div class="cynetis-tip"><span class="tip-from"><i class="fas fa-robot" aria-hidden="true"></i>Cynetis‑7</span><span>${tips[step.type] || tips.default}</span></div>`;
+        }
+
+        return `
+          <article class="dossier ${statusClass}${step.id === nextId ? ' next-up' : ''}" data-step-id="${step.id}">
+            <button type="button" class="dossier-head" aria-expanded="${isActive ? 'true' : 'false'}" aria-controls="${bodyId}">
+              <span class="dossier-status" aria-hidden="true">${statusIcon}</span>
+              <span class="dossier-titles">
+                <span class="dossier-kicker">Mission ${i + 1} · ${(step.type || 'task').toUpperCase()}</span>
+                <span class="dossier-title">${step.title}</span>
+                <span class="dossier-meta">
+                  <span class="meta-chip"><i class="fas ${typeIcons[step.type] || 'fa-thumbtack'}" aria-hidden="true"></i>${step.type || 'task'}</span>
+                  ${step.duration ? `<span class="meta-chip"><i class="fas fa-clock" aria-hidden="true"></i>${step.duration} min</span>` : ''}
+                  <span class="meta-chip points">+${step.points || 0} pts</span>
+                  ${step.badge ? `<span class="meta-chip"><i class="fas fa-medal" aria-hidden="true"></i>${badgeDef ? badgeDef.name : step.badge}</span>` : ''}
+                </span>
+              </span>
+              <span class="dossier-chevron" aria-hidden="true"><i class="fas fa-chevron-down"></i></span>
+            </button>
+            <div class="dossier-body" id="${bodyId}" ${isActive ? '' : 'hidden'}>
+              <p class="dossier-desc">${step.description || ''}</p>
+              ${contentHtml}
+              ${isLocked ? `<p class="locked-note"><i class="fas fa-lock" aria-hidden="true"></i> Complete the prerequisite missions to unlock this one.</p>` : ''}
+              ${tipHtml}
+              ${isActive ? `
+                <div class="dossier-actions">
+                  ${step.slotId ? `
+                    <a class="btn-step" href="play.html?slot=${step.slotId}">
+                      <i class="fas fa-play" aria-hidden="true"></i> Play &amp; Earn ${step.points || 0} pts
+                    </a>` : `
+                    <button type="button" class="btn-step" onclick="completeStep('${step.id}')">
+                      <i class="fas fa-check" aria-hidden="true"></i> Complete &amp; Earn ${step.points || 0} pts
+                    </button>`}
+                  ${step.recommendedProducts && step.recommendedProducts.length > 0 ? `<button type="button" class="btn-step secondary" onclick="showProducts('${step.id}')"><i class="fas fa-box-open" aria-hidden="true"></i> Products</button>` : ''}
+                </div>
+              ` : ''}
+              ${isCompleted ? `
+                <div class="dossier-actions">
+                  <button type="button" class="btn-step completed-btn" disabled><i class="fas fa-check-circle" aria-hidden="true"></i> Completed</button>
+                </div>
+              ` : ''}
+            </div>
+          </article>
+        `;
+    }
+
+    // Dossier expand/collapse (delegated – survives re-renders)
+    stepContainer.addEventListener('click', (e) => {
+      const head = e.target.closest('.dossier-head');
+      if (!head || !stepContainer.contains(head)) return;
+      const expanded = head.getAttribute('aria-expanded') === 'true';
+      head.setAttribute('aria-expanded', String(!expanded));
+      const body = document.getElementById(head.getAttribute('aria-controls'));
+      if (body) body.hidden = expanded;
+    });
+
+    // ================================================================
+    // COMPLETE STEP
+    // ================================================================
+    window.completeStep = async function(stepId) {
+      if (!currentUser) return;
+
+      // Steps can live in any phase on the path — search every module.
+      let mod = null, step = null;
+      (journeyData.modules || []).forEach((m) => {
+        const s = (m.steps || []).find(x => x.id === stepId);
+        if (s) { mod = m; step = s; }
+      });
+      if (!step) {
+        cdToast('Step not found.');
+        return;
+      }
+
+      if ((userProgress.completedSteps || []).includes(stepId)) {
+        cdToast('Already completed this step.');
+        return;
+      }
+
+      const missing = (step.prerequisites || []).filter(pre => !(userProgress.completedSteps || []).includes(pre));
+      if (missing.length > 0) {
+        cdToast('Complete the prerequisites first.');
+        return;
+      }
+
+      try {
+        const newCompleted = [...(userProgress.completedSteps || []), stepId];
+        const newPoints = (userProgress.totalPoints || 0) + (step.points || 0);
+
+        const newBadges = [...(userProgress.badgesEarned || [])];
+        const earnedBadges = [];
+
+        if (step.badge && !newBadges.includes(step.badge)) {
+          newBadges.push(step.badge);
+          earnedBadges.push(step.badge);
+        }
+
+        if (newCompleted.length === 3 && !newBadges.includes('first_steps')) {
+          newBadges.push('first_steps');
+          earnedBadges.push('first_steps');
+        }
+        if (newCompleted.length === 5 && !newBadges.includes('signal_pioneer')) {
+          newBadges.push('signal_pioneer');
+          earnedBadges.push('signal_pioneer');
+        }
+
+        const progressRef = db.collection('userJourney')
+          .doc(currentUser.uid)
+          .collection('levels')
+          .doc(currentLevel);
+
+        await progressRef.set({
+          completedSteps: newCompleted,
+          totalPoints: newPoints,
+          badgesEarned: newBadges
+        }, { merge: true });
+
+        const mainUserRef = db.collection('users').doc(currentUser.uid);
+        const mainUpdate = {
+          totalPoints: firebase.firestore.FieldValue.increment(step.points || 0),
+        };
+
+        if (earnedBadges.length > 0) {
+          mainUpdate.badgesEarned = firebase.firestore.FieldValue.arrayUnion(...earnedBadges);
+        }
+
+        await mainUserRef.set(mainUpdate, { merge: true });
+        console.log('[Journey] Synced points and badges to main user doc.');
+        updateLeaderboard(currentUser.uid, step.points || 0, 0); // best-effort
+
+        userProgress.completedSteps = newCompleted;
+        userProgress.totalPoints = newPoints;
+        userProgress.badgesEarned = newBadges;
+
+        earnedBadges.forEach((badgeId, index) => {
+          setTimeout(() => {
+            showBadgeCelebration(badgeId);
+          }, index * 800);
+        });
+
+        if (earnedBadges.length > 0) {
+          const badgeNames = earnedBadges.map(id => {
+            const def = window.BADGE_DEFS && window.BADGE_DEFS[id];
+            return def ? def.name : id;
+          }).join(', ');
+          cdToast(`Badge unlocked: ${badgeNames}`);
+        }
+
+        cdToast(`Step complete · +${step.points || 0} points`);
+
+        renderAll(); // also detects newly-completed phases and shows the debrief
+        updateAssistantTip();
+
+      } catch (err) {
+        console.error('Error completing step:', err);
+        cdToast('Error: ' + err.message);
+      }
+    };
+
+    // ================================================================
+    // SYNC GAME COMPLETIONS — auto-complete drill steps from play history
+    // A drill step (step.slotId) completes when the user has a
+    // game_sessions doc for that slot. Runs once after progress loads.
+    // ================================================================
+    async function syncGameCompletions() {
+      if (!currentUser || !journeyData) return;
+      try {
+        const snap = await db.collection('game_sessions')
+          .where('uid', '==', currentUser.uid).get();
+        const played = {};
+        snap.forEach(function (d) {
+          const s = d.data();
+          if (s && s.slotId) played[s.slotId] = true;
+        });
+        for (const mod of journeyData.modules || []) {
+          for (const step of mod.steps || []) {
+            const done = (userProgress.completedSteps || []).indexOf(step.id) !== -1;
+            if (step.slotId && played[step.slotId] && !done) {
+              await window.completeStep(step.id); // reuses points/badges/guards + re-render
+            }
+          }
+        }
+      } catch (e) { /* offline or rules deny — missions still render */ }
+    }
+
+    // ================================================================
+    // SHOW PHASE DEBRIEF
+    // ================================================================
+    function showModuleComplete(mod, idx) {
+      moduleCompleteDiv.style.display = 'block';
+      moduleCompleteDiv.innerHTML = `
+        <div class="debrief">
+          <div class="debrief-kicker">Phase complete · Debrief</div>
+          <div class="icon"><i class="fas fa-trophy" aria-hidden="true"></i></div>
+          <h2>Phase secured.</h2>
+          <p>You've finished <strong style="color:var(--green);">${module.title}</strong>. Cynetis‑7 has your next briefing ready.</p>
+          <div class="debrief-stats">
+            <span><i class="fas fa-medal" aria-hidden="true"></i> ${(userProgress.badgesEarned || []).length} badges</span>
+            <span><i class="fas fa-star" aria-hidden="true"></i> ${userProgress.totalPoints || 0} points</span>
+          </div>
+          <div class="btn-group">
+            ${idx < journeyData.modules.length - 1 ? `<button type="button" class="btn-step" onclick="goToModule(${idx + 1})">Next phase →</button>` : `<button type="button" class="btn-step" onclick="cdToast('You\\'ve completed all modules!')"><i class="fas fa-flag-checkered" aria-hidden="true"></i> All done</button>`}
+            <button type="button" class="btn-step secondary" onclick="shareAchievement()"><i class="fas fa-share-alt" aria-hidden="true"></i> Share</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // ================================================================
+    // ACCESSIBILITY ENHANCEMENTS (progressive, presentation-only)
+    // ================================================================
+    // Toasts -> polite live region
+    (function enhanceToastA11y() {
+      const mo = new MutationObserver(() => {
+        const c = document.getElementById('cd-toast-container');
+        if (c && !c.hasAttribute('aria-live')) {
+          c.setAttribute('role', 'status');
+          c.setAttribute('aria-live', 'polite');
+        }
+      });
+      mo.observe(document.body, { childList: true });
+    })();
+
+    // Cynetis-7 toggle: keyboard support + aria-expanded sync
+    cynetisToggle.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        cynetisToggle.click();
+      }
+    });
+    cynetisToggle.addEventListener('click', () => {
+      // Defer so the main toggle handler (registered separately) flips the
+      // panel class first; then sync aria to the resulting state.
+      setTimeout(() => {
+        cynetisToggle.setAttribute('aria-expanded', String(cynetisPanel.classList.contains('open')));
+      }, 0);
+    });
+
+    // ================================================================
+    // NAVIGATE MODULES
+    // ================================================================
+    // Scroll to a phase group on the mission path (kept for debrief buttons).
+    window.goToModule = function(index) {
+      if (!journeyData || !journeyData.modules) return;
+      if (index < 0 || index >= journeyData.modules.length) return;
+      if (index > 0) {
+        const prevMod = journeyData.modules[index - 1];
+        if (!((userProgress && userProgress.completedModules) || []).includes(prevMod.id)) {
+          cdToast('Complete the previous phase first.');
+          return;
+        }
+      }
+      moduleCompleteDiv.style.display = 'none';
+      const mod = journeyData.modules[index];
+      const el = document.getElementById('phase-group-' + mod.id);
+      const main = document.getElementById('mainContent');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      else if (main) main.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // ================================================================
+    // SHARE, PRODUCTS
+    // ================================================================
+    window.shareAchievement = function() {
+      if (navigator.share) {
+        navigator.share({
+          title: 'I\'m progressing on the Cameras Decoded Missions!',
+          text: `🎉 I just completed a module on Cameras Decoded! Join me and become a confident operator.`,
+          url: window.location.href
+        });
+      } else {
+        navigator.clipboard.writeText(`🎉 I just completed a module on Cameras Decoded! Join me and become a confident operator. https://camerasdecoded.com`).then(() => {
+          cdToast('📋 Link copied to clipboard!');
+        });
+      }
+    };
+
+    window.showProducts = function(stepId) {
+      let step = null;
+      (journeyData.modules || []).forEach(m => {
+        const s = (m.steps || []).find(x => x.id === stepId);
+        if (s) step = s;
+      });
+      if (!step) return;
+      cdToast('📦 Recommended products: ' + (step.recommendedProducts?.join(', ') || 'Coming soon!'));
+    };
+
+    // ================================================================
+    // ASSISTANT
+    // ================================================================
+    function updateAssistantTip() {
+      if (!journeyData || !userProgress) {
+        cynetisMessage.innerHTML = `<strong>Operator,</strong> I'm analyzing your missions. Complete a few steps and I'll have personalized tips.`;
+        return;
+      }
+
+      const mod = journeyData.modules[currentModuleIndex];
+      if (!mod) return;
+
+      const steps = mod.steps;
+      const completed = userProgress.completedSteps || [];
+      const allSteps = steps.map(s => s.id);
+      const completedCount = allSteps.filter(id => completed.includes(id)).length;
+      const totalSteps = allSteps.length;
+
+      let nextStep = null;
+      for (const s of steps) {
+        if (!completed.includes(s.id)) {
+          nextStep = s;
+          break;
+        }
+      }
+
+      let tip = '';
+      if (completedCount === totalSteps && totalSteps > 0) {
+        tip = `You've completed <strong>${mod.title}</strong>! Ready for the next module?`;
+      } else if (nextStep) {
+        const stepTitle = nextStep.title;
+        const stepDesc = nextStep.description || '';
+        let specificAdvice = '';
+        const painPoints = userData?.learningJourney?.painPoints || [];
+        if (painPoints.includes('technical') && nextStep.type === 'video') {
+          specificAdvice = ' Watch closely – this will help with your technical confusion.';
+        } else if (painPoints.includes('creative') && nextStep.type === 'challenge') {
+          specificAdvice = ' Use this challenge to break through creative block.';
+        } else if (painPoints.includes('editing') && nextStep.type === 'text') {
+          specificAdvice = ' This covers editing – right up your alley.';
+        }
+        tip = `Your next step is <strong>${stepTitle}</strong>. ${stepDesc}${specificAdvice}`;
+      } else {
+        tip = `You've completed ${completedCount} of ${totalSteps} steps. Keep going – you're making progress!`;
+      }
+
+      const pct = totalSteps > 0 ? (completedCount / totalSteps) * 100 : 0;
+      if (pct < 25) tip += '<br>Every journey starts with a first step. You\'re building momentum.';
+      else if (pct < 50) tip += '<br>Halfway there! You\'re building real confidence.';
+      else if (pct < 75) tip += '<br>You\'re in the flow. Keep pushing – mastery is near.';
+      else if (pct < 100) tip += '<br>Almost there! The finish line is in sight.';
+
+      cynetisMessage.innerHTML = `<strong>Operator,</strong> ${tip}`;
+    }
+
+    cynetisToggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      assistantOpen = !assistantOpen;
+      cynetisPanel.classList.toggle('open', assistantOpen);
+      cynetisToggle.setAttribute('aria-expanded', String(assistantOpen));
+    });
+
+    const cynetisClose = document.getElementById('cynetisClose');
+    if (cynetisClose) {
+      cynetisClose.addEventListener('click', function(e) {
+        e.stopPropagation();
+        assistantOpen = false;
+        cynetisPanel.classList.remove('open');
+        cynetisToggle.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    document.addEventListener('click', function(e) {
+      const assistant = document.getElementById('cynetisAssistant');
+      if (assistant && !assistant.contains(e.target)) {
+        cynetisPanel.classList.remove('open');
+        assistantOpen = false;
+      }
+    });
+
+    cynetisActions.addEventListener('click', function(e) {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      const action = chip.dataset.action;
+      handleAssistantAction(action);
+    });
+
+    function handleAssistantAction(action) {
+      if (!journeyData || !userProgress) {
+        cdToast('Please wait for your journey to load.');
+        return;
+      }
+
+      const mod = journeyData.modules[currentModuleIndex];
+      const steps = mod.steps;
+      const completed = userProgress.completedSteps || [];
+      const totalSteps = steps.length;
+      const completedCount = completed.filter(id => steps.some(s => s.id === id)).length;
+
+      let response = '';
+      switch (action) {
+        case 'next': {
+          let nextStep = null;
+          for (const s of steps) {
+            if (!completed.includes(s.id)) {
+              nextStep = s;
+              break;
+            }
+          }
+          if (nextStep) {
+            response = `Your next step is <strong>${nextStep.title}</strong>. ${nextStep.description || ''}`;
+          } else {
+            response = `You've completed all steps in this module.`;
+          }
+          break;
+        }
+        case 'explain': {
+          let activeStep = null;
+          for (const s of steps) {
+            const isLocked = s.prerequisites && s.prerequisites.some(pre => !completed.includes(pre));
+            if (!completed.includes(s.id) && !isLocked) {
+              activeStep = s;
+              break;
+            }
+          }
+          if (activeStep) {
+            response = `<strong>${activeStep.title}</strong>: ${activeStep.description || 'No description provided.'}`;
+          } else {
+            response = 'All steps are either completed or locked. Check your prerequisites.';
+          }
+          break;
+        }
+        case 'pain': {
+          const painPoints = userData?.learningJourney?.painPoints || [];
+          if (painPoints.length > 0) {
+            response = `Your pain points: ${painPoints.join(', ')}. I'll keep these in mind.`;
+          } else {
+            response = 'You haven\'t selected any pain points yet. Update your profile to get personalized tips.';
+          }
+          break;
+        }
+        case 'badges': {
+          const earned = userProgress.badgesEarned || [];
+          const totalBadges = Object.keys(window.BADGE_DEFS || {}).length;
+          response = `You've earned <strong>${earned.length}</strong> of ${totalBadges} badges. ${earned.length === totalBadges ? 'Amazing – you\'ve collected them all!' : 'Keep going to unlock the rest!'}`;
+          break;
+        }
+        default:
+          response = 'I\'m here to help. What would you like to know?';
+      }
+      cynetisMessage.innerHTML = `<strong>Cynetis‑7:</strong> ${response}`;
+    }
+
+    // ================================================================
+    // AUTH
+    // ================================================================
+    function updateComponents(user, userData) {
+      if (window.Header && typeof window.Header.setUserData === 'function') {
+        window.Header.setUserData(user, userData);
+      }
+      if (window.BottomNav) {
+        window.BottomNav.updateBadges(userData);
+        window.BottomNav.setRole(userData?.role || 'Operator');
+      }
+    }
+
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        window.location.href = 'login.html?redirect=' + encodeURIComponent('missions.html');
+        return;
+      }
+
+      currentUser = user;
+      try {
+        localStorage.setItem('cameras_decoded_uid', user.uid);
+      } catch (storageErr) {
+        // Storage can be unavailable (private mode, blocked cookies) — the
+        // page must still boot; the uid cache is only a convenience.
+        console.warn('Could not cache uid in localStorage:', storageErr);
+      }
+
+      try {
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          userData = userDoc.data();
+          if (userData.preferredJourneyLevel) {
+            currentLevel = userData.preferredJourneyLevel;
+            if (levelSelect) levelSelect.value = currentLevel;
+          }
+        } else {
+          userData = { name: 'Operator', role: 'Operator', tier: 'free', email: user.email || '' };
+        }
+      } catch (err) {
+        console.warn('Could not load user data:', err);
+        userData = { name: 'Operator', role: 'Operator', tier: 'free', email: user.email || '' };
+      }
+
+      updateComponents(user, userData);
+      renderOperator(user, userData);
+      await loadJourneyData(currentLevel);
+    });
+
+    if (levelSelect) {
+      levelSelect.addEventListener('change', function(e) {
+        const newLevel = e.target.value;
+        if (newLevel !== currentLevel) {
+          moduleCompleteDiv.style.display = 'none';
+          loadJourneyData(newLevel).then(() => renderOperator(currentUser, userData));
+        }
+      });
+    }
+
+    // Operator strip: avatar (auth photo or initial), name, track label.
+    function renderOperator(user, userData) {
+      const name = (userData && userData.name) || (user && user.displayName) || 'Operator';
+      const nameEl = document.getElementById('operatorName');
+      if (nameEl) nameEl.textContent = name;
+      const lvlEl = document.getElementById('operatorLevel');
+      if (lvlEl) lvlEl.textContent = String(currentLevel || 'beginner').toUpperCase() + ' TRACK';
+      const img = document.getElementById('operatorAvatarImg');
+      const initial = document.getElementById('operatorAvatarInitial');
+      const url = user && user.photoURL;
+      if (url && img) {
+        img.onerror = () => { img.hidden = true; if (initial) initial.hidden = false; };
+        img.src = url;
+        img.alt = name;
+        img.hidden = false;
+        if (initial) initial.hidden = true;
+      } else if (initial) {
+        initial.textContent = String(name).trim().charAt(0).toUpperCase() || 'O';
+        initial.hidden = false;
+        if (img) img.hidden = true;
+      }
+    }
+
+    (async function init() {
+      try {
+        const check = await db.collection('journeys').limit(1).get();
+        if (check.empty) {
+          await seedAllJourneyLevels();
+        }
+      } catch (err) {
+        console.warn('Init check failed, will retry on load:', err);
+      }
+    })();
+
+    console.log('Cameras Decoded Missions');
+
+    const checkContainer = setInterval(() => {
+      const container = document.getElementById('bottomNavContainer');
+      if (container) {
+        container.dataset.role = 'operator';
+        if (window.BottomNav && typeof window.BottomNav.setRole === 'function') {
+          window.BottomNav.setRole('Operator');
+        }
+        clearInterval(checkContainer);
+      }
+    }, 100);
+
+  </script>
+  <script src="/scripts/ptr.js"></script>
+</body>
+</html>
