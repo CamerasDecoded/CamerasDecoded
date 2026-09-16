@@ -165,6 +165,45 @@
     if (ringObserver) { ringObserver.disconnect(); ringObserver = null; }
     window.removeEventListener('scroll', markScrolled);
     paintRing(ring, ring.dataset.target || '0', parseFloat(ring.dataset.vtarget || '0'));
+    setGoalCrushed(ring.dataset.crushed === '1');
+  }
+
+  // Goal crushed celebration: swap the ring for the success sting, flip the
+  // copy, and offer the streak-saving drill. Degrades to the full ring if the
+  // video is missing or motion is reduced.
+  function setGoalCrushed(on) {
+    const panel = $('goalPanel');
+    const note = $('goalNote');
+    if (!panel || !note) return;
+    if (on === panel.classList.contains('goal-crushed')) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (on) {
+      panel.classList.add('goal-crushed');
+      if (!reduce && !panel.querySelector('.ring-video')) {
+        const v = document.createElement('video');
+        v.className = 'ring-video';
+        v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+        v.setAttribute('aria-hidden', 'true');
+        const src = document.createElement('source');
+        src.src = '/media/mission-complete-success.mp4';
+        src.type = 'video/mp4';
+        const killVideo = () => { v.remove(); panel.classList.add('goal-crushed-static'); };
+        v.addEventListener('error', killVideo, { once: true });
+        src.addEventListener('error', killVideo, { once: true });
+        v.addEventListener('canplay', () => v.classList.add('on'), { once: true });
+        $('xpRing').appendChild(v);
+      } else {
+        panel.classList.add('goal-crushed-static');
+      }
+      note.innerHTML = '<b>🔥 Goal crushed.</b> Take the streak into tomorrow.<br><button class="btn btn-primary btn-chase chasing-border" id="crushCta" type="button"><i class="fas fa-play" aria-hidden="true"></i> Keep the streak alive</button>';
+      const cta = $('crushCta');
+      if (cta) cta.addEventListener('click', () => openModal('drill'));
+    } else {
+      panel.classList.remove('goal-crushed', 'goal-crushed-static');
+      const v = panel.querySelector('.ring-video');
+      if (v) v.remove();
+      note.innerHTML = '<b id="xpRemaining"></b> to finish today';
+    }
   }
 
   function checkRingVisibility(ring) {
@@ -204,6 +243,85 @@
     }, 3000);
   }
 
+  // Streak nudge: warn when the streak is at risk (streak alive, no XP today),
+  // or invite a first drill when there's no streak yet. Idempotent.
+  function setStreakNudge(streak, xpToday) {
+    const card = $('streakCard');
+    const nudge = $('streakNudge');
+    if (!card || !nudge) return;
+    const state = streak > 0 && xpToday <= 0 ? 'risk' : (streak === 0 && xpToday <= 0 ? 'fresh' : 'ok');
+    if (card.dataset.nudge === state) return;
+    card.dataset.nudge = state;
+    card.classList.toggle('streak-risk', state === 'risk');
+    if (state === 'ok') { nudge.hidden = true; return; }
+    const text = $('streakNudgeText');
+    const label = $('streakNudgeCtaLabel');
+    if (state === 'risk') {
+      if (text) text.innerHTML = '<b>⚠️ Streak at risk.</b> One drill saves it.';
+      if (label) label.textContent = 'Save my streak';
+    } else {
+      if (text) text.innerHTML = '<b>No streak yet.</b> One drill starts it.';
+      if (label) label.textContent = 'Start my streak';
+    }
+    nudge.hidden = false;
+  }
+
+  // 7-day XP sparkline on the Today's-XP stat.
+  // Sources: users/{uid}.xpByDay ledger (drill/lesson XP, written alongside xpToday)
+  // plus game_sessions sums for the last 7 days (game XP backfill; single-field
+  // query so no composite Firestore index is needed).
+  // The two sources are disjoint today (game XP never lands in the ledger), so a
+  // per-day sum is correct. If play.html ever writes the ledger too, switch the
+  // merge from sum to max to avoid double-counting.
+  let sparkReq = 0;
+  function drawSpark(el, values) {
+    const w = 70, h = 24, p = 3;
+    const max = Math.max(...values, 1);
+    const pts = values.map((v, i) => {
+      const x = p + (i * (w - 2 * p)) / (values.length - 1);
+      const y = h - p - (v / max) * (h - 2 * p - 3);
+      return [x.toFixed(1), y.toFixed(1)];
+    });
+    const line = pts.map(pt => pt.join(',')).join(' ');
+    const area = `${p},${h - p} ${line} ${w - p},${h - p}`;
+    const dots = pts.map((pt, i) => {
+      const last = i === pts.length - 1;
+      return `<circle cx="${pt[0]}" cy="${pt[1]}" r="${last ? 2 : 1.1}" fill="${last ? '#8deb00' : 'rgba(141,235,0,.4)'}"/>`;
+    }).join('');
+    el.innerHTML = `<polygon points="${area}" fill="rgba(141,235,0,.10)"/>`
+      + `<polyline points="${line}" fill="none" stroke="#8deb00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
+      + dots;
+    el.setAttribute('aria-label', 'XP over the last 7 days: ' + values.join(', '));
+  }
+  async function loadXpSparkline() {
+    const uid = vm.user && vm.user.uid;
+    const el = $('xpSpark');
+    if (!uid || !el || !window.db) return;
+    const my = ++sparkReq;
+    const days = [];
+    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push(d.toISOString().slice(0, 10)); }
+    const perDay = {};
+    days.forEach(k => { perDay[k] = 0; });
+    const ledger = (vm.raw && vm.raw.xpByDay) || {};
+    days.forEach(k => { if (typeof ledger[k] === 'number') perDay[k] += ledger[k]; });
+    try {
+      const qs = await window.db.collection('game_sessions').where('uid', '==', uid).limit(200).get();
+      qs.forEach(doc => {
+        const s = doc.data() || {};
+        const t = s.createdAt && s.createdAt.toDate ? s.createdAt.toDate() : null;
+        if (!t || typeof s.xp !== 'number') return;
+        const k = t.toISOString().slice(0, 10);
+        if (k in perDay) perDay[k] += s.xp;
+      });
+    } catch (err) { /* offline/denied: sparkline falls back to the ledger */ }
+    if (my !== sparkReq) return;
+    const values = days.map(k => perDay[k]);
+    const sig = values.join(',');
+    if (el.dataset.sig === sig) return;
+    el.dataset.sig = sig;
+    drawSpark(el, values);
+  }
+
   function renderStats() {
     const { streak, xpToday, xpGoal, rank } = vm.stats;
     const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
@@ -214,18 +332,24 @@
     const pct = xpGoal > 0 ? Math.min(100, (xpToday / xpGoal) * 100) : 0;
     const ring = $('xpRing');
     const target = Math.min(xpToday, xpGoal);
+    const crushed = xpGoal > 0 && xpToday >= xpGoal;
     if (ring) {
-      ring.setAttribute('aria-label', `${xpToday} of ${xpGoal} daily experience points earned`);
+      ring.setAttribute('aria-label', crushed
+        ? `Daily goal crushed: ${xpToday} of ${xpGoal} experience points`
+        : `${xpToday} of ${xpGoal} daily experience points earned`);
       if (ring.dataset.revealed === '1') {
         paintRing(ring, pct, target);
+        setGoalCrushed(crushed);
       } else {
         ring.dataset.target = pct;
         ring.dataset.vtarget = target;
+        ring.dataset.crushed = crushed ? '1' : '';
         armRingReveal(ring);
       }
     }
     set('ringGoal', `of ${xpGoal} XP`);
     set('xpRemaining', `${Math.max(xpGoal - xpToday, 0)} XP`);
+    setStreakNudge(streak, xpToday);
   }
 
   function renderLearning() {
@@ -320,13 +444,21 @@
       box.innerHTML = '<p class="empty-state">No recent activity yet.</p>';
       return;
     }
-    box.innerHTML = vm.activity.map(a => `
+    const expanded = box.dataset.expanded === '1';
+    const items = expanded ? vm.activity : vm.activity.slice(0, 3);
+    box.innerHTML = items.map(a => `
       <div class="activity-row">
         <div class="activity-dot"><i class="fas fa-check"></i></div>
         <div><strong>${a.text}</strong><span>${a.time || ''}</span></div>
         ${a.xp ? `<div class="xp">+${a.xp} XP</div>` : '<div></div>'}
       </div>
-    `).join('');
+    `).join('') + (vm.activity.length > 3
+      ? `<button class="text-btn" id="activityToggle" type="button" aria-expanded="${expanded}">${expanded ? 'Show less' : `Show all activity (${vm.activity.length})`}</button>`
+      : '');
+    $('activityToggle')?.addEventListener('click', () => {
+      box.dataset.expanded = expanded ? '0' : '1';
+      renderActivity();
+    });
   }
 
   function renderCollections() {
@@ -430,6 +562,7 @@
   function renderAll() {
     renderIdentity();
     renderStats();
+    loadXpSparkline();
     renderLearning();
     renderJourneyList();
     renderActivity();
@@ -476,6 +609,7 @@
 
   function bindUI() {
     $$('[data-open]').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.open)));
+    $('streakNudgeCta')?.addEventListener('click', () => openModal('drill'));
     $$('[data-close]').forEach(btn => btn.addEventListener('click', () => {
       const scrim = btn.closest('.scrim'); if (scrim) closeModal(scrim);
     }));
@@ -509,6 +643,7 @@
         await window.db.collection('users').doc(uid).update({
           xpToday: firebase.firestore.FieldValue.increment(10),
           totalPoints: firebase.firestore.FieldValue.increment(10),
+          ['xpByDay.' + new Date().toISOString().slice(0, 10)]: firebase.firestore.FieldValue.increment(10),
           recentActivity: firebase.firestore.FieldValue.arrayUnion({
             label: 'Quick drill complete', time: 'Just now', xp: 10
           })
@@ -532,7 +667,8 @@
           }, { merge: true });
           await window.db.collection('users').doc(uid).update({
             xpToday: firebase.firestore.FieldValue.increment(20),
-            totalPoints: firebase.firestore.FieldValue.increment(20)
+            totalPoints: firebase.firestore.FieldValue.increment(20),
+            ['xpByDay.' + new Date().toISOString().slice(0, 10)]: firebase.firestore.FieldValue.increment(20)
           });
           showToast('Lesson marked complete · +20 XP');
         } catch (err) {
