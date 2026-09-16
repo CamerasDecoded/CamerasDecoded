@@ -294,6 +294,13 @@ button{font-family:inherit}
 .campaign-note{margin-top:10px;font-size:12px;color:var(--muted-2);line-height:1.6}
 
 /* ---------- mission path ---------- */
+.phase-banner{display:none;margin:20px 0 0;border-radius:16px;overflow:hidden;position:relative;border:1px solid rgba(141,235,0,.14);box-shadow:0 8px 32px rgba(0,0,0,.45)}
+.phase-banner.show{display:block}
+.phase-banner img{display:block;width:100%;aspect-ratio:21/9;object-fit:cover;opacity:0;transition:opacity .7s ease}
+.phase-banner.loaded img{opacity:1}
+.phase-banner::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,8,5,0) 55%,rgba(5,8,5,.5));pointer-events:none}
+@media (max-width:640px){.phase-banner img{aspect-ratio:16/9}}
+@media (prefers-reduced-motion:reduce){.phase-banner img{transition:none;opacity:1}}
 .path-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin:30px 0 20px}
 .path-head h2{font:800 clamp(19px,4.4vw,24px) var(--font-b);letter-spacing:-.01em}
 .path-head p{color:var(--muted-2);font-size:12.5px;margin-top:4px}
@@ -645,6 +652,11 @@ button{font-family:inherit}
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- phase banner: cinematic track art, swaps with the track selector; hides if the file is missing -->
+    <section class="phase-banner rise" style="--d:.28s" id="phaseBanner" aria-hidden="true">
+      <img id="phaseBannerImg" alt="" />
     </section>
 
     <!-- mission path -->
@@ -1818,6 +1830,7 @@ button{font-family:inherit}
       renderJourneyBadges();
       renderBriefing();
       updateCampaign();
+      renderPhaseBanner();
 
       // Phase completion is detected across the whole path (was: current module only).
       const completedSteps = (userProgress && userProgress.completedSteps) || [];
@@ -2553,6 +2566,28 @@ button{font-family:inherit}
           loadJourneyData(newLevel).then(() => renderOperator(currentUser, userData));
         }
       });
+    }
+
+    // Phase banner: one cinematic image per track. Decorative (track name is
+    // announced in the operator strip), hides itself if the file is missing.
+    const PHASE_BANNERS = {
+      beginner: '/images/missions-banners/banner-beginner.jpg',
+      intermediate: '/images/missions-banners/banner-intermediate.jpg',
+      flash: '/images/missions-banners/banner-flash.jpg',
+      advanced: '/images/missions-banners/banner-advanced.jpg'
+    };
+    function renderPhaseBanner() {
+      const section = document.getElementById('phaseBanner');
+      const img = document.getElementById('phaseBannerImg');
+      if (!section || !img) return;
+      const src = PHASE_BANNERS[currentLevel];
+      section.classList.remove('show', 'loaded');
+      if (!src) return;
+      img.onerror = () => section.classList.remove('show', 'loaded');
+      img.onload = () => section.classList.add('loaded');
+      img.alt = '';
+      img.src = src;
+      section.classList.add('show');
     }
 
     // Operator strip: avatar (auth photo or initial), name, track label.
