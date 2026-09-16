@@ -175,7 +175,8 @@
     const title = next.title || next.name || 'Next lesson';
     const pct = l.total ? (l.completedCount / l.total) * 100 : 0;
 
-    const t = $('heroLessonTitle'); if (t) t.textContent = title;
+    const t = $('heroLessonTitleText'); if (t) t.textContent = title;
+    const ti = $('heroLessonTitleImg'); if (ti) ti.alt = title;
     const d = $('heroLessonDesc'); if (d) d.textContent = 'Continue your journey from where you left off.';
     const e = $('heroEstimate'); if (e) e.textContent = '~5 min left';
     const b = $('heroBadge'); if (b) b.textContent = `LESSON ${String(l.completedCount + 1).padStart(2,'0')} · IN PROGRESS`;
