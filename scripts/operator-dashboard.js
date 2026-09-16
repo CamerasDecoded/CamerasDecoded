@@ -11,6 +11,21 @@
   const $ = (id) => document.getElementById(id);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+  // Animated count-up for gauge numbers (mirrors the animated circular progress bar feel).
+  function animateCount(el, from, to, dur = 900) {
+    if (!el) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || from === to) { el.textContent = to; return; }
+    const start = performance.now();
+    const frame = (now) => {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = Math.round(from + (to - from) * eased);
+      if (t < 1) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }
+
   const vm = {
     user: { uid:'', name:'Operator', email:'', role:'Operator', tier:'free', avatar:'O' },
     stats: { streak:0, xpToday:0, xpGoal:100, rank:'—' },
@@ -140,10 +155,16 @@
     const pct = xpGoal > 0 ? Math.min(100, (xpToday / xpGoal) * 100) : 0;
     const ring = $('xpRing');
     if (ring) {
-      ring.style.setProperty('--p', pct + '%');
+      ring.style.setProperty('--p', pct);
       ring.setAttribute('aria-label', `${xpToday} of ${xpGoal} daily experience points earned`);
     }
-    set('ringValue', Math.min(xpToday, xpGoal));
+    const rv = $('ringValue');
+    const target = Math.min(xpToday, xpGoal);
+    if (rv) {
+      const from = parseFloat(rv.dataset.v || '0');
+      rv.dataset.v = target;
+      animateCount(rv, from, target);
+    }
     set('ringGoal', `of ${xpGoal} XP`);
     set('xpRemaining', `${Math.max(xpGoal - xpToday, 0)} XP`);
   }
