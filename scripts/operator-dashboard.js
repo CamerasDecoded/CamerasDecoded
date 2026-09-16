@@ -394,7 +394,7 @@
       const skillId = next.skillId || next.id;
       cta.href = skillId
         ? `/darkroom.html#skill=${encodeURIComponent(skillId)}`
-        : '/journey.html';
+        : '/missions.html';
     }
     if (ctaLabel) ctaLabel.textContent = 'Continue skill';
   }

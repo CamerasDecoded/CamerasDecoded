@@ -43,13 +43,13 @@
   var GROUPS = [
     { label: 'Navigate', links: [
       { id: 'home',     label: 'Home',          icon: 'fa-grid-2',           href: '/operator-dashboard.html', role: 'dashboard' },
-      { id: 'missions', label: 'Missions',      icon: 'fa-route',            href: '/journey.html' },
+      { id: 'missions', label: 'Missions',      icon: 'fa-route',            href: '/missions.html' },
       { id: 'library',  label: 'Library',       icon: 'fa-book-open',        href: '/protocols.html' }
     ]},
     { label: 'Practice', links: [
       { id: 'darkroom', label: 'The Darkroom',  icon: 'fa-circle-notch',     href: '/darkroom.html' },
       { id: 'arcade',   label: 'Game Arcade',   icon: 'fa-gamepad',          href: '/arcade.html' },
-      { id: 'challenge',label: "Today's Challenge", icon: 'fa-bolt',        href: '/journey.html' },
+      { id: 'challenge',label: "Today's Challenge", icon: 'fa-bolt',        href: '/missions.html' },
       { id: 'quiz',     label: 'Quiz Arena',    icon: 'fa-clipboard-question', href: '/quiz-full.html' }
     ]},
     { label: 'More', links: [
