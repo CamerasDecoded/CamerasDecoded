@@ -381,7 +381,7 @@
 
     const t = $('heroLessonTitleText'); if (t) t.textContent = title;
     const ti = $('heroLessonTitleImg'); if (ti) ti.alt = title;
-    const d = $('heroLessonDesc'); if (d) d.textContent = 'Continue your journey from where you left off.';
+    const d = $('heroLessonDesc'); if (d) d.textContent = 'Your next frame is waiting.';
     const e = $('heroEstimate'); if (e) e.textContent = '~5 min left';
     const b = $('heroBadge'); if (b) b.textContent = `LESSON ${String(l.completedCount + 1).padStart(2,'0')} · IN PROGRESS`;
     const pl = $('heroProgressLabel'); if (pl) pl.textContent = `${l.completedCount} of ${l.total}`;
@@ -456,7 +456,7 @@
     const box = $('activityList');
     if (!box) return;
     if (!vm.activity.length) {
-      box.innerHTML = '<p class="empty-state">No recent activity yet.</p>';
+      box.innerHTML = '<p class="empty-state">Nothing on the wire yet. <a href="/arcade.html" style="color:var(--green);font-weight:700">Run a drill</a> to get on the board.</p>';
       return;
     }
     const expanded = box.dataset.expanded === '1';
@@ -605,6 +605,24 @@
   }
   function announce(msg) { const el = $('dashboardAnnouncements'); if (el) el.textContent = msg; }
 
+  // Entrance choreography: panels rise in a staggered visual sequence once
+  // the dashboard content is revealed. Uses the house ease; skipped entirely
+  // under prefers-reduced-motion.
+  const ENTRANCE_ORDER = ['.hero-block','.goal-panel','.stats-strip','.drill-card','.journey-block','.activity-panel','.challenge-grid','.more-toggle','.workspace-heading','.collections-strip','.ai-section','.protocol-section','.referral-card','.quiz-card','.ambassador-card','.dashboard-footer'];
+  function prepEntrance() {
+    ENTRANCE_ORDER.forEach(sel => { const el = $(sel); if (el) el.classList.add('rise'); });
+  }
+  function playEntrance() {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    ENTRANCE_ORDER
+      .map(sel => $(sel))
+      .filter(el => el && el.offsetParent !== null)
+      .forEach((el, i) => {
+        if (reduce || i === 0) { el.classList.add('in'); return; }
+        setTimeout(() => el.classList.add('in'), i * 55);
+      });
+  }
+
   let lastFocus = null;
   function openModal(id) {
     const modal = document.getElementById(id + 'Modal');
@@ -627,6 +645,7 @@
   }
 
   function bindUI() {
+    prepEntrance();
     $$('[data-open]').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.open)));
     $('streakNudgeCta')?.addEventListener('click', () => openModal('drill'));
     $('moreToggle')?.addEventListener('click', () => {
@@ -636,6 +655,15 @@
       $('moreToggle')?.setAttribute('aria-expanded', String(open));
       const label = $('moreToggleLabel');
       if (label) label.textContent = open ? 'Show less' : 'Show more';
+      if (open) {
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        ['.protocol-section', '.referral-card', '.quiz-card', '.ambassador-card'].forEach((sel, i) => {
+          const el = $(sel);
+          if (!el) return;
+          if (reduce) { el.classList.add('in'); return; }
+          setTimeout(() => el.classList.add('in'), 60 + i * 70);
+        });
+      }
     });
     $('challengeBtn')?.addEventListener('click', openChallengeModal);
     $('challengeCompleteBtn')?.addEventListener('click', async () => {
@@ -810,6 +838,7 @@
         subscribeToUser(user.uid);
         const l = $('loadingState'); if (l) l.hidden = true;
         const c = $('dashboardContent'); if (c) c.hidden = false;
+        playEntrance();
         console.log('[Dashboard] ✅ Ready.');
       } catch (err) {
         console.error('[Dashboard] boot error', err);
