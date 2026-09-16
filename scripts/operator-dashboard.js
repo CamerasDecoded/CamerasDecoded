@@ -437,6 +437,21 @@
     }).join('');
   }
 
+  // Challenge mark-complete flow: the button opens a modal instead of routing
+  // to the waitlist page. Marking complete writes the date log, the streak
+  // (with day-rollover), and XP together so the dots and streak can't disagree.
+  function openChallengeModal() {
+    const u = vm.raw || {};
+    const log = u.challengeLog || u.dailyChallengeLog || [];
+    const todayKey = new Date().toISOString().slice(0, 10);
+    if (Array.isArray(log) && log.includes(todayKey)) return;
+    const name = $('challengeModalName');
+    const desc = $('challengeModalDesc');
+    if (name) name.textContent = $('challengeTitle')?.textContent || 'Daily challenge';
+    if (desc) desc.textContent = $('challengeDesc')?.textContent || '';
+    openModal('challenge');
+  }
+
   function renderActivity() {
     const box = $('activityList');
     if (!box) return;
@@ -501,14 +516,13 @@
     const c = u.dailyChallenge || CHALLENGES[dayIdx];
     const title = c.title || 'Daily challenge';
     const desc = c.description || c.prompt || CHALLENGES[dayIdx].desc;
-    const href = c.href || '/dailyprotocol.html';
 
     const t = $('challengeTitle'); if (t) t.textContent = title;
     const d = $('challengeDesc'); if (d) d.textContent = desc;
     const btn = $('challengeBtn');
     if (btn) {
       if (done) { btn.textContent = 'Completed today'; btn.setAttribute('aria-disabled','true'); btn.style.opacity='0.5'; btn.style.pointerEvents='none'; }
-      else { btn.textContent = 'Start challenge'; btn.href = href; btn.removeAttribute('aria-disabled'); btn.style.opacity=''; btn.style.pointerEvents=''; }
+      else { btn.textContent = 'Start challenge'; btn.removeAttribute('aria-disabled'); btn.style.opacity=''; btn.style.pointerEvents=''; }
     }
 
     const logDays = $('logDays');
@@ -523,7 +537,12 @@
       }
       logDays.innerHTML = html;
     }
-    const ls = $('logStreak'); if (ls) ls.textContent = vm.stats.streak;
+    const ls = $('logStreak');
+    if (ls) {
+      ls.textContent = vm.stats.streak;
+      const unit = $('logStreakUnit');
+      if (unit) unit.textContent = vm.stats.streak === 1 ? 'day' : 'days';
+    }
   }
 
   function renderProtocols() {
@@ -617,6 +636,39 @@
       $('moreToggle')?.setAttribute('aria-expanded', String(open));
       const label = $('moreToggleLabel');
       if (label) label.textContent = open ? 'Show less' : 'Show more';
+    });
+    $('challengeBtn')?.addEventListener('click', openChallengeModal);
+    $('challengeCompleteBtn')?.addEventListener('click', async () => {
+      const uid = vm.user.uid;
+      if (!uid) return;
+      const u = vm.raw || {};
+      const log = u.challengeLog || u.dailyChallengeLog || [];
+      const todayKey = new Date().toISOString().slice(0, 10);
+      if (Array.isArray(log) && log.includes(todayKey)) { closeModal($('challengeModal')); return; }
+      const yd = new Date(); yd.setDate(yd.getDate() - 1);
+      const yKey = yd.toISOString().slice(0, 10);
+      const prevStreak = toNum(pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0));
+      const newStreak = (Array.isArray(log) && log.includes(yKey)) ? prevStreak + 1 : 1;
+      const btn = $('challengeCompleteBtn');
+      if (btn) btn.disabled = true;
+      try {
+        await window.db.collection('users').doc(uid).update({
+          challengeLog: firebase.firestore.FieldValue.arrayUnion(todayKey),
+          dailyChallengeStreak: newStreak,
+          xpToday: firebase.firestore.FieldValue.increment(10),
+          totalPoints: firebase.firestore.FieldValue.increment(10),
+          ['xpByDay.' + todayKey]: firebase.firestore.FieldValue.increment(10),
+          recentActivity: firebase.firestore.FieldValue.arrayUnion({ label: 'Daily challenge complete', time: 'Just now', xp: 10 })
+        });
+        showToast('Challenge complete · +10 XP');
+        announce('Daily challenge complete. Plus 10 XP.');
+        closeModal($('challengeModal'));
+      } catch (err) {
+        console.warn('[Dashboard] Challenge write failed:', err);
+        showToast('Could not save. Check your connection.');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     });
     $$('[data-close]').forEach(btn => btn.addEventListener('click', () => {
       const scrim = btn.closest('.scrim'); if (scrim) closeModal(scrim);
