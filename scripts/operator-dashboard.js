@@ -145,6 +145,37 @@
     const roleEl = $('sidebarRole'); if (roleEl) roleEl.textContent = role;
   }
 
+  let ringObserver = null;
+
+  function paintRing(ring, pct, target) {
+    ring.style.setProperty('--p', pct);
+    const rv = $('ringValue');
+    if (rv) {
+      const from = parseFloat(rv.dataset.v || '0');
+      rv.dataset.v = target;
+      animateCount(rv, from, target);
+    }
+  }
+
+  // First scroll reveal: hold the gauge at 0 until the ring enters the viewport,
+  // then play the arc + count-up exactly once. Later stat updates paint live.
+  function armRingReveal(ring) {
+    if (!ring || ring.dataset.revealed === '1' || ringObserver) return;
+    if (!('IntersectionObserver' in window)) {
+      ring.dataset.revealed = '1';
+      paintRing(ring, ring.dataset.target || '0', parseFloat(ring.dataset.vtarget || '0'));
+      return;
+    }
+    ringObserver = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      ring.dataset.revealed = '1';
+      ringObserver.disconnect();
+      ringObserver = null;
+      paintRing(ring, ring.dataset.target || '0', parseFloat(ring.dataset.vtarget || '0'));
+    }, { threshold: 0.35 });
+    ringObserver.observe(ring);
+  }
+
   function renderStats() {
     const { streak, xpToday, xpGoal, rank } = vm.stats;
     const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
@@ -154,16 +185,16 @@
 
     const pct = xpGoal > 0 ? Math.min(100, (xpToday / xpGoal) * 100) : 0;
     const ring = $('xpRing');
-    if (ring) {
-      ring.style.setProperty('--p', pct);
-      ring.setAttribute('aria-label', `${xpToday} of ${xpGoal} daily experience points earned`);
-    }
-    const rv = $('ringValue');
     const target = Math.min(xpToday, xpGoal);
-    if (rv) {
-      const from = parseFloat(rv.dataset.v || '0');
-      rv.dataset.v = target;
-      animateCount(rv, from, target);
+    if (ring) {
+      ring.setAttribute('aria-label', `${xpToday} of ${xpGoal} daily experience points earned`);
+      if (ring.dataset.revealed === '1') {
+        paintRing(ring, pct, target);
+      } else {
+        ring.dataset.target = pct;
+        ring.dataset.vtarget = target;
+        armRingReveal(ring);
+      }
     }
     set('ringGoal', `of ${xpGoal} XP`);
     set('xpRemaining', `${Math.max(xpGoal - xpToday, 0)} XP`);
