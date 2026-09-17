@@ -391,6 +391,25 @@
 
     card.classList.add('chasing-border');
 
+    // Hero photo follows the user's current mission track, matching the
+    // banner art on the Missions page. Falls back to beginner, then hides.
+    const TRACK_BANNERS = {
+      beginner: '/images/mission-banners/banner-beginner.jpg',
+      intermediate: '/images/mission-banners/banner-intermediate.jpg',
+      flash: '/images/mission-banners/banner-flash.jpg',
+      advanced: '/images/mission-banners/banner-advanced.jpg'
+    };
+    const photoImg = card.querySelector('.resume-photo img');
+    if (photoImg) {
+      const src = TRACK_BANNERS[l.level] || TRACK_BANNERS.beginner;
+      photoImg.onerror = () => {
+        if (!photoImg.src.endsWith('banner-beginner.jpg')) photoImg.src = TRACK_BANNERS.beginner;
+        else photoImg.style.display = 'none';
+      };
+      if (photoImg.getAttribute('src') !== src) photoImg.src = src;
+      photoImg.alt = (l.title || 'Mission') + ' track artwork';
+    }
+
     if (!hasNext) {
       if (inner) inner.hidden = true;
       if (photo) photo.hidden = true;
