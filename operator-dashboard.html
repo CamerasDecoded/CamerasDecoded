@@ -321,6 +321,51 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="sr-only" id="dashboardAnnouncements" aria-live="polite"></div>
 
+  <style>
+    #sysOnlineSting{position:fixed;inset:0;z-index:200;background:#000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .45s ease}
+    #sysOnlineSting[hidden]{display:none}
+    #sysOnlineSting.on{opacity:1;pointer-events:auto}
+    #sysOnlineSting.leaving{opacity:0;pointer-events:none}
+    #sysOnlineSting video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+    #sysOnlineSting .sting-kicker{position:absolute;z-index:2;left:0;right:0;bottom:96px;text-align:center;font:700 13px 'Space Mono',monospace;letter-spacing:.34em;color:#fff;text-transform:uppercase;text-shadow:0 2px 18px rgba(0,0,0,.9)}
+    #sysOnlineSting .sting-skip{position:absolute;z-index:2;left:0;right:0;bottom:30px;text-align:center;font:600 10.5px 'Space Mono',monospace;letter-spacing:.22em;color:rgba(255,255,255,.45);text-transform:uppercase}
+  </style>
+  <div id="sysOnlineSting" role="dialog" aria-modal="true" aria-label="Signed in" hidden>
+    <video id="sysOnlineVideo" muted playsinline preload="auto" aria-hidden="true"></video>
+    <div class="sting-kicker">SYSTEM ONLINE</div>
+    <div class="sting-skip">tap to continue</div>
+  </div>
+  <script>
+    // SYSTEM ONLINE sting: plays once right after a fresh login (flag set by login.html).
+    (function () {
+      let flag = null;
+      try { flag = sessionStorage.getItem('cd_system_online'); sessionStorage.removeItem('cd_system_online'); } catch (e) {}
+      if (!flag) return;
+      const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const sting = document.getElementById('sysOnlineSting');
+      if (reduceMotion || !sting) return;
+      const vid = document.getElementById('sysOnlineVideo');
+      let done = false;
+      const finish = () => {
+        if (done) return; done = true;
+        sting.classList.add('leaving');
+        setTimeout(() => { sting.classList.remove('on', 'leaving'); sting.hidden = true; }, 450);
+      };
+      vid.innerHTML = '';
+      const srcEl = document.createElement('source');
+      srcEl.src = '/media/system-online-success.mp4'; srcEl.type = 'video/mp4';
+      srcEl.addEventListener('error', finish);
+      vid.appendChild(srcEl);
+      vid.onended = finish;
+      sting.onclick = finish;
+      sting.hidden = false;
+      requestAnimationFrame(() => sting.classList.add('on'));
+      setTimeout(finish, 3600); // backstop: stings are 3.0s
+      try { vid.load(); const p = vid.play(); if (p && p.catch) p.catch(finish); }
+      catch (e) { finish(); }
+    })();
+  </script>
+
   <script defer src="/scripts/bottom-nav.js?v=20260912d"></script>
 </body>
 </html>
