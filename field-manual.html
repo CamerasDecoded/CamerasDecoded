@@ -427,7 +427,7 @@ body{
   }
 
   function freshProgress(){
-    return { completedLessons:[], quizBest:{}, perfectBonus:[], chapterBonus:[], lastLesson:null };
+    return { completedLessons:[], quizBest:{}, perfectBonus:[], chapterBonus:[], lastLesson:null, xpClaims:{} };
   }
 
   function lessonById(id){
@@ -482,8 +482,26 @@ body{
         progress.perfectBonus = p.perfectBonus||[];
         progress.chapterBonus = p.chapterBonus||[];
         progress.lastLesson = p.lastLesson||null;
+        progress.xpClaims = p.xpClaims||{};
       }
     }catch(e){}
+    /* one-time backfill: anything the old claim arrays (or a legacy perfect best)
+       say was already paid gets a permanent ledger entry, so a reset can never re-pay it. */
+    if(migrateXpClaims()) await saveProgress();
+  }
+
+  function migrateXpClaims(){
+    var c = progress.xpClaims || (progress.xpClaims = {});
+    var changed = false;
+    var mark = function(k){ if(!c[k]){ c[k] = true; changed = true; } };
+    progress.completedLessons.forEach(function(id){ mark("lesson:"+id); });
+    progress.perfectBonus.forEach(function(id){ mark("perfect:"+id); });
+    progress.chapterBonus.forEach(function(id){ mark("chapter:"+id); });
+    Object.keys(progress.quizBest).forEach(function(id){
+      var l = lessonById(id);
+      if(l && progress.quizBest[id] === l.quiz.questions.length) mark("perfect:"+id);
+    });
+    return changed;
   }
 
   async function saveProgress(){
@@ -496,6 +514,7 @@ body{
         perfectBonus: progress.perfectBonus,
         chapterBonus: progress.chapterBonus,
         lastLesson: progress.lastLesson,
+        xpClaims: progress.xpClaims,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge:true });
     }catch(e){}
@@ -703,20 +722,22 @@ body{
   async function resetChapter(){
     var ids = chapter.lessons.map(function(l){ return l.id; });
     progress.completedLessons = progress.completedLessons.filter(function(id){ return ids.indexOf(id) === -1; });
-    progress.perfectBonus = progress.perfectBonus.filter(function(id){ return ids.indexOf(id) === -1; });
     ids.forEach(function(id){ delete progress.quizBest[id]; });
     if(progress.lastLesson && ids.indexOf(progress.lastLesson) !== -1) progress.lastLesson = null;
-    /* chapterBonus stays claimed: no re-farming the +25 */
+    /* chapterBonus + the XP ledger are append-only: resets clear curriculum state,
+       never payment history — nothing can be re-farmed. */
     await saveProgress();
     renderChapter();
     toast("Chapter reset — run it back.");
   }
 
   async function resetAllProgress(){
+    var claims = progress.xpClaims;   /* ledger survives: banked XP can never be re-earned */
     progress = freshProgress();
+    progress.xpClaims = claims;
     await saveProgress();
     renderChapter();
-    toast("Field Manual reset. Clean signal.");
+    toast("Field Manual reset. Banked XP stays.");
   }
 
   function renderLessonPage(lesson, pageIdx){
@@ -865,8 +886,8 @@ body{
     var total = st.lesson.quiz.questions.length;
     var perfect = st.score === total;
     var show = function(){
-    var alreadyDone = progress.completedLessons.indexOf(st.lesson.id) !== -1;
-    var bonusClaimed = progress.perfectBonus.indexOf(st.lesson.id) !== -1;
+    var alreadyDone = !!progress.xpClaims["lesson:"+st.lesson.id];
+    var bonusClaimed = !!progress.xpClaims["perfect:"+st.lesson.id];
     var prevBest = progress.quizBest[st.lesson.id] || 0;
     var h = '<p class="fm-kicker">' + esc(st.lesson.title) + ' · System Check</p>';
     h += '<h1 class="fm-title" style="font-size:24px">System check complete</h1>';
@@ -926,24 +947,32 @@ body{
     var prevBest = progress.quizBest[id] || 0;
     var result = { gained:0, lines:[], perfect:false, already:already,
                    score:score, total:total, newBest:score > prevBest, mastered:isPerfect };
+    /* The XP ledger is the only payment authority: it is append-only and survives
+       every reset, so nothing can ever pay twice. Curriculum arrays below only
+       drive UI state (done rows, mastery, bonus-secured card). */
+    var claimed = function(k){ return !!progress.xpClaims[k]; };
     if(!already){
-      result.gained += LESSON_XP;
-      result.lines.push(["Lesson decoded", "+" + LESSON_XP + " XP"]);
       progress.completedLessons.push(id);
     }
-    /* perfect bonus is once-ever, but can be claimed on any replay */
-    if(isPerfect && progress.perfectBonus.indexOf(id) === -1){
+    if(!claimed("lesson:"+id)){
+      result.gained += LESSON_XP;
+      result.lines.push(["Lesson decoded", "+" + LESSON_XP + " XP"]);
+      progress.xpClaims["lesson:"+id] = true;
+    }
+    /* perfect bonus pays once ever — claimable on any replay, never again after */
+    if(isPerfect && !claimed("perfect:"+id)){
       result.perfect = true;
       result.gained += PERFECT_BONUS;
       result.lines.push(["Perfect system check", "+" + PERFECT_BONUS + " XP"]);
-      progress.perfectBonus.push(id);
+      progress.xpClaims["perfect:"+id] = true;
     }
     if(score > prevBest) progress.quizBest[id] = score;
     progress.lastLesson = id;
 
     var allDone = chapter.lessons.every(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; });
-    if(allDone && progress.chapterBonus.indexOf(chapter.id) === -1){
-      progress.chapterBonus.push(chapter.id);
+    if(allDone && progress.chapterBonus.indexOf(chapter.id) === -1) progress.chapterBonus.push(chapter.id);
+    if(allDone && !claimed("chapter:"+chapter.id)){
+      progress.xpClaims["chapter:"+chapter.id] = true;
       result.gained += CHAPTER_BONUS;
       result.lines.push(["Chapter complete — " + chapter.title, "+" + CHAPTER_BONUS + " XP"]);
     }
