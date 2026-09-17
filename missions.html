@@ -136,14 +136,33 @@ button{font-family:inherit}
 .op-id{min-width:0;flex:1 1 130px}
 .op-name{font:800 15px var(--font-b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .op-level{font:700 10.5px var(--font-d);letter-spacing:.16em;color:var(--muted-2);margin-top:3px}
+.op-level-wrap{position:relative;display:inline-flex;align-items:center;border-radius:10px}
+/* Chasing border: rotating conic ring, masked to the edge */
+@property --op-angle{syntax:'<angle>';initial-value:0deg;inherits:false}
+.op-level-wrap::before{
+  content:'';position:absolute;inset:-0.5px;border-radius:inherit;padding:0.5px;
+  background:conic-gradient(from var(--op-angle),transparent 20%,var(--green) 40%,transparent 60%,var(--green) 80%,transparent 100%);
+  -webkit-mask:linear-gradient(#000,#000) content-box,linear-gradient(#000,#000);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  animation:opSpin 6s linear infinite;pointer-events:none;opacity:.35;
+}
+@keyframes opSpin{to{--op-angle:360deg}}
 .op-level-select{
   appearance:none;-webkit-appearance:none;cursor:pointer;
-  background:rgba(255,255,255,.05) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238deb00' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;
-  border:1px solid var(--border-strong);border-radius:10px;color:#fff;
+  background:rgba(255,255,255,.05);
+  border:1px solid transparent;border-radius:10px;color:#fff;
   font:700 11px var(--font-d);letter-spacing:.1em;
   padding:10px 32px 10px 14px;text-transform:uppercase;
 }
 .op-level-select option{background:#101010;color:#fff}
+/* Springy chevron: real element so it can move (background SVGs can't animate) */
+.op-level-chev{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;pointer-events:none;animation:opBob 2.4s cubic-bezier(.34,1.3,.44,1) infinite}
+.op-level-chev svg{display:block;overflow:visible}
+@keyframes opBob{0%,100%{transform:translateY(-50%)}50%{transform:translateY(calc(-50% + 3px))}}
+@media (prefers-reduced-motion:reduce){
+  .op-level-wrap::before{animation:none;opacity:.3}
+  .op-level-chev{animation:none}
+}
 .op-stats{display:flex;gap:8px;flex:1 1 100%;justify-content:stretch}
 .op-stat{
   flex:1;display:flex;align-items:center;gap:9px;
@@ -610,12 +629,15 @@ button{font-family:inherit}
         <div class="op-level" id="operatorLevel">BEGINNER TRACK</div>
       </div>
       <label class="sr-only" for="levelSelect">Mission track</label>
-      <select id="levelSelect" class="op-level-select" aria-label="Mission track">
-        <option value="beginner">Beginner</option>
-        <option value="intermediate">Intermediate</option>
-        <option value="flash">Flash Protocol</option>
-        <option value="advanced">Advanced</option>
-      </select>
+      <span class="op-level-wrap" id="levelWrap">
+        <select id="levelSelect" class="op-level-select" aria-label="Mission track">
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="flash">Flash Protocol</option>
+          <option value="advanced">Advanced</option>
+        </select>
+        <span class="op-level-chev" aria-hidden="true"><svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="#8deb00" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span>
+      </span>
       <div class="op-stats">
         <div class="op-stat" aria-label="Total points">
           <i class="fas fa-star" aria-hidden="true"></i>
