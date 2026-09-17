@@ -105,6 +105,14 @@ body{
   border:1px solid var(--line2);color:var(--neon);font-size:15px;
 }
 .fm-lesson-row.done .fm-lesson-ico{background:rgba(141,235,0,.12)}
+.fm-lesson-row.mastered .fm-lesson-ico{background:rgba(230,185,61,.14);border-color:rgba(230,185,61,.5);color:#e6b93d}
+.fm-lesson-row.mastered .fm-lesson-sub{color:#e6b93d}
+.fm-badge{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;border:1px solid var(--line2);border-radius:99px;padding:5px 11px;margin:6px 4px 0;color:var(--dim)}
+.fm-badge.gold{color:#e6b93d;border-color:rgba(230,185,61,.5);background:rgba(230,185,61,.1)}
+.fm-badge.green{color:var(--neon);border-color:rgba(141,235,0,.45);background:rgba(141,235,0,.08)}
+.fm-reset-row{display:flex;justify-content:center;align-items:center;gap:14px;margin:26px 0 6px}
+.fm-reset-row .fm-dot{color:var(--faint);font-size:12px}
+.fm-quiet.armed{color:#ff8a8a!important}
 .fm-lesson-main{flex:1;min-width:0}
 .fm-lesson-title{font-weight:700;font-size:15.5px}
 .fm-lesson-sub{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-top:3px;letter-spacing:.06em}
@@ -290,6 +298,7 @@ body{
       <div id="fm-ch-continue"></div>
       <div id="fm-ch-lessons"></div>
       <div id="fm-ch-bonus"></div>
+      <div id="fm-ch-reset"></div>
       <a class="fm-quiet" href="/missions.html">Back to Missions</a>
     </section>
 
@@ -351,7 +360,7 @@ body{
   }
 
   function freshProgress(){
-    return { completedLessons:[], quizBest:{}, chapterBonus:[], lastLesson:null };
+    return { completedLessons:[], quizBest:{}, perfectBonus:[], chapterBonus:[], lastLesson:null };
   }
 
   function lessonById(id){
@@ -403,6 +412,7 @@ body{
         var p = snap.data()||{};
         progress.completedLessons = p.completedLessons||[];
         progress.quizBest = p.quizBest||{};
+        progress.perfectBonus = p.perfectBonus||[];
         progress.chapterBonus = p.chapterBonus||[];
         progress.lastLesson = p.lastLesson||null;
       }
@@ -416,6 +426,7 @@ body{
       await d.collection("guideProgress").doc(user.uid).set({
         completedLessons: progress.completedLessons,
         quizBest: progress.quizBest,
+        perfectBonus: progress.perfectBonus,
         chapterBonus: progress.chapterBonus,
         lastLesson: progress.lastLesson,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -465,7 +476,8 @@ body{
 
     var total = chapter.lessons.length;
     var done = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; }).length;
-    $("fm-ch-count").textContent = done + " of " + total + " decoded";
+    var masteredCount = chapter.lessons.filter(function(l){ return progress.quizBest[l.id] === l.quiz.questions.length; }).length;
+    $("fm-ch-count").textContent = done + " of " + total + " decoded" + (masteredCount ? " · " + masteredCount + " mastered" : "");
     $("fm-ch-bar").style.width = total ? Math.round(done/total*100) + "%" : "0%";
 
     var cont = "";
@@ -489,11 +501,14 @@ body{
     $("fm-ch-lessons").innerHTML = chapter.lessons.map(function(l){
       var isDone = progress.completedLessons.indexOf(l.id) !== -1;
       var best = progress.quizBest[l.id];
-      var sub = isDone
-        ? "DECODED" + (best != null ? " · SYSTEM CHECK " + best + "/" + l.quiz.questions.length : "")
-        : "LESSON · SYSTEM CHECK";
-      return '<button class="fm-lesson-row' + (isDone ? " done" : "") + '" data-lesson="' + l.id + '">'
-        + '<span class="fm-lesson-ico"><i class="fa-solid ' + (isDone ? "fa-check" : "fa-play") + '" aria-hidden="true"></i></span>'
+      var mastered = best === l.quiz.questions.length;
+      var sub = mastered
+        ? "MASTERED · SYSTEM CHECK " + best + "/" + l.quiz.questions.length
+        : (isDone
+            ? "DECODED" + (best != null ? " · SYSTEM CHECK " + best + "/" + l.quiz.questions.length : "")
+            : "LESSON · SYSTEM CHECK");
+      return '<button class="fm-lesson-row' + (isDone ? " done" : "") + (mastered ? " mastered" : "") + '" data-lesson="' + l.id + '">'
+        + '<span class="fm-lesson-ico"><i class="fa-solid ' + (mastered ? "fa-medal" : (isDone ? "fa-check" : "fa-play")) + '" aria-hidden="true"></i></span>'
         + '<span class="fm-lesson-main"><span class="fm-lesson-title">' + esc(l.title) + '</span>'
         + '<span class="fm-lesson-sub" style="display:block">' + sub + '</span></span>'
         + '<span class="fm-lesson-xp">+' + l.xp + ' XP</span></button>';
@@ -513,6 +528,12 @@ body{
       bonus = '<div class="fm-card"><p class="fm-block" style="margin:0;color:var(--dim)">All lessons decoded. Your chapter bonus lands with your next lesson completion.</p></div>';
     }
     $("fm-ch-bonus").innerHTML = bonus;
+    $("fm-ch-reset").innerHTML = '<div class="fm-reset-row">'
+      + '<button class="fm-quiet" id="fm-reset-chapter" style="background:none;border:0;cursor:pointer;font-size:12px">Reset chapter</button>'
+      + '<span class="fm-dot" aria-hidden="true">·</span>'
+      + '<button class="fm-quiet" id="fm-reset-all" style="background:none;border:0;cursor:pointer;font-size:12px">Reset all progress</button></div>';
+    armConfirm($("fm-reset-chapter"), "Tap again to reset chapter", resetChapter);
+    armConfirm($("fm-reset-all"), "Tap again — banked XP stays", resetAllProgress);
     showView("fm-chapter");
   }
 
@@ -528,6 +549,47 @@ body{
   function openLesson(lesson, pageIdx){
     quizState = null;
     renderLessonPage(lesson, pageIdx || 0);
+  }
+
+  function quizPageIdx(lesson){
+    var pages = lessonPages(lesson);
+    for(var i=0;i<pages.length;i++) if(pages[i].type === "quiz") return i;
+    return 0;
+  }
+
+  /* two-tap inline confirm: first tap arms, second executes, auto-disarms */
+  function armConfirm(btn, armedLabel, fn){
+    var orig = btn.textContent, armed = false, timer = null;
+    btn.addEventListener("click", function(){
+      if(!armed){
+        armed = true;
+        btn.textContent = armedLabel;
+        btn.classList.add("armed");
+        timer = setTimeout(function(){ armed = false; btn.textContent = orig; btn.classList.remove("armed"); }, 4000);
+        return;
+      }
+      clearTimeout(timer);
+      fn();
+    });
+  }
+
+  async function resetChapter(){
+    var ids = chapter.lessons.map(function(l){ return l.id; });
+    progress.completedLessons = progress.completedLessons.filter(function(id){ return ids.indexOf(id) === -1; });
+    progress.perfectBonus = progress.perfectBonus.filter(function(id){ return ids.indexOf(id) === -1; });
+    ids.forEach(function(id){ delete progress.quizBest[id]; });
+    if(progress.lastLesson && ids.indexOf(progress.lastLesson) !== -1) progress.lastLesson = null;
+    /* chapterBonus stays claimed: no re-farming the +25 */
+    await saveProgress();
+    renderChapter();
+    toast("Chapter reset — run it back.");
+  }
+
+  async function resetAllProgress(){
+    progress = freshProgress();
+    await saveProgress();
+    renderChapter();
+    toast("Field Manual reset. Clean signal.");
   }
 
   function renderLessonPage(lesson, pageIdx){
@@ -676,14 +738,21 @@ body{
     var total = st.lesson.quiz.questions.length;
     var perfect = st.score === total;
     var show = function(){
+    var alreadyDone = progress.completedLessons.indexOf(st.lesson.id) !== -1;
+    var bonusClaimed = progress.perfectBonus.indexOf(st.lesson.id) !== -1;
+    var prevBest = progress.quizBest[st.lesson.id] || 0;
     var h = '<p class="fm-kicker">' + esc(st.lesson.title) + ' · System Check</p>';
     h += '<h1 class="fm-title" style="font-size:24px">System check complete</h1>';
     h += '<p class="fm-score">SCORE &middot; ' + st.score + ' OF ' + total + '</p>';
     h += '<div class="fm-card" style="margin-top:16px">'
-      + '<div class="fm-xpline"><span>Lesson decoded</span><b>+' + LESSON_XP + ' XP</b></div>'
-      + (st.score === total
+      + (alreadyDone
+          ? '<div class="fm-xpline"><span>Replay · best ' + prevBest + '/' + total + '</span><span>no repeat XP</span></div>'
+          : '<div class="fm-xpline"><span>Lesson decoded</span><b>+' + LESSON_XP + ' XP</b></div>')
+      + (perfect && !bonusClaimed
           ? '<div class="fm-xpline"><span>Perfect system check</span><b>+' + PERFECT_BONUS + ' XP</b></div>'
-          : '<div class="fm-xpline"><span>Perfect bonus</span><span>missed</span></div>')
+          : (perfect
+              ? '<div class="fm-xpline"><span>Perfect system check</span><span>bonus claimed</span></div>'
+              : '<div class="fm-xpline"><span>Perfect bonus</span><span>missed</span></div>'))
       + '</div>';
     h += '<button class="fm-btn" id="fm-complete">Complete Lesson</button>';
     h += '<button class="fm-quiet" id="fm-retry" style="background:none;border:0;width:100%;cursor:pointer">Retake system check</button>';
@@ -724,20 +793,25 @@ body{
   /* ---------------- done + XP ---------------- */
   async function awardLesson(lesson, score){
     var id = lesson.id;
+    var total = lesson.quiz.questions.length;
+    var isPerfect = score === total;
     var already = progress.completedLessons.indexOf(id) !== -1;
-    var result = { gained:0, lines:[], perfect:false, already:already };
+    var prevBest = progress.quizBest[id] || 0;
+    var result = { gained:0, lines:[], perfect:false, already:already,
+                   score:score, total:total, newBest:score > prevBest, mastered:isPerfect };
     if(!already){
       result.gained += LESSON_XP;
       result.lines.push(["Lesson decoded", "+" + LESSON_XP + " XP"]);
-      if(score === lesson.quiz.questions.length){
-        result.perfect = true;
-        result.gained += PERFECT_BONUS;
-        result.lines.push(["Perfect system check", "+" + PERFECT_BONUS + " XP"]);
-      }
       progress.completedLessons.push(id);
     }
-    var best = progress.quizBest[id] || 0;
-    if(score > best) progress.quizBest[id] = score;
+    /* perfect bonus is once-ever, but can be claimed on any replay */
+    if(isPerfect && progress.perfectBonus.indexOf(id) === -1){
+      result.perfect = true;
+      result.gained += PERFECT_BONUS;
+      result.lines.push(["Perfect system check", "+" + PERFECT_BONUS + " XP"]);
+      progress.perfectBonus.push(id);
+    }
+    if(score > prevBest) progress.quizBest[id] = score;
     progress.lastLesson = id;
 
     var allDone = chapter.lessons.every(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; });
@@ -935,28 +1009,40 @@ body{
 
   function renderDone(lesson){
     var r = lastAward || { gained:0, lines:[], perfect:false, already:true };
+    if(!r.total) r.total = lesson.quiz.questions.length;
+    r.score = r.score || 0;
     var titleText = r.already ? "Lesson reviewed" : "Lesson decoded";
     var h = '<div class="fm-done-hero rise-in" style="--d:.05s">'
       + '<img src="/cynetis-avatar.png" alt="Cynetis-7" onerror="this.style.display=\'none\'" />'
       + '<p class="fm-kicker">Cynetis-7</p>'
       + '<h1 class="fm-title" style="font-size:26px" aria-label="' + titleText + '"><span id="fm-decode" aria-hidden="true">' + titleText + '</span></h1>'
       + '<p class="fm-sub">' + esc(lesson.title) + ' — ' + esc(chapter.title) + '</p></div>';
+    /* score card: always shown — this is the redemption readout */
+    var best = progress.quizBest[lesson.id] || r.score;
+    h += '<div class="fm-card rise-in" style="--d:.14s;text-align:center">'
+      + '<p class="fm-kicker" style="margin-bottom:6px">System check</p>'
+      + '<p class="fm-title" style="font-size:22px;margin:0">' + r.score + '<span style="color:var(--faint)">/' + r.total + '</span></p>'
+      + '<div>'
+      + (r.mastered ? '<span class="fm-badge gold">Mastered</span>' : '')
+      + (r.newBest ? '<span class="fm-badge green">New best</span>' : '')
+      + ((!r.newBest && best > r.score) ? '<span class="fm-badge">Best ' + best + '/' + r.total + '</span>' : '')
+      + '</div></div>';
     if(r.lines.length){
       h += '<div class="fm-card rise-in" style="--d:.18s">'
         + r.lines.map(function(l){
             return '<div class="fm-xpline"><span>' + esc(l[0]) + '</span><b>' + esc(l[1]) + '</b></div>';
           }).join("")
         + '<div class="fm-xpline total"><span class="fm-shimmer">Total</span><b id="fm-xp-total" class="fm-shimmer">+0 XP</b></div></div>';
-    } else {
-      h += '<div class="fm-card rise-in" style="--d:.18s"><p class="fm-block" style="margin:0;color:var(--dim)">Already decoded — no repeat XP. The signal holds.</p></div>';
     }
     var next = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) === -1; })[0];
     if(next) h += '<button class="fm-btn rise-in" style="--d:.3s" id="fm-done-next">Next Lesson — ' + esc(next.title) + '</button>';
+    h += '<button class="fm-quiet rise-in" id="fm-done-retry" style="--d:.34s;background:none;border:0;width:100%;cursor:pointer">Retake system check</button>';
     h += '<button class="fm-quiet rise-in" id="fm-done-back" style="--d:.38s;background:none;border:0;width:100%;cursor:pointer">Back to chapter</button>';
     /* wire after paint via delegation below */
     setTimeout(function(){
       var nx = $("fm-done-next");
       if(nx) nx.addEventListener("click", function(){ openLesson(next, 0); });
+      $("fm-done-retry").addEventListener("click", function(){ openLesson(lesson, quizPageIdx(lesson)); });
       $("fm-done-back").addEventListener("click", function(){ renderChapter(); });
       decodeText($("fm-decode"));
       var xpEl = $("fm-xp-total");
