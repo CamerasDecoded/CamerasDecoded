@@ -207,6 +207,27 @@ body{
   animation:fmspin 1s linear infinite;
 }
 @keyframes fmspin{to{transform:rotate(360deg)}}
+/* ---------- celebration layer ---------- */
+.fm-choice{transition:transform .12s ease,border-color .2s ease,background .2s ease}
+.fm-choice:active{transform:scale(.97)}
+.fm-choice.picked-correct{animation:fmPulse .55s ease}
+.fm-choice.picked-wrong{animation:fmShake .4s ease}
+@keyframes fmPulse{0%{box-shadow:0 0 0 0 rgba(141,235,0,.55)}100%{box-shadow:0 0 0 16px rgba(141,235,0,0)}}
+@keyframes fmShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}55%{transform:translateX(4px)}80%{transform:translateX(-2px)}}
+.rise-in{animation:fmRise .55s cubic-bezier(.2,.7,.3,1) both;animation-delay:var(--d,0s)}
+@keyframes fmRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+#fmSting{position:fixed;inset:0;z-index:10000;background:#000;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .45s ease}
+#fmSting.on{opacity:1}
+#fmSting.leaving{opacity:0}
+#fmSting[hidden]{display:none}
+#fmSting video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#fmSting .sting-kicker{position:absolute;z-index:2;left:0;right:0;bottom:96px;text-align:center;font:700 13px var(--mono);letter-spacing:.34em;color:#fff;text-transform:uppercase;text-shadow:0 2px 18px rgba(0,0,0,.9);opacity:0;animation:stingKick 1s ease .35s forwards}
+@keyframes stingKick{to{opacity:1}}
+#fmSting .sting-skip{position:absolute;z-index:2;left:0;right:0;bottom:30px;text-align:center;font:600 10.5px var(--mono);letter-spacing:.22em;color:rgba(255,255,255,.45);text-transform:uppercase}
+#fmConfetti{position:fixed;inset:0;z-index:9998;pointer-events:none}
+#fmConfetti[hidden]{display:none}
+.fm-sound{background:none;border:1px solid var(--line);border-radius:10px;color:var(--dim);width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.fm-sound.off{color:rgba(255,255,255,.22)}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
   .fm-bar i{transition:none}
@@ -275,12 +296,20 @@ body{
       <div class="fm-page-head">
         <button class="fm-back" id="fm-back" aria-label="Back to chapter"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
         <div class="fm-dots" id="fm-dots" aria-hidden="true"></div>
+        <button class="fm-sound" id="fm-sound" aria-label="Toggle sound" aria-pressed="true"><i class="fa-solid fa-volume-high" aria-hidden="true"></i></button>
       </div>
       <div id="fm-lesson-body"></div>
     </section>
   </main>
 
   <div class="fm-toast" id="fm-toast" role="status"></div>
+
+  <div id="fmSting" role="dialog" aria-modal="true" aria-label="Celebration" hidden>
+    <video id="fmStingVideo" muted playsinline preload="auto" aria-hidden="true"></video>
+    <div class="sting-kicker" id="fmStingKicker">SIGNAL DECODED</div>
+    <div class="sting-skip">tap to continue</div>
+  </div>
+  <canvas id="fmConfetti" hidden></canvas>
 
   <script>
 (function(){
@@ -339,6 +368,7 @@ body{
     }
     chapter = GUIDE_DATA.chapters[0];
     $("fm-back").addEventListener("click", function(){ renderChapter(); });
+    wireSoundToggle();
     var auth = (typeof window.auth !== "undefined") ? window.auth : null;
     if(auth && auth.onAuthStateChanged){ auth.onAuthStateChanged(boot); }
     else { boot(null); }
@@ -624,8 +654,10 @@ body{
     if(choiceIdx === q.answer){
       picked.classList.add("picked-correct");
       st.score++;
+      sfx("correct");
     } else {
       picked.classList.add("picked-wrong");
+      sfx("wrong");
     }
     var isLast = st.qi === st.lesson.quiz.questions.length - 1;
     $("fm-qfoot").innerHTML =
@@ -640,6 +672,8 @@ body{
   function renderQuizResults(){
     var st = quizState;
     var total = st.lesson.quiz.questions.length;
+    var perfect = st.score === total;
+    var show = function(){
     var h = '<p class="fm-kicker">' + esc(st.lesson.title) + ' · System Check</p>';
     h += '<h1 class="fm-title" style="font-size:24px">System check complete</h1>';
     h += '<p class="fm-score">SCORE &middot; ' + st.score + ' OF ' + total + '</p>';
@@ -656,12 +690,33 @@ body{
       $("fm-complete").disabled = true;
       lastAward = await awardLesson(st.lesson, st.score);
       var pages = lessonPages(st.lesson);
-      renderLessonPage(st.lesson, pages.length - 1);
-      if(lastAward.gained > 0) toast("Signal decoded — +" + lastAward.gained + " XP");
+      var isChapter = lastAward.lines.some(function(l){ return l[0].indexOf("Chapter complete") === 0; });
+      var showDone = function(){
+        renderLessonPage(st.lesson, pages.length - 1);
+        if(lastAward.gained > 0){
+          toast("Signal decoded — +" + lastAward.gained + " XP");
+          sfx(isChapter ? "chapter" : "lesson");
+          if(isChapter) confettiBurst();
+        }
+      };
+      if(lastAward.gained > 0){
+        playFmSting(isChapter
+          ? { src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }
+          : { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" }, showDone);
+      } else {
+        showDone();
+      }
     });
     $("fm-retry").addEventListener("click", function(){
       st.qi = 0; st.score = 0; st.answered = false; renderQuestion();
     });
+    }; /* end show */
+    if(perfect){
+      sfx("perfect");
+      playFmSting({ src: "/media/you-win-success.mp4", kick: "YOU WIN" }, show);
+    } else {
+      show();
+    }
   }
 
   /* ---------------- done + XP ---------------- */
@@ -735,30 +790,154 @@ body{
     }catch(e){}
   }
 
+  /* ---------------- celebration: stings, sound, confetti ---------------- */
+  function playFmSting(tier, onDone){
+    tier = tier || { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" };
+    var sting = $("fmSting");
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if(reduceMotion || !sting){ if(onDone) onDone(); return; }
+    var vid = $("fmStingVideo");
+    var kick = $("fmStingKicker");
+    var done = false;
+    var finish = function(){
+      if(done) return; done = true;
+      sting.classList.add("leaving");
+      setTimeout(function(){ sting.classList.remove("on","leaving"); sting.hidden = true; }, 450);
+      if(onDone) onDone();
+    };
+    kick.textContent = tier.kick;
+    vid.innerHTML = "";
+    var srcEl = document.createElement("source");
+    srcEl.src = tier.src; srcEl.type = "video/mp4";
+    srcEl.addEventListener("error", finish);
+    vid.appendChild(srcEl);
+    vid.onended = finish;
+    sting.onclick = finish;
+    sting.hidden = false;
+    requestAnimationFrame(function(){ sting.classList.add("on"); });
+    setTimeout(finish, 3600);
+    try{
+      vid.load();
+      var p = vid.play();
+      if(p && p.catch) p.catch(finish);
+    }catch(e){ finish(); }
+  }
+
+  var _fmAudio = null;
+  function fmSoundOn(){ return localStorage.getItem("fm_sound") !== "off"; }
+  function sfx(kind){
+    try{
+      if(!fmSoundOn()) return;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return;
+      if(!_fmAudio) _fmAudio = new AC();
+      var ctx = _fmAudio;
+      if(ctx.state === "suspended") ctx.resume();
+      var seq = { correct:[660,880], wrong:[196,147], perfect:[523,659,784,1047],
+                  lesson:[523,659,784], chapter:[392,523,659,784,1047] }[kind] || [660];
+      var t0 = ctx.currentTime;
+      seq.forEach(function(f, i){
+        var t = t0 + i*0.09;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(kind === "wrong" ? 0.06 : 0.11, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(t); o.stop(t + 0.34);
+      });
+    }catch(e){}
+  }
+  function wireSoundToggle(){
+    var btn = $("fm-sound");
+    if(!btn) return;
+    var paint = function(){
+      var on = fmSoundOn();
+      btn.classList.toggle("off", !on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.innerHTML = '<i class="fa-solid ' + (on ? "fa-volume-high" : "fa-volume-xmark") + '" aria-hidden="true"></i>';
+    };
+    btn.addEventListener("click", function(){
+      localStorage.setItem("fm_sound", fmSoundOn() ? "off" : "on");
+      paint();
+      if(fmSoundOn()) sfx("correct");
+    });
+    paint();
+  }
+
+  function confettiBurst(){
+    try{
+      var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if(reduceMotion) return;
+      var cv = $("fmConfetti");
+      var ctx = cv.getContext("2d");
+      cv.width = window.innerWidth; cv.height = window.innerHeight;
+      cv.hidden = false;
+      var colors = ["#8deb00","#ffffff","#ffb300","#5ec900","#e8f5e0"];
+      var ps = [];
+      for(var i=0;i<70;i++){
+        ps.push({ x: cv.width/2 + (Math.random()-0.5)*120, y: cv.height*0.32,
+          vx:(Math.random()-0.5)*9, vy: Math.random()*-7-2, s: Math.random()*7+4,
+          r: Math.random()*Math.PI, vr:(Math.random()-0.5)*0.3,
+          c: colors[i % colors.length], life: 1 });
+      }
+      var t0 = performance.now();
+      (function tick(){
+        var el = performance.now() - t0;
+        ctx.clearRect(0,0,cv.width,cv.height);
+        ps.forEach(function(p){
+          p.vy += 0.28; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life -= 0.008;
+          ctx.save(); ctx.globalAlpha = Math.max(p.life, 0);
+          ctx.translate(p.x, p.y); ctx.rotate(p.r);
+          ctx.fillStyle = p.c; ctx.fillRect(-p.s/2, -p.s/2, p.s, p.s*0.6);
+          ctx.restore();
+        });
+        if(el < 2200) requestAnimationFrame(tick);
+        else { cv.hidden = true; ctx.clearRect(0,0,cv.width,cv.height); }
+      })();
+    }catch(e){}
+  }
+
+  function countUp(el, to, dur){
+    try{
+      var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if(reduceMotion || !el){ if(el) el.textContent = "+" + to + " XP"; return; }
+      var t0 = performance.now(); dur = dur || 900;
+      (function tick(){
+        var k = Math.min((performance.now()-t0)/dur, 1);
+        var eased = 1 - Math.pow(1-k, 3);
+        el.textContent = "+" + Math.round(to*eased) + " XP";
+        if(k < 1) requestAnimationFrame(tick);
+      })();
+    }catch(e){ if(el) el.textContent = "+" + to + " XP"; }
+  }
+
   function renderDone(lesson){
     var r = lastAward || { gained:0, lines:[], perfect:false, already:true };
-    var h = '<div class="fm-done-hero">'
+    var h = '<div class="fm-done-hero rise-in" style="--d:.05s">'
       + '<img src="/cynetis-avatar.png" alt="Cynetis-7" onerror="this.style.display=\'none\'" />'
       + '<p class="fm-kicker">Cynetis-7</p>'
       + '<h1 class="fm-title" style="font-size:26px">' + (r.already ? "Lesson reviewed" : "Lesson decoded") + '</h1>'
       + '<p class="fm-sub">' + esc(lesson.title) + ' — ' + esc(chapter.title) + '</p></div>';
     if(r.lines.length){
-      h += '<div class="fm-card">'
+      h += '<div class="fm-card rise-in" style="--d:.18s">'
         + r.lines.map(function(l){
             return '<div class="fm-xpline"><span>' + esc(l[0]) + '</span><b>' + esc(l[1]) + '</b></div>';
           }).join("")
-        + '<div class="fm-xpline total"><span>Total</span><b>+' + r.gained + ' XP</b></div></div>';
+        + '<div class="fm-xpline total"><span>Total</span><b id="fm-xp-total">+0 XP</b></div></div>';
     } else {
-      h += '<div class="fm-card"><p class="fm-block" style="margin:0;color:var(--dim)">Already decoded — no repeat XP. The signal holds.</p></div>';
+      h += '<div class="fm-card rise-in" style="--d:.18s"><p class="fm-block" style="margin:0;color:var(--dim)">Already decoded — no repeat XP. The signal holds.</p></div>';
     }
     var next = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) === -1; })[0];
-    if(next) h += '<button class="fm-btn" id="fm-done-next">Next Lesson — ' + esc(next.title) + '</button>';
-    h += '<button class="fm-quiet" id="fm-done-back" style="background:none;border:0;width:100%;cursor:pointer">Back to chapter</button>';
+    if(next) h += '<button class="fm-btn rise-in" style="--d:.3s" id="fm-done-next">Next Lesson — ' + esc(next.title) + '</button>';
+    h += '<button class="fm-quiet rise-in" id="fm-done-back" style="--d:.38s;background:none;border:0;width:100%;cursor:pointer">Back to chapter</button>';
     /* wire after paint via delegation below */
     setTimeout(function(){
       var nx = $("fm-done-next");
       if(nx) nx.addEventListener("click", function(){ openLesson(next, 0); });
       $("fm-done-back").addEventListener("click", function(){ renderChapter(); });
+      var xpEl = $("fm-xp-total");
+      if(xpEl && r.gained > 0) countUp(xpEl, r.gained, 900);
     }, 0);
     return h;
   }
