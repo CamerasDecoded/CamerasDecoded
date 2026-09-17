@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+  <title>Field Manual — Cameras Decoded</title>
+  <meta name="description" content="The Camera Confidence Guide as an interactive field manual. Pro members only." />
+
+  <!-- ===== MASTER LOADER ===== -->
+  <script src="/scripts/master-loader.js?v=20260912d"></script>
+
+  <!-- ===== SHARED COMPONENT CSS ===== -->
+  <link rel="stylesheet" href="header.css?v=20260916a" />
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/badges.js"></script>
+
+  <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
+  <script src="/scripts/user-state.js"></script>
+
+  <!-- ===== BADGE DEFINITIONS ===== -->
+  <script src="/scripts/badge-definitions.js"></script>
+
+  <!-- ===== FIELD MANUAL CONTENT (host-only; never commit to the public repo) ===== -->
+  <script src="/scripts/guide-data.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="header.js?v=20260912e"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
+  <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
+
+  <!-- ===== FONTS & ICONS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+/* ================================================================
+   FIELD MANUAL — dark only. No light variant, no toggle.
+   ================================================================ */
+:root{
+  color-scheme: dark;
+  --bg:#070b09;
+  --panel:#0c120e;
+  --panel2:#0e1611;
+  --line:rgba(141,235,0,.14);
+  --line2:rgba(141,235,0,.32);
+  --neon:#8deb00;
+  --neon-deep:#4d8500;
+  --text:#edf4eb;
+  --dim:#a4bba5;
+  --faint:#6f8571;
+  --amber:#ffb000;
+  --red:#ff6b6b;
+  --mono:'Space Mono',monospace;
+  --sans:'Montserrat',sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg)}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:16px;line-height:1.65;
+  min-height:100vh;
+}
+.fm-wrap{max-width:720px;margin:0 auto;padding:108px 18px 130px}
+.fm-kicker{
+  font-family:var(--mono);font-size:12px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--neon);margin:0 0 10px;
+}
+.fm-title{font-size:30px;font-weight:800;letter-spacing:-.01em;margin:0 0 8px;line-height:1.2}
+.fm-sub{color:var(--dim);margin:0 0 22px;font-size:15px}
+.fm-card{
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:16px;
+  padding:18px;margin:0 0 14px;
+}
+.fm-transmission{display:flex;gap:14px;align-items:flex-start}
+.fm-avatar{
+  width:56px;height:56px;border-radius:50%;flex:0 0 56px;
+  border:1px solid var(--line2);background:#0a0f0b;object-fit:cover;
+}
+.fm-transmission .fm-who{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--neon);text-transform:uppercase;margin-bottom:6px}
+.fm-transmission p{margin:0;color:var(--dim);font-size:14.5px}
+.fm-progress-meta{display:flex;justify-content:space-between;align-items:baseline;margin:22px 0 8px}
+.fm-progress-meta .fm-kicker{margin:0}
+.fm-count{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.fm-bar{height:8px;border-radius:99px;background:#101711;border:1px solid var(--line);overflow:hidden;margin-bottom:20px}
+.fm-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--neon-deep),var(--neon));transition:width .5s ease}
+.fm-lesson-row{
+  display:flex;align-items:center;gap:14px;width:100%;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:14px;
+  padding:15px 16px;margin:0 0 10px;color:var(--text);
+  font-family:var(--sans);font-size:15px;text-align:left;cursor:pointer;
+}
+.fm-lesson-row:active{transform:scale(.99)}
+.fm-lesson-ico{
+  width:38px;height:38px;flex:0 0 38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--line2);color:var(--neon);font-size:15px;
+}
+.fm-lesson-row.done .fm-lesson-ico{background:rgba(141,235,0,.12)}
+.fm-lesson-main{flex:1;min-width:0}
+.fm-lesson-title{font-weight:700;font-size:15.5px}
+.fm-lesson-sub{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-top:3px;letter-spacing:.06em}
+.fm-lesson-xp{font-family:var(--mono);font-size:12px;color:var(--neon);white-space:nowrap}
+.fm-btn{
+  display:block;width:100%;border:0;border-radius:14px;cursor:pointer;
+  background:var(--neon);color:#0a0f0a;
+  font-family:var(--mono);font-weight:700;font-size:14px;letter-spacing:.12em;text-transform:uppercase;
+  padding:16px;margin:18px 0 0;text-decoration:none;text-align:center;
+}
+.fm-btn:active{transform:scale(.99)}
+.fm-btn.ghost{background:transparent;color:var(--neon);border:1px solid var(--line2)}
+.fm-quiet{
+  display:block;text-align:center;margin:14px 0 0;color:var(--faint);
+  font-size:13.5px;text-decoration:none;font-family:var(--mono);letter-spacing:.04em;
+}
+.fm-quiet:active{color:var(--dim)}
+.fm-lock-note{
+  display:flex;gap:10px;align-items:center;justify-content:center;
+  color:var(--faint);font-family:var(--mono);font-size:12px;letter-spacing:.08em;
+  margin:16px 0 4px;text-transform:uppercase;
+}
+.fm-page-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.fm-back{
+  width:40px;height:40px;flex:0 0 40px;border-radius:50%;
+  border:1px solid var(--line2);background:transparent;color:var(--neon);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;
+}
+.fm-dots{display:flex;gap:6px;margin-left:auto}
+.fm-dots i{width:7px;height:7px;border-radius:50%;background:#1c261e}
+.fm-dots i.on{background:var(--neon)}
+.fm-block{margin:0 0 16px;color:#d9e4d7;font-size:15.5px}
+.fm-block h3{color:var(--text);font-size:17px;margin:22px 0 10px}
+.fm-speclist{margin:0 0 18px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.fm-speclist h4{
+  margin:0;padding:13px 16px;font-size:14.5px;color:var(--neon);
+  background:rgba(141,235,0,.06);border-bottom:1px solid var(--line);font-weight:700;
+}
+.fm-specrow{display:flex;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(141,235,0,.07);font-size:14px}
+.fm-specrow:last-child{border-bottom:0}
+.fm-specrow b{flex:0 0 92px;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--amber);text-transform:uppercase;padding-top:3px;font-weight:700}
+.fm-specrow span{color:#d9e4d7}
+.fm-list{list-style:none;margin:0 0 18px;padding:0}
+.fm-list li{margin:0 0 14px;padding-left:4px;font-size:14.5px;color:#d9e4d7}
+.fm-list li b{color:var(--neon);font-weight:700}
+.fm-pill{
+  display:inline-block;font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--amber);border:1px solid rgba(255,176,0,.35);border-radius:99px;padding:7px 16px;margin-bottom:16px;
+  background:rgba(255,176,0,.06);
+}
+.fm-rule{font-size:15px;color:#d9e4d7;margin:0 0 6px}
+.fm-rule b{color:var(--neon)}
+.fm-takeaway{border-left:3px solid var(--neon);padding:4px 0 4px 14px;margin:18px 0 0;color:var(--text);font-size:15px}
+.fm-takeaway .fm-kicker{margin-bottom:6px}
+.fm-pending{
+  border:1px dashed var(--line2);border-radius:12px;padding:12px 16px;margin:0 0 18px;
+  font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--faint);text-transform:uppercase;text-align:center;
+}
+.fm-scenario{
+  border:1px solid var(--line2);border-radius:14px;padding:15px 16px;margin:0 0 20px;
+  background:rgba(141,235,0,.04);
+}
+.fm-scenario .fm-kicker{margin-bottom:8px}
+.fm-scenario p{margin:0;font-size:14.5px;color:#d9e4d7}
+.fm-q{font-size:17px;font-weight:700;margin:0 0 14px;line-height:1.45}
+.fm-choice{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  color:var(--text);font-family:var(--sans);font-size:14.5px;
+  padding:14px 16px;margin:0 0 10px;line-height:1.5;
+}
+.fm-choice.picked-correct{border-color:var(--neon);background:rgba(141,235,0,.1)}
+.fm-choice.picked-wrong{border-color:var(--red);background:rgba(255,107,107,.08)}
+.fm-choice.is-answer{border-color:var(--neon)}
+.fm-choice:disabled{cursor:default;opacity:.92}
+.fm-reveal{
+  border:1px solid var(--line2);border-radius:12px;padding:13px 16px;margin:14px 0 0;
+  font-size:14px;color:var(--dim);background:rgba(141,235,0,.03);
+}
+.fm-reveal b{color:var(--neon);font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;display:block;margin-bottom:6px}
+.fm-score{font-family:var(--mono);font-size:13px;color:var(--dim);text-align:center;margin:16px 0 0;letter-spacing:.08em}
+.fm-xpline{display:flex;justify-content:space-between;font-family:var(--mono);font-size:13px;color:var(--dim);padding:8px 2px;border-bottom:1px solid rgba(141,235,0,.08)}
+.fm-xpline b{color:var(--neon)}
+.fm-xpline.total{border-bottom:0;color:var(--text);font-size:14px}
+.fm-done-hero{text-align:center;padding:26px 0 8px}
+.fm-done-hero img{width:110px;height:110px;border-radius:50%;border:1px solid var(--line2);object-fit:cover;margin-bottom:14px;background:#0a0f0b}
+.fm-toast{
+  position:fixed;left:50%;bottom:110px;transform:translateX(-50%) translateY(20px);
+  background:#0e1511;border:1px solid var(--line2);color:var(--text);
+  font-family:var(--mono);font-size:13px;padding:12px 20px;border-radius:99px;
+  opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;z-index:9999;
+  max-width:calc(100vw - 40px);text-align:center;
+}
+.fm-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.fm-center{text-align:center;padding:60px 10px}
+.fm-center .fm-kicker{margin-bottom:12px}
+.fm-spinner{
+  width:34px;height:34px;border-radius:50%;margin:0 auto 18px;
+  border:3px solid var(--line);border-top-color:var(--neon);
+  animation:fmspin 1s linear infinite;
+}
+@keyframes fmspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .fm-bar i{transition:none}
+}
+  </style>
+</head>
+<body>
+  <main class="fm-wrap" id="fm-app" aria-live="polite">
+    <!-- loading -->
+    <section id="fm-loading" class="fm-center">
+      <div class="fm-spinner" aria-hidden="true"></div>
+      <p class="fm-kicker">Establishing uplink</p>
+    </section>
+
+    <!-- content missing (guide-data.js not on host yet) -->
+    <section id="fm-nodata" class="fm-center" hidden>
+      <p class="fm-kicker">Field Manual</p>
+      <h1 class="fm-title">Content syncing</h1>
+      <p class="fm-sub">The manual's pages are still syncing to this device. Check back shortly.</p>
+      <a class="fm-quiet" href="/missions.html">Back to Missions</a>
+    </section>
+
+    <!-- locked / paywall -->
+    <section id="fm-locked" hidden>
+      <p class="fm-kicker">Field Manual &middot; Pro</p>
+      <h1 class="fm-title" id="fm-lock-title">The Fundamentals</h1>
+      <p class="fm-sub" id="fm-lock-sub"></p>
+      <div class="fm-card fm-transmission">
+        <img class="fm-avatar" src="/cynetis-avatar.png" alt="" onerror="this.style.display='none'" />
+        <div>
+          <div class="fm-who">Cynetis-7</div>
+          <p id="fm-lock-msg">The full manual is a Pro instrument. Unlock it to decode every chapter, lesson, and system check.</p>
+        </div>
+      </div>
+      <div id="fm-lock-list"></div>
+      <div id="fm-lock-cta"></div>
+      <p class="fm-lock-note"><i class="fa-solid fa-lock" aria-hidden="true"></i>&nbsp;Hard limit &middot; Pro members only</p>
+      <a class="fm-quiet" href="/missions.html">Back to Missions</a>
+    </section>
+
+    <!-- chapter -->
+    <section id="fm-chapter" hidden>
+      <p class="fm-kicker" id="fm-ch-kicker">Field Manual</p>
+      <h1 class="fm-title" id="fm-ch-title"></h1>
+      <p class="fm-sub" id="fm-ch-tagline"></p>
+      <div class="fm-card fm-transmission">
+        <img class="fm-avatar" src="/cynetis-avatar.png" alt="" onerror="this.style.display='none'" />
+        <div>
+          <div class="fm-who">Cynetis-7</div>
+          <p id="fm-ch-transmission"></p>
+        </div>
+      </div>
+      <div class="fm-progress-meta">
+        <p class="fm-kicker">Decoding progress</p>
+        <span class="fm-count" id="fm-ch-count"></span>
+      </div>
+      <div class="fm-bar" aria-hidden="true"><i id="fm-ch-bar"></i></div>
+      <div id="fm-ch-continue"></div>
+      <div id="fm-ch-lessons"></div>
+      <div id="fm-ch-bonus"></div>
+      <a class="fm-quiet" href="/missions.html">Back to Missions</a>
+    </section>
+
+    <!-- lesson -->
+    <section id="fm-lesson" hidden>
+      <div class="fm-page-head">
+        <button class="fm-back" id="fm-back" aria-label="Back to chapter"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+        <div class="fm-dots" id="fm-dots" aria-hidden="true"></div>
+      </div>
+      <div id="fm-lesson-body"></div>
+    </section>
+  </main>
+
+  <div class="fm-toast" id="fm-toast" role="status"></div>
+
+  <script>
+(function(){
+  "use strict";
+  /* Field Manual player — Chapter 03 pilot.
+     Pro-gated: no lesson body is rendered unless tier === 'pro'. */
+
+  var LESSON_XP = 20;
+  var PERFECT_BONUS = 10;
+  var CHAPTER_BONUS = 25;
+
+  var user = null;
+  var tier = "free";
+  var progress = null;
+  var chapter = null;
+  var quizState = null;
+  var lastAward = null;
+  var _lbName = null;
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function db(){ return (typeof window.db !== "undefined") ? window.db : null; }
+
+  function showView(id){
+    ["fm-loading","fm-nodata","fm-locked","fm-chapter","fm-lesson"].forEach(function(v){
+      $(v).hidden = (v !== id);
+    });
+    try{ window.scrollTo(0,0); }catch(e){}
+  }
+
+  function toast(msg){
+    var t = $("fm-toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._h);
+    t._h = setTimeout(function(){ t.classList.remove("show"); }, 2600);
+  }
+
+  function freshProgress(){
+    return { completedLessons:[], quizBest:{}, chapterBonus:[], lastLesson:null };
+  }
+
+  function lessonById(id){
+    if(!chapter) return null;
+    for(var i=0;i<chapter.lessons.length;i++) if(chapter.lessons[i].id===id) return chapter.lessons[i];
+    return null;
+  }
+
+  /* ---------------- boot ---------------- */
+  document.addEventListener("DOMContentLoaded", init);
+
+  function init(){
+    if(!window.GUIDE_DATA || !GUIDE_DATA.chapters || !GUIDE_DATA.chapters.length){
+      showView("fm-nodata");
+      return;
+    }
+    chapter = GUIDE_DATA.chapters[0];
+    $("fm-back").addEventListener("click", function(){ renderChapter(); });
+    var auth = (typeof window.auth !== "undefined") ? window.auth : null;
+    if(auth && auth.onAuthStateChanged){ auth.onAuthStateChanged(boot); }
+    else { boot(null); }
+  }
+
+  async function boot(u){
+    user = u || null;
+    tier = "free";
+    progress = freshProgress();
+    _lbName = null;
+    var d = db();
+    if(user && d){
+      try{
+        var snap = await d.collection("users").doc(user.uid).get();
+        var data = snap.exists ? (snap.data()||{}) : {};
+        tier = data.tier || "free";
+        _lbName = data.displayName || data.name || null;
+      }catch(e){}
+      await loadProgress();
+    }
+    route();
+  }
+
+  async function loadProgress(){
+    var d = db();
+    if(!d) return;
+    try{
+      var snap = await d.collection("guideProgress").doc(user.uid).get();
+      if(snap.exists){
+        var p = snap.data()||{};
+        progress.completedLessons = p.completedLessons||[];
+        progress.quizBest = p.quizBest||{};
+        progress.chapterBonus = p.chapterBonus||[];
+        progress.lastLesson = p.lastLesson||null;
+      }
+    }catch(e){}
+  }
+
+  async function saveProgress(){
+    var d = db();
+    if(!d || !user) return;
+    try{
+      await d.collection("guideProgress").doc(user.uid).set({
+        completedLessons: progress.completedLessons,
+        quizBest: progress.quizBest,
+        chapterBonus: progress.chapterBonus,
+        lastLesson: progress.lastLesson,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge:true });
+    }catch(e){}
+  }
+
+  function route(){
+    if(!chapter){ showView("fm-nodata"); return; }
+    if(!user || tier !== "pro"){ renderLocked(); return; }
+    var deep = null;
+    try{ deep = new URLSearchParams(location.search).get("lesson"); }catch(e){}
+    var l = deep ? lessonById(deep) : null;
+    if(l){ openLesson(l, 0); return; }
+    renderChapter();
+  }
+
+  /* ---------------- locked (paywall) ---------------- */
+  function renderLocked(){
+    document.title = "Field Manual — Cameras Decoded";
+    $("fm-lock-title").textContent = chapter.title;
+    $("fm-lock-sub").textContent = chapter.tagline || "";
+    $("fm-lock-msg").textContent = user
+      ? "The full manual is a Pro instrument. Unlock it to decode every chapter, lesson, and system check."
+      : "Log in to check your access. The Field Manual is included with Pro.";
+    var list = chapter.lessons.map(function(l){
+      return '<div class="fm-lesson-row" style="opacity:.55;cursor:default" aria-disabled="true">'
+        + '<span class="fm-lesson-ico"><i class="fa-solid fa-lock" aria-hidden="true"></i></span>'
+        + '<span class="fm-lesson-main"><span class="fm-lesson-title">'+esc(l.title)+'</span>'
+        + '<span class="fm-lesson-sub" style="display:block">LESSON &middot; SYSTEM CHECK INCLUDED</span></span>'
+        + '<span class="fm-lesson-xp">+'+l.xp+' XP</span></div>';
+    }).join("");
+    $("fm-lock-list").innerHTML = list;
+    $("fm-lock-cta").innerHTML = user
+      ? '<a class="fm-btn" href="/products.html">Unlock with Pro</a>'
+      : '<a class="fm-btn" href="/login.html">Log In</a>';
+    showView("fm-locked");
+  }
+
+  /* ---------------- chapter ---------------- */
+  function renderChapter(){
+    document.title = chapter.title + " — Field Manual";
+    $("fm-ch-kicker").textContent = "Field Manual · " + chapter.number;
+    $("fm-ch-title").textContent = chapter.title;
+    $("fm-ch-tagline").textContent = chapter.tagline || "";
+    $("fm-ch-transmission").textContent = chapter.transmission || "";
+
+    var total = chapter.lessons.length;
+    var done = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; }).length;
+    $("fm-ch-count").textContent = done + " of " + total + " decoded";
+    $("fm-ch-bar").style.width = total ? Math.round(done/total*100) + "%" : "0%";
+
+    var cont = "";
+    var last = progress.lastLesson ? lessonById(progress.lastLesson) : null;
+    if(last && progress.completedLessons.indexOf(last.id) === -1){
+      cont = '<button class="fm-btn" id="fm-continue">Continue — ' + esc(last.title) + '</button>';
+    } else if(done < total){
+      var next = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) === -1; })[0];
+      if(next) cont = '<button class="fm-btn" id="fm-continue">Begin — ' + esc(next.title) + '</button>';
+    }
+    $("fm-ch-continue").innerHTML = cont;
+    var cb = $("fm-continue");
+    if(cb){
+      cb.addEventListener("click", function(){
+        var target = last && progress.completedLessons.indexOf(last.id) === -1 ? last
+          : chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) === -1; })[0];
+        if(target) openLesson(target, 0);
+      });
+    }
+
+    $("fm-ch-lessons").innerHTML = chapter.lessons.map(function(l){
+      var isDone = progress.completedLessons.indexOf(l.id) !== -1;
+      var best = progress.quizBest[l.id];
+      var sub = isDone
+        ? "DECODED" + (best != null ? " · SYSTEM CHECK " + best + "/" + l.quiz.questions.length : "")
+        : "LESSON · SYSTEM CHECK";
+      return '<button class="fm-lesson-row' + (isDone ? " done" : "") + '" data-lesson="' + l.id + '">'
+        + '<span class="fm-lesson-ico"><i class="fa-solid ' + (isDone ? "fa-check" : "fa-play") + '" aria-hidden="true"></i></span>'
+        + '<span class="fm-lesson-main"><span class="fm-lesson-title">' + esc(l.title) + '</span>'
+        + '<span class="fm-lesson-sub" style="display:block">' + sub + '</span></span>'
+        + '<span class="fm-lesson-xp">+' + l.xp + ' XP</span></button>';
+    }).join("");
+    Array.prototype.forEach.call($("fm-ch-lessons").querySelectorAll("[data-lesson]"), function(el){
+      el.addEventListener("click", function(){
+        var l = lessonById(el.getAttribute("data-lesson"));
+        if(l) openLesson(l, 0);
+      });
+    });
+
+    var bonus = "";
+    if(progress.chapterBonus.indexOf(chapter.id) !== -1){
+      bonus = '<div class="fm-card" style="border-color:var(--line2)"><p class="fm-kicker" style="margin-bottom:6px">Chapter bonus secured</p>'
+        + '<p class="fm-block" style="margin:0">Full decode — <b style="color:var(--neon)">+' + CHAPTER_BONUS + ' XP</b> awarded.</p></div>';
+    } else if(done === total && total > 0){
+      bonus = '<div class="fm-card"><p class="fm-block" style="margin:0;color:var(--dim)">All lessons decoded. Your chapter bonus lands with your next lesson completion.</p></div>';
+    }
+    $("fm-ch-bonus").innerHTML = bonus;
+    showView("fm-chapter");
+  }
+
+  /* ---------------- lesson ---------------- */
+  function lessonPages(lesson){
+    var pages = lesson.parts.map(function(p){ return { type:"part", part:p }; });
+    pages.push({ type:"recap" });
+    pages.push({ type:"quiz" });
+    pages.push({ type:"done" });
+    return pages;
+  }
+
+  function openLesson(lesson, pageIdx){
+    quizState = null;
+    renderLessonPage(lesson, pageIdx || 0);
+  }
+
+  function renderLessonPage(lesson, pageIdx){
+    var pages = lessonPages(lesson);
+    if(pageIdx < 0) pageIdx = 0;
+    if(pageIdx >= pages.length) pageIdx = pages.length - 1;
+    var page = pages[pageIdx];
+    document.title = lesson.title + " — Field Manual";
+
+    var dots = pages.map(function(_, i){
+      return "<i class=\"" + (i === pageIdx ? "on" : "") + "\"></i>";
+    }).join("");
+    $("fm-dots").innerHTML = dots;
+
+    var body = $("fm-lesson-body");
+    if(page.type === "part") body.innerHTML = renderPart(lesson, page.part, pageIdx, pages.length);
+    else if(page.type === "recap") body.innerHTML = renderRecap(lesson, pageIdx, pages.length);
+    else if(page.type === "quiz"){ renderQuizShell(lesson, pageIdx, pages.length); }
+    else if(page.type === "done") body.innerHTML = renderDone(lesson);
+
+    wirePager(lesson, pageIdx, pages.length);
+    showView("fm-lesson");
+  }
+
+  function pagerHtml(pageIdx, total, backLabel, nextLabel){
+    var h = '<div style="display:flex;gap:10px;margin-top:22px">';
+    if(pageIdx > 0) h += '<button class="fm-btn ghost" id="fm-prev" style="margin:0;flex:0 0 44%">'+backLabel+'</button>';
+    h += '<button class="fm-btn" id="fm-next" style="margin:0;flex:1">' + nextLabel + '</button></div>';
+    return h;
+  }
+
+  function wirePager(lesson, pageIdx, total){
+    var pages = lessonPages(lesson);
+    var prev = $("fm-prev"), next = $("fm-next");
+    if(prev) prev.addEventListener("click", function(){ renderLessonPage(lesson, pageIdx - 1); });
+    if(next) next.addEventListener("click", function(){
+      var p = pages[pageIdx];
+      if(p.type === "quiz"){
+        var last = pages.length - 1;
+        renderLessonPage(lesson, last); /* quiz shell advances itself; fallback */
+      } else {
+        renderLessonPage(lesson, pageIdx + 1);
+      }
+    });
+  }
+
+  function renderPart(lesson, part, pageIdx, total){
+    var h = '<p class="fm-kicker">' + esc(lesson.title) + ' · ' + esc(part.kicker) + '</p>';
+    h += '<h1 class="fm-title" style="font-size:24px">' + esc(part.heading) + '</h1>';
+    if(pageIdx === 0 && lesson.pendingParts && lesson.pendingParts.length){
+      h += '<div class="fm-pending">' + esc(lesson.pendingParts.join(" · ")) + ' — transmission incoming</div>';
+    }
+    h += renderBlocks(part.blocks);
+    h += pagerHtml(pageIdx, total, "Back", pageIdx === total - 3 ? "Recap" : "Continue");
+    return h;
+  }
+
+  function renderBlocks(blocks){
+    return (blocks||[]).map(function(b){
+      if(b.t === "p") return '<p class="fm-block">' + b.text + '</p>';
+      if(b.t === "h") return '<div class="fm-block"><h3>' + b.text + '</h3></div>';
+      if(b.t === "list"){
+        return '<ul class="fm-list">' + (b.items||[]).map(function(i){
+          return '<li><b>' + i.label + '</b> ' + i.text + '</li>';
+        }).join("") + '</ul>';
+      }
+      if(b.t === "spec"){
+        return '<div class="fm-speclist"><h4>' + b.title + '</h4>'
+          + (b.rows||[]).map(function(r){
+              return '<div class="fm-specrow"><b>' + r[0] + '</b><span>' + r[1] + '</span></div>';
+            }).join("") + '</div>';
+      }
+      return "";
+    }).join("");
+  }
+
+  function renderRecap(lesson, pageIdx, total){
+    var r = lesson.recap;
+    var h = '<p class="fm-kicker">' + esc(lesson.title) + ' · Recap</p>';
+    h += '<h1 class="fm-title" style="font-size:24px">' + esc(lesson.title) + ': Recap</h1>';
+    h += '<div class="fm-pill">System Status: ' + esc(r.status) + '</div>';
+    h += '<div class="fm-card"><p class="fm-kicker" style="margin-bottom:8px">The Golden Rule</p>'
+      + '<p class="fm-rule">' + r.goldenRule + '</p></div>';
+    h += '<div class="fm-card"><p class="fm-kicker" style="margin-bottom:8px">The Decoder\u2019s Logic</p><ul class="fm-list" style="margin:0">'
+      + (r.logic||[]).map(function(i){ return '<li><b>' + i.label + '</b> ' + i.text + '</li>'; }).join("")
+      + '</ul></div>';
+    h += '<div class="fm-takeaway"><p class="fm-kicker">' + esc(r.takeaway.label) + '</p><p style="margin:0">' + r.takeaway.text + '</p></div>';
+    h += '<button class="fm-btn" id="fm-next">Start System Check</button>';
+    h += '<button class="fm-quiet" id="fm-prev" style="background:none;border:0;width:100%;cursor:pointer">Back to lesson</button>';
+    return h;
+  }
+
+  /* ---------------- quiz ---------------- */
+  function renderQuizShell(lesson, pageIdx, total){
+    quizState = { lesson:lesson, pageIdx:pageIdx, qi:0, score:0, answered:false };
+    renderQuestion();
+  }
+
+  function renderQuestion(){
+    var st = quizState;
+    var q = st.lesson.quiz.questions[st.qi];
+    var h = '<p class="fm-kicker">' + esc(st.lesson.title) + ' · System Check · ' + (st.qi+1) + ' of ' + st.lesson.quiz.questions.length + '</p>';
+    h += '<div class="fm-scenario"><p class="fm-kicker">Scenario</p><p>' + st.lesson.quiz.scenario + '</p></div>';
+    h += '<p class="fm-q">' + q.q + '</p>';
+    h += '<div id="fm-choices">' + q.choices.map(function(c, i){
+      return '<button class="fm-choice" data-i="' + i + '">' + c + '</button>';
+    }).join("") + '</div>';
+    h += '<div id="fm-qfoot"></div>';
+    $("fm-lesson-body").innerHTML = h;
+    Array.prototype.forEach.call($("fm-choices").querySelectorAll(".fm-choice"), function(btn){
+      btn.addEventListener("click", function(){ answerQuiz(parseInt(btn.getAttribute("data-i"), 10)); });
+    });
+  }
+
+  function answerQuiz(choiceIdx){
+    var st = quizState;
+    if(!st || st.answered) return;
+    st.answered = true;
+    var q = st.lesson.quiz.questions[st.qi];
+    var btns = $("fm-choices").querySelectorAll(".fm-choice");
+    Array.prototype.forEach.call(btns, function(b, i){
+      b.disabled = true;
+      if(i === q.answer) b.classList.add("is-answer");
+    });
+    var picked = btns[choiceIdx];
+    if(choiceIdx === q.answer){
+      picked.classList.add("picked-correct");
+      st.score++;
+    } else {
+      picked.classList.add("picked-wrong");
+    }
+    var isLast = st.qi === st.lesson.quiz.questions.length - 1;
+    $("fm-qfoot").innerHTML =
+      '<div class="fm-reveal"><b>The Reveal</b>' + q.reveal + '</div>'
+      + '<button class="fm-btn" id="fm-qnext">' + (isLast ? "See Results" : "Next Question") + '</button>';
+    $("fm-qnext").addEventListener("click", function(){
+      if(isLast) renderQuizResults();
+      else { st.qi++; st.answered = false; renderQuestion(); }
+    });
+  }
+
+  function renderQuizResults(){
+    var st = quizState;
+    var total = st.lesson.quiz.questions.length;
+    var h = '<p class="fm-kicker">' + esc(st.lesson.title) + ' · System Check</p>';
+    h += '<h1 class="fm-title" style="font-size:24px">System check complete</h1>';
+    h += '<p class="fm-score">SCORE &middot; ' + st.score + ' OF ' + total + '</p>';
+    h += '<div class="fm-card" style="margin-top:16px">'
+      + '<div class="fm-xpline"><span>Lesson decoded</span><b>+' + LESSON_XP + ' XP</b></div>'
+      + (st.score === total
+          ? '<div class="fm-xpline"><span>Perfect system check</span><b>+' + PERFECT_BONUS + ' XP</b></div>'
+          : '<div class="fm-xpline"><span>Perfect bonus</span><span>missed</span></div>')
+      + '</div>';
+    h += '<button class="fm-btn" id="fm-complete">Complete Lesson</button>';
+    h += '<button class="fm-quiet" id="fm-retry" style="background:none;border:0;width:100%;cursor:pointer">Retake system check</button>';
+    $("fm-lesson-body").innerHTML = h;
+    $("fm-complete").addEventListener("click", async function(){
+      $("fm-complete").disabled = true;
+      lastAward = await awardLesson(st.lesson, st.score);
+      var pages = lessonPages(st.lesson);
+      renderLessonPage(st.lesson, pages.length - 1);
+      if(lastAward.gained > 0) toast("Signal decoded — +" + lastAward.gained + " XP");
+    });
+    $("fm-retry").addEventListener("click", function(){
+      st.qi = 0; st.score = 0; st.answered = false; renderQuestion();
+    });
+  }
+
+  /* ---------------- done + XP ---------------- */
+  async function awardLesson(lesson, score){
+    var id = lesson.id;
+    var already = progress.completedLessons.indexOf(id) !== -1;
+    var result = { gained:0, lines:[], perfect:false, already:already };
+    if(!already){
+      result.gained += LESSON_XP;
+      result.lines.push(["Lesson decoded", "+" + LESSON_XP + " XP"]);
+      if(score === lesson.quiz.questions.length){
+        result.perfect = true;
+        result.gained += PERFECT_BONUS;
+        result.lines.push(["Perfect system check", "+" + PERFECT_BONUS + " XP"]);
+      }
+      progress.completedLessons.push(id);
+    }
+    var best = progress.quizBest[id] || 0;
+    if(score > best) progress.quizBest[id] = score;
+    progress.lastLesson = id;
+
+    var allDone = chapter.lessons.every(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; });
+    if(allDone && progress.chapterBonus.indexOf(chapter.id) === -1){
+      progress.chapterBonus.push(chapter.id);
+      result.gained += CHAPTER_BONUS;
+      result.lines.push(["Chapter complete — " + chapter.title, "+" + CHAPTER_BONUS + " XP"]);
+    }
+
+    await saveProgress();
+
+    var d = db();
+    if(result.gained > 0 && d && user){
+      try{
+        await d.collection("users").doc(user.uid).update({
+          totalPoints: firebase.firestore.FieldValue.increment(result.gained)
+        });
+      }catch(e){}
+      await updateLeaderboard(user.uid, result.gained, 0);
+    }
+    return result;
+  }
+
+  function isoWeek(){
+    var d = new Date();
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+    var w1 = new Date(d.getFullYear(), 0, 4);
+    return d.getFullYear() + "-W" + String(1 + Math.round(((d.getTime() - w1.getTime()) / 86400000 - 3 + ((w1.getDay() + 6) % 7)) / 7)).padStart(2, "0");
+  }
+
+  async function updateLeaderboard(uid, xp, plays){
+    var d = db();
+    if(!d || (!xp && !plays)) return;
+    try{
+      var ref = d.collection("leaderboard").doc(uid);
+      var wk = isoWeek();
+      var snap = await ref.get();
+      if(!snap.exists){
+        var init = { displayName: _lbName || "Decoder", xp: xp || 0, plays: plays || 0, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        init["weeks." + wk] = xp || 0;
+        await ref.set(init);
+      } else {
+        var upd = {
+          xp: firebase.firestore.FieldValue.increment(xp || 0),
+          plays: firebase.firestore.FieldValue.increment(plays || 0),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        upd["weeks." + wk] = firebase.firestore.FieldValue.increment(xp || 0);
+        await ref.update(upd);
+      }
+    }catch(e){}
+  }
+
+  function renderDone(lesson){
+    var r = lastAward || { gained:0, lines:[], perfect:false, already:true };
+    var h = '<div class="fm-done-hero">'
+      + '<img src="/cynetis-avatar.png" alt="Cynetis-7" onerror="this.style.display=\'none\'" />'
+      + '<p class="fm-kicker">Cynetis-7</p>'
+      + '<h1 class="fm-title" style="font-size:26px">' + (r.already ? "Lesson reviewed" : "Lesson decoded") + '</h1>'
+      + '<p class="fm-sub">' + esc(lesson.title) + ' — ' + esc(chapter.title) + '</p></div>';
+    if(r.lines.length){
+      h += '<div class="fm-card">'
+        + r.lines.map(function(l){
+            return '<div class="fm-xpline"><span>' + esc(l[0]) + '</span><b>' + esc(l[1]) + '</b></div>';
+          }).join("")
+        + '<div class="fm-xpline total"><span>Total</span><b>+' + r.gained + ' XP</b></div></div>';
+    } else {
+      h += '<div class="fm-card"><p class="fm-block" style="margin:0;color:var(--dim)">Already decoded — no repeat XP. The signal holds.</p></div>';
+    }
+    var next = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) === -1; })[0];
+    if(next) h += '<button class="fm-btn" id="fm-done-next">Next Lesson — ' + esc(next.title) + '</button>';
+    h += '<button class="fm-quiet" id="fm-done-back" style="background:none;border:0;width:100%;cursor:pointer">Back to chapter</button>';
+    /* wire after paint via delegation below */
+    setTimeout(function(){
+      var nx = $("fm-done-next");
+      if(nx) nx.addEventListener("click", function(){ openLesson(next, 0); });
+      $("fm-done-back").addEventListener("click", function(){ renderChapter(); });
+    }, 0);
+    return h;
+  }
+})();
+  </script>
+  <script src="/scripts/ptr.js"></script>
+</body>
+</html>
