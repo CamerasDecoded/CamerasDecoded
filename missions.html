@@ -848,6 +848,7 @@ button{font-family:inherit}
     </div>
   </div>
 
+  <script src="/scripts/streak.js"></script>
   <script>
     // ================================================================
     // FIREBASE
@@ -1128,7 +1129,6 @@ button{font-family:inherit}
       try {
         const pick = DAILY_SLOTS[dayOfYear() % DAILY_SLOTS.length];
         const today = dateKey();
-        const yest = dateKey(new Date(Date.now() - 864e5));
         const snap = await db.collection('game_sessions')
           .where('uid', '==', currentUser.uid)
           .where('slotId', '==', pick.slotId).get();
@@ -1141,22 +1141,24 @@ button{font-family:inherit}
         const userRef = db.collection('users').doc(currentUser.uid);
         const userDoc = await userRef.get();
         const streak = (userDoc.data() || {}).dailyStreak || { last: null, count: 0 };
-        let count = streak.count || 0;
-        const justSecured = playedToday && streak.last !== today;
-        if (justSecured) {
-          count = (streak.last === yest) ? count + 1 : 1;
-          await userRef.set({ dailyStreak: { last: today, count: count } }, { merge: true });
-          if (count >= 7 && window.CDBadges) {
-            CDBadges.award(currentUser.uid, 'streak-7', db);
-          }
-        } else if (!playedToday && streak.last !== today && streak.last !== yest) {
-          count = 0; // lapsed — resets on next completion
+        const CD = window.CDStreak;
+        let securedToday = streak.last === today;
+        // True day streak: the count is written by activity touches (mission
+        // steps, game sessions, lessons). This is a read + self-heal for the
+        // drill: if it was played today but the touch never landed, secure it.
+        let count = CD ? CD.displayCount(streak) : (streak.count || 0);
+        if (playedToday && !securedToday && CD) {
+          try {
+            const r = await CD.touch(db, currentUser.uid);
+            count = r.count; securedToday = true;
+          } catch (e) { /* display keeps the read value */ }
         }
         const returningFromDrill = !!sessionStorage.getItem('cd_drill_return');
         try { sessionStorage.removeItem('cd_drill_return'); } catch (e) {}
         renderDailyStreak(count, playedToday);
-        // Streak-secured sting: only on the fresh return from today's drill.
-        if (justSecured && returningFromDrill) {
+        // Streak-secured sting: once per fresh return from today's drill,
+        // while the streak is alive for today.
+        if (playedToday && returningFromDrill && securedToday) {
           playMissionSting({ src: '/media/streak-secured-success.mp4', kick: 'STREAK SECURED' });
         }
       } catch (e) { renderDailyStreak(0, false); /* offline — card still playable */ }
@@ -2369,6 +2371,9 @@ button{font-family:inherit}
         await mainUserRef.set(mainUpdate, { merge: true });
         console.log('[Journey] Synced points and badges to main user doc.');
         updateLeaderboard(currentUser.uid, step.points || 0, 0); // best-effort
+
+        // True day streak: completing a mission step counts as activity.
+        if (window.CDStreak) window.CDStreak.touch(db, currentUser.uid).catch(function () {});
 
         userProgress.completedSteps = newCompleted;
         userProgress.totalPoints = newPoints;
