@@ -115,22 +115,49 @@
   }
 
   async function loadJourney(uid) {
-    const [jDoc, uDoc] = await Promise.all([
-      window.db.collection('journeys').doc('beginner').get().catch(() => null),
-      window.db.collection('userJourney').doc(uid).get().catch(() => null)
-    ]);
-    const journey = jDoc && jDoc.exists ? jDoc.data() : { title:'Beginner', nodes:[] };
-    const userJourney = uDoc && uDoc.exists ? uDoc.data() : { completedNodes: [] };
-    const completed = Array.isArray(userJourney.completedNodes) ? userJourney.completedNodes : [];
-    const nodes = Array.isArray(journey.nodes) ? journey.nodes : [];
-    const next = nodes.find(n => !completed.includes(n.id)) || null;
+    // Mirror the Missions page data model: the user's preferred track level
+    // -> journeys/{level} (modules of steps) -> userJourney/{uid}/levels/{level}
+    // (completedSteps). Flattened into the vm.journey shape the hero expects.
+    const level = (vm.raw && vm.raw.preferredJourneyLevel) || 'beginner';
+    let journeyData = null;
+    try {
+      const jDoc = await window.db.collection('journeys').doc(level).get();
+      if (jDoc && jDoc.exists) journeyData = jDoc.data();
+    } catch (e) { journeyData = null; }
+    let completedSteps = [];
+    try {
+      const pDoc = await window.db.collection('userJourney').doc(uid).collection('levels').doc(level).get();
+      if (pDoc && pDoc.exists) {
+        const p = pDoc.data() || {};
+        if (Array.isArray(p.completedSteps)) completedSteps = p.completedSteps;
+      }
+    } catch (e) { completedSteps = []; }
+
+    const modules = (journeyData && Array.isArray(journeyData.modules)) ? journeyData.modules : [];
+    const nodes = [];
+    modules.forEach((m) => {
+      (m.steps || []).forEach((s) => {
+        nodes.push({
+          id: s.id,
+          title: s.title || s.name || 'Mission',
+          name: s.title || s.name || 'Mission',
+          description: s.description || '',
+          moduleId: m.id,
+          moduleTitle: m.title || ''
+        });
+      });
+    });
+    const completedIds = nodes.filter((n) => completedSteps.includes(n.id)).map((n) => n.id);
+    const next = nodes.find((n) => !completedSteps.includes(n.id)) || null;
 
     vm.journey = {
-      title: journey.title || 'Beginner',
-      nodes, completed, next,
-      completedCount: completed.length,
+      title: (journeyData && (journeyData.title || journeyData.name)) || 'Missions',
+      level,
+      nodes, next,
+      completed: completedIds,
+      completedCount: completedIds.length,
       total: nodes.length,
-      pct: nodes.length ? (completed.length / nodes.length) * 100 : 0
+      pct: nodes.length ? (completedIds.length / nodes.length) * 100 : 0
     };
     return vm.journey;
   }
@@ -367,7 +394,12 @@
     if (!hasNext) {
       if (inner) inner.hidden = true;
       if (photo) photo.hidden = true;
-      if (empty) empty.hidden = false;
+      if (empty) {
+        empty.hidden = false;
+        if (!l.total) {
+          empty.innerHTML = '<i class="fas fa-compass" aria-hidden="true"></i><p>Your missions are waiting. <a href="/missions.html">Explore Missions →</a></p>';
+        }
+      }
       return;
     }
 
@@ -383,27 +415,22 @@
     const ti = $('heroLessonTitleImg'); if (ti) ti.alt = title;
     const d = $('heroLessonDesc'); if (d) d.textContent = 'Your next frame is waiting.';
     const e = $('heroEstimate'); if (e) e.textContent = '~5 min left';
-    const b = $('heroBadge'); if (b) b.textContent = `LESSON ${String(l.completedCount + 1).padStart(2,'0')} · IN PROGRESS`;
+    const b = $('heroBadge'); if (b) b.textContent = `MISSION ${String(l.completedCount + 1).padStart(2,'0')} · IN PROGRESS`;
     const pl = $('heroProgressLabel'); if (pl) pl.textContent = `${l.completedCount} of ${l.total}`;
     const bar = $('heroProgress'); if (bar) bar.setAttribute('aria-valuenow', Math.round(pct));
     const fill = $('heroProgressFill'); if (fill) fill.style.width = pct + '%';
 
     const cta = $('heroCta');
     const ctaLabel = $('heroCtaLabel');
-    if (cta) {
-      const skillId = next.skillId || next.id;
-      cta.href = skillId
-        ? `/darkroom.html#skill=${encodeURIComponent(skillId)}`
-        : '/missions.html';
-    }
-    if (ctaLabel) ctaLabel.textContent = 'Continue skill';
+    if (cta) cta.href = '/missions.html';
+    if (ctaLabel) ctaLabel.textContent = 'Continue mission';
   }
 
   function renderJourneyList() {
     const list = $('journeyList');
     const summary = $('journeyProgressText');
     const l = vm.journey;
-    if (summary) summary.textContent = `${l.title} · ${l.completedCount} of ${l.total} lessons complete`;
+    if (summary) summary.textContent = `${l.title} · ${l.completedCount} of ${l.total} missions complete`;
     if (!list) return;
 
     if (!l.nodes.length) {
@@ -413,10 +440,10 @@
 
     const firstIncompleteIdx = l.nodes.findIndex(n => !l.completed.includes(n.id));
     const visible = [];
-    if (firstIncompleteIdx > 0) visible.push({ ...l.nodes[firstIncompleteIdx - 1], _state:'done' });
-    if (firstIncompleteIdx >= 0) visible.push({ ...l.nodes[firstIncompleteIdx], _state:'current' });
+    if (firstIncompleteIdx > 0) visible.push({ ...l.nodes[firstIncompleteIdx - 1], _state:'done', _idx: firstIncompleteIdx - 1 });
+    if (firstIncompleteIdx >= 0) visible.push({ ...l.nodes[firstIncompleteIdx], _state:'current', _idx: firstIncompleteIdx });
     for (let i = firstIncompleteIdx + 1; i < l.nodes.length && visible.length < 3; i++) {
-      visible.push({ ...l.nodes[i], _state:'upcoming' });
+      visible.push({ ...l.nodes[i], _state:'upcoming', _idx: i });
     }
     if (!visible.length) {
       list.innerHTML = '<p class="empty-state">You finished this journey. 🎉</p>';
@@ -424,7 +451,7 @@
     }
 
     list.innerHTML = visible.map((n) => {
-      const num = String(l.nodes.indexOf(n) + 1).padStart(2,'0');
+      const num = String((typeof n._idx === 'number' ? n._idx : l.nodes.indexOf(n)) + 1).padStart(2,'0');
       const nodeClass = n._state === 'done' ? 'done' : (n._state === 'current' ? 'current' : '');
       const nodeIcon = n._state === 'done' ? '<i class="fas fa-check"></i>' : num;
       const status = n._state === 'done' ? 'Complete' : n._state === 'current' ? 'In progress' : 'Up next';
