@@ -228,6 +228,8 @@ body{
 #fmConfetti[hidden]{display:none}
 .fm-sound{background:none;border:1px solid var(--line);border-radius:10px;color:var(--dim);width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
 .fm-sound.off{color:rgba(255,255,255,.22)}
+.fm-shimmer{background:linear-gradient(105deg,var(--neon) 20%,#f2ffdc 50%,var(--neon) 80%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fmShimmer 2.8s ease-in-out infinite}
+@keyframes fmShimmer{0%{background-position:115% 0}100%{background-position:-115% 0}}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
   .fm-bar i{transition:none}
@@ -912,19 +914,39 @@ body{
     }catch(e){ if(el) el.textContent = "+" + to + " XP"; }
   }
 
+  /* matrix-style decode: title scrambles through glyphs, then locks in left to right */
+  function decodeText(el){
+    if(!el) return;
+    var final = el.textContent;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if(reduce || !final) return;
+    var glyphs = "▓▒░<>/\\|+*#01", len = final.length, t0 = performance.now(), dur = 1100;
+    (function tick(){
+      var k = Math.min((performance.now()-t0)/dur, 1);
+      var locked = Math.floor(k*len), out = "";
+      for(var i=0;i<len;i++){
+        var ch = final.charAt(i);
+        out += (ch === " " || i < locked) ? ch : glyphs[(Math.random()*glyphs.length)|0];
+      }
+      el.textContent = out;
+      if(k < 1) requestAnimationFrame(tick); else el.textContent = final;
+    })();
+  }
+
   function renderDone(lesson){
     var r = lastAward || { gained:0, lines:[], perfect:false, already:true };
+    var titleText = r.already ? "Lesson reviewed" : "Lesson decoded";
     var h = '<div class="fm-done-hero rise-in" style="--d:.05s">'
       + '<img src="/cynetis-avatar.png" alt="Cynetis-7" onerror="this.style.display=\'none\'" />'
       + '<p class="fm-kicker">Cynetis-7</p>'
-      + '<h1 class="fm-title" style="font-size:26px">' + (r.already ? "Lesson reviewed" : "Lesson decoded") + '</h1>'
+      + '<h1 class="fm-title" style="font-size:26px" aria-label="' + titleText + '"><span id="fm-decode" aria-hidden="true">' + titleText + '</span></h1>'
       + '<p class="fm-sub">' + esc(lesson.title) + ' — ' + esc(chapter.title) + '</p></div>';
     if(r.lines.length){
       h += '<div class="fm-card rise-in" style="--d:.18s">'
         + r.lines.map(function(l){
             return '<div class="fm-xpline"><span>' + esc(l[0]) + '</span><b>' + esc(l[1]) + '</b></div>';
           }).join("")
-        + '<div class="fm-xpline total"><span>Total</span><b id="fm-xp-total">+0 XP</b></div></div>';
+        + '<div class="fm-xpline total"><span class="fm-shimmer">Total</span><b id="fm-xp-total" class="fm-shimmer">+0 XP</b></div></div>';
     } else {
       h += '<div class="fm-card rise-in" style="--d:.18s"><p class="fm-block" style="margin:0;color:var(--dim)">Already decoded — no repeat XP. The signal holds.</p></div>';
     }
@@ -936,6 +958,7 @@ body{
       var nx = $("fm-done-next");
       if(nx) nx.addEventListener("click", function(){ openLesson(next, 0); });
       $("fm-done-back").addEventListener("click", function(){ renderChapter(); });
+      decodeText($("fm-decode"));
       var xpEl = $("fm-xp-total");
       if(xpEl && r.gained > 0) countUp(xpEl, r.gained, 900);
     }, 0);
