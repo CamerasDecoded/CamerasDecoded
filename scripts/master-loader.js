@@ -19,11 +19,12 @@
   let veilHidden = false;
 
   const veilCSS = [
-    '#cdBootVeil{position:fixed;inset:0;z-index:9999;background:#070708;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;margin:0;padding:0}',
+    '#cdBootVeil{position:fixed;inset:0;z-index:9999;background:#070708;margin:0;padding:0;overflow:hidden}',
     '#cdBootVeil.cd-bv-hide{opacity:0;pointer-events:none;transition:opacity .35s ease}',
-    '#cdBootVeil video{width:min(200px,46vw);height:auto;border-radius:18px;box-shadow:0 0 44px rgba(141,235,0,.22);background:#0b0b0d}',
-    '.cd-bv-label{font-family:"Space Mono",ui-monospace,monospace;font-size:11px;font-weight:700;letter-spacing:4px;color:#8deb00;text-transform:uppercase}',
-    '.cd-bv-dot{width:14px;height:14px;border-radius:50%;background:#8deb00;box-shadow:0 0 18px #8deb00;animation:cdBvPulse 1.1s ease-in-out infinite}',
+    '#cdBootVeil video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#070708}',
+    '.cd-bv-scrim{position:absolute;left:0;right:0;bottom:0;height:38%;background:linear-gradient(to bottom,rgba(0,0,0,0),rgba(0,0,0,.6));pointer-events:none}',
+    '.cd-bv-label{position:absolute;left:0;right:0;bottom:max(52px,env(safe-area-inset-bottom));text-align:center;font-family:"Space Mono",ui-monospace,monospace;font-size:11px;font-weight:700;letter-spacing:4px;color:#8deb00;text-transform:uppercase;text-shadow:0 1px 8px rgba(0,0,0,.8)}',
+    '.cd-bv-dot{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#8deb00;box-shadow:0 0 22px #8deb00;animation:cdBvPulse 1.1s ease-in-out infinite}',
     '@keyframes cdBvPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.55);opacity:.45}}',
     '@media (prefers-reduced-motion:reduce){#cdBootVeil.cd-bv-hide{transition:none}.cd-bv-dot{animation:none}}'
   ].join('\n');
@@ -36,8 +37,16 @@
     (document.head || document.documentElement).appendChild(s);
   }
 
+  // No-repeat rotation: never show the same video twice in a row in a
+  // session, so both files visibly take turns. Falls back to plain
+  // random when sessionStorage is unavailable.
   function pickVideo() {
-    return VEIL_VIDEOS[Math.floor(Math.random() * VEIL_VIDEOS.length)];
+    let last = null;
+    try { last = sessionStorage.getItem('cd_veil_last'); } catch (e) { /* private mode */ }
+    const pool = VEIL_VIDEOS.filter((v) => v !== last);
+    const src = (pool.length ? pool : VEIL_VIDEOS)[Math.floor(Math.random() * (pool.length ? pool.length : VEIL_VIDEOS.length))];
+    try { sessionStorage.setItem('cd_veil_last', src); } catch (e) { /* private mode */ }
+    return src;
   }
 
   function buildVeil(labelText) {
@@ -45,26 +54,35 @@
     veil.id = 'cdBootVeil';
     veil.setAttribute('aria-hidden', 'true');
     const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const src = pickVideo();
-    // Video carries the brand; onerror falls back to a pulsing dot so a
-    // missing/slow file can never break the page or trap the user.
+    // Fullscreen video carries the brand. If the picked file fails, try
+    // the other one(s) before falling back to a pulsing dot, so one bad
+    // file can never silently halve the rotation or break the page.
     veil.innerHTML =
-      '<video muted loop playsinline preload="auto" ' + (reduceMotion ? '' : 'autoplay ') +
-      'onerror="this.remove()"><source src="' + src + '" type="video/mp4"></video>' +
+      '<video muted loop playsinline preload="auto" ' + (reduceMotion ? '' : 'autoplay ') + 'aria-hidden="true"></video>' +
+      '<div class="cd-bv-scrim"></div>' +
       '<div class="cd-bv-label">' + (labelText || 'Tuning signal&hellip;') + '</div>';
     const vid = veil.querySelector('video');
     if (vid) {
-      vid.addEventListener('error', function () {
+      const first = pickVideo();
+      const queue = VEIL_VIDEOS.slice().sort((a, b) => (a === first ? -1 : b === first ? 1 : 0));
+      const showDot = () => {
         const dot = document.createElement('div');
         dot.className = 'cd-bv-dot';
         vid.replaceWith(dot);
-      });
-      const vsrc = vid.querySelector('source');
-      if (vsrc) vsrc.addEventListener('error', function () {
-        const dot = document.createElement('div');
-        dot.className = 'cd-bv-dot';
-        vid.replaceWith(dot);
-      });
+      };
+      // One source at a time: on failure, drop it and try the next file.
+      // Only the dot remains when every file has failed.
+      const tryNext = () => {
+        vid.querySelectorAll('source').forEach((s) => s.remove());
+        if (!queue.length) { showDot(); return; }
+        const s = document.createElement('source');
+        s.src = queue.shift();
+        s.type = 'video/mp4';
+        s.addEventListener('error', tryNext);
+        vid.appendChild(s);
+        try { vid.load(); } catch (e) { /* ignore */ }
+      };
+      tryNext();
     }
     return veil;
   }
