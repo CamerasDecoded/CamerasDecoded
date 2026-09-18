@@ -136,6 +136,10 @@
     panel.hidden = false;
     requestAnimationFrame(() => panel.classList.add('open'));
     if (bell) bell.setAttribute('aria-expanded', 'true');
+    // Opening the bell = seen: broadcasts stamped, unread inbox marked read.
+    if (window.CDNotifs && typeof window.CDNotifs.markSeen === 'function') {
+      try { window.CDNotifs.markSeen(); } catch (e) {}
+    }
   }
 
   function closePanel() {
@@ -179,8 +183,12 @@
       if (personalNotifs.length) {
         html += personalNotifs.map((n) => {
           const text = n.text || n.message || n.title || 'Notification';
+          const body = n.body || '';
           const time = n.time || n.date || '';
-          return `<div class="announce-item notif"><span class="announce-mark" aria-hidden="true"></span><div><p>${escapeHtml(String(text))}</p>${time ? `<time>${escapeHtml(String(time))}</time>` : ''}</div></div>`;
+          const inner = `<span class="announce-mark" aria-hidden="true"></span><div><p>${escapeHtml(String(text))}</p>${body ? `<span class="announce-sub">${escapeHtml(String(body))}</span>` : ''}${time ? `<time>${escapeHtml(String(time))}</time>` : ''}</div>`;
+          return n.href
+            ? `<a class="announce-item notif" href="${escapeHtml(String(n.href))}">${inner}</a>`
+            : `<div class="announce-item notif">${inner}</div>`;
         }).join('');
       }
       if (!html) {
@@ -287,6 +295,11 @@
       personalUnread = Number.isFinite(n) && n > 0 ? n : 0;
       notifsEnabled = true;
       renderBell();
+    },
+    // Lets the notification engine merge page-fed items (e.g. the operator
+    // dashboard) with automated ones instead of overwriting them.
+    getPersonalNotifs: function() {
+      return { items: personalNotifs.slice(), unread: personalUnread };
     },
     setUserData: function(user, userData) {
       updateAuthUI(user, userData);
