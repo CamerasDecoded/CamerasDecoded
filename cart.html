@@ -6,257 +6,161 @@
   <title>Cart — Cameras Decoded</title>
   <meta name="description" content="Review your cart and checkout securely with Stripe.">
 
-  <!-- ===== SHARED STYLES ===== -->
-  <link rel="stylesheet" href="/styles/design-system.css" />
-  <link rel="stylesheet" href="/styles/components.css" />
+  <meta property="og:title" content="Cart — Cameras Decoded">
+  <meta property="og:description" content="Review your cart and checkout securely with Stripe.">
+  <meta property="og:url" content="https://camerasdecoded.com/cart.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://camerasdecoded.com/cameras-decoded-logo.png">
 
-  <!-- Fonts & Icons -->
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- ===== MASTER LOADER ===== -->
+  <script src="/scripts/master-loader.js?v=20260918c"></script>
+
+  <!-- ===== SHARED COMPONENT CSS ===== -->
+  <link rel="stylesheet" href="header.css?v=20260916a" />
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js"></script>
+
+  <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
+  <script src="/scripts/user-state.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="header.js?v=20260918b"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
+  <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
+
+  <!-- ===== FONTS & ICONS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
     /* ================================================================
-       CART PAGE – production style
+       CART — Cameras Decoded
+       Shared slim header + bottom nav (mobile). Premium, quiet, mobile-first.
        ================================================================ */
+    :root {
+      --bg: #070708;
+      --neon: #8deb00;
+      --neon-bright: #a0f520;
+      --card: rgba(16, 19, 16, 0.88);
+      --card-solid: #101310;
+      --border: rgba(255, 255, 255, 0.09);
+      --text: #f2f4ec;
+      --muted: #b4b4b4;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
-      background: #050705;
-      background-image: radial-gradient(circle at 20% 30%, rgba(141,235,0,0.12) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 70%, rgba(141,235,0,0.08) 0%, transparent 45%),
-                        linear-gradient(rgba(141,235,0,0.04) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(141,235,0,0.04) 1px, transparent 1px);
-      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+      display: block !important;
+      background: var(--bg);
+      background-image:
+        radial-gradient(circle at 20% 0%, rgba(141, 235, 0, 0.07) 0%, transparent 45%),
+        radial-gradient(circle at 85% 60%, rgba(141, 235, 0, 0.05) 0%, transparent 40%);
       background-attachment: fixed;
-      color: var(--text-primary, #ffffff);
+      color: var(--text);
       font-family: 'Montserrat', sans-serif;
       min-height: 100vh;
       overflow-x: hidden;
-      display: flex;
-      flex-direction: column;
     }
+
+    h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
+    a { text-decoration: none; color: inherit; }
 
     .main-content {
-      flex: 1;
       max-width: 820px;
-      margin: 80px auto 40px;
-      padding: 0 20px 40px;
-      width: 100%;
-      position: relative;
-      z-index: 2;
-      animation: fadeSlideUp 0.6s ease forwards;
+      margin: 0 auto;
+      padding: calc(58px + 28px) 24px 32px;
+      animation: fadeIn 0.45s ease-out;
     }
-    @media (max-width: 640px) {
-      .main-content {
-        margin-top: 100px;
-        padding: 0 16px 20px;
-      }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: none; }
     }
 
+    /* ---------- PAGE HEADER ---------- */
     .cart-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
+      gap: 12px;
       margin-bottom: 24px;
-      border-bottom: 1px solid var(--border, #1A1A1A);
+      border-bottom: 1px solid var(--border);
       padding-bottom: 16px;
     }
     .cart-header h1 {
-      font-family: 'Space Mono', monospace;
-      font-size: 26px;
-      color: var(--green, #8deb00);
+      font-size: 24px;
+      color: var(--neon);
       display: flex;
       align-items: center;
       gap: 12px;
     }
+    .cart-header h1 i { color: var(--neon); }
     .cart-header .back-link {
       font-family: 'Space Mono', monospace;
-      font-size: 14px;
-      color: var(--green, #8deb00);
-      transition: 0.2s;
+      font-size: 13px;
+      color: var(--neon);
+      transition: color 0.2s;
     }
-    .cart-header .back-link:hover {
-      color: #a0f520;
-      transform: translateX(-4px);
-    }
+    .cart-header .back-link:hover { color: var(--neon-bright); }
 
-    /* Floating header – same as other production pages */
-    .floating-header {
-      position: fixed; top: 12px; left: 12px; right: 12px; z-index: 99;
-      display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      padding: 6px 14px; background: rgba(0,0,0,0.4); backdrop-filter: blur(16px);
-      border: 1px solid rgba(141,235,0,0.2); border-radius: 30px; min-height: 40px;
-      transition: background 0.3s ease, box-shadow 0.3s ease;
-    }
-    .floating-header:hover {
-      background: rgba(0,0,0,0.6);
-      box-shadow: 0 4px 30px rgba(0,0,0,0.3);
-    }
-    .floating-left-group, .floating-right-group {
-      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-    }
-    .floating-center-group {
-      display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center;
-    }
-    .floating-home-icon {
-      font-size: 15px; color: var(--green, #8deb00); text-decoration: none;
-      transition: transform 0.3s, color 0.3s;
-    }
-    .floating-home-icon:hover {
-      color: #a0f520;
-      transform: scale(1.1);
-    }
-    .role-tier-badge {
-      background: rgba(10,10,10,0.9);
-      border: 1px solid rgba(141,235,0,0.3);
-      border-radius: 14px;
-      padding: 2px 12px;
-      font-size: 10px;
-      color: var(--green, #8deb00);
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
-      transition: border-color 0.3s ease;
-    }
-    .role-tier-badge:hover {
-      border-color: var(--green, #8deb00);
-      box-shadow: 0 0 20px rgba(141,235,0,0.1);
-    }
-    .glow-role {
-      font-weight: 700;
-      text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00;
-    }
-    .logout-btn {
-      background: transparent;
-      border: 1px solid var(--green, #8deb00);
-      color: var(--green, #8deb00);
-      padding: 2px 10px;
-      border-radius: 20px;
-      cursor: pointer;
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      transition: all 0.25s, box-shadow 0.3s ease;
-      min-height: 22px;
-      line-height: 1.2;
-    }
-    .logout-btn:hover {
-      background: rgba(141,235,0,0.1);
-      box-shadow: 0 0 20px rgba(141,235,0,0.2);
-      transform: scale(1.02);
-    }
-    .logout-btn:active {
-      transform: scale(0.95);
-    }
-    .cart-header-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      border: 1px solid var(--green, #8deb00);
-      border-radius: 20px;
-      padding: 2px 10px;
-      color: var(--green, #8deb00);
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      transition: all 0.25s, box-shadow 0.3s ease;
-      text-decoration: none;
-      min-height: 22px;
-      line-height: 1.2;
-    }
-    .cart-header-link:hover {
-      background: rgba(141,235,0,0.1);
-      box-shadow: 0 0 20px rgba(141,235,0,0.2);
-      transform: scale(1.02);
-    }
-    .cart-count-badge {
-      background: var(--green, #8deb00);
-      color: #000;
-      border-radius: 50%;
-      padding: 0 4px;
-      font-size: 8px;
-      font-weight: 700;
-      display: inline-block;
-      min-width: 14px;
-      text-align: center;
-      line-height: 14px;
-    }
-
-    /* ===== CHASING BORDER (for cart link) ===== */
-    @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-    .chasing-border {
-      position: relative;
-      border-color: transparent !important;
-      background-clip: padding-box;
-      overflow: visible;
-    }
-    .chasing-border::before {
-      content: '';
-      position: absolute;
-      inset: -1.5px;
-      border-radius: inherit;
-      padding: 1.5px;
-      background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
-      -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
-      -webkit-mask-composite: xor;
-      mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
-      mask-composite: exclude;
-      animation: spinBorder 4s linear infinite;
-      pointer-events: none;
-      z-index: 0;
-    }
-    .chasing-border > * { position: relative; z-index: 1; }
-    @keyframes spinBorder { to { --angle: 360deg; } }
-
-    @media (max-width: 640px) {
-      .floating-header {
-        left: 10px; right: 10px; top: 70px;
-        padding: 6px 12px;
-      }
-      .floating-center-group {
-        font-size: 11px;
-      }
-    }
-
-    /* ===== CART TABLE ===== */
+    /* ---------- CART TABLE ---------- */
     .cart-table {
       width: 100%;
       border-collapse: collapse;
       margin-bottom: 24px;
-      background: var(--bg-panel, #0A0A0A);
-      border: 1px solid var(--border, #1A1A1A);
-      border-radius: 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
       overflow: hidden;
     }
     .cart-table th,
     .cart-table td {
       padding: 14px 16px;
-      border-bottom: 1px solid var(--border, #1A1A1A);
+      border-bottom: 1px solid var(--border);
       text-align: left;
     }
+    .cart-table tbody tr:last-child td { border-bottom: none; }
     .cart-table th {
-      color: var(--green, #8deb00);
+      color: var(--neon);
       font-family: 'Space Mono', monospace;
-      font-size: 12px;
+      font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 1.5px;
     }
     .cart-table td {
-      color: var(--text-primary, #fff);
+      color: var(--text);
+      font-size: 14px;
     }
+
     .qty-btn {
       background: transparent;
-      border: 1px solid var(--border, #1A1A1A);
-      color: #fff;
+      border: 1px solid var(--border);
+      color: var(--text);
       width: 30px;
       height: 30px;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
       font-size: 16px;
       font-family: 'Space Mono', monospace;
-      transition: 0.2s;
+      transition: border-color 0.2s, color 0.2s;
     }
     .qty-btn:hover {
-      border-color: var(--green, #8deb00);
-      color: var(--green, #8deb00);
+      border-color: var(--neon);
+      color: var(--neon);
+    }
+    .qty-btn:focus-visible,
+    .remove-btn:focus-visible,
+    .checkout-btn:focus-visible,
+    .back-link:focus-visible {
+      outline: 2px solid var(--neon);
+      outline-offset: 2px;
     }
     .remove-btn {
       background: none;
@@ -264,152 +168,145 @@
       color: #ff4a4a;
       cursor: pointer;
       font-size: 16px;
-      transition: 0.2s;
+      padding: 6px;
+      transition: color 0.2s;
     }
-    .remove-btn:hover {
-      color: #ff6666;
-    }
+    .remove-btn:hover { color: #ff7777; }
 
+    /* ---------- TOTAL ---------- */
     .total-box {
-      background: var(--bg-panel, #0A0A0A);
-      border: 1px solid var(--green, #8deb00);
-      border-radius: 8px;
+      background: var(--card);
+      border: 1px solid rgba(141, 235, 0, 0.35);
+      border-radius: 12px;
       padding: 18px 24px;
       margin: 20px 0;
       text-align: center;
       font-family: 'Space Mono', monospace;
       font-size: 20px;
     }
-    .total-box strong {
-      color: var(--green, #8deb00);
-    }
+    .total-box strong { color: var(--neon); }
 
+    /* ---------- SIGNAL MESSAGE ---------- */
     .signal-message {
-      border: 1px solid var(--border, #1A1A1A);
-      border-radius: 8px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
       padding: 16px 20px;
       margin: 16px 0;
       font-family: 'Space Mono', monospace;
       font-size: 13px;
-      color: var(--green, #8deb00);
-      background: rgba(141,235,0,0.03);
+      color: var(--neon);
+      background: rgba(141, 235, 0, 0.04);
       text-align: center;
       line-height: 1.8;
     }
     .signal-message.too-many {
-      border-color: #ffaa00;
+      border-color: rgba(255, 170, 0, 0.4);
       color: #ffaa00;
-      background: rgba(255,170,0,0.05);
+      background: rgba(255, 170, 0, 0.05);
     }
 
+    /* ---------- CHECKOUT CTA (the one loud CTA) ---------- */
     .checkout-btn {
       display: inline-block;
-      padding: 14px 40px;
-      background: var(--green, #8deb00);
+      padding: 15px 44px;
+      background: var(--neon);
       color: #000;
       font-family: 'Space Mono', monospace;
       font-weight: 700;
-      border-radius: 8px;
-      text-decoration: none;
+      border-radius: 10px;
       margin-top: 12px;
       font-size: 16px;
-      transition: 0.2s;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
       border: none;
       cursor: pointer;
     }
     .checkout-btn:hover {
-      background: #a0f520;
-      box-shadow: 0 0 30px rgba(141,235,0,0.5);
-      transform: scale(1.02);
+      background: var(--neon-bright);
+      box-shadow: 0 0 30px rgba(141, 235, 0, 0.45);
+      transform: translateY(-1px);
     }
     .checkout-btn.disabled {
-      background: #333;
-      color: #666;
+      background: #2a2d2a;
+      color: #6b6f6b;
       pointer-events: none;
       cursor: not-allowed;
-      border: 1px solid #444;
+      border: 1px solid var(--border);
+      box-shadow: none;
+      transform: none;
     }
 
+    /* ---------- EMPTY CART ---------- */
     .empty-cart {
       text-align: center;
-      color: var(--text-muted, #b4b4b4);
+      color: var(--muted);
       font-family: 'Space Mono', monospace;
       padding: 60px 20px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      line-height: 1.8;
     }
     .empty-cart i {
-      font-size: 48px;
+      font-size: 44px;
       display: block;
       margin-bottom: 16px;
-      color: var(--green, #8deb00);
+      color: var(--neon);
     }
     .empty-cart a {
-      color: var(--green, #8deb00);
+      color: var(--neon);
       text-decoration: underline;
     }
 
+    /* ---------- FOOTER ---------- */
     .footer {
-      width: 100%;
-      border-top: 1px solid var(--border, #1A1A1A);
-      padding: 20px;
-      margin-top: 40px;
-      text-align: center;
-      font-size: 12px;
-      color: var(--text-muted, #b4b4b4);
+      max-width: 820px;
+      margin: 40px auto 0;
+      border-top: 1px solid var(--border);
+      padding: 24px;
       display: flex;
       justify-content: center;
       gap: 20px;
       flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
     }
     .footer a {
-      color: var(--text-muted, #b4b4b4);
-      transition: 0.2s;
+      color: var(--muted);
+      transition: color 0.2s;
     }
-    .footer a:hover {
-      color: var(--green, #8deb00);
-    }
+    .footer a:hover { color: var(--neon); }
 
-    @media (max-width: 600px) {
+    /* ---------- MOBILE ---------- */
+    @media (max-width: 768px) {
+      .main-content { padding: calc(58px + 20px) 18px 120px; }
+      .cart-header h1 { font-size: 20px; }
       .cart-table th,
       .cart-table td {
         padding: 10px 12px;
         font-size: 13px;
       }
-      .total-box {
-        font-size: 17px;
-        padding: 14px 16px;
-      }
+      .total-box { font-size: 17px; padding: 14px 16px; }
       .checkout-btn {
         width: 100%;
         text-align: center;
-        padding: 14px 20px;
+        padding: 15px 20px;
       }
+    }
+
+    /* ---------- REDUCED MOTION ---------- */
+    @media (prefers-reduced-motion: reduce) {
+      .main-content { animation: none; }
+      .qty-btn, .remove-btn, .checkout-btn, .back-link, .footer a { transition: none; }
+      .checkout-btn:hover { transform: none; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ===== FLOATING HEADER (shared with other pages) ===== -->
-  <div class="floating-header">
-    <div class="floating-left-group">
-      <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
-      <span class="role-tier-badge" id="roleTierBadge" style="display:none;">
-        <span class="glow-role" id="headerRole">Operator</span> · <span class="tier-text" id="headerTier">Free</span>
-      </span>
-    </div>
-    <div class="floating-center-group"></div>
-    <div class="floating-right-group">
-      <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
-        <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
-        <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
-      </a>
-      <button class="logout-btn" id="floatingLogoutBtn" style="display:none;" onclick="handleLogout()">Logout</button>
-    </div>
-  </div>
-
   <!-- ===== MAIN CONTENT ===== -->
   <main class="main-content">
     <div class="cart-header">
-      <h1><i class="fas fa-shopping-cart" style="color:var(--green);"></i> Your Cart</h1>
+      <h1><i class="fas fa-shopping-cart"></i> Your Cart</h1>
       <a href="products.html" class="back-link"><i class="fas fa-arrow-left"></i> Continue Shopping</a>
     </div>
 
@@ -418,36 +315,15 @@
     </div>
   </main>
 
-  <!-- ===== BOTTOM NAV CONTAINER ===== -->
-  <div id="bottomNavContainer"></div>
-
-  <!-- ===== SHARED BOTTOM NAV SCRIPT ===== -->
-  <script src="scripts/bottom-nav.js"></script>
-
-  <!-- ===== FIREBASE SDKs ===== -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <a href="terms.html">Privacy/Terms</a>
+    <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
+  </footer>
 
   <script>
     // ================================================================
-    // FIREBASE CONFIG – same as other pages
-    // ================================================================
-    const firebaseConfig = {
-      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-      authDomain: "cameras-decoded.firebaseapp.com",
-      projectId: "cameras-decoded",
-      storageBucket: "cameras-decoded.firebasestorage.app",
-      messagingSenderId: "1088920052790",
-      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-      measurementId: "G-YN3M01WW0B"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-
-    // ================================================================
-    // CART LOGIC
+    // CART LOGIC (unchanged from production)
     // ================================================================
     function getCart() {
       return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
@@ -519,11 +395,11 @@
           ${checkoutLink ? 'Checkout with Stripe →' : 'Payment link not available'}
         </a>`;
       if (checkoutLink) {
-        html += `<p style="color:var(--text-muted); font-size:13px; margin-top:10px;">
+        html += `<p style="color:var(--muted); font-size:13px; margin-top:10px;">
           You'll be redirected to Stripe to complete your purchase at the exact amount shown.
         </p>`;
       } else {
-        html += `<p style="color:var(--text-muted); font-size:13px; margin-top:10px;">
+        html += `<p style="color:var(--muted); font-size:13px; margin-top:10px;">
           Payment link not yet available for this product. Please check back soon.
         </p>`;
       }
@@ -546,7 +422,7 @@
     };
 
     // ================================================================
-    // CART UI (badge in header)
+    // CART UI (header badge — no-ops safely when shared header owns it)
     // ================================================================
     function updateCartUI() {
       const cart = getCart();
@@ -563,60 +439,6 @@
     }
 
     // ================================================================
-    // AUTH – update header role/tier
-    // ================================================================
-    function updateAuthUI(user) {
-      const roleBadge = document.getElementById('roleTierBadge');
-      const headerRole = document.getElementById('headerRole');
-      const headerTier = document.getElementById('headerTier');
-      const logoutBtn = document.getElementById('floatingLogoutBtn');
-
-      if (user) {
-        logoutBtn.style.display = 'inline-block';
-        roleBadge.style.display = 'inline-flex';
-        db.collection('users').doc(user.uid).get().then(doc => {
-          if (doc.exists) {
-            const data = doc.data();
-            const role = data.role || 'Operator';
-            const tier = data.tier || 'free';
-            const tierLabel = tier === 'pro' ? 'Pro' : 'Free';
-            headerRole.textContent = role;
-            headerTier.textContent = tierLabel;
-          }
-        }).catch(() => {
-          headerRole.textContent = 'Operator';
-          headerTier.textContent = 'Free';
-        });
-      } else {
-        logoutBtn.style.display = 'none';
-        roleBadge.style.display = 'none';
-      }
-    }
-
-    window.handleLogout = function() {
-      auth.signOut().then(() => {
-        localStorage.removeItem('cameras_decoded_uid');
-        localStorage.removeItem('cameras_decoded_user');
-        window.location.href = 'index.html';
-      }).catch(() => {
-        localStorage.clear();
-        window.location.href = 'index.html';
-      });
-    };
-
-    // ================================================================
-    // AUTH LISTENER
-    // ================================================================
-    auth.onAuthStateChanged((user) => {
-      updateAuthUI(user);
-      if (user) {
-        localStorage.setItem('cameras_decoded_uid', user.uid);
-      } else {
-        localStorage.removeItem('cameras_decoded_uid');
-      }
-    });
-
-    // ================================================================
     // INIT
     // ================================================================
     renderCart();
@@ -631,11 +453,7 @@
     });
   </script>
 
-  <!-- ===== FOOTER ===== -->
-  <footer class="footer">
-    <a href="terms.html">Privacy/Terms</a>
-    <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
-  </footer>
+  <script src="/scripts/ptr.js"></script>
 
 </body>
 </html>
