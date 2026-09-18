@@ -2,19 +2,58 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Roadmap — Cameras Decoded</title>
   <meta name="description" content="The vision for the Cameras Decoded ecosystem. From the Camera Confidence Guide to the Cynetis‑7 Chatbot, explore what's live, in progress, and coming soon.">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <meta property="og:title" content="Roadmap — Cameras Decoded">
   <meta property="og:description" content="The vision for the Cameras Decoded ecosystem. Explore what's live, in progress, and coming soon.">
   <meta property="og:url" content="https://camerasdecoded.com/roadmap.html">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://camerasdecoded.com/cameras-decoded-logo.png">
-  
+
+  <!-- ===== MASTER LOADER ===== -->
+  <script src="/scripts/master-loader.js?v=20260918c"></script>
+
+  <!-- ===== SHARED COMPONENT CSS ===== -->
+  <link rel="stylesheet" href="header.css?v=20260916a" />
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js"></script>
+
+  <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
+  <script src="/scripts/user-state.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="header.js?v=20260918b"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
+  <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
+
+  <!-- ===== FONTS & ICONS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
   <style>
+    /* ================================================================
+       ROADMAP — Cameras Decoded
+       Shared site chrome (slim header / desktop sidebar / mobile
+       bottom nav) in the dark-neon design language. Quiet, premium,
+       mobile-first, reduced-motion safe.
+       ================================================================ */
     :root {
+      --bg: #070708;
+      --neon: #8deb00;
+      --card: rgba(16,19,16,.88);
+      --card-solid: #101310;
+      --border: rgba(255,255,255,.09);
+      --text: #f2f4f1;
+      --muted: #a9b2a7;
+      --amber: #ffb020;
+      --ease: cubic-bezier(.22,.9,.28,1);
       --space-sm: 12px;
       --space-md: 24px;
       --space-lg: 40px;
@@ -22,515 +61,276 @@
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
-      background-color: #000000;
-      background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-      background-size: 24px 24px;
-      color: #ffffff;
+      display: block !important;
+      background: var(--bg);
+      color: var(--text);
       font-family: 'Montserrat', sans-serif;
       line-height: 1.6;
-      position: relative;
-      display: flex;
       min-height: 100vh;
+      overflow-x: hidden;
     }
-
-    /* ---------- FULL-HEIGHT GREEN-TO-BLACK GRADIENT ---------- */
+    /* faint signal glow up top, fading into the void */
     body::before {
       content: "";
       position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      background: linear-gradient(180deg, rgba(29,179,27,0.35) 0%, rgba(0,0,0,0.95) 70%, #000000 100%);
-      pointer-events: none;
-      z-index: -1;
-    }
-
-    /* ----- BINARY RAIN CANVAS ----- */
-    #binary-rain {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      z-index: 0;
-      pointer-events: none;
-      opacity: 0.2;
-    }
-
-    /* ----- BOTTOM FADE OVERLAY (rain falls into black) ----- */
-    #rain-fade {
-      position: fixed;
-      bottom: 0; left: 0;
-      width: 100vw; height: 45vh;
-      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 60%, #000000 100%);
+      inset: 0;
+      background:
+        radial-gradient(720px 380px at 50% -120px, rgba(141,235,0,.07), transparent 70%),
+        radial-gradient(rgba(255,255,255,.022) 1px, transparent 1px);
+      background-size: auto, 26px 26px;
       pointer-events: none;
       z-index: 0;
     }
 
     h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
-    .green-text { color: #8deb00; }
-    .grey-text { color: #b4b4b4; }
-    a { text-decoration: none; color: inherit; transition: 0.2s; }
-
-    /* ---------- SIDEBAR ---------- */
-    .sidebar {
-      width: 240px;
-      background: rgba(0,0,0,0.9);
-      padding: var(--space-md) var(--space-md);
-      border-right: 1px solid #1A1A1A;
-      height: 100vh;
-      position: sticky;
-      top: 0;
-      flex-shrink: 0;
-      z-index: 2;
-    }
-    .sidebar .logo img {
-      height: 120px; width: auto; display: block; margin-bottom: 10px; object-fit: contain;
-    }
-    .sidebar .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 0;
-      color: #b4b4b4;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      letter-spacing: 0.5px;
-      border-bottom: 1px solid transparent;
-      transition: all 0.2s;
-    }
-    .sidebar .nav-item i {
-      font-size: 15px;
-      width: 20px;
-      text-align: center;
-      transition: color 0.2s;
-      color: inherit;
-    }
-    .sidebar .nav-item:hover,
-    .sidebar .nav-item:hover i {
-      color: #8deb00;
-      transform: translateX(6px) scale(1.05);
-      text-shadow: 0 0 12px rgba(141, 235, 0, 0.6);
-      border-bottom: 1px solid #8deb00;
-    }
-    .sidebar .nav-item.active,
-    .sidebar .nav-item.active i {
-      color: #8deb00;
-      border-left: 2px solid #8deb00;
-      padding-left: 10px;
-      text-shadow: 0 0 12px rgba(141, 235, 0, 0.6);
-    }
-    .sidebar-divider {
-      border: none;
-      border-top: 1px solid #1A1A1A;
-      margin: 8px 0;
+    .green-text { color: var(--neon); }
+    .grey-text { color: var(--muted); }
+    a { text-decoration: none; color: inherit; }
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--neon);
+      outline-offset: 3px;
+      border-radius: 6px;
     }
 
-    .header-login-btn {
-      display: block;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      border: 1px solid #8deb00;
-      padding: 0 10px 0 14px;
-      border-radius: 20px;
-      background: transparent;
-      transition: 0.2s;
-      text-decoration: none;
-      text-align: center;
-      width: fit-content;
-    }
-    .header-login-btn:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 15px rgba(141, 235, 0, 0.3); }
-
+    /* ---------- CONTENT WRAP (clears the floating shared header) ---------- */
     .main-content {
-      flex: 1;
-      padding: var(--space-md) var(--space-lg) var(--space-lg) var(--space-lg);
-      padding-top: 80px; /* space for floating header */
-      max-width: 1200px;
       position: relative;
-      z-index: 2;
-      animation: fadeIn 0.5s ease-in-out forwards;
+      z-index: 1;
+      max-width: 920px;
+      margin: 0 auto;
+      padding: calc(104px + env(safe-area-inset-top)) 20px 72px;
+      animation: pageIn .5s var(--ease) both;
     }
-    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+    @keyframes pageIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: none; }
+    }
 
-    /* ---------- FLOATING GLASS HEADER ---------- */
-    .floating-header {
-      position: fixed;
-      top: 12px;
-      left: 240px;
-      right: 0;
-      z-index: 99;
+    /* ---------- HERO ---------- */
+    .about-hero {
       display: flex;
       align-items: center;
-      gap: 20px;
-      padding: 10px 24px;
-      background: rgba(0, 0, 0, 0.25);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(141, 235, 0, 0.15);
-      border-radius: 30px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: #b4b4b4;
-      margin: 0 12px;
-    }
-
-    .floating-header a { color: #8deb00; transition: color 0.2s; }
-    .floating-header a:hover { color: #a0f520; }
-
-    .floating-home-icon { font-size: 17px; flex-shrink: 0; }
-
-    .floating-nav-links {
-      display: flex;
-      flex: 1;
-      justify-content: center;
-      gap: 25px;
+      gap: clamp(24px, 5vw, 48px);
+      margin-bottom: 44px;
       flex-wrap: wrap;
-      align-items: center;
     }
-
-    /* ---------- CHASING BORDER ---------- */
-    @property --angle {
-      syntax: '<angle>';
-      initial-value: 0deg;
-      inherits: false;
-    }
-    @keyframes spinBorder { to { --angle: 360deg; } }
-
-    .chasing-border {
-      position: relative;
-      z-index: 0;
-    }
-    .chasing-border::before {
-      content: '';
-      position: absolute;
-      top: -2px;
-      left: -2px;
-      right: -2px;
-      bottom: -2px;
-      border-radius: inherit;
-      background: conic-gradient(from var(--angle, 0deg), #8deb00, #00e5ff, #a0f520, #8deb00);
-      animation: spinBorder 4s linear infinite;
-      z-index: -1;
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-              mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      mask-composite: exclude;
-      padding: 2px;
-    }
-
-    .cart-header-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: transparent;
-      border: 1px solid #8deb00;
-      border-radius: 20px;
-      padding: 6px 14px;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      transition: 0.2s;
-      text-decoration: none;
-      flex-shrink: 0;
-      margin-left: auto;
-    }
-    .cart-header-link:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 12px rgba(141, 235, 0, 0.3); }
-    .cart-count-badge {
-      background: #8deb00;
-      color: #000;
+    .about-globe-container { flex: 0 1 230px; max-width: 230px; margin: 0 auto; }
+    .about-globe-container img {
+      width: 100%;
+      height: auto;
       border-radius: 50%;
-      padding: 1px 7px;
-      font-size: 11px;
+      border: 1px solid var(--border);
+      box-shadow: 0 0 70px rgba(141,235,0,.10);
+      display: block;
+      object-fit: cover;
+    }
+    .about-text-container { flex: 1 1 300px; min-width: 260px; }
+    .about-text-container .mono {
+      font-size: 12px;
+      letter-spacing: 4px;
+      color: var(--neon);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    .about-text-container h1 {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 800;
+      font-size: clamp(42px, 7vw, 64px);
+      line-height: 1;
+      letter-spacing: -1.5px;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+    .about-signature {
+      color: var(--muted);
+      font-size: 13px;
+      font-family: 'Space Mono', monospace;
+      line-height: 1.7;
+    }
+
+    .rm-rule { border: 0; border-top: 1px solid var(--border); margin: 40px 0; }
+
+    /* ---------- CONTENT CARDS ---------- */
+    .about-content-block {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: clamp(22px, 4vw, 34px);
+      max-width: 800px;
+      margin: 0 auto 18px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .about-content-block h3 {
+      font-size: 12px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text);
       font-weight: 700;
+      margin-bottom: 18px;
+    }
+    /* status dot: live = neon, in progress = amber, coming soon = grey */
+    .about-content-block h3::before {
+      content: "";
       display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--neon);
+      margin-right: 10px;
+      vertical-align: 1px;
+      box-shadow: 0 0 12px rgba(141,235,0,.7);
+    }
+    .about-content-block:nth-of-type(4) h3::before {
+      background: var(--amber);
+      box-shadow: 0 0 12px rgba(255,176,32,.55);
+    }
+    .about-content-block:nth-of-type(5) h3::before {
+      background: #7d847b;
+      box-shadow: none;
+    }
+    .about-content-block p {
+      color: var(--muted);
+      font-size: 15px;
+      margin-bottom: 14px;
+      line-height: 1.75;
+    }
+    .about-content-block p:last-child { margin-bottom: 0; }
+    .about-content-block ul {
+      list-style: none;
+      text-align: left;
+      display: inline-block;
+      margin: 6px auto 0;
+      padding: 0;
+      max-width: 600px;
+    }
+    .about-content-block ul li {
+      margin-bottom: 12px;
+      font-size: 15px;
+      color: var(--muted);
+      padding-left: 26px;
+      position: relative;
+      line-height: 1.55;
+    }
+    .about-content-block ul li:last-child { margin-bottom: 0; }
+    .about-content-block ul li::before {
+      content: "→";
+      color: var(--neon);
+      position: absolute;
+      left: 0;
+      font-family: 'Space Mono', monospace;
     }
 
-    /* ---- Mobile-only hamburger inside floating header ---- */
-    .floating-toggle {
-      display: none;
-      background: transparent;
+    /* ---------- THE ONE LOUD CTA ---------- */
+    .btn-neon-block {
+      display: inline-block;
+      padding: 14px 30px;
+      background: var(--neon);
+      color: #0b0d0b;
       border: none;
-      color: #8deb00;
-      font-size: 24px;
-      cursor: pointer;
-      padding: 0 6px;
-      flex-shrink: 0;
-      margin-left: 8px;
-      transition: color 0.2s;
+      border-radius: 12px;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      box-shadow: 0 0 28px rgba(141,235,0,.28);
+      transition: transform .2s var(--ease), box-shadow .2s var(--ease);
     }
-    .floating-toggle:hover { color: #a0f520; }
-
-    /* --- ROADMAP SPECIFIC (reusing about-hero styles) --- */
-    .about-hero { display: flex; align-items: center; gap: 40px; margin-bottom: 50px; flex-wrap: wrap; }
-    .about-globe-container { flex: 1; max-width: 400px; min-width: 200px; margin: 0 auto; }
-    .about-globe-container img { width: 100%; height: auto; border-radius: 50%; border: 1px solid rgba(141,235,0,0.4); box-shadow: 0 0 40px rgba(29, 179, 27, 0.2); display: block; object-fit: cover; }
-    .about-text-container { flex: 2; min-width: 250px; text-align: right; }
-    .about-text-container .mono { font-size: 14px; letter-spacing: 3px; margin-bottom: 5px; }
-    .about-text-container h1 { font-size: 56px; line-height: 1; margin-bottom: 20px; background: linear-gradient(90deg, #1db31b 0%, #c9e265 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .about-signature { color: #b4b4b4; font-size: 14px; font-family: 'Space Mono', monospace; }
-
-    .about-content-block { max-width: 800px; margin: 0 auto; text-align: center; padding: 10px 0; }
-    .about-content-block h3 { font-family: 'Space Mono', monospace; color: #8deb00; font-size: 22px; margin-bottom: 15px; }
-    .about-content-block p { color: #ffffff; font-size: 16px; margin-bottom: 20px; line-height: 1.8; }
-    .about-content-block ul { list-style: none; text-align: left; display: inline-block; margin: 0 auto; padding-left: 0; }
-    .about-content-block ul li { margin-bottom: 12px; font-size: 15px; color: #b4b4b4; padding-left: 20px; position: relative; line-height: 1.5; }
-    .about-content-block ul li::before { content: "→"; color: #8deb00; position: absolute; left: 0; font-family: 'Space Mono', monospace; }
-
-    .btn-neon-block { display: inline-block; max-width: 350px; padding: 12px 20px; background: transparent; border: 1px solid #8deb00; border-radius: 8px; color: #8deb00; font-family: 'Space Mono', monospace; font-size: 14px; transition: 0.2s; }
-    .btn-neon-block:hover { background: rgba(141, 235, 0, 0.05); box-shadow: 0 0 15px rgba(141,235,0,0.3); }
+    .btn-neon-block:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 44px rgba(141,235,0,.42);
+      color: #0b0d0b;
+    }
 
     /* ---------- FOOTER ---------- */
     .footer {
-      border-top: 1px solid #1A1A1A;
-      padding-top: var(--space-md);
+      border-top: 1px solid var(--border);
+      padding-top: 30px;
       margin-top: var(--space-xl);
       display: flex;
       flex-direction: column;
-      gap: 15px;
+      gap: 14px;
       font-size: 12px;
-      color: #b4b4b4;
+      color: var(--muted);
       text-align: center;
+      font-family: 'Space Mono', monospace;
     }
     .footer .socials {
       display: flex;
       justify-content: center;
-      gap: 20px;
+      gap: 22px;
     }
     .footer .socials a {
-      color: #ffffff !important;
+      color: var(--muted);
       font-size: 18px;
-      transition: 0.2s;
+      transition: color .2s;
     }
-    .footer .socials a:hover {
-      color: #8deb00 !important;
-    }
+    .footer .socials a:hover { color: var(--neon); }
     .footer .footer-links {
       display: flex;
       justify-content: center;
-      gap: 20px;
+      gap: 8px 20px;
       flex-wrap: wrap;
     }
-    .footer .footer-links a {
-      color: #8deb00 !important;
-    }
-    .footer .footer-links a:hover {
-      color: #a0f520 !important;
-    }
-    .footer .footer-links a.footer-active {
-      text-shadow: 0 0 10px rgba(141, 235, 0, 0.7);
-    }
+    .footer .footer-links a { color: var(--muted); transition: color .2s; }
+    .footer .footer-links a:hover { color: var(--neon); }
+    .footer .footer-links a.footer-active { color: var(--neon); }
 
-    /* --- MOBILE BREAKPOINT --- */
-    @media (max-width: 1024px) {
-      body { flex-direction: column; }
-      .sidebar {
-        width: 100%; height: auto; position: static;
-        border-right: none; border-bottom: 1px solid #1A1A1A;
-        padding: 15px 20px;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        flex-direction: row;
-      }
-      .sidebar .logo { margin: 0; }
-      .sidebar .logo img { height: 50px; width: auto; margin: 0; object-fit: contain; }
-      .sidebar .nav-group { display: none !important; }
-      .sidebar .mobile-toggle { display: block !important; background: transparent; border: none; color: #8deb00; font-size: 28px; cursor: pointer; padding: 4px 8px; z-index: 101; }
-      .floating-toggle { display: block !important; }
-      .main-content { padding: 20px; padding-top: 100px; }
-      .about-hero { flex-direction: column; text-align: center; }
-      .about-text-container { text-align: center; }
-      .about-text-container h1 { font-size: 40px; }
-      .about-globe-container { max-width: 250px; }
-
-      .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; border-radius: 25px; gap: 10px; }
-      .floating-nav-links { gap: 12px; }
-      #cartHeaderLabel { display: none; }
-    }
-
-    /* ---- MOBILE OVERLAY (with dynamic Dashboard above Home) ---- */
-    .nav-group-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.85);
-      z-index: 10000;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      padding: 40px 20px;
-      overflow-y: auto;
-    }
-    .nav-group-overlay.open {
-      display: flex !important;
-    }
-    .nav-group-overlay .nav-item {
-      font-size: 22px;
-      padding: 12px 0;
-      color: #ffffff;
-      font-family: 'Space Mono', monospace;
-      letter-spacing: 0.5px;
-      width: 100%;
-      max-width: 360px;
-      text-align: center;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    .nav-group-overlay .nav-item i {
-      color: #8deb00;
-      font-size: 18px;
-      width: 28px;
-    }
-    .nav-group-overlay .nav-item:hover {
-      color: #8deb00;
-    }
-    .nav-group-overlay .close-btn {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      color: #8deb00;
-      font-size: 32px;
-      cursor: pointer;
-      background: transparent;
-      border: none;
-      padding: 8px;
-      z-index: 10001;
-      font-family: 'Space Mono', monospace;
-    }
-    .nav-group-overlay .sidebar-divider {
-      display: none;
-    }
-    .nav-group-overlay .nav-item.dashboard-link {
-      color: #8deb00;
-      border-left: 2px solid #8deb00;
-      padding-left: 10px;
-      text-shadow: 0 0 12px rgba(141,235,0,0.6);
-    }
-    .nav-group-overlay .nav-item.dashboard-link i {
-      color: #8deb00;
-    }
-
-    /* For desktop, show the inline nav group */
-    @media (min-width: 1025px) {
-      .sidebar .nav-group { display: flex !important; flex-direction: column !important; }
-    }
-
-    /* Mobile toggle hidden on desktop */
-    .sidebar .mobile-toggle { display: none; }
-
+    /* ---------- SCROLL TO TOP ---------- */
     #scrollTopBtn {
       position: fixed;
-      bottom: 30px; right: 30px;
-      visibility: hidden; opacity: 0;
-      width: 45px; height: 45px;
+      bottom: calc(28px + env(safe-area-inset-bottom));
+      right: 24px;
+      visibility: hidden;
+      opacity: 0;
+      width: 46px;
+      height: 46px;
       border-radius: 50%;
-      border: 1px solid #8deb00;
-      background: rgba(0,0,0,0.85);
-      color: #8deb00;
+      border: 1px solid rgba(141,235,0,.4);
+      background: rgba(10,12,10,.9);
+      color: var(--neon);
       cursor: pointer;
       font-size: 18px;
-      z-index: 999;
+      z-index: 60;
       font-family: 'Space Mono', monospace;
-      transition: opacity 0.3s ease, visibility 0.3s ease;
-      box-shadow: 0 0 10px rgba(141,235,0,0.2);
+      transition: opacity .3s, visibility .3s, transform .2s var(--ease), background .2s;
+      box-shadow: 0 4px 18px rgba(0,0,0,.5);
     }
     #scrollTopBtn.show { visibility: visible; opacity: 1; }
-    #scrollTopBtn:hover { background: #8deb00; color: #000000; box-shadow: 0 0 20px rgba(141,235,0,0.6); transform: translateY(-2px); }
-    @keyframes pulse {
-      0% { transform: scale(1); box-shadow: 0 0 10px rgba(141,235,0,0.2); }
-      50% { transform: scale(1.15); box-shadow: 0 0 25px rgba(141,235,0,0.5); }
-      100% { transform: scale(1); box-shadow: 0 0 10px rgba(141,235,0,0.2); }
+    #scrollTopBtn:hover {
+      background: var(--neon);
+      color: #0b0d0b;
+      transform: translateY(-2px);
     }
-    #scrollTopBtn.pulse { animation: pulse 1.2s ease-in-out infinite; }
+
+    /* ---------- MOBILE ---------- */
+    @media (max-width: 768px) {
+      .main-content {
+        padding: calc(92px + env(safe-area-inset-top)) 16px calc(128px + env(safe-area-inset-bottom));
+      }
+      .about-hero { flex-direction: column; text-align: center; margin-bottom: 36px; }
+      .about-text-container { text-align: center; }
+      .about-globe-container { max-width: 180px; }
+      #scrollTopBtn {
+        bottom: calc(96px + env(safe-area-inset-bottom));
+        right: 16px;
+      }
+    }
+
+    /* ---------- REDUCED MOTION ---------- */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .main-content { animation: none; }
+    }
   </style>
 </head>
 <body>
 
-  <!-- BINARY RAIN CANVAS -->
-  <canvas id="binary-rain"></canvas>
-  <div id="rain-fade"></div>
-
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="logo"><img src="cameras-decoded-logo.png" alt="Cameras Decoded"></div>
-    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
-      <a href="login.html" class="header-login-btn">Log in</a>
-      <a href="signup.html" class="header-login-btn">Sign Up</a>
-    </div>
-    
-    <!-- DESKTOP NAV -->
-    <div class="nav-group" id="navGroupDesktop">
-      <!-- Dashboard link will be inserted here by JS (above Home) -->
-      <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-      <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-      <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-      <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-      <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-      <hr class="sidebar-divider">
-      <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-      <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-      <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-      <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-      <hr class="sidebar-divider">
-      <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-      <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-      <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-      <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
-    </div>
-    
-    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
-  </aside>
-
-  <!-- MOBILE OVERLAY -->
-  <div class="nav-group-overlay" id="navGroupOverlay">
-    <button class="close-btn" id="closeToggle">✕</button>
-    <!-- Dashboard link will be inserted here by JS (above Home) -->
-    <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-    <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-    <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-    <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-    <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-    <hr class="sidebar-divider">
-    <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-    <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-    <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-    <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-    <hr class="sidebar-divider">
-    <a href="blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-    <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-    <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-    <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
-    <!-- Dashboard link container (JS will insert above Home) -->
-    <div id="mobileDashboardContainer"></div>
-  </div>
-
-  <!-- FLOATING GLASS HEADER -->
-  <div class="floating-header" id="floatingHeader">
-    <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
-    <div class="floating-nav-links">
-      <a href="operators.html">Operators</a>
-      <a href="partners.html">Partners</a>
-      <a href="educators-pdf-viewer.html">Instructors</a>
-    </div>
-    <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
-      <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
-      <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
-    </a>
-    <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
-  </div>
-
   <!-- MAIN CONTENT -->
-  <main class="main-content">
+  <main class="main-content" id="mainContent">
 
     <div class="about-hero">
       <div class="about-globe-container"><img src="cameras-decoded-globe.png" alt="Cameras Decoded Globe"></div>
@@ -541,7 +341,7 @@
       </div>
     </div>
 
-    <hr style="border: 0; border-top: 1px solid #1A1A1A; margin: 40px 0;">
+    <hr class="rm-rule">
 
     <div class="about-content-block">
       <p style="font-weight: 600; color: #ffffff;">Where Cameras Decoded is going.</p>
@@ -568,10 +368,10 @@
       </div>
       <div>© Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
       <div class="footer-links" style="margin-bottom: 10px;">
-        <a href="roadmap.html" class="footer-active">Roadmap</a> · 
-        <a href="blog-updates.html">Blog/Updates</a> · 
-        <a href="faq.html">FAQ</a> · 
-        <a href="contact.html">Contact</a> · 
+        <a href="roadmap.html" class="footer-active">Roadmap</a> ·
+        <a href="blog-updates.html">Blog/Updates</a> ·
+        <a href="faq.html">FAQ</a> ·
+        <a href="contact.html">Contact</a> ·
         <a href="podcast.html">Podcast</a>
       </div>
       <div class="footer-links">
@@ -581,220 +381,18 @@
     </footer>
   </main>
 
-  <!-- SCRIPTS -->
+  <button id="scrollTopBtn" aria-label="Scroll to top" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+
   <script>
-    // Mobile menu toggle
-    document.addEventListener('DOMContentLoaded', function() {
-      const mobileToggle = document.getElementById('mobileToggle');
-      const floatingToggle = document.getElementById('floatingToggle');
-      const closeToggle = document.getElementById('closeToggle');
-      const overlay = document.getElementById('navGroupOverlay');
-
-      function openMenu() {
-        overlay.classList.add('open');
-        document.body.style.overflow = 'hidden';
-      }
-      function closeMenu() {
-        overlay.classList.remove('open');
-        document.body.style.overflow = '';
-      }
-
-      if (mobileToggle) {
-        mobileToggle.addEventListener('click', function(e) {
-          e.stopPropagation();
-          openMenu();
-        });
-      }
-      if (floatingToggle) {
-        floatingToggle.addEventListener('click', function(e) {
-          e.stopPropagation();
-          openMenu();
-        });
-      }
-      if (closeToggle) {
-        closeToggle.addEventListener('click', function(e) {
-          e.stopPropagation();
-          closeMenu();
-        });
-      }
-      if (overlay) {
-        overlay.addEventListener('click', function(e) {
-          if (e.target === overlay) {
-            closeMenu();
-          }
-        });
-      }
-    });
-
     // Scroll to top
     window.onscroll = function() {
       const btn = document.getElementById('scrollTopBtn');
       if (!btn) return;
       const show = document.body.scrollTop > 400 || document.documentElement.scrollTop > 400;
-      if (show) {
-        btn.classList.add('show');
-        requestAnimationFrame(() => btn.classList.add('pulse'));
-      } else {
-        btn.classList.remove('show', 'pulse');
-      }
+      btn.classList.toggle('show', show);
     };
-
-    // --- BINARY RAIN ---
-    (function() {
-      const canvas = document.getElementById('binary-rain');
-      const ctx = canvas.getContext('2d');
-      let width = window.innerWidth;
-      let height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
-      const fontSize = 16;
-      const columns = Math.floor(width / fontSize);
-      const drops = Array(columns).fill(1);
-      const speed = 0.55;
-
-      function draw() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-        ctx.fillRect(0, 0, width, height);
-        ctx.font = fontSize + 'px "Space Mono", monospace';
-        ctx.textAlign = 'center';
-        for (let i = 0; i < drops.length; i++) {
-          const char = Math.random() > 0.5 ? '1' : '0';
-          const x = i * fontSize + fontSize / 2;
-          const y = drops[i] * fontSize;
-          if (char === '1') {
-            ctx.shadowColor = '#8deb00';
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = '#8deb00';
-          } else {
-            ctx.shadowColor = '#3a7a1a';
-            ctx.shadowBlur = 4;
-            ctx.fillStyle = '#4caf50';
-          }
-          ctx.fillText(char, x, y);
-          if (char === '1' && Math.random() < 0.025) {
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-          }
-          if (y > height && Math.random() > 0.97) {
-            drops[i] = 0;
-          }
-          drops[i] += speed;
-        }
-        requestAnimationFrame(draw);
-      }
-      draw();
-      window.addEventListener('resize', () => {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        canvas.width = width;
-        canvas.height = height;
-        const newColumns = Math.floor(width / fontSize);
-        if (newColumns > drops.length) {
-          drops.push(...Array(newColumns - drops.length).fill(1));
-        } else {
-          drops.length = newColumns;
-        }
-      });
-    })();
-
-    // --- CART COUNTER ---
-    function getCart() {
-      return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
-    }
-    function updateCartUI() {
-      const cart = getCart();
-      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-      const countEl = document.getElementById('cartHeaderCount');
-      const labelEl = document.getElementById('cartHeaderLabel');
-      if (countEl) {
-        countEl.textContent = totalItems;
-        countEl.style.display = totalItems > 0 ? 'inline-block' : 'none';
-      }
-      if (labelEl) {
-        labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart';
-      }
-    }
-    updateCartUI();
-
-    // --- FIREBASE + DASHBOARD LINK (insert above Home) ---
-    const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
-    const mobileContainer = document.getElementById('mobileDashboardContainer');
-
-    function removeDashboardLink() {
-      const existingDesktop = document.getElementById('dynamic-dashboard-node');
-      if (existingDesktop) existingDesktop.remove();
-      const existingMobile = document.getElementById('mobile-dashboard-node');
-      if (existingMobile) existingMobile.remove();
-    }
-
-    function insertDashboardLink(dashboardUrl) {
-      // Desktop: insert before Home (above)
-      if (homeNav && homeNav.parentNode) {
-        const existing = document.getElementById('dynamic-dashboard-node');
-        if (existing) existing.remove();
-        const dashLink = document.createElement('a');
-        dashLink.id = 'dynamic-dashboard-node';
-        dashLink.className = 'nav-item';
-        dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
-        dashLink.href = dashboardUrl;
-        homeNav.parentNode.insertBefore(dashLink, homeNav);
-      }
-
-      // Mobile: insert into container (above Home)
-      if (mobileContainer) {
-        const existing = document.getElementById('mobile-dashboard-node');
-        if (existing) existing.remove();
-        const dashLink = document.createElement('a');
-        dashLink.id = 'mobile-dashboard-node';
-        dashLink.className = 'nav-item dashboard-link';
-        dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
-        dashLink.href = dashboardUrl;
-        mobileContainer.appendChild(dashLink);
-      }
-    }
-
-    // Wait for Firebase
-    if (typeof auth !== 'undefined' && auth) {
-      auth.onAuthStateChanged((user) => {
-        if (user) {
-          localStorage.setItem('cameras_decoded_uid', user.uid);
-          if (typeof db !== 'undefined' && db) {
-            db.collection('users').doc(user.uid).get().then((doc) => {
-              if (doc.exists) {
-                const role = doc.data().role || 'Operator';
-                let dashboardUrl = 'operator-dashboard.html';
-                if (role === 'Instructor') dashboardUrl = 'instructor-dashboard.html';
-                else if (role === 'Operator') dashboardUrl = 'operator-dashboard.html';
-                else if (role === 'Partner') dashboardUrl = 'partner-dashboard.html';
-                insertDashboardLink(dashboardUrl);
-              } else {
-                insertDashboardLink('operator-dashboard.html');
-              }
-            }).catch(() => {
-              insertDashboardLink('operator-dashboard.html');
-            });
-          } else {
-            insertDashboardLink('operator-dashboard.html');
-          }
-        } else {
-          localStorage.removeItem('cameras_decoded_uid');
-          removeDashboardLink();
-        }
-      });
-    }
   </script>
-
-  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
-
-  <!-- FIREBASE SCRIPTS -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="firebase-init.js"></script>
+  <script src="/scripts/ptr.js"></script>
 
 </body>
 </html>
