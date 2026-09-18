@@ -190,7 +190,7 @@
       '/styles/design-system.css',
       '/styles/components.css',
       '/bottom-nav.css?v=20260912d',
-      '/header.css?v=20260916a'
+      '/header.css?v=20260918a'
     ];
     files.forEach(href => {
       if (document.querySelector(`link[href="${href}"]`)) return;
