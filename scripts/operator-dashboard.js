@@ -2,6 +2,9 @@
 (function () {
   'use strict';
   console.log('[Dashboard] dashboard JS loaded');
+  // Keep the branded boot veil up until first render lands.
+  if (window.CDLoading) window.CDLoading.hold();
+  const releaseVeil = () => { if (window.CDLoading) window.CDLoading.done(); };
   const stage = (msg) => {
     const el = document.getElementById('loadingStage');
     if (el) el.textContent = msg;
@@ -1000,7 +1003,7 @@
   async function boot() {
     stage('boot started');
     const ok = await waitForFirebase();
-    if (!ok) { showLoadError('Firebase did not load.'); return; }
+    if (!ok) { showLoadError('Firebase did not load.'); releaseVeil(); return; }
     stage('Firebase globals found');
 
     window.addEventListener('userStateReady', () => {}, { once: true });
@@ -1010,6 +1013,7 @@
       if (!user) {
         const l = $('loadingState');
         if (l) l.innerHTML = '<p>Please <a href="/login.html" style="color:var(--green)">log in</a>.</p>';
+        releaseVeil();
         return;
       }
       try {
@@ -1020,10 +1024,12 @@
         const l = $('loadingState'); if (l) l.hidden = true;
         const c = $('dashboardContent'); if (c) c.hidden = false;
         playEntrance();
+        releaseVeil();
         console.log('[Dashboard] ✅ Ready.');
       } catch (err) {
         console.error('[Dashboard] boot error', err);
         showLoadError(err.message || 'Unknown error');
+        releaseVeil();
       }
     });
   }

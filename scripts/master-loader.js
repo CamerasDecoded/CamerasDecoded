@@ -2,6 +2,117 @@
 (function() {
   'use strict';
 
+  /* ============================================================
+     BRANDED BOOT VEIL
+     Every page load – even a glimpse – shows one RANDOM loading
+     video from /media. Runs synchronously in <head> so the veil
+     exists before first paint. Pages with slow hydration (e.g.
+     operator-dashboard) call CDLoading.hold() early and
+     CDLoading.done() when ready; everyone else auto-hides on
+     window load. 8s backstop guarantees it can never trap.
+     ============================================================ */
+  const VEIL_VIDEOS = ['/media/loading-success.mp4', '/media/loading-v2-success.mp4'];
+  const VEIL_MIN_MS = 600;
+  const VEIL_MAX_MS = 8000;
+  const veilT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  let veilHeld = false;
+  let veilHidden = false;
+
+  const veilCSS = [
+    '#cdBootVeil{position:fixed;inset:0;z-index:9999;background:#070708;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;margin:0;padding:0}',
+    '#cdBootVeil.cd-bv-hide{opacity:0;pointer-events:none;transition:opacity .35s ease}',
+    '#cdBootVeil video{width:min(200px,46vw);height:auto;border-radius:18px;box-shadow:0 0 44px rgba(141,235,0,.22);background:#0b0b0d}',
+    '.cd-bv-label{font-family:"Space Mono",ui-monospace,monospace;font-size:11px;font-weight:700;letter-spacing:4px;color:#8deb00;text-transform:uppercase}',
+    '.cd-bv-dot{width:14px;height:14px;border-radius:50%;background:#8deb00;box-shadow:0 0 18px #8deb00;animation:cdBvPulse 1.1s ease-in-out infinite}',
+    '@keyframes cdBvPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.55);opacity:.45}}',
+    '@media (prefers-reduced-motion:reduce){#cdBootVeil.cd-bv-hide{transition:none}.cd-bv-dot{animation:none}}'
+  ].join('\n');
+
+  function injectVeilCSS() {
+    if (document.getElementById('cdBootVeilCSS')) return;
+    const s = document.createElement('style');
+    s.id = 'cdBootVeilCSS';
+    s.textContent = veilCSS;
+    (document.head || document.documentElement).appendChild(s);
+  }
+
+  function pickVideo() {
+    return VEIL_VIDEOS[Math.floor(Math.random() * VEIL_VIDEOS.length)];
+  }
+
+  function buildVeil(labelText) {
+    const veil = document.createElement('div');
+    veil.id = 'cdBootVeil';
+    veil.setAttribute('aria-hidden', 'true');
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const src = pickVideo();
+    // Video carries the brand; onerror falls back to a pulsing dot so a
+    // missing/slow file can never break the page or trap the user.
+    veil.innerHTML =
+      '<video muted loop playsinline preload="auto" ' + (reduceMotion ? '' : 'autoplay ') +
+      'onerror="this.remove()"><source src="' + src + '" type="video/mp4"></video>' +
+      '<div class="cd-bv-label">' + (labelText || 'Tuning signal&hellip;') + '</div>';
+    const vid = veil.querySelector('video');
+    if (vid) {
+      vid.addEventListener('error', function () {
+        const dot = document.createElement('div');
+        dot.className = 'cd-bv-dot';
+        vid.replaceWith(dot);
+      });
+      const vsrc = vid.querySelector('source');
+      if (vsrc) vsrc.addEventListener('error', function () {
+        const dot = document.createElement('div');
+        dot.className = 'cd-bv-dot';
+        vid.replaceWith(dot);
+      });
+    }
+    return veil;
+  }
+
+  function getVeil() { return document.getElementById('cdBootVeil'); }
+
+  function hideVeil() {
+    if (veilHidden) return;
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const wait = Math.max(0, VEIL_MIN_MS - (now - veilT0));
+    veilHidden = true;
+    setTimeout(() => {
+      if (!veilHidden) return; // a show() arrived while we waited – stand down
+      const v = getVeil();
+      if (!v) return;
+      v.classList.add('cd-bv-hide');
+      setTimeout(() => { if (veilHidden) v.remove(); }, 450);
+    }, wait);
+  }
+
+  // Boot: create the veil immediately (documentElement exists even
+  // before <body> is parsed; fixed positioning is viewport-relative).
+  injectVeilCSS();
+  (document.documentElement).appendChild(buildVeil());
+
+  window.CDLoading = {
+    // Keep the veil up past window load until done() is called.
+    hold() { veilHeld = true; },
+    // Release a held veil (also fine to call without hold()).
+    done() { veilHeld = false; hideVeil(); },
+    // Manual in-app loading state with an optional label.
+    show(label) {
+      veilHidden = false;
+      let v = getVeil();
+      if (!v) { v = buildVeil(label); document.documentElement.appendChild(v); }
+      else { v.classList.remove('cd-bv-hide'); }
+    },
+    hide() { hideVeil(); }
+  };
+
+  window.addEventListener('load', () => {
+    // Let first paint + fonts settle so the glimpse registers, then
+    // release unless a page explicitly held the veil.
+    setTimeout(() => { if (!veilHeld) hideVeil(); }, 150);
+  });
+  // Hard backstop: the veil can never trap the user.
+  setTimeout(hideVeil, VEIL_MAX_MS);
+
   function loadFontAwesome() {
     if (document.querySelector('link[href*="font-awesome"]')) return;
     const link = document.createElement('link');
