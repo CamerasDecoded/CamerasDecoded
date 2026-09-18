@@ -95,22 +95,6 @@
       rank: pick(u, ['rank','operatorRank','level'], '—')
     };
 
-    // Day-rollover reset: reward-engine only zeroes xpToday when an XP award
-    // is written, so opening the dashboard on a fresh day would otherwise
-    // show yesterday's total until the first award lands. Reset on load when
-    // the last recorded activity was a previous day (local date, matching
-    // reward-engine's date keys). Write is skipped when the counter is
-    // already 0, so idle users cost nothing.
-    if (vm.stats.xpToday > 0) {
-      const _d = new Date();
-      const _today = _d.getFullYear() + '-' + String(_d.getMonth() + 1).padStart(2, '0') + '-' + String(_d.getDate()).padStart(2, '0');
-      const _lastSeen = pick(u, ['lastActivityDate', 'lastActiveDate', 'lastStreakDate', 'lastXpDate'], null);
-      if (_lastSeen !== _today) {
-        vm.stats.xpToday = 0;
-        window.db.collection('users').doc(uid).set({ xpToday: 0, dailyXp: 0 }, { merge: true }).catch(function () {});
-      }
-    }
-
     vm.counts = {
       protocols: (u.savedProtocols || []).length,
       snapshots: (u.savedCards || u.savedSnapshots || []).length,
@@ -335,6 +319,17 @@
       + `<polyline points="${line}" fill="none" stroke="#8deb00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`
       + dots;
     el.setAttribute('aria-label', 'XP over the last 7 days: ' + values.join(', '));
+    // Scroll-reveal draw-in: arm the dash animation unless already revealed
+    // or motion is reduced.
+    const pl = el.querySelector('polyline');
+    if (pl && !statsRevealed && !reduceMotion()) {
+      try {
+        const len = pl.getTotalLength();
+        pl.style.strokeDasharray = String(len);
+        pl.style.strokeDashoffset = String(len);
+        pl.dataset.armed = '1';
+      } catch (e) { /* older SVG: show the line as-is */ }
+    }
   }
   async function loadXpSparkline() {
     const uid = vm.user && vm.user.uid;
@@ -363,6 +358,117 @@
     if (el.dataset.sig === sig) return;
     el.dataset.sig = sig;
     drawSpark(el, values);
+  }
+
+  // --- Stat-card mini graphics: streak dots, rank bars, scroll reveal ---
+  // All three animate on scroll reveal (not on load), following the xpRing
+  // pattern: a `revealed` class on .stats-strip drives the CSS transitions.
+  let statsRevealed = false, statsScrolled = false, statsArmed = false, statsObserver = null;
+  const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function playStatsReveal() {
+    if (statsRevealed) return;
+    statsRevealed = true;
+    const strip = document.querySelector('.stats-strip');
+    if (strip) strip.classList.add('revealed');
+    if (statsObserver) { statsObserver.disconnect(); statsObserver = null; }
+    window.removeEventListener('scroll', markStatsScrolled);
+    // Finish the sparkline draw if it was armed pre-reveal.
+    const spark = $('xpSpark');
+    const pl = spark && spark.querySelector('polyline');
+    if (pl && pl.dataset.armed) { pl.style.strokeDashoffset = '0'; delete pl.dataset.armed; }
+  }
+  function markStatsScrolled() { statsScrolled = true; }
+  function armStatsReveal() {
+    if (statsArmed) return;
+    statsArmed = true;
+    if (reduceMotion()) { playStatsReveal(); return; }
+    window.addEventListener('scroll', markStatsScrolled, { passive: true });
+    const strip = document.querySelector('.stats-strip');
+    if (strip && 'IntersectionObserver' in window) {
+      statsObserver = new IntersectionObserver((entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        if (!statsScrolled) return;
+        playStatsReveal();
+      }, { threshold: 0.3 });
+      statsObserver.observe(strip);
+    }
+    // Fallback: never leave the graphics stuck pre-reveal if the strip sits
+    // in view and the user never scrolls.
+    setTimeout(() => { if (!statsRevealed) playStatsReveal(); }, 3000);
+  }
+
+  // Streak week-dots: last 7 days from the xpByDay ledger (UTC date keys,
+  // matching the existing ledger writes). A day with XP > 0 counts as active.
+  function renderStreakDots() {
+    const el = $('streakDots');
+    if (!el) return;
+    const ledger = (vm.raw && vm.raw.xpByDay) || {};
+    let html = '';
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const k = d.toISOString().slice(0, 10);
+      const active = typeof ledger[k] === 'number' && ledger[k] > 0;
+      const idx = 6 - i;
+      html += `<span class="dot${active ? ' on' : ''}${idx === 6 ? ' today' : ''}" style="--i:${idx}"></span>`;
+    }
+    el.innerHTML = html;
+  }
+
+  // ISO week key, mirroring play.html / leaderboard.html.
+  function lbWeekKey(d) {
+    d = d || new Date();
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = (t.getUTCDay() + 6) % 7;
+    t.setUTCDate(t.getUTCDate() - day + 3);
+    const first = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+    const week = 1 + Math.round(((t - first) / 864e5 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
+    return t.getUTCFullYear() + '-W' + ('0' + week).slice(-2);
+  }
+
+  // Rank window: 5 bars centered on the user from this week's leaderboard.
+  // One small ordered query (<=50 reads). If the board ever needs to scale
+  // past this, a daily rank job writing back to the user doc replaces the
+  // query — the card won't know the difference.
+  let rankReq = 0;
+  async function loadRankWindow() {
+    const uid = vm.user && vm.user.uid;
+    const el = $('rankBars');
+    if (!uid || !el || !window.db) return;
+    const my = ++rankReq;
+    const wk = lbWeekKey();
+    const setRank = (v) => { const n = $('statRank'); if (n) n.textContent = v; };
+    const paint = (bars) => {
+      if (my !== rankReq) return;
+      el.innerHTML = bars.map((b, i) =>
+        `<span class="bar${b.you ? ' you' : ''}${b.ghost ? ' ghost' : ''}" style="--i:${i};${b.h ? `height:${b.h}%;` : ''}"></span>`
+      ).join('');
+    };
+    try {
+      const snap = await window.db.collection('leaderboard').orderBy('weeks.' + wk, 'desc').limit(50).get();
+      const rows = [];
+      snap.forEach((doc) => {
+        const dd = doc.data() || {};
+        const wxp = dd.weeks && typeof dd.weeks[wk] === 'number' ? dd.weeks[wk] : 0;
+        if (wxp > 0) rows.push({ id: doc.id, xp: wxp });
+      });
+      const at = rows.findIndex((r) => r.id === uid);
+      if (at < 0) {
+        // Unranked this week: quiet ghost bars, keep the existing rank label.
+        paint([{ ghost: 1 }, { ghost: 1 }, { ghost: 1 }, { ghost: 1 }, { ghost: 1 }]);
+        return;
+      }
+      setRank('#' + (at + 1));
+      const start = Math.max(0, Math.min(at - 2, rows.length - 5));
+      const win = rows.slice(start, start + 5);
+      const max = Math.max(...win.map((r) => r.xp), 1);
+      paint(win.map((r) => ({
+        you: r.id === uid,
+        h: Math.max(14, Math.round((r.xp / max) * 100))
+      })));
+    } catch (err) {
+      // Best-effort: leave the card as-is when the board is unreachable.
+    }
   }
 
   function renderStats() {
@@ -643,7 +749,10 @@
   function renderAll() {
     renderIdentity();
     renderStats();
+    armStatsReveal();
+    renderStreakDots();
     loadXpSparkline();
+    loadRankWindow();
     renderLearning();
     renderJourneyList();
     renderActivity();
