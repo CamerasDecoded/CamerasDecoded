@@ -926,6 +926,15 @@ button{font-family:inherit}
       const def = window.BADGE_DEFS && window.BADGE_DEFS[badgeId];
       if (!def) return;
       try { if (window.CDHaptics) window.CDHaptics.bigSuccess(); } catch (e) {}
+      // Bell inbox: badge earned (cross-device).
+      try {
+        if (window.CDNotifs) window.CDNotifs.notify({
+          title: 'Badge unlocked',
+          body: def.name || badgeId,
+          href: '/missions.html',
+          kind: 'badge'
+        });
+      } catch (e) {}
 
       const overlay = document.createElement('div');
       overlay.id = 'badge-celebration';
@@ -1158,6 +1167,19 @@ button{font-family:inherit}
         const returningFromDrill = !!sessionStorage.getItem('cd_drill_return');
         try { sessionStorage.removeItem('cd_drill_return'); } catch (e) {}
         renderDailyStreak(count, playedToday);
+        // Bell: today's drill unplayed -> smart notification; played -> clear it.
+        try {
+          if (window.CDNotifs) {
+            if (!playedToday) window.CDNotifs.pushSmart({
+              id: 'drill-live',
+              title: "Today's drill is live",
+              body: 'Fresh slot, fresh XP. Streak fuel.',
+              href: '/missions.html',
+              kind: 'smart'
+            });
+            else window.CDNotifs.clearSmart('drill-live');
+          }
+        } catch (e) {}
         // Streak-secured sting: once per fresh return from today's drill,
         // while the streak is alive for today.
         if (playedToday && returningFromDrill && securedToday) {
@@ -2377,6 +2399,10 @@ button{font-family:inherit}
 
         // True day streak: completing a mission step counts as activity.
         if (window.CDStreak) window.CDStreak.touch(db, currentUser.uid).catch(function () {});
+        // Bell: stamp activity for the resume nudge.
+        try {
+          if (window.CDNotifs) window.CDNotifs.stampActivity(step.title || 'Mission step', '/missions.html');
+        } catch (e) {}
 
         userProgress.completedSteps = newCompleted;
         userProgress.totalPoints = newPoints;

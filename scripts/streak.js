@@ -38,6 +38,17 @@
       if (count === 7 && window.CDBadges) {
         try { window.CDBadges.award(uid, 'streak-7', db); } catch (e) { /* best-effort */ }
       }
+      // Milestone inbox notifications (cross-device via the bell).
+      if ((count === 7 || count === 30 || count === 100) && window.CDNotifs) {
+        try {
+          window.CDNotifs.notify({
+            title: count + '-day streak',
+            body: 'The signal holds. Keep the chain alive.',
+            href: '/missions.html',
+            kind: 'streak'
+          });
+        } catch (e) { /* best-effort */ }
+      }
       return { count: count, secured: true };
     } catch (e) {
       return { count: 0, secured: false };

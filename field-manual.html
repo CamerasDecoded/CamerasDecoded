@@ -727,6 +727,8 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
   function openLesson(lesson, pageIdx){
     if(!canAccess(lesson)){ renderLocked(); return; }  /* deep links to paid lessons fail closed */
     quizState = null;
+    /* Bell: stamp activity for the resume nudge. */
+    try { if (window.CDNotifs) window.CDNotifs.stampActivity(lesson.title || "Field Manual", "/field-manual.html"); } catch(e){}
     renderLessonPage(lesson, pageIdx || 0);
   }
 
@@ -1011,7 +1013,8 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
 
     var allDone = chapter.lessons.every(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; });
     if(allDone && progress.chapterBonus.indexOf(chapter.id) === -1) progress.chapterBonus.push(chapter.id);
-    if(allDone && !claimed("chapter:"+chapter.id)){
+    var chapterNew = allDone && !claimed("chapter:"+chapter.id);
+    if(chapterNew){
       progress.xpClaims["chapter:"+chapter.id] = true;
       result.gained += CHAPTER_BONUS;
       result.lines.push(["Chapter complete — " + chapter.title, "+" + CHAPTER_BONUS + " XP"]);
@@ -1030,6 +1033,15 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
     }
     /* True day streak: finishing a lesson counts as activity (replays too). */
     try { if (window.CDStreak && d && user) window.CDStreak.touch(d, user.uid); } catch(e){}
+    /* Bell inbox: chapter completed (cross-device). */
+    if(chapterNew){
+      try { if (window.CDNotifs) window.CDNotifs.notify({
+        title: "Chapter complete",
+        body: chapter.title + " — full decode.",
+        href: "/field-manual.html",
+        kind: "chapter"
+      }); } catch(e){}
+    }
     return result;
   }
 
