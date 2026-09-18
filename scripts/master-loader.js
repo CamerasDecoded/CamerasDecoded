@@ -17,6 +17,7 @@
   const veilT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
   let veilHeld = false;
   let veilHidden = false;
+  let veilAwaitingTap = false; // tap-to-enter: only the tap or the backstop dismisses
 
   const veilCSS = [
     '#cdBootVeil{position:fixed;inset:0;z-index:9999;background:#070708;margin:0;padding:0;overflow:hidden}',
@@ -26,7 +27,9 @@
     '.cd-bv-label{position:absolute;left:0;right:0;bottom:max(52px,env(safe-area-inset-bottom));text-align:center;font-family:"Space Mono",ui-monospace,monospace;font-size:11px;font-weight:700;letter-spacing:4px;color:#8deb00;text-transform:uppercase;text-shadow:0 1px 8px rgba(0,0,0,.8)}',
     '.cd-bv-dot{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#8deb00;box-shadow:0 0 22px #8deb00;animation:cdBvPulse 1.1s ease-in-out infinite}',
     '@keyframes cdBvPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.55);opacity:.45}}',
-    '@media (prefers-reduced-motion:reduce){#cdBootVeil.cd-bv-hide{transition:none}.cd-bv-dot{animation:none}}'
+    '#cdBootVeil.cd-bv-tap{cursor:pointer}',
+    '#cdBootVeil.cd-bv-tap .cd-bv-label{animation:cdBvPulse 1.6s ease-in-out infinite}',
+    '@media (prefers-reduced-motion:reduce){#cdBootVeil.cd-bv-hide{transition:none}.cd-bv-dot{animation:none}#cdBootVeil.cd-bv-tap .cd-bv-label{animation:none}}'
   ].join('\n');
 
   function injectVeilCSS() {
@@ -89,8 +92,9 @@
 
   function getVeil() { return document.getElementById('cdBootVeil'); }
 
-  function hideVeil() {
+  function hideVeil(force) {
     if (veilHidden) return;
+    if (veilAwaitingTap && !force) return; // tap-to-enter owns the veil until the tap
     const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     const wait = Math.max(0, VEIL_MIN_MS - (now - veilT0));
     veilHidden = true;
@@ -123,13 +127,46 @@
     hide() { hideVeil(); }
   };
 
+  // ---- Tap-to-enter: once per browser session, the boot veil becomes a
+  // game-style entry moment. The tap is what legally unlocks audio
+  // (autoplay policy), so this is the only reliable "sound on open".
+  // Skipped when the user muted sound or already entered this session.
+  function soundEnabled() {
+    try { return localStorage.getItem('cd_sound') !== '0'; } catch (e) { return true; }
+  }
+  function markEntered() {
+    try { sessionStorage.setItem('cd_entered', '1'); } catch (e) { /* private mode */ }
+  }
+  (function maybeTapToEnter() {
+    let entered = false;
+    try { entered = sessionStorage.getItem('cd_entered') === '1'; } catch (e) {}
+    if (entered || !soundEnabled()) return;
+    const v = getVeil();
+    if (!v) return;
+    veilAwaitingTap = true;
+    v.classList.add('cd-bv-tap');
+    const label = v.querySelector('.cd-bv-label');
+    if (label) label.textContent = 'Tap to tune in';
+    v.addEventListener('click', function onTap() {
+      v.removeEventListener('click', onTap);
+      veilAwaitingTap = false;
+      markEntered();
+      if (window.CDSound) window.CDSound.start(); // inside the gesture: audio unlocks
+      else window.__cdSoundPendingStart = true;   // sound.js not loaded yet: start on load
+      hideVeil(true);
+    });
+  })();
+
   window.addEventListener('load', () => {
     // Let first paint + fonts settle so the glimpse registers, then
     // release unless a page explicitly held the veil.
-    setTimeout(() => { if (!veilHeld) hideVeil(); }, 150);
+    setTimeout(() => { if (!veilHeld && !veilAwaitingTap) hideVeil(); }, 150);
   });
   // Hard backstop: the veil can never trap the user.
-  setTimeout(hideVeil, VEIL_MAX_MS);
+  setTimeout(() => {
+    if (veilAwaitingTap) { veilAwaitingTap = false; markEntered(); }
+    hideVeil(true);
+  }, VEIL_MAX_MS);
 
   function loadFontAwesome() {
     if (document.querySelector('link[href*="font-awesome"]')) return;
@@ -186,6 +223,9 @@
         <div class="floating-center-group"></div>
         <div class="floating-right-group">
           <span class="tier-badge" id="headerTierBadge" hidden><i class="fas fa-circle" aria-hidden="true"></i><span id="headerTierText">Free</span></span>
+          <button class="icon-btn" id="headerSoundButton" type="button" aria-label="Mute background sound" aria-pressed="true">
+            <i class="fas fa-volume-high" aria-hidden="true"></i>
+          </button>
           <button class="icon-btn" id="headerNoticeButton" type="button" aria-label="Open announcements" aria-expanded="false">
             <i class="fas fa-bell" aria-hidden="true"></i>
             <span class="alert-dot" id="headerNoticeDot" aria-hidden="true" hidden></span>
@@ -242,6 +282,42 @@
     document.body.appendChild(script);
   }
 
+  function loadSound() {
+    if (document.querySelector('script[src*="sound.js"]')) return;
+    if (window.CDSound) { wireSoundToggle(); return; }
+    const script = document.createElement('script');
+    script.src = '/scripts/sound.js?v=20260918a';
+    script.onload = () => {
+      try {
+        if (window.__cdSoundPendingStart && window.CDSound) {
+          window.__cdSoundPendingStart = false;
+          window.CDSound.start();
+        }
+        wireSoundToggle();
+      } catch (e) {}
+    };
+    document.body.appendChild(script);
+  }
+
+  function wireSoundToggle() {
+    const btn = document.getElementById('headerSoundButton');
+    if (!btn || !window.CDSound || btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    const render = () => {
+      const on = window.CDSound.isOn();
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.setAttribute('aria-label', on ? 'Mute background sound' : 'Unmute background sound');
+      const icon = btn.querySelector('i');
+      if (icon) icon.className = on ? 'fas fa-volume-high' : 'fas fa-volume-xmark';
+    };
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.CDSound.toggle(); // a click is a gesture, so unmuting can restart audio
+      render();
+    });
+    render();
+  }
+
   function loadProCheckout() {
     if (document.querySelector('script[src*="pro-checkout.js"]')) return;
     if (window.CDPro) return;
@@ -267,8 +343,16 @@
     loadHeaderBehavior();
     loadProCheckout();
     loadNotifications();
+    loadSound();
     injectBottomNavContainer();
     loadBottomNav();
+    // Ambient sound: (re)start the loop on the first tap of every page.
+    // A tap is a gesture, so this is where audio is allowed to begin;
+    // CDSound restores the position the last page left off.
+    window.addEventListener('pointerdown', function mlAudioStart() {
+      window.removeEventListener('pointerdown', mlAudioStart);
+      try { if (window.CDSound) window.CDSound.start(); } catch (e) {}
+    });
     console.log('✅ Master loader complete.');
   }
 
