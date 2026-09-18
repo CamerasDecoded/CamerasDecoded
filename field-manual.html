@@ -204,6 +204,13 @@ body{
 .fm-reveal b{color:var(--neon);font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;display:block;margin-bottom:6px}
 .fm-score{font-family:var(--mono);font-size:13px;color:var(--dim);text-align:center;margin:16px 0 0;letter-spacing:.08em}
 .fm-xpline{display:flex;justify-content:space-between;font-family:var(--mono);font-size:13px;color:var(--dim);padding:8px 2px;border-bottom:1px solid rgba(141,235,0,.08)}
+/* Tappable reward rows: tap replays the celebration sting. */
+.fm-reward{appearance:none;-webkit-appearance:none;font:inherit;color:inherit;text-align:inherit;cursor:pointer;width:100%;display:block}
+button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba(141,235,0,.08);padding:8px 2px}
+.fm-reward:active{transform:scale(.985)}
+.fm-reward:focus-visible{outline:2px solid var(--neon);outline-offset:3px;border-radius:8px}
+.fm-replay-hint{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font:600 10px var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--faint)}
+@media (prefers-reduced-motion:reduce){.fm-reward:active{transform:none}}
 .fm-xpline b{color:var(--neon)}
 .fm-xpline.total{border-bottom:0;color:var(--text);font-size:14px}
 .fm-done-hero{text-align:center;padding:26px 0 8px}
@@ -682,12 +689,20 @@ body{
 
     var bonus = "";
     if(progress.chapterBonus.indexOf(chapter.id) !== -1){
-      bonus = '<div class="fm-card" style="border-color:var(--line2)"><p class="fm-kicker" style="margin-bottom:6px">Chapter bonus secured</p>'
-        + '<p class="fm-block" style="margin:0">Full decode — <b style="color:var(--neon)">+' + CHAPTER_BONUS + ' XP</b> awarded.</p></div>';
+      bonus = '<button class="fm-card fm-reward" id="fm-bonus-replay" style="border-color:var(--line2)" aria-label="Replay chapter celebration">'
+        + '<p class="fm-kicker" style="margin-bottom:6px">Chapter bonus secured</p>'
+        + '<p class="fm-block" style="margin:0">Full decode — <b style="color:var(--neon)">+' + CHAPTER_BONUS + ' XP</b> awarded.</p>'
+        + '<span class="fm-replay-hint"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>tap to replay</span></button>';
     } else if(done === total && total > 0){
       bonus = '<div class="fm-card"><p class="fm-block" style="margin:0;color:var(--dim)">All lessons decoded. Your chapter bonus lands with your next lesson completion.</p></div>';
     }
     $("fm-ch-bonus").innerHTML = bonus;
+    /* reward replay: tap the secured bonus to replay its celebration sting */
+    var bonusReplay = $("fm-bonus-replay");
+    if(bonusReplay) bonusReplay.addEventListener("click", function(){
+      sfx("chapter");
+      playFmSting({ src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" });
+    });
     $("fm-ch-reset").innerHTML = '<div class="fm-reset-row">'
       + '<button class="fm-quiet" id="fm-reset-chapter" style="background:none;border:0;cursor:pointer;font-size:12px">Reset chapter</button>'
       + '<span class="fm-dot" aria-hidden="true">·</span>'
@@ -914,12 +929,18 @@ body{
       + (perfect && !bonusClaimed
           ? '<div class="fm-xpline"><span class="fm-shimmer">Perfect system check</span><b>+' + PERFECT_BONUS + ' XP</b></div>'
           : (perfect
-              ? '<div class="fm-xpline"><span class="fm-shimmer">Perfect system check</span><span class="fm-shimmer">bonus claimed</span></div>'
+              ? '<button class="fm-xpline fm-reward" id="fm-perfect-replay" aria-label="Replay perfect celebration"><span class="fm-shimmer">Perfect system check</span><span class="fm-shimmer">bonus claimed <i class="fa-solid fa-rotate-right" style="font-size:10px;margin-left:4px" aria-hidden="true"></i></span></button>'
               : '<div class="fm-xpline"><span>Perfect bonus</span><span>missed</span></div>'))
       + '</div>';
     h += '<button class="fm-btn" id="fm-complete">Complete Lesson</button>';
     h += '<button class="fm-quiet" id="fm-retry" style="background:none;border:0;width:100%;cursor:pointer">Retake system check</button>';
     $("fm-lesson-body").innerHTML = h;
+    /* reward replay: the claimed perfect line replays its celebration sting */
+    var perfectReplay = $("fm-perfect-replay");
+    if(perfectReplay) perfectReplay.addEventListener("click", function(){
+      sfx("perfect");
+      playFmSting({ src: "/media/you-win-success.mp4", kick: "YOU WIN" });
+    });
     $("fm-complete").addEventListener("click", async function(){
       $("fm-complete").disabled = true;
       lastAward = await awardLesson(st.lesson, st.score);
@@ -1272,11 +1293,12 @@ body{
       + ((!r.newBest && best > r.score) ? '<span class="fm-badge">Best ' + best + '/' + r.total + '</span>' : '')
       + '</div></div>';
     if(r.lines.length){
-      h += '<div class="fm-card rise-in" style="--d:.18s">'
+      h += '<button class="fm-card fm-reward rise-in" id="fm-done-replay" style="--d:.18s" aria-label="Replay lesson celebration">'
         + r.lines.map(function(l){
-            return '<div class="fm-xpline"><span>' + esc(l[0]) + '</span><b>' + esc(l[1]) + '</b></div>';
+            return '<span class="fm-xpline"><span>' + esc(l[0]) + '</span><b>' + esc(l[1]) + '</b></span>';
           }).join("")
-        + '<div class="fm-xpline total"><span class="fm-shimmer">Total</span><b id="fm-xp-total" class="fm-shimmer">+0 XP</b></div></div>';
+        + '<span class="fm-xpline total"><span class="fm-shimmer">Total</span><b id="fm-xp-total" class="fm-shimmer">+0 XP</b></span>'
+        + '<span class="fm-replay-hint"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>tap to replay</span></button>';
     }
     var next = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) === -1; })[0];
     if(next && canAccess(next)) h += '<button class="fm-btn rise-in" style="--d:.3s" id="fm-done-next">Next Lesson — ' + esc(next.title) + '</button>';
@@ -1289,6 +1311,15 @@ body{
       if(nx) nx.addEventListener("click", function(){ openLesson(next, 0); });
       $("fm-done-retry").addEventListener("click", function(){ openLesson(lesson, quizPageIdx(lesson)); });
       $("fm-done-back").addEventListener("click", function(){ renderChapter(); });
+      /* reward replay: the XP readout replays this lesson's celebration sting */
+      var doneReplay = $("fm-done-replay");
+      if(doneReplay) doneReplay.addEventListener("click", function(){
+        var isCh = r.lines.some(function(l){ return l[0].indexOf("Chapter complete") === 0; });
+        sfx(isCh ? "chapter" : "lesson");
+        playFmSting(isCh
+          ? { src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }
+          : { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" });
+      });
       decodeText($("fm-decode"));
       var xpEl = $("fm-xp-total");
       if(xpEl && r.gained > 0) countUp(xpEl, r.gained, 900);
