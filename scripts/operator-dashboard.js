@@ -95,6 +95,22 @@
       rank: pick(u, ['rank','operatorRank','level'], '—')
     };
 
+    // Day-rollover reset: reward-engine only zeroes xpToday when an XP award
+    // is written, so opening the dashboard on a fresh day would otherwise
+    // show yesterday's total until the first award lands. Reset on load when
+    // the last recorded activity was a previous day (local date, matching
+    // reward-engine's date keys). Write is skipped when the counter is
+    // already 0, so idle users cost nothing.
+    if (vm.stats.xpToday > 0) {
+      const _d = new Date();
+      const _today = _d.getFullYear() + '-' + String(_d.getMonth() + 1).padStart(2, '0') + '-' + String(_d.getDate()).padStart(2, '0');
+      const _lastSeen = pick(u, ['lastActivityDate', 'lastActiveDate', 'lastStreakDate', 'lastXpDate'], null);
+      if (_lastSeen !== _today) {
+        vm.stats.xpToday = 0;
+        window.db.collection('users').doc(uid).set({ xpToday: 0, dailyXp: 0 }, { merge: true }).catch(function () {});
+      }
+    }
+
     vm.counts = {
       protocols: (u.savedProtocols || []).length,
       snapshots: (u.savedCards || u.savedSnapshots || []).length,
