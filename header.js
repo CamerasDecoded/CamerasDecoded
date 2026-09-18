@@ -145,10 +145,6 @@
     panel.hidden = false;
     requestAnimationFrame(() => panel.classList.add('open'));
     if (bell) bell.setAttribute('aria-expanded', 'true');
-    // Opening the bell = seen: broadcasts stamped, unread inbox marked read.
-    if (window.CDNotifs && typeof window.CDNotifs.markSeen === 'function') {
-      try { window.CDNotifs.markSeen(); } catch (e) {}
-    }
   }
 
   function closePanel() {
@@ -156,6 +152,12 @@
     if (!panel || panel.hidden) return;
     panel.classList.remove('open');
     if (bell) bell.setAttribute('aria-expanded', 'false');
+    // Dismissing the bell = seen: stamp broadcasts + mark inbox read only
+    // AFTER the user has viewed the panel (not on open, which wipes
+    // broadcasts before they can be read).
+    if (window.CDNotifs && typeof window.CDNotifs.markSeen === 'function') {
+      try { window.CDNotifs.markSeen(); } catch (e) {}
+    }
     setTimeout(() => { panel.hidden = true; }, 180);
   }
 
