@@ -40,6 +40,32 @@
     (document.head || document.documentElement).appendChild(s);
   }
 
+  // App icons: favicon + iOS home-screen icon + web manifest, injected
+  // synchronously in <head> so every page (and Add to Home Screen) picks
+  // them up. Artwork: the Cameras Decoded logo mark.
+  function injectIconLinks() {
+    if (document.querySelector('link[rel="apple-touch-icon"]')) return;
+    const head = document.head || document.documentElement;
+    const add = (attrs) => {
+      const l = document.createElement('link');
+      Object.keys(attrs).forEach((k) => l.setAttribute(k, attrs[k]));
+      head.appendChild(l);
+    };
+    add({ rel: 'apple-touch-icon', href: '/apple-touch-icon.png' });
+    add({ rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32x32.png' });
+    add({ rel: 'icon', type: 'image/png', sizes: '16x16', href: '/favicon-16x16.png' });
+    add({ rel: 'manifest', href: '/site.webmanifest' });
+    const meta = (name, content) => {
+      if (document.querySelector('meta[name="' + name + '"]')) return;
+      const m = document.createElement('meta');
+      m.setAttribute('name', name);
+      m.setAttribute('content', content);
+      head.appendChild(m);
+    };
+    meta('theme-color', '#070708');
+    meta('apple-mobile-web-app-title', 'Cameras Decoded');
+  }
+
   // No-repeat rotation: never show the same video twice in a row in a
   // session, so both files visibly take turns. Falls back to plain
   // random when sessionStorage is unavailable.
@@ -110,6 +136,7 @@
   // Boot: create the veil immediately (documentElement exists even
   // before <body> is parsed; fixed positioning is viewport-relative).
   injectVeilCSS();
+  injectIconLinks();
   (document.documentElement).appendChild(buildVeil());
 
   window.CDLoading = {
