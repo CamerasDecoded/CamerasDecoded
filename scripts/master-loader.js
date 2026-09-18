@@ -113,6 +113,14 @@
     document.body.appendChild(script);
   }
 
+  function loadProCheckout() {
+    if (document.querySelector('script[src*="pro-checkout.js"]')) return;
+    if (window.CDPro) return;
+    const script = document.createElement('script');
+    script.src = '/scripts/pro-checkout.js?v=20260918b';
+    document.body.appendChild(script);
+  }
+
   function loadBottomNav() {
     if (document.querySelector('script[src*="bottom-nav.js"]')) return;
     const script = document.createElement('script');
@@ -128,6 +136,7 @@
     loadParticles();
     injectFloatingHeader();
     loadHeaderBehavior();
+    loadProCheckout();
     loadNotifications();
     injectBottomNavContainer();
     loadBottomNav();

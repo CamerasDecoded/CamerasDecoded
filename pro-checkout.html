@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Go Pro — Cameras Decoded</title>
+  <meta name="description" content="Upgrade to Cameras Decoded Pro: the full mission library, the Field Manual, and every game.">
+
+  <link rel="stylesheet" href="/styles/design-system.css" />
+  <link rel="stylesheet" href="/styles/components.css" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/scripts/firebase-init.js?v=20260912a"></script>
+  <script src="/scripts/pro-checkout.js?v=20260918a"></script>
+  <script src="/scripts/master-loader.js?v=20260912f"></script>
+
+  <style>
+    body {
+      background: #050705;
+      background-image: radial-gradient(circle at 20% 30%, rgba(141,235,0,0.12) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 70%, rgba(141,235,0,0.08) 0%, transparent 45%),
+                        linear-gradient(rgba(141,235,0,0.04) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(141,235,0,0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+      background-attachment: fixed;
+      color: var(--text-primary, #ffffff);
+      font-family: 'Montserrat', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .pro-main {
+      flex: 1;
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 96px 20px 120px;
+    }
+    .pro-eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 3px;
+      color: #8deb00;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .pro-title {
+      font-size: clamp(30px, 7vw, 44px);
+      font-weight: 800;
+      line-height: 1.08;
+      margin: 0 0 12px;
+    }
+    .pro-sub {
+      color: rgba(255,255,255,0.65);
+      font-size: 15px;
+      line-height: 1.6;
+      margin: 0 0 28px;
+      max-width: 46ch;
+    }
+    .pro-includes {
+      list-style: none;
+      margin: 0 0 32px;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+    }
+    .pro-includes li {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      font-size: 14px;
+      color: rgba(255,255,255,0.85);
+    }
+    .pro-includes i { color: #8deb00; margin-top: 3px; font-size: 13px; }
+
+    .plan-grid { display: grid; gap: 12px; margin-bottom: 20px; }
+    .plan-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 12px;
+      align-items: center;
+      padding: 16px 18px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease, transform .18s ease;
+      text-align: left;
+      width: 100%;
+      color: inherit;
+      font-family: inherit;
+    }
+    .plan-card:hover { border-color: rgba(141,235,0,0.5); }
+    .plan-card.selected {
+      border-color: #8deb00;
+      background: rgba(141,235,0,0.07);
+      box-shadow: 0 0 0 1px #8deb00, 0 8px 32px rgba(141,235,0,0.12);
+    }
+    .plan-card.disabled { opacity: .45; cursor: not-allowed; }
+    .plan-name { font-weight: 700; font-size: 16px; }
+    .plan-price { font-family: 'Space Mono', monospace; font-weight: 700; font-size: 20px; color: #8deb00; }
+    .plan-note { grid-column: 1 / -1; font-size: 12.5px; color: rgba(255,255,255,0.55); }
+    .plan-flag {
+      position: absolute;
+      top: -10px;
+      right: 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10.5px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: #8deb00;
+      color: #06110a;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+    .plan-card.selected .plan-flag { box-shadow: 0 0 16px rgba(141,235,0,0.6); }
+
+    .pro-summary {
+      font-size: 13.5px;
+      color: rgba(255,255,255,0.6);
+      margin: 0 0 18px;
+      line-height: 1.55;
+    }
+    .pro-summary strong { color: #fff; }
+
+    .pro-cta {
+      width: 100%;
+      padding: 18px;
+      font-size: 17px;
+      font-weight: 800;
+      font-family: 'Montserrat', sans-serif;
+      color: #06110a;
+      background: linear-gradient(135deg, #8deb00, #b6ff4d);
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      box-shadow: 0 8px 32px rgba(141,235,0,0.35);
+      transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+    }
+    .pro-cta:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(141,235,0,0.45); }
+    .pro-cta:disabled { opacity: .55; cursor: wait; transform: none; }
+    .pro-fineprint {
+      margin-top: 14px;
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.45);
+      text-align: center;
+      line-height: 1.6;
+    }
+    .pro-fineprint i { color: #8deb00; margin-right: 6px; }
+
+    .pro-notice {
+      display: none;
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.55;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,200,60,0.4);
+      background: rgba(255,200,60,0.08);
+      color: #ffd98a;
+    }
+    .pro-notice.show { display: block; }
+    .pro-notice.error { border-color: rgba(255,90,90,0.45); background: rgba(255,90,90,0.08); color: #ff9d9d; }
+
+    .pro-state {
+      text-align: center;
+      padding: 40px 24px;
+      border: 1px solid rgba(141,235,0,0.35);
+      border-radius: 18px;
+      background: rgba(141,235,0,0.05);
+    }
+    .pro-state .big-check {
+      width: 72px; height: 72px;
+      margin: 0 auto 18px;
+      border-radius: 50%;
+      background: rgba(141,235,0,0.12);
+      border: 1px solid #8deb00;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px; color: #8deb00;
+    }
+    .pro-state h2 { margin: 0 0 8px; font-size: 24px; }
+    .pro-state p { color: rgba(255,255,255,0.6); font-size: 14px; margin: 0 0 22px; line-height: 1.6; }
+    .pro-secondary {
+      display: inline-block;
+      padding: 13px 26px;
+      border-radius: 12px;
+      border: 1px solid rgba(141,235,0,0.5);
+      color: #8deb00;
+      background: transparent;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+      text-decoration: none;
+      margin: 4px;
+    }
+    .pro-secondary:hover { background: rgba(141,235,0,0.08); }
+    .pro-secondary:disabled { opacity: .55; cursor: wait; }
+
+    .pro-loading {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; color: rgba(255,255,255,0.5);
+      font-size: 14px; padding: 30px 0;
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(141,235,0,0.25);
+      border-top-color: #8deb00;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; }
+      .pro-cta, .plan-card { transition: none; }
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="pro-main" id="proMain">
+    <div class="pro-eyebrow">Cameras Decoded Pro</div>
+    <h1 class="pro-title">Unlock the full signal.</h1>
+    <p class="pro-sub">Free teaches you to see. Pro teaches you to master — every mission, every chapter, every game.</p>
+
+    <div class="pro-notice" id="proNotice" role="status"></div>
+
+    <div id="purchasePanel" hidden>
+      <ul class="pro-includes">
+        <li><i class="fas fa-check"></i><span><strong>Everything in Free</strong> — daily drill, streaks, leaderboard</span></li>
+        <li><i class="fas fa-check"></i><span><strong>Full mission library</strong> — every track, every phase</span></li>
+        <li><i class="fas fa-check"></i><span><strong>Field Manual</strong> — all chapters, all lessons</span></li>
+        <li><i class="fas fa-check"></i><span><strong>All games</strong> — the complete arcade, no rotation</span></li>
+      </ul>
+
+      <div class="plan-grid" id="planGrid" role="radiogroup" aria-label="Billing interval">
+        <button class="plan-card" data-plan="weekly" role="radio" aria-checked="false">
+          <span class="plan-name">Weekly</span>
+          <span class="plan-price">$4.99</span>
+          <span class="plan-note">Billed weekly. Maximum flexibility — cancel anytime.</span>
+        </button>
+        <button class="plan-card" data-plan="monthly" role="radio" aria-checked="true">
+          <span class="plan-flag">Most popular</span>
+          <span class="plan-name">Monthly</span>
+          <span class="plan-price">$14.99</span>
+          <span class="plan-note">Billed monthly. Cancel anytime.</span>
+        </button>
+        <button class="plan-card" data-plan="annual" role="radio" aria-checked="false">
+          <span class="plan-flag">Save 34%</span>
+          <span class="plan-name">Annual</span>
+          <span class="plan-price">$119</span>
+          <span class="plan-note">Billed once a year. Two months free vs monthly.</span>
+        </button>
+      </div>
+
+      <p class="pro-summary" id="proSummary"></p>
+
+      <button class="pro-cta" id="proCta" disabled>Continue to secure payment</button>
+      <p class="pro-fineprint"><i class="fas fa-lock"></i>Secure payment by Stripe. Cancel anytime — just reply to your Stripe receipt email and we’ll take care of it.</p>
+    </div>
+
+    <div id="loadingPanel" class="pro-loading"><span class="spinner"></span>Loading plans…</div>
+
+    <div id="proStatePanel" class="pro-state" hidden>
+      <div class="big-check"><i class="fas fa-check"></i></div>
+      <h2>You're Pro.</h2>
+      <p id="proStateSub">The full mission library, every Field Manual chapter, and all games are unlocked.</p>
+      <div>
+        <button class="pro-secondary" id="manageBtn">Manage subscription</button>
+        <a class="pro-secondary" href="/operator-dashboard.html">Back to dashboard</a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+      var selected = 'monthly';
+      var links = null;
+      var cta = document.getElementById('proCta');
+      var notice = document.getElementById('proNotice');
+
+      function showNotice(msg, isError) {
+        notice.textContent = msg;
+        notice.className = 'pro-notice show' + (isError ? ' error' : '');
+      }
+
+      function summaryText() {
+        var map = {
+          weekly: 'Pro Weekly — <strong>$4.99/week</strong>, billed weekly.',
+          monthly: 'Pro Monthly — <strong>$14.99/month</strong>, billed monthly.',
+          annual: 'Pro Annual — <strong>$119/year</strong>, billed once a year.'
+        };
+        return (map[selected] || map.monthly) + ' Cancel anytime.';
+      }
+
+      function selectPlan(name) {
+        selected = name;
+        var cards = document.querySelectorAll('.plan-card');
+        cards.forEach(function (c) {
+          var on = c.dataset.plan === name;
+          c.classList.toggle('selected', on);
+          c.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        document.getElementById('proSummary').innerHTML = summaryText();
+      }
+
+      document.querySelectorAll('.plan-card').forEach(function (c) {
+        c.addEventListener('click', function () {
+          if (c.classList.contains('disabled')) return;
+          selectPlan(c.dataset.plan);
+        });
+      });
+
+      cta.addEventListener('click', function () {
+        var link = links && links[selected];
+        if (!link) { showNotice('That plan is not available right now — try another.', true); return; }
+        cta.disabled = true;
+        cta.textContent = 'Opening secure payment…';
+        // Stripe Payment Link, email prefilled. After payment Stripe
+        // redirects back to /pro-success.html?paid=1 (set on the link).
+        var email = (window.auth && window.auth.currentUser && window.auth.currentUser.email) || '';
+        var url = link + (link.indexOf('?') === -1 ? '?' : '&') +
+                  'prefilled_email=' + encodeURIComponent(email);
+        window.location.href = url;
+      });
+
+      document.getElementById('manageBtn').addEventListener('click', function () {
+        showNotice('To change or cancel your plan, just reply to your Stripe receipt email and we\u2019ll handle it personally.', false);
+      });
+
+      function initialPlan() {
+        try {
+          var q = new URLSearchParams(location.search).get('plan');
+          if (q === 'weekly' || q === 'monthly' || q === 'annual') return q;
+          var pending = JSON.parse(localStorage.getItem('pending_pro_upgrade') || 'null');
+          if (pending && pending.billingInterval) {
+            var b = String(pending.billingInterval).toLowerCase();
+            if (b === 'weekly' || b === 'monthly' || b === 'annual') return b;
+          }
+        } catch (e) {}
+        return 'monthly';
+      }
+
+      async function boot() {
+        var params = new URLSearchParams(location.search);
+        if (params.get('canceled') === '1') {
+          showNotice('Checkout was canceled — no charge was made. Your plan selection is saved below.');
+        }
+        var auth = window.auth;
+        var wait = 0;
+        while (!auth.currentUser && wait < 50) {
+          await new Promise(function (r) { setTimeout(r, 100); });
+          wait++;
+        }
+        var user = auth.currentUser;
+        if (!user) {
+          try { sessionStorage.setItem('cd_post_login_redirect', location.pathname + location.search); } catch (e) {}
+          window.location.href = '/login.html';
+          return;
+        }
+
+        document.getElementById('loadingPanel').hidden = true;
+
+        // Already Pro? (tier field, flipped by the admin on approval)
+        var tier = 'free';
+        try {
+          var snap = await window.db.collection('users').doc(user.uid).get();
+          if (snap.exists) tier = String((snap.data() || {}).tier || 'free');
+        } catch (e) {}
+        if (tier.toLowerCase() === 'pro') {
+          document.getElementById('proStatePanel').hidden = false;
+          return;
+        }
+
+        document.getElementById('purchasePanel').hidden = false;
+        selectPlan(initialPlan());
+
+        try {
+          links = await window.CDPro.getPaymentLinks();
+        } catch (e) {
+          showNotice('Pro checkout is still being set up — please check back shortly.', true);
+          cta.disabled = true;
+          return;
+        }
+        var anyLive = false;
+        ['weekly', 'monthly', 'annual'].forEach(function (p) {
+          var card = document.querySelector('.plan-card[data-plan="' + p + '"]');
+          if (!links[p]) {
+            card.classList.add('disabled');
+            card.setAttribute('aria-disabled', 'true');
+          } else { anyLive = true; }
+        });
+        if (!anyLive) {
+          showNotice('Pro checkout is still being set up — please check back shortly.', true);
+          cta.disabled = true;
+          return;
+        }
+        if (!links[selected]) selectPlan(links.monthly ? 'monthly' : links.annual ? 'annual' : 'weekly');
+        cta.disabled = false;
+      }
+
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+      else boot();
+    })();
+  </script>
+</body>
+</html>

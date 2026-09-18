@@ -418,6 +418,25 @@
     @media (max-width:640px){ .bc-row { grid-template-columns:1fr; } .bc-row input, .bc-row select { margin-bottom:10px; } }
     .bc-list { margin-top:14px; display:flex; flex-direction:column; gap:10px; }
     .bc-empty { font-size:13px; color:var(--text-muted); text-align:center; padding:10px; }
+    .pro-req-count {
+      display:inline-block; min-width:22px; text-align:center;
+      font-family:'Space Mono',monospace; font-size:11px; font-weight:700;
+      background:var(--green); color:#000; border-radius:999px; padding:2px 7px; margin-left:6px;
+    }
+    .pro-req-item { display:flex; gap:12px; align-items:center; padding:12px 14px;
+      background:rgba(141,235,0,0.04); border:1px solid rgba(141,235,0,0.25); border-radius:var(--radius); }
+    .pro-req-item .pro-req-main { flex:1; min-width:0; }
+    .pro-req-item .pro-req-email { font-family:'Space Mono',monospace; font-size:14px; color:#fff; margin-bottom:3px; word-break:break-all; }
+    .pro-req-item .pro-req-meta { font-size:12px; color:var(--text-muted); display:flex; gap:10px; flex-wrap:wrap; }
+    .pro-req-item .pro-req-actions { display:flex; gap:8px; flex-shrink:0; }
+    .btn-approve { padding:8px 18px; background:var(--green); border:none; border-radius:var(--radius);
+      color:#000; font-family:'Space Mono',monospace; font-weight:700; font-size:12px; cursor:pointer; }
+    .btn-approve:hover { background:#a0f520; }
+    .btn-approve:disabled { opacity:.5; cursor:wait; }
+    .btn-decline { padding:8px 18px; background:transparent; border:1px solid #ff4a4a; border-radius:var(--radius);
+      color:#ff4a4a; font-family:'Space Mono',monospace; font-weight:600; font-size:12px; cursor:pointer; }
+    .btn-decline:hover { background:rgba(255,74,74,0.08); }
+    .btn-decline:disabled { opacity:.5; cursor:wait; }
     .bc-item { display:flex; gap:12px; align-items:flex-start; padding:12px;
       background:rgba(255,255,255,0.02); border:1px solid var(--border-dim); border-radius:var(--radius); }
     .bc-item .bc-main { flex:1; min-width:0; }
@@ -611,6 +630,17 @@
       </div>
       <div id="bcList" class="bc-list" aria-live="polite">
         <p class="bc-empty">Loading broadcasts…</p>
+      </div>
+    </div>
+
+    <!-- PRO REQUESTS (manual Pro fulfillment queue) -->
+    <div class="notif-panel" id="proRequestsPanel">
+      <div class="panel-header">
+        <h3><i class="fas fa-bolt"></i> Pro Requests <span id="proReqCount" class="pro-req-count" hidden></span></h3>
+        <span style="font-size:12px; color:var(--text-muted);">Verify each payment in Stripe, then approve</span>
+      </div>
+      <div id="proReqList" class="bc-list" aria-live="polite">
+        <p class="bc-empty">Loading requests…</p>
       </div>
     </div>
 
@@ -1050,6 +1080,99 @@
         });
     }
 
+    // ================================================================
+    // PRO REQUESTS — manual Pro fulfillment queue.
+    // Buyers pay via Stripe Payment Links, then file a request doc.
+    // Verify each one in the Stripe dashboard (email + amount match),
+    // then Approve: flips users/{uid}.tier to 'pro'.
+    // ================================================================
+    function loadProRequests() {
+      db.collection('proRequests').where('status', '==', 'pending')
+        .orderBy('createdAt', 'asc').limit(50)
+        .onSnapshot(renderProRequests, function (err) {
+          console.error('Pro requests listener error:', err);
+          var list = document.getElementById('proReqList');
+          if (list) list.innerHTML = '<p class="bc-empty">Couldn\u2019t load requests.</p>';
+        });
+    }
+
+    function renderProRequests(snap) {
+      var list = document.getElementById('proReqList');
+      var count = document.getElementById('proReqCount');
+      if (!list) return;
+      var docs = [];
+      snap.forEach(function (d) { docs.push(d); });
+      if (count) {
+        count.hidden = docs.length === 0;
+        count.textContent = docs.length;
+      }
+      if (!docs.length) {
+        list.innerHTML = '<p class="bc-empty">No pending Pro requests. New buyers appear here after paying.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      docs.forEach(function (d) {
+        var r = d.data() || {};
+        var item = document.createElement('div');
+        item.className = 'pro-req-item';
+        var when = '';
+        try {
+          if (r.createdAt && r.createdAt.toDate) when = r.createdAt.toDate().toLocaleString();
+        } catch (e) {}
+        var planLabel = { weekly: 'Weekly · $4.99/wk', monthly: 'Monthly · $14.99/mo', annual: 'Annual · $119/yr' }[r.plan] || (r.plan || '—');
+        item.innerHTML =
+          '<div class="pro-req-main">' +
+            '<div class="pro-req-email"></div>' +
+            '<div class="pro-req-meta"><span></span><span></span></div>' +
+          '</div>' +
+          '<div class="pro-req-actions">' +
+            '<button class="btn-approve">Approve</button>' +
+            '<button class="btn-decline">Decline</button>' +
+          '</div>';
+        item.querySelector('.pro-req-email').textContent = r.email || r.displayName || d.id;
+        var meta = item.querySelectorAll('.pro-req-meta span');
+        meta[0].textContent = planLabel;
+        meta[1].textContent = when;
+        var approveBtn = item.querySelector('.btn-approve');
+        var declineBtn = item.querySelector('.btn-decline');
+        approveBtn.addEventListener('click', function () { approveProRequest(d.id, approveBtn, declineBtn); });
+        declineBtn.addEventListener('click', function () { declineProRequest(d.id, approveBtn, declineBtn); });
+        list.appendChild(item);
+      });
+    }
+
+    async function approveProRequest(uid, approveBtn, declineBtn) {
+      approveBtn.disabled = true; declineBtn.disabled = true;
+      approveBtn.textContent = 'Approving…';
+      try {
+        var batch = db.batch();
+        batch.update(db.collection('users').doc(uid), { tier: 'pro' });
+        batch.update(db.collection('proRequests').doc(uid), {
+          status: 'active',
+          fulfilledAt: firebase.firestore.FieldValue.serverTimestamp(),
+          fulfilledBy: currentUser ? currentUser.uid : null
+        });
+        await batch.commit();
+        cdToast('Pro activated', 'success');
+      } catch (e) {
+        approveBtn.disabled = false; declineBtn.disabled = false;
+        approveBtn.textContent = 'Approve';
+        cdToast(e.message || 'Approval failed', 'error');
+      }
+    }
+
+    async function declineProRequest(uid, approveBtn, declineBtn) {
+      if (!confirm('Decline this Pro request? The buyer keeps their Free account.')) return;
+      approveBtn.disabled = true; declineBtn.disabled = true;
+      try {
+        await db.collection('proRequests').doc(uid).update({ status: 'declined' });
+        cdToast('Request declined', 'success');
+      } catch (e) {
+        approveBtn.disabled = false; declineBtn.disabled = false;
+        cdToast(e.message || 'Decline failed', 'error');
+      }
+    }
+
     document.getElementById('bcPublish').addEventListener('click', async function () {
       var title = document.getElementById('bcTitle').value.trim();
       var body = document.getElementById('bcBody').value.trim();
@@ -1132,6 +1255,7 @@
         loadStats(false);
         loadAndListenAnnouncement();
         loadBroadcasts();
+        loadProRequests();
 
         // Also update the sidebar announcement container directly
         const sidebarAnnouncement = document.getElementById('sidebarAnnouncement');

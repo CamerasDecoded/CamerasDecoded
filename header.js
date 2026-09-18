@@ -101,6 +101,14 @@
       if (badge) badge.hidden = false;
       if (badgeText) badgeText.textContent = tierLabel;
 
+      // Free tier badge is the upgrade entry point (mobile + desktop).
+      if (badge) {
+        const isFree = tierLabel === 'Free';
+        badge.style.cursor = isFree ? 'pointer' : '';
+        badge.title = isFree ? 'Go Pro' : '';
+        badge.onclick = isFree ? function () { window.location.href = '/pro-checkout.html'; } : null;
+      }
+
       console.log('[Header] Logged in:', name, '| tier:', tierLabel);
     } else {
       if (authButtons) authButtons.style.display = 'flex';
