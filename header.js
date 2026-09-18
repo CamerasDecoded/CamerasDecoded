@@ -87,8 +87,9 @@
     // when signed out — so "any object" is NOT a valid logged-in check.
     const signedIn = (u) => !!(u && (u.isLoggedIn === true || u.uid));
     const isLoggedIn = signedIn(user) || signedIn(userData);
+    const role = String(pick(userData, ['role'], '')).toLowerCase();
     const name = pick(userData, ['displayName', 'name', 'username'],
-               pick(user, ['displayName', 'name'], 'Operator'));
+               pick(user, ['displayName', 'name'], role === 'admin' ? 'Admin' : 'Operator'));
 
     if (greetingEl) greetingEl.textContent = `${greetingText()}, ${name}`;
 
@@ -96,7 +97,7 @@
       if (authButtons) authButtons.style.display = 'none';
 
       const tier = String(pick(userData, ['tier'], pick(user, ['tier'], 'free'))).toLowerCase();
-      const tierLabel = tier === 'pro' ? 'Pro' : 'Free';
+      const tierLabel = role === 'admin' ? 'Admin' : (tier === 'pro' ? 'Pro' : 'Free');
       if (badge) badge.hidden = false;
       if (badgeText) badgeText.textContent = tierLabel;
 
