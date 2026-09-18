@@ -27,6 +27,7 @@
   <!-- ===== BADGE DEFINITIONS ===== -->
   <script src="/scripts/badge-definitions.js"></script>
   <script src="/scripts/streak.js"></script>
+  <script src="/scripts/haptics.js"></script>
 
   <!-- ===== FIELD MANUAL CONTENT (host-only; never commit to the public repo) ===== -->
   <script src="/scripts/guide-data.js"></script>
@@ -385,6 +386,7 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
         <button class="fm-back" id="fm-back" aria-label="Back to chapter"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
         <div class="fm-dots" id="fm-dots" aria-hidden="true"></div>
         <button class="fm-sound" id="fm-sound" aria-label="Toggle sound" aria-pressed="true"><i class="fa-solid fa-volume-high" aria-hidden="true"></i></button>
+        <button class="fm-sound" id="fm-haptics" aria-label="Toggle haptics" aria-pressed="true"><i class="fa-solid fa-fingerprint" aria-hidden="true"></i></button>
       </div>
       <div id="fm-lesson-body"></div>
     </section>
@@ -469,6 +471,7 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
     chapter = GUIDE_DATA.chapters[0];
     $("fm-back").addEventListener("click", function(){ renderChapter(); });
     wireSoundToggle();
+    wireHapticsToggle();
     var auth = (typeof window.auth !== "undefined") ? window.auth : null;
     if(auth && auth.onAuthStateChanged){ auth.onAuthStateChanged(boot); }
     else { boot(null); }
@@ -700,7 +703,7 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
     /* reward replay: tap the secured bonus to replay its celebration sting */
     var bonusReplay = $("fm-bonus-replay");
     if(bonusReplay) bonusReplay.addEventListener("click", function(){
-      sfx("chapter");
+      sfx("chapter"); buzz("tick");
       playFmSting({ src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" });
     });
     $("fm-ch-reset").innerHTML = '<div class="fm-reset-row">'
@@ -896,10 +899,10 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
     if(choiceIdx === q.answer){
       picked.classList.add("picked-correct");
       st.score++;
-      sfx("correct");
+      sfx("correct"); buzz("tick");
     } else {
       picked.classList.add("picked-wrong");
-      sfx("wrong");
+      sfx("wrong"); buzz("error");
     }
     var isLast = st.qi === st.lesson.quiz.questions.length - 1;
     $("fm-qfoot").innerHTML =
@@ -938,7 +941,7 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
     /* reward replay: the claimed perfect line replays its celebration sting */
     var perfectReplay = $("fm-perfect-replay");
     if(perfectReplay) perfectReplay.addEventListener("click", function(){
-      sfx("perfect");
+      sfx("perfect"); buzz("tick");
       playFmSting({ src: "/media/you-win-success.mp4", kick: "YOU WIN" });
     });
     $("fm-complete").addEventListener("click", async function(){
@@ -955,6 +958,7 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
         }
       };
       if(lastAward.gained > 0){
+        buzz(isChapter ? "bigSuccess" : "success");
         playFmSting(isChapter
           ? { src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }
           : { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" }, showDone);
@@ -967,7 +971,7 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
     });
     }; /* end show */
     if(perfect){
-      sfx("perfect");
+      sfx("perfect"); buzz("bigSuccess");
       playFmSting({ src: "/media/you-win-success.mp4", kick: "YOU WIN" }, show);
     } else {
       show();
@@ -1206,6 +1210,26 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
     paint();
   }
 
+  function buzz(kind){
+    try { if(window.CDHaptics && window.CDHaptics[kind]) window.CDHaptics[kind](); } catch(e){}
+  }
+
+  function wireHapticsToggle(){
+    var btn = $("fm-haptics");
+    if(!btn || !window.CDHaptics) return;
+    var paint = function(){
+      var on = window.CDHaptics.isOn();
+      btn.classList.toggle("off", !on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    };
+    btn.addEventListener("click", function(){
+      window.CDHaptics.setOn(!window.CDHaptics.isOn());
+      paint();
+      buzz("tick");
+    });
+    paint();
+  }
+
   function confettiBurst(){
     try{
       var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1315,7 +1339,7 @@ button.fm-xpline.fm-reward{background:none;border:0;border-bottom:1px solid rgba
       var doneReplay = $("fm-done-replay");
       if(doneReplay) doneReplay.addEventListener("click", function(){
         var isCh = r.lines.some(function(l){ return l[0].indexOf("Chapter complete") === 0; });
-        sfx(isCh ? "chapter" : "lesson");
+        sfx(isCh ? "chapter" : "lesson"); buzz("tick");
         playFmSting(isCh
           ? { src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }
           : { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" });
