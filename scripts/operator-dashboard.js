@@ -342,6 +342,8 @@
     days.forEach(k => { perDay[k] = 0; });
     const ledger = (vm.raw && vm.raw.xpByDay) || {};
     days.forEach(k => { if (typeof ledger[k] === 'number') perDay[k] += ledger[k]; });
+    // Cache the raw sessions for the stat modals (streak calendar + XP breakdown).
+    const sessions = [];
     try {
       const qs = await window.db.collection('game_sessions').where('uid', '==', uid).limit(200).get();
       qs.forEach(doc => {
@@ -350,8 +352,10 @@
         if (!t || typeof s.xp !== 'number') return;
         const k = t.toISOString().slice(0, 10);
         if (k in perDay) perDay[k] += s.xp;
+        sessions.push({ key: k, xp: s.xp, game: s.game || s.slotId || 'game', score: s.score, ts: t });
       });
     } catch (err) { /* offline/denied: sparkline falls back to the ledger */ }
+    vm.gameSessions = sessions;
     if (my !== sparkReq) return;
     const values = days.map(k => perDay[k]);
     const sig = values.join(',');
@@ -450,9 +454,13 @@
       snap.forEach((doc) => {
         const dd = doc.data() || {};
         const wxp = dd.weeks && typeof dd.weeks[wk] === 'number' ? dd.weeks[wk] : 0;
-        if (wxp > 0) rows.push({ id: doc.id, xp: wxp });
+        if (wxp > 0) rows.push({ id: doc.id, xp: wxp, name: dd.displayName || 'Decoder' });
       });
+      // Cache for the rank preview modal.
+      vm.lbRows = rows;
+      vm.lbWeek = wk;
       const at = rows.findIndex((r) => r.id === uid);
+      vm.lbUserIdx = at;
       if (at < 0) {
         // Unranked this week: quiet ghost bars, keep the existing rank label.
         paint([{ ghost: 1 }, { ghost: 1 }, { ghost: 1 }, { ghost: 1 }, { ghost: 1 }]);
@@ -753,6 +761,7 @@
     renderStreakDots();
     loadXpSparkline();
     loadRankWindow();
+    initStatModals();
     renderLearning();
     renderJourneyList();
     renderActivity();
@@ -1115,6 +1124,246 @@
       setSphere(0, 1);
     }, { passive: true });
   })();
+
+  // ================================================================
+  // STAT-CARD MODALS — tap a stat for the full picture
+  // Streak -> full activity calendar. XP -> itemized day breakdown.
+  // Rank -> live leaderboard preview. All reuse the cached queries
+  // from the stat graphics (no extra reads on open beyond a refresh).
+  // ================================================================
+  let statModalsWired = false;
+
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+  function utcKey(d) { return d.toISOString().slice(0, 10); }
+  function todayKey() { return utcKey(new Date()); }
+
+  function prettyGameName(g) {
+    const s = String(g || '').trim();
+    if (!s || s === 'game') return 'Practice game';
+    return s.split(/[-_]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  // Active-day lookup: xpByDay ledger (full history, zero reads) merged
+  // with cached game sessions (covers days whose XP never hit the ledger).
+  function buildActiveDays() {
+    const active = new Set();
+    const ledger = (vm.raw && vm.raw.xpByDay) || {};
+    Object.keys(ledger).forEach((k) => { if (typeof ledger[k] === 'number' && ledger[k] > 0) active.add(k); });
+    (vm.gameSessions || []).forEach((s) => { if (s.xp > 0) active.add(s.key); });
+    return active;
+  }
+
+  function initStatModals() {
+    if (statModalsWired) return;
+    statModalsWired = true;
+    $$('.stat[data-stat-modal]').forEach((card) => {
+      const kind = card.dataset.statModal;
+      const open = () => {
+        if (kind === 'streak') openStreakCal();
+        else if (kind === 'xp') openXpDetail();
+        else if (kind === 'rank') openRankPreview();
+      };
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      });
+    });
+    $('calPrev')?.addEventListener('click', () => shiftCalMonth(-1));
+    $('calNext')?.addEventListener('click', () => shiftCalMonth(1));
+    $('streakCalCta')?.addEventListener('click', () => { closeModal($('streakCalModal')); openModal('drill'); });
+    $('xpDetailCta')?.addEventListener('click', () => { closeModal($('xpDetailModal')); openModal('drill'); });
+  }
+
+  async function refreshStatData() {
+    try { await Promise.all([loadXpSparkline(), loadRankWindow()]); } catch (e) {}
+  }
+
+  // ---------- Streak calendar ----------
+  let calCursor = null; // {y, m} — month being viewed
+  function calBounds() {
+    const now = new Date();
+    return {
+      minY: now.getFullYear(), minM: now.getMonth() - 11,
+      maxY: now.getFullYear(), maxM: now.getMonth()
+    };
+  }
+  function normalizeCalCursor() {
+    const now = new Date();
+    let y = calCursor ? calCursor.y : now.getFullYear();
+    let m = calCursor ? calCursor.m : now.getMonth();
+    while (m < 0) { m += 12; y--; }
+    while (m > 11) { m -= 12; y++; }
+    const b = calBounds();
+    const cur = y * 12 + m, lo = b.minY * 12 + b.minM, hi = b.maxY * 12 + b.maxM;
+    const clamped = Math.max(lo, Math.min(hi, cur));
+    calCursor = { y: Math.floor(clamped / 12), m: ((clamped % 12) + 12) % 12 };
+  }
+  function shiftCalMonth(dir) {
+    normalizeCalCursor();
+    calCursor.m += dir;
+    normalizeCalCursor();
+    renderCal();
+  }
+
+  async function openStreakCal() {
+    calCursor = null;
+    await refreshStatData();
+    renderCal();
+    openModal('streakCal');
+  }
+
+  function renderCal() {
+    normalizeCalCursor();
+    const grid = $('calGrid');
+    if (!grid) return;
+    const { y, m } = calCursor;
+    const active = buildActiveDays();
+    const tKey = todayKey();
+    const monthName = new Date(y, m, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    $('calMonthLabel').textContent = monthName;
+
+    const firstDow = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    let html = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+      .map((d) => `<div class="cal-dow" aria-hidden="true">${d}</div>`).join('');
+    for (let i = 0; i < firstDow; i++) html += '<div class="cal-day dim" aria-hidden="true"></div>';
+    let monthActive = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      const isActive = active.has(key);
+      const isToday = key === tKey;
+      if (isActive) monthActive++;
+      html += `<div class="cal-day${isActive ? ' on' : ''}${isToday ? ' today' : ''}" role="gridcell" aria-label="${monthName} ${d}${isActive ? ', active' : ', rest day'}${isToday ? ', today' : ''}">`
+        + `<span class="dnum">${d}</span><span class="cdot"></span></div>`;
+    }
+    grid.innerHTML = html;
+
+    // Nav bounds: up to 11 months back, never into the future.
+    const b = calBounds();
+    const cur = y * 12 + m;
+    $('calPrev').disabled = cur <= b.minY * 12 + b.minM;
+    $('calNext').disabled = cur >= b.maxY * 12 + b.maxM;
+
+    const streak = (vm.stats && vm.stats.streak) || 0;
+    $('streakCalSummary').innerHTML = `<b style="color:var(--green-2)">${monthActive}</b> active day${monthActive === 1 ? '' : 's'} in ${escHtml(monthName)} · <b style="color:var(--green-2)">${streak}</b>-day streak`;
+    // One loud CTA, only when today is still unmarked.
+    $('streakCalCta').hidden = active.has(tKey);
+  }
+
+  // ---------- XP breakdown ----------
+  async function openXpDetail() {
+    await refreshStatData();
+    renderXpDetail();
+    openModal('xpDetail');
+  }
+
+  function renderXpDetail() {
+    const rowsBox = $('xpDetailRows');
+    if (!rowsBox) return;
+    const tKey = todayKey();
+    const xpToday = (vm.stats && vm.stats.xpToday) || 0;
+    const xpGoal = (vm.stats && vm.stats.xpGoal) || 100;
+    $('xpDetailTotal').textContent = xpToday;
+    $('xpDetailGoal').textContent = `${xpToday} of ${xpGoal}`;
+
+    const sessions = (vm.gameSessions || [])
+      .filter((s) => s.key === tKey && s.xp > 0)
+      .sort((a, b) => b.ts - a.ts);
+    const gameXp = sessions.reduce((sum, s) => sum + s.xp, 0);
+    const rest = Math.max(0, xpToday - gameXp);
+
+    if (xpToday <= 0) {
+      // On-brand empty state: the signal is quiet, not broken.
+      rowsBox.innerHTML = `
+        <div class="xp-empty">
+          <div class="xp-empty-ic"><i class="fas fa-satellite-dish" aria-hidden="true"></i></div>
+          <p><strong>No signal decoded yet today.</strong></p>
+          <p>Your first points of the day are one drill away.</p>
+        </div>`;
+      $('xpDetailCta').hidden = false;
+      return;
+    }
+    $('xpDetailCta').hidden = true;
+
+    let html = '';
+    sessions.forEach((s) => {
+      const when = s.ts ? s.ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+      const scoreBit = (typeof s.score === 'number') ? ` · score ${s.score}` : '';
+      html += `
+        <div class="xp-row">
+          <div class="xp-ic"><i class="fas fa-gamepad" aria-hidden="true"></i></div>
+          <div class="xp-main">
+            <div class="xp-name">${escHtml(prettyGameName(s.game))}</div>
+            <div class="xp-sub">${escHtml(when)}${escHtml(scoreBit)}</div>
+          </div>
+          <div class="xp-pts">+${s.xp} XP</div>
+        </div>`;
+    });
+    if (rest > 0) {
+      // Drills/lessons/challenges write totals, not itemized events —
+      // grouped honestly rather than faked per-item.
+      html += `
+        <div class="xp-row">
+          <div class="xp-ic"><i class="fas fa-list-check" aria-hidden="true"></i></div>
+          <div class="xp-main">
+            <div class="xp-name">Drills · lessons · challenges</div>
+            <div class="xp-sub">Practice XP banked today</div>
+          </div>
+          <div class="xp-pts">+${rest} XP</div>
+        </div>`;
+    }
+    rowsBox.innerHTML = html;
+  }
+
+  // ---------- Rank preview ----------
+  async function openRankPreview() {
+    await refreshStatData();
+    renderRankPreview();
+    openModal('rankPreview');
+  }
+
+  function lbRowHtml(r, rankNum, you) {
+    return `
+      <div class="lb-row${you ? ' you' : ''}${rankNum === 1 ? ' top1' : ''}">
+        <div class="lb-rank">${rankNum}</div>
+        <div class="lb-name">${escHtml(r.name)}${you ? ' · you' : ''}</div>
+        <div class="lb-xp">${r.xp} XP</div>
+      </div>`;
+  }
+
+  function renderRankPreview() {
+    const box = $('rankPreviewRows');
+    if (!box) return;
+    const rows = vm.lbRows || [];
+    const at = (typeof vm.lbUserIdx === 'number') ? vm.lbUserIdx : -1;
+    const uid = vm.user && vm.user.uid;
+    $('rankPreviewSub').textContent = rows.length
+      ? `${rows.length} decoder${rows.length === 1 ? '' : 's'} on the board this week`
+      : 'Top decoders, live.';
+
+    if (!rows.length) {
+      box.innerHTML = `<div class="lb-note">The board is quiet this week.<br>Be the first signal on it — <a href="/arcade.html" style="color:var(--green);font-weight:700">run a drill</a>.</div>`;
+      return;
+    }
+
+    let html = '';
+    const top = rows.slice(0, 5);
+    top.forEach((r, i) => { html += lbRowHtml(r, i + 1, r.id === uid); });
+
+    if (at >= 5) {
+      // You're ranked but outside the top 5: show your neighborhood.
+      html += '<div class="lb-ellipsis" aria-hidden="true">···</div>';
+      const lo = Math.max(0, at - 1), hi = Math.min(rows.length - 1, at + 1);
+      for (let i = lo; i <= hi; i++) html += lbRowHtml(rows[i], i + 1, rows[i].id === uid);
+    } else if (at < 0) {
+      html += `<div class="lb-note">You're unranked this week — every game you play puts XP on this board.</div>`;
+    }
+    box.innerHTML = html;
+  }
 
   console.log('[Dashboard] Script loaded.');
 })();
