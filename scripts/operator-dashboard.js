@@ -1219,6 +1219,7 @@
     $('calNext')?.addEventListener('click', () => shiftCalMonth(1));
     $('streakCalCta')?.addEventListener('click', () => { closeModal($('streakCalModal')); openModal('drill'); });
     $('xpDetailCta')?.addEventListener('click', () => { closeModal($('xpDetailModal')); openModal('drill'); });
+    $('xpDetailHowLink')?.addEventListener('click', () => { closeModal($('xpDetailModal')); if (window.CDXpExplainer) window.CDXpExplainer.open(); });
   }
 
   async function refreshStatData() {
