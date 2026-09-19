@@ -157,7 +157,8 @@ window.CDLearn = (() => {
     const s = stage(); s.hidden = false;
     s.classList.remove('dl-enter');
     if (!reduced()) { void s.offsetWidth; s.classList.add('dl-enter'); }
-    $('sheet').scrollTop = 0;
+    const sheetEl = s.closest('.sheet');
+    if (sheetEl) sheetEl.scrollTop = 0;
   }
   function showHome() {
     stage().hidden = true; stage().innerHTML = '';
