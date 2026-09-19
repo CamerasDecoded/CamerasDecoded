@@ -13,11 +13,25 @@
 
 const ROUTES = {
   login:  '/login.html',
-  // Interim destinations until dedicated lesson/drill pages exist.
-  // Swap these two strings when /lesson.html and /quick-drill.html are built.
-  lesson: '/quiz-full.html',
-  drill:  '/dailyprotocol.html',
+  // Lessons are the interactive play.html games (?demo=N needs no backend).
+  // Drills open the Game Arcade hub where the user picks a drill.
+  lesson: '/play.html',
+  drill:  '/arcade.html',
 };
+
+// Best-fit lesson game per skill (index into play.html's DEMO_QUEUE):
+// 0 exposure-lab ("The Triangle") · 1 ar-viewfinder ("Meter Reading")
+// 2 golden-hour-rush ("Chasing Light") · 3 focal-length-sniper ("Reading Glass")
+const SKILL_DEMO = {
+  'camera-basics': 0, 'exposure-triangle': 0, 'aperture': 0, 'shutter': 0,
+  'iso': 0, 'exp-comp': 0, 'manual-mode': 0, 'long-exposure': 0,
+  'metering': 1, 'focus': 1,
+  'seeing-light': 2, 'golden-hour': 2, 'white-balance': 2, 'color-temp': 2,
+  'night': 2, 'street': 2, 'portraits': 2,
+  'thirds': 3, 'leading-lines': 3, 'framing': 3, 'neg-space': 3,
+  'color-harmony': 3, 'editing': 3
+};
+function lessonDemoFor(skillId){ return SKILL_DEMO[skillId] != null ? SKILL_DEMO[skillId] : 0; }
 
 let ACTIVE_TREE = 'photo-foundations';
 let PROGRESS = {};          // { [skillId]: { xp } } — from Firestore
@@ -52,7 +66,14 @@ function boot(){
     return;
   }
   firebase.auth().onAuthStateChanged(user => {
-    if (!user){ showAuthWall(); return; }
+    if (!user){
+      // Explore mode: the map is open to everyone; only saved progress needs sign-in.
+      PROGRESS = {};
+      showAuthWall();
+      renderAll();
+      if (!firstRenderDone){ firstRenderDone = true; applyHash(); }
+      return;
+    }
     hideAuthWall();
     subscribeProgress(user.uid);
   });
@@ -80,12 +101,11 @@ function subscribeProgress(uid){
 
 /* ---------- auth wall / fatal ---------- */
 function showAuthWall(){
+  // Slim nudge only — the map stays visible while signed out.
   document.getElementById('authWall').hidden = false;
-  document.getElementById('darkroomMain').hidden = true;
 }
 function hideAuthWall(){
   document.getElementById('authWall').hidden = true;
-  document.getElementById('darkroomMain').hidden = false;
 }
 function showFatal(msg){
   const el = document.getElementById('fatal');
@@ -260,10 +280,11 @@ function openSheet(skillId){
   const btnDrill = document.getElementById('btnDrill');
   btnLesson.disabled = locked;
   btnDrill.disabled = locked;
-  // TODO (integrator): confirm these routes accept ?skill=<id>&track=<treeId>
-  // and award XP to that skillId on completion (see INTEGRATION.md).
-  btnLesson.onclick = () => { location.href = ROUTES.lesson + '?skill=' + encodeURIComponent(s.id) + '&track=' + ACTIVE_TREE; };
-  btnDrill.onclick  = () => { location.href = ROUTES.drill  + '?skill=' + encodeURIComponent(s.id) + '&track=' + ACTIVE_TREE; };
+  // Start lesson: the skill's interactive lesson game (play.html ?demo=N, no backend needed).
+  // Practice drill: the Game Arcade hub — pick any drill, earn XP. Game XP flows
+  // through the play.html → game_sessions pipeline; skill-level attribution is a later pass.
+  btnLesson.onclick = () => { location.href = ROUTES.lesson + '?demo=' + lessonDemoFor(s.id); };
+  btnDrill.onclick  = () => { location.href = ROUTES.drill; };
   const sc = scrim();
   sc.classList.add('open');
   sc.setAttribute('aria-hidden','false');
@@ -292,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openSheet(s.id);
   });
   document.getElementById('sheetClose').addEventListener('click', closeSheet);
+  document.getElementById('authWallClose')?.addEventListener('click', hideAuthWall);
   scrim().addEventListener('click', e => { if (e.target === scrim()) closeSheet(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && scrim().classList.contains('open')) closeSheet(); });
   boot();
