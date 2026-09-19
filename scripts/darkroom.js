@@ -313,7 +313,10 @@ function openSheet(skillId){
     }).join('');
     document.getElementById('sheetReq').innerHTML =
       '<span class="unlock-head">Locked — earn XP in:</span>' + rows +
-      '<span class="unlock-how">How to earn XP: lesson <b>+20 XP</b> · daily drill <b>+10 XP</b></span>';
+      '<span class="unlock-how">How to earn XP: lesson <b>+20 XP</b> · daily drill <b>+10 XP</b></span>' +
+      '<button type="button" class="xpx-inline-link" id="unlockXpLink">How XP works &rarr;</button>';
+    const xpLink = document.getElementById('unlockXpLink');
+    if (xpLink) xpLink.onclick = () => { if (window.CDXpExplainer) window.CDXpExplainer.open(); };
     const first = skillMap[unmet[0]];
     btnLesson.textContent = 'Train ' + first.name;
     btnLesson.disabled = false;
