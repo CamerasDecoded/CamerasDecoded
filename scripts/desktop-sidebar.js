@@ -56,7 +56,7 @@
     { label: 'More', links: [
       { id: 'snapshots',label: 'Snapshots',     icon: 'fa-camera',           href: '/snapshot-library.html' },
       { id: 'leaderboard', label: 'Leaderboard', icon: 'fa-trophy',           href: '/leaderboard.html' },
-      { id: 'ai',       label: 'AI Workbench',  icon: 'fa-brain',            href: '/ai-tools.html' },
+      { id: 'ai',       label: 'AI Workbench',  icon: 'fa-brain',            href: '/ai-workbench.html' },
       { id: 'profile',  label: 'Profile',       icon: 'fa-circle-user',      href: '/profile.html', role: 'profile' }
     ]}
   ];
