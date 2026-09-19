@@ -2,6 +2,13 @@
 (function() {
   'use strict';
 
+  // Capture the PWA install prompt the moment it fires — it can arrive
+  // before scripts/install.js loads. install.js picks it up from here.
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    window.__cdDeferredPrompt = e;
+  });
+
   /* ============================================================
      BRANDED BOOT VEIL
      Every page load – even a glimpse – shows one RANDOM loading
@@ -64,6 +71,10 @@
     };
     meta('theme-color', '#070708');
     meta('apple-mobile-web-app-title', 'Cameras Decoded');
+    // Standalone launch from the Home Screen: no Safari chrome.
+    meta('mobile-web-app-capable', 'yes');
+    meta('apple-mobile-web-app-capable', 'yes');
+    meta('apple-mobile-web-app-status-bar-style', 'black-translucent');
   }
 
   // No-repeat rotation: never show the same video twice in a row in a
@@ -357,7 +368,15 @@
     if (document.querySelector('script[src*="bottom-nav.js"]')) return;
     const script = document.createElement('script');
     // ✅ absolute path — dashboard nav, site-wide
-    script.src = '/scripts/bottom-nav.js?v=20260912d';
+    script.src = '/scripts/bottom-nav.js?v=20260919a';
+    document.body.appendChild(script);
+  }
+
+  function loadInstall() {
+    if (document.querySelector('script[src*="install.js"]')) return;
+    if (window.CDInstall) return;
+    const script = document.createElement('script');
+    script.src = '/scripts/install.js?v=20260919a';
     document.body.appendChild(script);
   }
 
@@ -373,6 +392,7 @@
     loadSound();
     injectBottomNavContainer();
     loadBottomNav();
+    loadInstall();
     // Ambient sound: (re)start the loop on the first tap of every page.
     // A tap is a gesture, so this is where audio is allowed to begin;
     // CDSound restores the position the last page left off.

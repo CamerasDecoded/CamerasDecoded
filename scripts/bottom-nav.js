@@ -57,6 +57,7 @@
     trophy:   svg('<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4a3 3 0 0 0 3 5M17 5h3a3 3 0 0 1-3 5M12 14v4M8 21h8M9 18h6"/>'),
     gamepad:  svg('<rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v4M5 13h4"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor"/><circle cx="18" cy="14" r="1" fill="currentColor"/>'),
     manual:   svg('<path d="M12 6c-2-1.5-4.5-2-8-2v14c3.5 0 6 .5 8 2 2-1.5 4.5-2 8-2V4c-3.5 0-6 .5-8 2z"/><path d="M12 6v14"/>'),
+    download: svg('<path d="M12 3v12"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/>'),
     close:    svg('<path d="M6 6l12 12M18 6 6 18"/>')
   };
 
@@ -89,6 +90,7 @@
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
         // Community cut for launch — returns as a post-launch web-app update.
         { href: '/ai-tools.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
+        { action: 'install',              icon: 'download', title: 'Install app', sub: 'Add Decoded to your Home Screen' },
         { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { action: 'logout',               icon: 'exit',   title: 'Log out',      sub: 'End this session' }
       ]
@@ -234,8 +236,8 @@
     wrap.innerHTML = Object.keys(SHEETS).map(function (key) {
       var s = SHEETS[key];
       var rows = s.rows.map(function (r) {
-        if (r.action === 'logout') {
-          return '<button type="button" class="cd-bn-row" data-cd-action="logout">'
+        if (r.action === 'logout' || r.action === 'install') {
+          return '<button type="button" class="cd-bn-row" data-cd-action="' + r.action + '">'
                +   '<span class="cd-bn-ic">' + iconSVG(r.icon) + '</span>'
                +   '<span class="cd-bn-rc"><b>' + r.title + '</b><span>' + r.sub + '</span></span>'
                + '</button>';
@@ -372,9 +374,19 @@
         return;
       }
       var actionBtn = e.target.closest('[data-cd-action]');
-      if (actionBtn && actionBtn.getAttribute('data-cd-action') === 'logout') {
-        e.preventDefault();
-        doLogout();
+      if (actionBtn) {
+        var action = actionBtn.getAttribute('data-cd-action');
+        if (action === 'logout') {
+          e.preventDefault();
+          doLogout();
+          return;
+        }
+        if (action === 'install') {
+          e.preventDefault();
+          closeAllSheets();
+          if (window.CDInstall) window.CDInstall.open();
+          return;
+        }
       }
     });
 
