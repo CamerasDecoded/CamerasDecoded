@@ -276,6 +276,11 @@ let lastFocus = null;
 function openSheet(skillId){
   const s = skillMap[skillId];
   if (!s) return;
+  // Always reopen on the sheet home — never a stale lesson/drill screen from
+  // a previous visit (X-out mid-lesson then tapping another node).
+  const sl = document.getElementById('sheetLearn'), sh = document.getElementById('sheetHome');
+  if (sl) { sl.hidden = true; sl.innerHTML = ''; }
+  if (sh) sh.hidden = false;
   const { state, xp, lvl } = deriveState(s, PROGRESS);
   lastFocus = document.activeElement;
   document.getElementById('sheetIcon').innerHTML = ICONS[s.icon] || ICONS.camera;
