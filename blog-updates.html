@@ -1,619 +1,283 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
   <title>Blog & Updates — Cameras Decoded</title>
-  <meta name="description" content="Guides, gear breakdowns, and business advice for mirrorless operators — from Cameras Decoded.">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <meta property="og:title" content="Blog & Updates — Cameras Decoded">
-  <meta property="og:description" content="Guides, gear breakdowns, and business advice for mirrorless operators.">
-  <meta property="og:url" content="https://camerasdecoded.com/blog-updates.html">
-  <meta property="og:type" content="website">
+  <meta name="description" content="Guides, gear breakdowns, and business advice for mirrorless operators — from Cameras Decoded." />
+  <meta property="og:title" content="Blog & Updates — Cameras Decoded" />
+  <meta property="og:description" content="Guides, gear breakdowns, and business advice for mirrorless operators." />
+  <meta property="og:url" content="https://camerasdecoded.com/blog-updates.html" />
+  <meta property="og:type" content="website" />
+
+  <!-- ===== MASTER LOADER ===== -->
+  <script src="/scripts/master-loader.js?v=20260918c"></script>
+
+  <!-- ===== SHARED COMPONENT CSS ===== -->
+  <link rel="stylesheet" href="header.css?v=20260916a" />
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js"></script>
+
+  <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
+  <script src="/scripts/user-state.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="header.js?v=20260918b"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
+  <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
+
+  <!-- ===== FONTS & ICONS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <style>
-    :root {
-      --space-sm: 12px;
-      --space-md: 24px;
-      --space-lg: 40px;
-      --space-xl: 64px;
-    }
+/* ================================================================
+   BLOG & UPDATES — shared-chrome reskin
+   Dark-neon operator language: quiet surfaces, neon reserved for
+   signal (kickers, active states, the one CTA). Mobile-first.
+   ================================================================ */
+:root{
+  --bg:#070708;
+  --neon:#8deb00;
+  --neon-soft:rgba(141,235,0,.12);
+  --neon-border:rgba(141,235,0,.35);
+  --card:rgba(16,19,16,.88);
+  --card-solid:#101310;
+  --border:rgba(255,255,255,.09);
+  --border-strong:rgba(255,255,255,.16);
+  --text:#f4f6f1;
+  --muted:#a9b8a2;
+  --muted-2:#6f7d68;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  display:block !important; /* design-system.css guard: shared body flex must not win */
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Montserrat',system-ui,sans-serif;
+  line-height:1.6;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+img{max-width:100%}
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background-color: #000000;
-      background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-      background-size: 24px 24px;
-      color: #ffffff;
-      font-family: 'Montserrat', sans-serif;
-      line-height: 1.6;
-      position: relative;
-      display: flex;
-      min-height: 100vh;
-    }
+/* ----- binary rain (kept, quietened) ----- */
+#binary-rain{
+  position:fixed;top:0;left:0;width:100vw;height:100vh;
+  z-index:0;pointer-events:none;opacity:.12;
+}
+#rain-fade{
+  position:fixed;bottom:0;left:0;width:100vw;height:45vh;
+  background:linear-gradient(to bottom,transparent 0%,rgba(7,7,8,.85) 60%,var(--bg) 100%);
+  pointer-events:none;z-index:0;
+}
 
-    /* ---------- FULL-HEIGHT GREEN-TO-BLACK GRADIENT ---------- */
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      background: linear-gradient(180deg, rgba(29, 179, 27, 0.35) 0%, rgba(0, 0, 0, 0.95) 70%, #000000 100%);
-      pointer-events: none;
-      z-index: -1;
-    }
+/* ----- page shell (clears the shared floating header + mobile bottom nav) ----- */
+.main-content{
+  max-width:820px;
+  margin:0 auto;
+  padding:112px 20px calc(120px + env(safe-area-inset-bottom));
+  position:relative;
+  z-index:1;
+  animation:pageIn .5s var(--ease) both;
+}
+@keyframes pageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
-    /* ----- BINARY RAIN CANVAS ----- */
-    #binary-rain {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      z-index: 0;
-      pointer-events: none;
-      opacity: 0.2;
-    }
+/* ----- masthead ----- */
+.masthead{text-align:center;padding:8px 0 34px;margin-bottom:30px;border-bottom:1px solid var(--border)}
+.masthead .kicker{
+  display:block;font-family:'Space Mono',monospace;font-size:11px;
+  letter-spacing:3px;text-transform:uppercase;color:var(--neon);margin-bottom:12px;
+}
+.masthead h1{
+  font-size:clamp(30px,6vw,44px);font-weight:800;letter-spacing:-.5px;
+  color:var(--text);margin-bottom:12px;
+}
+.masthead h1 .neon{color:var(--neon)}
+.masthead p{color:var(--muted);font-size:15px;max-width:520px;margin:0 auto}
+.masthead .byline{
+  color:var(--neon);font-family:'Space Mono',monospace;font-size:12px;
+  margin-top:14px;letter-spacing:.5px;
+}
 
-    /* ----- BOTTOM FADE OVERLAY (rain falls into black) ----- */
-    #rain-fade {
-      position: fixed;
-      bottom: 0; left: 0;
-      width: 100vw; height: 45vh;
-      background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.85) 60%, #000000 100%);
-      pointer-events: none;
-      z-index: 0;
-    }
+/* ----- search + category filters ----- */
+.controls{margin-bottom:28px}
+.search-box{
+  width:100%;padding:13px 16px;background:var(--card-solid);
+  border:1px solid var(--border);border-radius:12px;color:var(--text);
+  font-family:'Montserrat',sans-serif;font-size:14px;outline:none;margin-bottom:14px;
+  transition:border-color .2s var(--ease);
+}
+.search-box::placeholder{color:var(--muted-2)}
+.search-box:focus{border-color:var(--neon-border)}
+.category-chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{
+  font-family:'Space Mono',monospace;font-size:12px;padding:7px 16px;border-radius:999px;
+  border:1px solid var(--border);color:var(--muted);cursor:pointer;
+  background:transparent;transition:all .2s var(--ease);
+}
+.chip:hover{border-color:var(--neon-border);color:var(--neon)}
+.chip.active{background:var(--neon);color:#0a0c0a;border-color:var(--neon);font-weight:700}
 
-    h1, h2, h3, .mono { font-family: 'Space Mono', monospace; }
-    .green-text { color: #8deb00; }
-    .grey-text { color: #b4b4b4; }
-    a { text-decoration: none; color: inherit; transition: 0.2s; }
+/* ----- post list ----- */
+.post-list{display:flex;flex-direction:column;gap:12px}
+.post-card{
+  background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:20px 22px;cursor:pointer;
+  transition:border-color .25s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease);
+}
+.post-card:hover{
+  border-color:var(--neon-border);transform:translateY(-2px);
+  box-shadow:0 12px 32px rgba(0,0,0,.45),0 0 24px rgba(141,235,0,.06);
+}
+.post-header{display:flex;gap:18px}
+.post-thumb{
+  width:140px;height:100px;flex-shrink:0;border-radius:10px;overflow:hidden;
+  background:#0a0c0a;border:1px solid var(--border);
+}
+.post-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.post-thumb-fallback{
+  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  color:var(--muted-2);font-size:24px;
+}
+.post-info{flex:1;min-width:0}
+.post-category-tag{
+  display:inline-block;color:var(--neon);font-family:'Space Mono',monospace;
+  font-size:11px;letter-spacing:2px;margin-bottom:8px;text-transform:uppercase;
+}
+.post-title{font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.35}
+.post-excerpt{color:var(--muted);font-size:14px;margin-bottom:8px}
+.post-meta{color:var(--muted-2);font-family:'Space Mono',monospace;font-size:12px}
+.empty-state{
+  text-align:center;padding:60px 20px;color:var(--muted);
+  font-family:'Space Mono',monospace;font-size:13px;
+}
 
-    /* --- DESKTOP SIDEBAR (sticky, above rain) --- */
-    .sidebar {
-      width: 240px;
-      background: rgba(0,0,0,0.9);
-      padding: var(--space-md) var(--space-md);
-      border-right: 1px solid #1A1A1A;
-      height: 100vh;
-      position: sticky;
-      top: 0;
-      flex-shrink: 0;
-      z-index: 2;
-    }
-    .sidebar .logo img {
-      display: block;
-      height: 120px;
-      width: auto;
-    }
-    .sidebar .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 0;
-      color: #b4b4b4;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      letter-spacing: 0.5px;
-      border-bottom: 1px solid transparent;
-      transition: all 0.2s;
-    }
-    .sidebar .nav-item i {
-      font-size: 15px;
-      width: 20px;
-      text-align: center;
-      transition: color 0.2s;
-      color: inherit;
-    }
-    .sidebar .nav-item:hover,
-    .sidebar .nav-item:hover i {
-      color: #8deb00;
-      transform: translateX(6px) scale(1.05);
-      text-shadow: 0 0 12px rgba(141, 235, 0, 0.6);
-      border-bottom: 1px solid #8deb00;
-    }
-    .sidebar .nav-item.active,
-    .sidebar .nav-item.active i {
-      color: #8deb00;
-      border-left: 2px solid #8deb00;
-      padding-left: 10px;
-      text-shadow: 0 0 12px rgba(141, 235, 0, 0.6);
-    }
-    .sidebar-divider {
-      border: none;
-      border-top: 1px solid #1A1A1A;
-      margin: 8px 0;
-    }
+/* ----- expanded article drawer ----- */
+.post-expanded{
+  display:none;padding-top:18px;margin-top:14px;border-top:1px solid var(--border);
+}
+.post-expanded.open{display:block;animation:slideDown .3s var(--ease)}
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.post-expanded .full-body{color:#d7dcd2;font-size:16px;line-height:1.8;white-space:pre-wrap;margin-bottom:16px}
+.post-expanded .full-body h2{
+  font-family:'Space Mono',monospace;font-size:22px;color:var(--neon);
+  margin-top:30px;margin-bottom:14px;border-top:1px solid var(--border);padding-top:24px;
+}
+.post-expanded .full-body h3{
+  font-family:'Space Mono',monospace;font-size:17px;color:var(--text);
+  margin-top:24px;margin-bottom:10px;
+}
+.post-expanded .full-body blockquote{
+  background:var(--card-solid);border-left:3px solid var(--neon);
+  padding:16px 20px;margin:20px 0;border-radius:6px;color:var(--text);font-style:italic;
+}
+.post-expanded .full-body ul,.post-expanded .full-body ol{margin:0 0 18px 22px}
+.post-expanded .full-body li{margin-bottom:8px}
+.post-expanded .full-body a{color:var(--neon);text-decoration:underline}
 
-    .main-content {
-      flex: 1;
-      padding: var(--space-md) var(--space-lg) var(--space-lg) var(--space-lg);
-      padding-top: 80px;
-      max-width: 800px;
-      position: relative;
-      z-index: 2;
-      animation: fadeIn 0.5s ease-in-out forwards;
-    }
-    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+/* ----- action buttons ----- */
+.post-actions{display:flex;align-items:center;gap:10px;margin-top:8px}
+.save-btn{
+  background:transparent;border:1px solid var(--neon-border);border-radius:8px;
+  color:var(--neon);font-family:'Space Mono',monospace;font-size:11px;
+  padding:5px 12px;cursor:pointer;transition:all .2s var(--ease);white-space:nowrap;
+}
+.save-btn:hover{background:var(--neon-soft);box-shadow:0 0 12px rgba(141,235,0,.25)}
+.expand-toggle{
+  color:var(--neon);font-family:'Space Mono',monospace;font-size:12px;cursor:pointer;
+  transition:color .2s;background:transparent;border:none;padding:4px 8px;
+}
+.expand-toggle:hover{color:#b6ff45}
 
-    /* ---------- FLOATING GLASS HEADER ---------- */
-    .floating-header {
-      position: fixed;
-      top: 12px;
-      left: 240px;
-      right: 0;
-      z-index: 99;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      padding: 10px 24px;
-      background: rgba(0, 0, 0, 0.25);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(141, 235, 0, 0.15);
-      border-radius: 30px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: #b4b4b4;
-      margin: 0 12px;
-    }
+/* ----- the one loud CTA ----- */
+.cta-card{
+  margin:44px 0 8px;padding:30px 26px;text-align:center;
+  background:linear-gradient(180deg,rgba(141,235,0,.07),rgba(141,235,0,.02)),var(--card);
+  border:1px solid var(--neon-border);border-radius:18px;
+}
+.cta-card .kicker{
+  font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;
+  text-transform:uppercase;color:var(--neon);margin-bottom:10px;
+}
+.cta-card h2{font-size:22px;font-weight:800;margin-bottom:8px}
+.cta-card p{color:var(--muted);font-size:14px;max-width:440px;margin:0 auto 18px}
+.btn-loud{
+  display:inline-block;background:var(--neon);color:#0a0c0a;
+  font-family:'Space Mono',monospace;font-weight:700;font-size:14px;
+  padding:13px 34px;border-radius:999px;border:none;cursor:pointer;
+  transition:transform .2s var(--ease),box-shadow .2s var(--ease);
+  box-shadow:0 0 28px rgba(141,235,0,.35);
+}
+.btn-loud:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(141,235,0,.5)}
 
-    .floating-header a { color: #8deb00; transition: color 0.2s; }
-    .floating-header a:hover { color: #a0f520; }
+/* ----- footer ----- */
+.footer{
+  border-top:1px solid var(--border);padding-top:22px;margin-top:44px;
+  display:flex;flex-direction:column;gap:14px;
+  font-size:12px;color:var(--muted-2);text-align:center;
+}
+.footer .socials{display:flex;justify-content:center;gap:20px}
+.footer .socials a{color:var(--text);font-size:18px;transition:color .2s}
+.footer .socials a:hover{color:var(--neon)}
+.footer .footer-links{display:flex;justify-content:center;gap:18px;flex-wrap:wrap}
+.footer .footer-links a{color:var(--neon);font-family:'Space Mono',monospace;font-size:12px}
+.footer .footer-links a:hover{color:#b6ff45}
 
-    .floating-home-icon { font-size: 17px; flex-shrink: 0; }
+/* ----- scroll to top ----- */
+#scrollTopBtn{
+  position:fixed;bottom:calc(96px + env(safe-area-inset-bottom));right:20px;
+  visibility:hidden;opacity:0;width:46px;height:46px;border-radius:50%;
+  border:1px solid var(--neon-border);background:rgba(10,12,10,.9);color:var(--neon);
+  cursor:pointer;font-size:18px;z-index:60;font-family:'Space Mono',monospace;
+  transition:opacity .3s,visibility .3s,transform .2s var(--ease);
+  box-shadow:0 0 12px rgba(141,235,0,.15);
+}
+#scrollTopBtn.show{visibility:visible;opacity:1}
+#scrollTopBtn:hover{background:var(--neon);color:#0a0c0a;transform:translateY(-2px)}
+@keyframes pulse{
+  0%{transform:scale(1);box-shadow:0 0 12px rgba(141,235,0,.15)}
+  50%{transform:scale(1.12);box-shadow:0 0 26px rgba(141,235,0,.45)}
+  100%{transform:scale(1);box-shadow:0 0 12px rgba(141,235,0,.15)}
+}
+#scrollTopBtn.pulse{animation:pulse 1.6s ease-in-out infinite}
 
-    .floating-nav-links {
-      display: flex;
-      flex: 1;
-      justify-content: center;
-      gap: 25px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
+/* ----- mobile ----- */
+@media (max-width:768px){
+  .main-content{padding:104px 16px calc(128px + env(safe-area-inset-bottom))}
+  .post-header{flex-direction:column;gap:14px}
+  .post-thumb{width:100%;height:160px}
+  .post-card{padding:16px}
+  .cta-card{padding:24px 18px}
+}
 
-    /* ---------- CHASING BORDER ---------- */
-    @property --angle {
-      syntax: '<angle>';
-      initial-value: 0deg;
-      inherits: false;
-    }
-    @keyframes spinBorder { to { --angle: 360deg; } }
-
-    .chasing-border {
-      position: relative;
-      z-index: 0;
-    }
-    .chasing-border::before {
-      content: '';
-      position: absolute;
-      top: -2px;
-      left: -2px;
-      right: -2px;
-      bottom: -2px;
-      border-radius: inherit;
-      background: conic-gradient(from var(--angle, 0deg), #8deb00, #00e5ff, #a0f520, #8deb00);
-      animation: spinBorder 4s linear infinite;
-      z-index: -1;
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-              mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      mask-composite: exclude;
-      padding: 2px;
-    }
-
-    .cart-header-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: transparent;
-      border: 1px solid #8deb00;
-      border-radius: 20px;
-      padding: 6px 14px;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      transition: 0.2s;
-      text-decoration: none;
-      flex-shrink: 0;
-      margin-left: auto;
-    }
-    .cart-header-link:hover {
-      background: rgba(141, 235, 0, 0.1);
-      box-shadow: 0 0 12px rgba(141, 235, 0, 0.3);
-    }
-    .cart-count-badge {
-      background: #8deb00;
-      color: #000;
-      border-radius: 50%;
-      padding: 1px 7px;
-      font-size: 11px;
-      font-weight: 700;
-      display: inline-block;
-    }
-
-    /* ---- Mobile-only hamburger inside floating header ---- */
-    .floating-toggle {
-      display: none;
-      background: transparent;
-      border: none;
-      color: #8deb00;
-      font-size: 24px;
-      cursor: pointer;
-      padding: 0 6px;
-      flex-shrink: 0;
-      margin-left: 8px;
-      transition: color 0.2s;
-    }
-    .floating-toggle:hover { color: #a0f520; }
-
-    /* --- BLOG MASTHEAD --- */
-    .masthead { text-align: center; padding: 20px 0 40px 0; border-bottom: 1px solid #1A1A1A; margin-bottom: 34px; }
-    .masthead h1 { font-size: 38px; margin-bottom: 12px; background: linear-gradient(90deg, #1db31b 0%, #c9e265 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .masthead p { color: #b4b4b4; font-size: 15px; max-width: 480px; margin: 0 auto; }
-    .masthead .byline { color: #8deb00; font-family: 'Space Mono', monospace; font-size: 12px; margin-top: 14px; letter-spacing: 0.5px; }
-
-    /* --- SEARCH + CATEGORY FILTERS --- */
-    .controls { margin-bottom: 34px; }
-    .search-box { width: 100%; padding: 12px 16px; background: #0A0A0A; border: 1px solid #1A1A1A; border-radius: 8px; color: #fff; font-family: 'Montserrat', sans-serif; font-size: 14px; outline: none; margin-bottom: 16px; }
-    .search-box:focus { border-color: #8deb00; }
-    .category-chips { display: flex; gap: 10px; flex-wrap: wrap; }
-    .chip { font-family: 'Space Mono', monospace; font-size: 12px; padding: 6px 16px; border-radius: 20px; border: 1px solid #1A1A1A; color: #b4b4b4; cursor: pointer; transition: 0.2s; background: transparent; }
-    .chip:hover { border-color: #8deb00; color: #8deb00; }
-    .chip.active { background: #8deb00; color: #000; border-color: #8deb00; font-weight: 700; }
-
-    /* --- POST LIST --- */
-    .post-list { display: flex; flex-direction: column; gap: 6px; }
-    .post-card {
-      background: #0A0A0A;
-      border: 1px solid #1A1A1A;
-      border-radius: 10px;
-      padding: 22px 25px;
-      transition: border-color 0.2s;
-      cursor: pointer;
-    }
-    .post-card:hover { border-color: #8deb00; }
-
-    .post-header {
-      display: flex;
-      gap: 20px;
-    }
-    .post-thumb { width: 140px; height: 100px; flex-shrink: 0; border-radius: 8px; overflow: hidden; background: #0A0A0A; border: 1px solid #1A1A1A; }
-    .post-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .post-thumb-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #333; font-size: 24px; }
-    .post-info { flex: 1; min-width: 0; }
-    .post-category-tag { display: inline-block; color: #8deb00; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.5px; margin-bottom: 6px; text-transform: uppercase; }
-    .post-title { font-size: 18px; color: #ffffff; margin-bottom: 6px; transition: color 0.2s; }
-    .post-excerpt { color: #b4b4b4; font-size: 14px; margin-bottom: 8px; }
-    .post-meta { color: #666; font-family: 'Space Mono', monospace; font-size: 12px; }
-    .empty-state { text-align: center; padding: 60px 20px; color: #b4b4b4; font-family: 'Space Mono', monospace; }
-
-    /* --- EXPANDED CONTENT (drawer) --- */
-    .post-expanded {
-      display: none;
-      padding-top: 18px;
-      margin-top: 14px;
-      border-top: 1px solid #1A1A1A;
-      animation: slideDown 0.3s ease-out;
-    }
-    .post-expanded.open { display: block; }
-    @keyframes slideDown {
-      0% { opacity: 0; transform: translateY(-10px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-    .post-expanded .full-body {
-      color: #d0d0d0;
-      font-size: 16px;
-      line-height: 1.8;
-      white-space: pre-wrap;
-      margin-bottom: 16px;
-    }
-    .post-expanded .full-body h2 {
-      font-family: 'Space Mono', monospace;
-      font-size: 24px;
-      color: #8deb00;
-      margin-top: 30px;
-      margin-bottom: 16px;
-      border-top: 1px solid #1A1A1A;
-      padding-top: 24px;
-    }
-    .post-expanded .full-body h3 {
-      font-family: 'Space Mono', monospace;
-      font-size: 18px;
-      color: #ffffff;
-      margin-top: 24px;
-      margin-bottom: 12px;
-    }
-    .post-expanded .full-body blockquote {
-      background: #0A0A0A;
-      border-left: 3px solid #8deb00;
-      padding: 18px 22px;
-      margin: 20px 0;
-      border-radius: 4px;
-      color: #ffffff;
-      font-style: italic;
-    }
-    .post-expanded .full-body ul, .post-expanded .full-body ol {
-      margin: 0 0 18px 22px;
-    }
-    .post-expanded .full-body li {
-      margin-bottom: 8px;
-    }
-    .post-expanded .full-body a {
-      color: #8deb00;
-      text-decoration: underline;
-    }
-
-    /* --- ACTION BUTTONS --- */
-    .post-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
-    .save-btn {
-      background: transparent;
-      border: 1px solid #8deb00;
-      border-radius: 6px;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      padding: 4px 10px;
-      cursor: pointer;
-      transition: 0.2s;
-      white-space: nowrap;
-    }
-    .save-btn:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 10px rgba(141, 235, 0, 0.3); }
-    .expand-toggle {
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      cursor: pointer;
-      transition: 0.2s;
-      background: transparent;
-      border: none;
-      padding: 4px 8px;
-    }
-    .expand-toggle:hover { color: #a0f520; }
-
-    /* --- FOOTER --- */
-    .footer {
-      border-top: 1px solid #1A1A1A; padding-top: 20px; margin-top: 40px;
-      display: flex; flex-direction: column; gap: 15px;
-      font-size: 12px; color: #b4b4b4; text-align: center;
-    }
-    .footer .socials { display: flex; justify-content: center; gap: 20px; }
-    .footer .socials a { color: #ffffff !important; font-size: 18px; transition: 0.2s; }
-    .footer .socials a:hover { color: #8deb00 !important; }
-    .footer .footer-links { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
-    .footer .footer-links a { color: #8deb00 !important; }
-    .footer .footer-links a:hover { color: #a0f520 !important; }
-
-    /* --- MOBILE BREAKPOINT --- */
-    @media (max-width: 1024px) {
-      body { flex-direction: column; }
-      
-      .sidebar {
-        width: 100%; height: auto; position: static;
-        border-right: none; border-bottom: 1px solid #1A1A1A;
-        padding: 15px 20px;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        flex-direction: row;
-      }
-      .sidebar .logo { margin: 0; }
-      .sidebar .logo img { height: 50px; width: auto; margin: 0; }
-      .sidebar .nav-group { display: none !important; }
-      .sidebar .mobile-toggle { display: block !important; background: transparent; border: none; color: #8deb00; font-size: 28px; cursor: pointer; padding: 4px 8px; z-index: 101; }
-      .floating-toggle { display: block !important; }
-      .main-content { padding: 20px; padding-top: 100px; }
-      .masthead h1 { font-size: 28px; }
-      .post-header { flex-direction: column; }
-      .post-thumb { width: 100%; height: 160px; }
-      .post-card { padding: 16px 18px; }
-      .floating-header { left: 10px; right: 10px; top: 70px; padding: 8px 18px; border-radius: 25px; gap: 10px; }
-      .floating-nav-links { gap: 12px; }
-      #cartHeaderLabel { display: none; }
-    }
-
-    /* ---- MOBILE OVERLAY (with dynamic Dashboard above Home) ---- */
-    .nav-group-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.85);
-      z-index: 10000;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      padding: 40px 20px;
-      overflow-y: auto;
-    }
-    .nav-group-overlay.open {
-      display: flex !important;
-    }
-    .nav-group-overlay .nav-item {
-      font-size: 22px;
-      padding: 12px 0;
-      color: #ffffff;
-      font-family: 'Space Mono', monospace;
-      letter-spacing: 0.5px;
-      width: 100%;
-      max-width: 360px;
-      text-align: center;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    .nav-group-overlay .nav-item i {
-      color: #8deb00;
-      font-size: 18px;
-      width: 28px;
-    }
-    .nav-group-overlay .nav-item:hover {
-      color: #8deb00;
-    }
-    .nav-group-overlay .close-btn {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      color: #8deb00;
-      font-size: 32px;
-      cursor: pointer;
-      background: transparent;
-      border: none;
-      padding: 8px;
-      z-index: 10001;
-      font-family: 'Space Mono', monospace;
-    }
-    .nav-group-overlay .sidebar-divider {
-      display: none;
-    }
-    .nav-group-overlay .nav-item.dashboard-link {
-      color: #8deb00;
-      border-left: 2px solid #8deb00;
-      padding-left: 10px;
-      text-shadow: 0 0 12px rgba(141,235,0,0.6);
-    }
-    .nav-group-overlay .nav-item.dashboard-link i {
-      color: #8deb00;
-    }
-
-    .sidebar .mobile-toggle { display: none; }
-
-    @media (min-width: 1025px) {
-      .sidebar .nav-group { display: flex !important; flex-direction: column !important; }
-    }
-
-    .header-login-btn {
-      display: block;
-      color: #8deb00;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      border: 1px solid #8deb00;
-      padding: 0 10px 0 14px;
-      border-radius: 20px;
-      background: transparent;
-      transition: 0.2s;
-      text-decoration: none;
-      text-align: center;
-      width: fit-content;
-    }
-    .header-login-btn:hover { background: rgba(141, 235, 0, 0.1); box-shadow: 0 0 15px rgba(141, 235, 0, 0.3); }
-    @media (min-width:1025px){ .header-login-btn { margin-top:10px; margin-bottom:20px; align-self:flex-start; } }
-
-    #scrollTopBtn {
-      position: fixed;
-      bottom: 30px; right: 30px;
-      visibility: hidden; opacity: 0;
-      width: 45px; height: 45px;
-      border-radius: 50%;
-      border: 1px solid #8deb00;
-      background: rgba(0, 0, 0, 0.85);
-      color: #8deb00;
-      cursor: pointer;
-      font-size: 18px;
-      z-index: 999;
-      font-family: 'Space Mono', monospace;
-      transition: opacity 0.3s ease, visibility 0.3s ease;
-      box-shadow: 0 0 10px rgba(141, 235, 0, 0.2);
-    }
-    #scrollTopBtn.show { visibility: visible; opacity: 1; }
-    #scrollTopBtn:hover { background: #8deb00; color: #000000; box-shadow: 0 0 20px rgba(141, 235, 0, 0.6); transform: translateY(-2px); }
-    @keyframes pulse {
-      0%   { transform: scale(1);   box-shadow: 0 0 10px rgba(141, 235, 0, 0.2); }
-      50%  { transform: scale(1.15); box-shadow: 0 0 25px rgba(141, 235, 0, 0.5); }
-      100% { transform: scale(1);   box-shadow: 0 0 10px rgba(141, 235, 0, 0.2); }
-    }
-    #scrollTopBtn.pulse { animation: pulse 1.2s ease-in-out infinite; }
+/* ----- reduced motion ----- */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none !important;transition:none !important}
+}
   </style>
 </head>
 <body>
-
   <!-- BINARY RAIN CANVAS -->
   <canvas id="binary-rain"></canvas>
   <div id="rain-fade"></div>
-
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="logo"><img src="cameras-decoded-logo.png" alt="Cameras Decoded"></div>
-    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
-      <a href="login.html" class="header-login-btn">Log in</a>
-      <a href="signup.html" class="header-login-btn">Sign Up</a>
-    </div>
-    
-    <!-- DESKTOP NAV -->
-    <div class="nav-group" id="navGroupDesktop">
-      <!-- Dashboard link will be inserted here by JS (above Home) -->
-      <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-      <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-      <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-      <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-      <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-      <hr class="sidebar-divider">
-      <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-      <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-      <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-      <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-      <hr class="sidebar-divider">
-      <a href="blog-updates.html" class="nav-item active"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-      <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-      <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-      <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
-    </div>
-    
-    <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">☰</button>
-  </aside>
-
-  <!-- MOBILE OVERLAY -->
-  <div class="nav-group-overlay" id="navGroupOverlay">
-    <button class="close-btn" id="closeToggle">✕</button>
-    <!-- Dashboard link will be inserted here by JS (above Home) -->
-    <a href="index.html" class="nav-item"><i class="fas fa-home"></i> Home</a>
-    <a href="operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-    <a href="community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-    <a href="educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-    <a href="partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-    <hr class="sidebar-divider">
-    <a href="products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-    <a href="protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-    <a href="https://settings.camerasdecoded.com" class="nav-item"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-    <a href="cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-    <hr class="sidebar-divider">
-    <a href="blog-updates.html" class="nav-item active"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-    <a href="podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-    <a href="inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-    <a href="about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
-    <!-- Dashboard link container (JS will insert above Home) -->
-    <div id="mobileDashboardContainer"></div>
-  </div>
-
-  <!-- FLOATING GLASS HEADER -->
-  <div class="floating-header" id="floatingHeader">
-    <a href="index.html" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
-    <div class="floating-nav-links">
-      <a href="operators.html">Operators</a>
-      <a href="partners.html">Partners</a>
-      <a href="educators-pdf-viewer.html">Instructors</a>
-    </div>
-    <a href="cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
-      <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
-      <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
-    </a>
-    <button class="floating-toggle" id="floatingToggle" aria-label="Menu"><i class="fas fa-bars"></i></button>
-  </div>
 
   <!-- MAIN CONTENT -->
   <main class="main-content">
 
     <div class="masthead">
-      <h1>Blog & Updates</h1>
+      <span class="kicker">Field notes</span>
+      <h1>Blog <span class="neon">&amp;</span> Updates</h1>
       <p>Guides, gear breakdowns, and business advice for mirrorless operators — written by The Signal Keeper, transmitted by Cynetis‑7.</p>
       <div class="byline">📡 New protocols every week</div>
     </div>
@@ -624,6 +288,13 @@
     </div>
 
     <div class="post-list" id="postList"></div>
+
+    <section class="cta-card" aria-label="Newsletter">
+      <div class="kicker">Transmission</div>
+      <h2>Get the next protocol first</h2>
+      <p>One field-ready protocol a week. No fluff — just the signal, straight to your inbox.</p>
+      <a class="btn-loud" href="https://camerasdecoded.substack.com" target="_blank" rel="noopener">Subscribe free</a>
+    </section>
 
     <footer class="footer">
       <div>© 2026 Cameras Decoded. All rights reserved.</div>
@@ -652,49 +323,6 @@
 
   <!-- SCRIPTS -->
   <script>
-    // Mobile menu toggle
-    document.addEventListener('DOMContentLoaded', function() {
-      const mobileToggle = document.getElementById('mobileToggle');
-      const floatingToggle = document.getElementById('floatingToggle');
-      const closeToggle = document.getElementById('closeToggle');
-      const overlay = document.getElementById('navGroupOverlay');
-
-      function openMenu() {
-        overlay.classList.add('open');
-        document.body.style.overflow = 'hidden';
-      }
-      function closeMenu() {
-        overlay.classList.remove('open');
-        document.body.style.overflow = '';
-      }
-
-      if (mobileToggle) {
-        mobileToggle.addEventListener('click', function(e) {
-          e.stopPropagation();
-          openMenu();
-        });
-      }
-      if (floatingToggle) {
-        floatingToggle.addEventListener('click', function(e) {
-          e.stopPropagation();
-          openMenu();
-        });
-      }
-      if (closeToggle) {
-        closeToggle.addEventListener('click', function(e) {
-          e.stopPropagation();
-          closeMenu();
-        });
-      }
-      if (overlay) {
-        overlay.addEventListener('click', function(e) {
-          if (e.target === overlay) {
-            closeMenu();
-          }
-        });
-      }
-    });
-
     // Scroll to top
     window.onscroll = function() {
       const btn = document.getElementById('scrollTopBtn');
@@ -710,6 +338,7 @@
 
     // --- BINARY RAIN ---
     (function() {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       const canvas = document.getElementById('binary-rain');
       const ctx = canvas.getContext('2d');
       let width = window.innerWidth;
@@ -769,62 +398,6 @@
         }
       });
     })();
-
-    // --- FIREBASE + DASHBOARD LINK (insert above Home) ---
-    const homeNav = document.querySelector('.sidebar .nav-item[href="index.html"]');
-    const mobileContainer = document.getElementById('mobileDashboardContainer');
-
-    function removeDashboardLink() {
-      const existingDesktop = document.getElementById('dynamic-dashboard-node');
-      if (existingDesktop) existingDesktop.remove();
-      const existingMobile = document.getElementById('mobile-dashboard-node');
-      if (existingMobile) existingMobile.remove();
-    }
-
-    function insertDashboardLink(dashboardUrl) {
-      // Desktop: insert before Home (above)
-      if (homeNav && homeNav.parentNode) {
-        const existing = document.getElementById('dynamic-dashboard-node');
-        if (existing) existing.remove();
-        const dashLink = document.createElement('a');
-        dashLink.id = 'dynamic-dashboard-node';
-        dashLink.className = 'nav-item';
-        dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
-        dashLink.href = dashboardUrl;
-        homeNav.parentNode.insertBefore(dashLink, homeNav);
-      }
-
-      // Mobile: insert into container (above Home)
-      if (mobileContainer) {
-        const existing = document.getElementById('mobile-dashboard-node');
-        if (existing) existing.remove();
-        const dashLink = document.createElement('a');
-        dashLink.id = 'mobile-dashboard-node';
-        dashLink.className = 'nav-item dashboard-link';
-        dashLink.innerHTML = '<i class="fas fa-chart-simple"></i> Dashboard';
-        dashLink.href = dashboardUrl;
-        mobileContainer.appendChild(dashLink);
-      }
-    }
-
-    // Cart counter
-    function getCart() {
-      return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
-    }
-    function updateCartUI() {
-      const cart = getCart();
-      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-      const countEl = document.getElementById('cartHeaderCount');
-      const labelEl = document.getElementById('cartHeaderLabel');
-      if (countEl) {
-        countEl.textContent = totalItems;
-        countEl.style.display = totalItems > 0 ? 'inline-block' : 'none';
-      }
-      if (labelEl) {
-        labelEl.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart';
-      }
-    }
-    updateCartUI();
 
     // --- POST DATA (with full body content for expandable articles) ---
     const posts = [
@@ -1000,45 +573,27 @@
 
     renderCategoryChips(); renderPosts();
 
-    // --- FIREBASE AUTH (with dashboard link) ---
-    // Wait for Firebase to be available
-    if (typeof auth !== 'undefined' && auth) {
-      auth.onAuthStateChanged((user) => {
-        if (user) {
-          localStorage.setItem('cameras_decoded_uid', user.uid);
-          if (typeof db !== 'undefined' && db) {
-            db.collection('users').doc(user.uid).get().then((doc) => {
-              if (doc.exists) {
-                const role = doc.data().role || 'Operator';
-                let dashboardUrl = 'operator-dashboard.html';
-                if (role === 'Instructor') dashboardUrl = 'instructor-dashboard.html';
-                else if (role === 'Operator') dashboardUrl = 'operator-dashboard.html';
-                else if (role === 'Partner') dashboardUrl = 'partner-dashboard.html';
-                insertDashboardLink(dashboardUrl);
-              } else {
-                insertDashboardLink('operator-dashboard.html');
-              }
-            }).catch(() => {
-              insertDashboardLink('operator-dashboard.html');
-            });
-          } else {
-            insertDashboardLink('operator-dashboard.html');
-          }
-        } else {
-          localStorage.removeItem('cameras_decoded_uid');
-          removeDashboardLink();
-        }
-      });
-    }
+    // --- AUTH UID SYNC (for Save buttons; the shared header owns all auth UI) ---
+    (function syncUid() {
+      var go = function () {
+        try {
+          var a = window.auth;
+          if (!a || !a.onAuthStateChanged) return;
+          a.onAuthStateChanged(function (user) {
+            try {
+              if (user) localStorage.setItem('cameras_decoded_uid', user.uid);
+              else localStorage.removeItem('cameras_decoded_uid');
+            } catch (e) {}
+          });
+        } catch (e) {}
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go);
+      else go();
+    })();
   </script>
 
-  <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
+    <button id="scrollTopBtn" onclick="window.scrollTo({top:0, behavior:'smooth'});">↑</button>
 
-  <!-- FIREBASE SCRIPTS -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="firebase-init.js"></script>
-
+  <script src="/scripts/ptr.js"></script>
 </body>
 </html>

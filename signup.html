@@ -91,6 +91,10 @@
     .divider { display:flex; align-items:center; gap:16px; margin:16px 0; color:var(--text-muted); font-size:11px; font-family:'Space Mono',monospace; letter-spacing:0.5px; text-transform:uppercase; }
     .divider hr { flex:1; border:none; border-top:1px solid var(--border); }
     .error-box { background:rgba(255,68,68,0.1); border:1px solid #ff4a4a; border-radius:8px; padding:10px 14px; color:#ff4a4a; font-size:13px; margin-top:12px; display:none; }
+    #toast-container { position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:10px; align-items:center; pointer-events:none; }
+    .toast { background:#0A0A0A; border:1px solid var(--green); color:#fff; font-family:'Space Mono',monospace; font-size:13px; padding:12px 24px; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.6); opacity:0; transform:translateY(-10px) scale(0.95); transition:all 0.3s ease; pointer-events:auto; text-align:center; max-width:90vw; }
+    .toast.show { opacity:1; transform:translateY(0) scale(1); }
+    .toast.error { border-color:#ff4a4a; }
     .pricing-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0 16px; }
     .pricing-card { background:#0F0F0F; border:1px solid var(--border); border-radius:12px; padding:16px; text-align:center; cursor:pointer; transition:all 0.3s; position:relative; }
     .pricing-card:hover { border-color:var(--green); }
@@ -151,7 +155,7 @@
     <div class="form-group">
       <label for="username">Username</label>
       <input type="text" id="username" placeholder="alexrivera" autocomplete="username" />
-      <div class="error-hint" id="usernameError">Username is required.</div>
+      <div class="error-hint" id="usernameError">3–24 chars: letters, numbers, . _ -</div>
     </div>
     <div class="form-group">
       <label for="password">Password <span style="color:#666;font-weight:400;">(min 6 chars)</span></label>
@@ -177,26 +181,26 @@
           <div class="name">Free</div>
           <div class="price"><span class="currency">$</span>0</div>
           <div class="period">forever</div>
-          <div class="features"><i class="fas fa-check"></i> Daily protocols<br><i class="fas fa-check"></i> Community access</div>
+          <div class="features"><i class="fas fa-check"></i> Daily drill + streaks<br><i class="fas fa-check"></i> Rotating free game<br><i class="fas fa-check"></i> First mission phase</div>
         </div>
         <div class="pricing-card" data-tier="pro" onclick="selectTier('pro')">
           <div class="badge">Best value</div>
           <div class="name">Pro</div>
-          <div class="price" id="proPrice"><span class="currency">$</span>24</div>
+          <div class="price" id="proPrice"><span class="currency">$</span>14.99</div>
           <div class="period" id="proPeriod">/ month</div>
-          <div class="features"><i class="fas fa-check"></i> Everything in Free<br><i class="fas fa-check"></i> SMS protocols</div>
-          <div class="saving-badge" id="proSavingBadge">Save 30% yearly</div>
+          <div class="features"><i class="fas fa-check"></i> Everything in Free<br><i class="fas fa-check"></i> Full mission library<br><i class="fas fa-check"></i> Field Manual + all games</div>
+          <div class="saving-badge" id="proSavingBadge">Save 34% yearly</div>
         </div>
       </div>
       <div class="billing-toggle-wrap" id="billingWrap">
         <span>Monthly</span>
         <div class="billing-switch" id="billingToggle" onclick="toggleBilling()"><div class="knob" id="toggleKnob"></div></div>
-        <span>Annual <span style="color:#8deb00; font-size:12px;">save 30%</span></span>
+        <span>Annual <span style="color:#8deb00; font-size:12px;">save 34%</span></span>
         <span class="override-label">Weekly active</span>
       </div>
       <div class="weekly-option" id="weeklyOption" onclick="toggleWeekly()">
         <span>Pay weekly</span>
-        <span class="weekly-price">$8</span>
+        <span class="weekly-price">$4.99</span>
         <span class="weekly-save">flexible</span>
         <span class="check-mark"><i class="fas fa-check-circle"></i></span>
         <button class="clear-btn" id="weeklyClearBtn" onclick="event.stopPropagation(); clearWeekly()" title="Switch back"><i class="fas fa-times"></i></button>
@@ -243,7 +247,6 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
-    const STRIPE_CHECKOUT_URL = 'https://checkout.stripe.com/pay/placeholder';
 
     function cdToast(msg, type='success') {
       const container = document.getElementById('toast-container');
@@ -253,6 +256,50 @@
       container.appendChild(toast);
       requestAnimationFrame(()=>toast.classList.add('show'));
       setTimeout(()=>{toast.classList.remove('show'); setTimeout(()=>toast.remove(),300);},3500);
+    }
+
+    // Canonical new-user document shape (kept in sync with login.html).
+    function buildNewUserDoc(o) {
+      return {
+        displayName: o.displayName || '', email: o.email || '', username: o.username || '',
+        photoURL: o.photoURL || null, role: 'Operator', tier: 'free', billingInterval: 'monthly',
+        preferences: { brands: [], lenses: [], interests: [] }, learningJourney: {},
+        totalPoints: 0, level: 1, badgesEarned: [], dailyChallengeStreak: 0,
+        lastChallengeDate: null, dailyChallengesCompleted: [], savedProtocols: [],
+        savedCards: [], savedBlogs: [], savedPodcasts: [], savedCommunityPosts: [],
+        referralCode: o.referralCode || '', totalReferrals: 0, totalCommissionEarned: 0,
+        ambassadorTier: 'signal',
+        aiUsage: { total: 0, prompt: 0, snapshot: 0, ideas: 0, critique: 0 },
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        tourCompleted: false
+      };
+    }
+
+    // Referral codes must be unique — append -2, -3... on collision.
+    async function getUniqueReferralCode(base, uid) {
+      let code = (base || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
+      if (!code) code = 'user' + uid.slice(0, 6).toLowerCase();
+      let candidate = code, n = 2;
+      while (n < 100) {
+        const snap = await db.collection('referralCodes').doc(candidate).get();
+        if (!snap.exists || (snap.data() && snap.data().uid === uid)) return candidate;
+        candidate = code + '-' + n; n++;
+      }
+      return code + '-' + uid.slice(0, 6).toLowerCase();
+    }
+
+    async function claimReferralCode(code, uid) {
+      try {
+        await db.collection('referralCodes').doc(code).set({
+          uid, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (e) { /* rules reject on collision; user doc keeps the intended code */ }
+    }
+
+    function showSignupError(msg) {
+      const errorEl = document.getElementById('signupError');
+      errorEl.textContent = msg; errorEl.style.display = 'block';
     }
 
     window.togglePasswordVisibility = function(inputId, btn) {
@@ -295,20 +342,32 @@
       const periodEl = document.getElementById('proPeriod');
       const badgeEl = document.getElementById('proSavingBadge');
       if (!priceEl) return;
-      if (isWeekly) { priceEl.innerHTML = '<span class="currency">$</span>8'; periodEl.textContent = '/ week'; badgeEl.textContent = 'Flexible – cancel anytime'; badgeEl.style.display='inline-block'; return; }
-      if (isAnnual) { priceEl.innerHTML = '<span class="currency">$</span>199'; periodEl.textContent = '/ year'; badgeEl.textContent = 'Save 30% vs monthly'; badgeEl.style.display='inline-block'; }
-      else { priceEl.innerHTML = '<span class="currency">$</span>24'; periodEl.textContent = '/ month'; badgeEl.textContent = 'Save 30% yearly'; badgeEl.style.display='inline-block'; }
+      if (isWeekly) { priceEl.innerHTML = '<span class="currency">$</span>4.99'; periodEl.textContent = '/ week'; badgeEl.textContent = 'Flexible – cancel anytime'; badgeEl.style.display='inline-block'; return; }
+      if (isAnnual) { priceEl.innerHTML = '<span class="currency">$</span>119'; periodEl.textContent = '/ year'; badgeEl.textContent = 'Save 34% vs monthly'; badgeEl.style.display='inline-block'; }
+      else { priceEl.innerHTML = '<span class="currency">$</span>14.99'; periodEl.textContent = '/ month'; badgeEl.textContent = 'Save 34% yearly'; badgeEl.style.display='inline-block'; }
     }
 
-    function handleProPlanRedirect(uid) {
-      const pending = { uid, tier: 'pro', billingInterval: isWeekly ? 'weekly' : isAnnual ? 'annual' : 'monthly' };
-      localStorage.setItem('pending_pro_upgrade', JSON.stringify(pending));
-      const returnUrl = window.location.origin + '/profile.html?payment=success';
-      const stripeUrl = `${STRIPE_CHECKOUT_URL}?client_reference_id=${uid}&return_url=${encodeURIComponent(returnUrl)}`;
-      window.location.href = stripeUrl;
+    function handleProSelection(uid) {
+      // Account stays on Free until payment completes — the checkout
+      // page handles the Stripe handoff and the success page confirms.
+      // (Never grant a paid tier before payment completes.)
+      var interval = isWeekly ? 'weekly' : isAnnual ? 'annual' : 'monthly';
+      try {
+        localStorage.setItem('pending_pro_upgrade', JSON.stringify({
+          uid, tier: 'pro',
+          billingInterval: interval,
+          createdAt: Date.now()
+        }));
+      } catch (e) {}
+      cdToast('Account created — finishing your Pro upgrade…');
+      setTimeout(() => { window.location.href = '/pro-checkout.html?plan=' + interval; }, 900);
     }
 
-    window.createAccount = function() {
+    function resetCreateBtn(btn, spinner) {
+      btn.disabled = false; btn.textContent = 'Create Account →'; spinner.style.display = 'none';
+    }
+
+    window.createAccount = async function() {
       const btn = document.getElementById('createBtn');
       const spinner = document.getElementById('signupSpinner');
       const errorEl = document.getElementById('signupError');
@@ -323,50 +382,71 @@
 
       if (!displayName) { document.getElementById('displayNameError').style.display='block'; return; }
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { document.getElementById('emailError').style.display='block'; return; }
-      if (!username) { document.getElementById('usernameError').style.display='block'; return; }
+      if (!/^[a-zA-Z0-9_.-]{3,24}$/.test(username)) { document.getElementById('usernameError').style.display='block'; return; }
       if (!password || password.length < 6) { document.getElementById('passwordError').style.display='block'; return; }
       if (password !== confirmPassword) { document.getElementById('confirmError').style.display='block'; return; }
 
       btn.disabled = true; btn.textContent = 'Creating...'; spinner.style.display='block';
-      const referralCode = username.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-      auth.createUserWithEmailAndPassword(email, password)
-        .then(cred => cred.user.updateProfile({ displayName }).then(()=>cred.user))
-        .then(user => {
-          const data = {
-            displayName, email, username, photoURL:null, role:'Operator', tier:selectedTier,
-            billingInterval: isWeekly ? 'weekly' : isAnnual ? 'annual' : 'monthly',
-            preferences:{brands:[],lenses:[],interests:[]}, learningJourney:{},
-            totalPoints:0, level:1, badgesEarned:[], dailyChallengeStreak:0,
-            lastChallengeDate:null, dailyChallengesCompleted:[], savedProtocols:[],
-            savedCards:[], savedBlogs:[], savedPodcasts:[], savedCommunityPosts:[],
-            referralCode, totalReferrals:0, totalCommissionEarned:0, ambassadorTier:'signal',
-            aiUsage:{total:0,prompt:0,snapshot:0,ideas:0,critique:0},
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            tourCompleted:false
-          };
-          return db.collection('users').doc(user.uid).set(data, {merge:true}).then(()=>user);
-        })
-        .then(user => db.collection('referralCodes').doc(referralCode).set({uid:user.uid, createdAt: firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{}))
-        .then(()=>{
-          btn.disabled=false; btn.textContent='Create Account →'; spinner.style.display='none';
-          if (selectedTier === 'pro') {
-            handleProPlanRedirect(auth.currentUser.uid);
-          } else {
-            cdToast('Account created! Redirecting...');
-            window.location.href = 'profile.html?welcome=onboarding';
-          }
-        })
-        .catch(err=>{
-          btn.disabled=false; btn.textContent='Create Account →'; spinner.style.display='none';
-          let msg = err.message;
-          if (err.code === 'auth/email-already-in-use') msg = 'This email is already registered. Please log in.';
-          else if (err.code === 'auth/weak-password') msg = 'Password is too weak. Use at least 6 characters.';
-          else if (err.code === 'auth/invalid-email') msg = 'Invalid email address.';
-          errorEl.innerHTML = msg; errorEl.style.display='block';
-        });
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        const user = cred.user;
+        await user.updateProfile({ displayName });
+        const referralCode = await getUniqueReferralCode(username, user.uid);
+        const data = buildNewUserDoc({ displayName, email, username, referralCode, photoURL: null });
+        await db.collection('users').doc(user.uid).set(data, { merge: true });
+        await claimReferralCode(referralCode, user.uid);
+        resetCreateBtn(btn, spinner);
+        if (selectedTier === 'pro') {
+          handleProSelection(user.uid);
+        } else {
+          cdToast('Account created! Redirecting...');
+          setTimeout(() => { window.location.href = 'profile.html?welcome=onboarding'; }, 900);
+        }
+      } catch (err) {
+        resetCreateBtn(btn, spinner);
+        let msg = err.message;
+        if (err.code === 'auth/email-already-in-use') msg = 'This email is already registered. Please log in.';
+        else if (err.code === 'auth/weak-password') msg = 'Password is too weak. Use at least 6 characters.';
+        else if (err.code === 'auth/invalid-email') msg = 'Invalid email address.';
+        showSignupError(msg);
+      }
     };
+
+    // Social signup (these buttons previously called undefined functions)
+    window.signInWithGoogle = function() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).then(r => handleSocialSignup(r.user)).catch(err => showSignupError(err.message));
+    };
+    window.signInWithFacebook = function() {
+      const provider = new firebase.auth.FacebookAuthProvider();
+      auth.signInWithPopup(provider).then(r => handleSocialSignup(r.user)).catch(err => showSignupError(err.message));
+    };
+
+    async function handleSocialSignup(user) {
+      const btn = document.getElementById('createBtn');
+      const spinner = document.getElementById('signupSpinner');
+      btn.disabled = true; spinner.style.display = 'block';
+      try {
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (!doc.exists) {
+          const rawBase = user.email ? user.email.split('@')[0] : (user.displayName || 'user');
+          const username = rawBase.toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 24) || 'user';
+          const referralCode = await getUniqueReferralCode(username, user.uid);
+          const data = buildNewUserDoc({
+            displayName: user.displayName || '', email: user.email || '',
+            username, referralCode, photoURL: user.photoURL || null
+          });
+          await db.collection('users').doc(user.uid).set(data, { merge: true });
+          await claimReferralCode(referralCode, user.uid);
+        }
+        cdToast('Welcome in! Redirecting...');
+        setTimeout(() => { window.location.href = 'profile.html?welcome=onboarding'; }, 900);
+      } catch (err) {
+        resetCreateBtn(btn, spinner);
+        showSignupError(err.message);
+      }
+    }
 
     // Particles
     (function(){

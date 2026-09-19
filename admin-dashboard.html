@@ -116,6 +116,12 @@
         position: fixed;
         width: 280px;
         z-index: 1000;
+        /* Off-canvas container must not swallow taps (e.g. bottom nav):
+           the translated-away sidebar is invisible but still hit-testable. */
+        pointer-events: none;
+      }
+      #sidebarContainer .sidebar.open {
+        pointer-events: auto;
       }
       .sidebar {
         transform: translateX(-100%);
@@ -405,6 +411,53 @@
     }
     .current-announcement strong { color:var(--green); }
 
+    /* Broadcast composer (notification engine) */
+    .bc-form input[type="text"], .bc-form select, .bc-form input[type="date"] {
+      width:100%; padding:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border-dim);
+      border-radius:var(--radius); color:#fff; font-family:'Montserrat',sans-serif; font-size:14px;
+      margin-bottom:10px; transition:border-color 0.3s ease; color-scheme:dark;
+    }
+    .bc-form input:focus, .bc-form select:focus { border-color:var(--green); outline:none; }
+    .bc-form select option { background:#0A0A0A; }
+    .bc-row { display:grid; grid-template-columns:2fr 1fr 1fr; gap:10px; }
+    .bc-row input, .bc-row select { margin-bottom:0; }
+    @media (max-width:640px){ .bc-row { grid-template-columns:1fr; } .bc-row input, .bc-row select { margin-bottom:10px; } }
+    .bc-list { margin-top:14px; display:flex; flex-direction:column; gap:10px; }
+    .bc-empty { font-size:13px; color:var(--text-muted); text-align:center; padding:10px; }
+    .pro-req-count {
+      display:inline-block; min-width:22px; text-align:center;
+      font-family:'Space Mono',monospace; font-size:11px; font-weight:700;
+      background:var(--green); color:#000; border-radius:999px; padding:2px 7px; margin-left:6px;
+    }
+    .pro-req-item { display:flex; gap:12px; align-items:center; padding:12px 14px;
+      background:rgba(141,235,0,0.04); border:1px solid rgba(141,235,0,0.25); border-radius:var(--radius); }
+    .pro-req-item .pro-req-main { flex:1; min-width:0; }
+    .pro-req-item .pro-req-email { font-family:'Space Mono',monospace; font-size:14px; color:#fff; margin-bottom:3px; word-break:break-all; }
+    .pro-req-item .pro-req-meta { font-size:12px; color:var(--text-muted); display:flex; gap:10px; flex-wrap:wrap; }
+    .pro-req-item .pro-req-actions { display:flex; gap:8px; flex-shrink:0; }
+    .btn-approve { padding:8px 18px; background:var(--green); border:none; border-radius:var(--radius);
+      color:#000; font-family:'Space Mono',monospace; font-weight:700; font-size:12px; cursor:pointer; }
+    .btn-approve:hover { background:#a0f520; }
+    .btn-approve:disabled { opacity:.5; cursor:wait; }
+    .btn-decline { padding:8px 18px; background:transparent; border:1px solid #ff4a4a; border-radius:var(--radius);
+      color:#ff4a4a; font-family:'Space Mono',monospace; font-weight:600; font-size:12px; cursor:pointer; }
+    .btn-decline:hover { background:rgba(255,74,74,0.08); }
+    .btn-decline:disabled { opacity:.5; cursor:wait; }
+    .bc-item { display:flex; gap:12px; align-items:flex-start; padding:12px;
+      background:rgba(255,255,255,0.02); border:1px solid var(--border-dim); border-radius:var(--radius); }
+    .bc-item .bc-main { flex:1; min-width:0; }
+    .bc-item .bc-title { font-family:'Space Mono',monospace; font-size:14px; color:#fff; margin-bottom:4px; }
+    .bc-item .bc-body { font-size:13px; color:var(--text-muted); line-height:1.5; word-break:break-word; }
+    .bc-item .bc-meta { font-size:11px; color:var(--text-muted); margin-top:6px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .bc-pill { font-size:10px; font-family:'Space Mono',monospace; padding:3px 8px; border-radius:20px; letter-spacing:0.5px; }
+    .bc-pill.live { color:var(--green); border:1px solid rgba(141,235,0,0.4); background:rgba(141,235,0,0.08); }
+    .bc-pill.expired { color:#888; border:1px solid #333; background:rgba(255,255,255,0.03); }
+    .bc-item .bc-actions { display:flex; gap:8px; flex-shrink:0; }
+    .bc-mini { padding:6px 12px; background:transparent; border:1px solid var(--border-dim); border-radius:8px;
+      color:var(--text-muted); font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; transition:all 0.2s ease; }
+    .bc-mini:hover { border-color:var(--green); color:var(--green); }
+    .bc-mini.danger:hover { border-color:#ff4a4a; color:#ff4a4a; }
+
     /* ============================================================
        USERS TABLE (with pagination)
        ============================================================ */
@@ -559,6 +612,44 @@
       </div>
     </div>
 
+    <!-- NOTIFICATION BROADCASTS (engine campaign feed) -->
+    <div class="notif-panel" id="broadcastPanel">
+      <div class="panel-header">
+        <h3><i class="fas fa-satellite-dish"></i> Notification Broadcasts</h3>
+        <span style="font-size:12px; color:var(--text-muted);">Temporary campaigns · appear in the bell</span>
+      </div>
+      <div class="bc-form">
+        <input id="bcTitle" type="text" maxlength="80" placeholder="Title — e.g. New module is live" autocomplete="off">
+        <textarea id="bcBody" placeholder="Message shown under the title..."></textarea>
+        <div class="bc-row">
+          <input id="bcHref" type="text" placeholder="Link (optional) — e.g. /missions.html" autocomplete="off">
+          <select id="bcAudience" aria-label="Audience">
+            <option value="all">Everyone</option>
+            <option value="free">Free tier</option>
+            <option value="pro">Pro only</option>
+          </select>
+          <input id="bcExpires" type="date" aria-label="Expiry date (optional)">
+        </div>
+        <div class="panel-actions">
+          <button class="btn-publish" id="bcPublish">Send broadcast</button>
+        </div>
+      </div>
+      <div id="bcList" class="bc-list" aria-live="polite">
+        <p class="bc-empty">Loading broadcasts…</p>
+      </div>
+    </div>
+
+    <!-- PRO REQUESTS (manual Pro fulfillment queue) -->
+    <div class="notif-panel" id="proRequestsPanel">
+      <div class="panel-header">
+        <h3><i class="fas fa-bolt"></i> Pro Requests <span id="proReqCount" class="pro-req-count" hidden></span></h3>
+        <span style="font-size:12px; color:var(--text-muted);">Verify each payment in Stripe, then approve</span>
+      </div>
+      <div id="proReqList" class="bc-list" aria-live="polite">
+        <p class="bc-empty">Loading requests…</p>
+      </div>
+    </div>
+
     <!-- USERS TABLE -->
     <div class="users-table-wrap">
       <h3>
@@ -588,15 +679,25 @@
     // ================================================================
 
     // ---- cdToast: hoisted function to avoid TDZ ----
+    // ---- cdToast: self-contained toast (never recurses; never throws) ----
     function cdToast(msg, type) {
-      if (typeof window.cdToast === 'function') {
-        window.cdToast(msg, type);
-      } else {
-        alert(msg);
-      }
-    }
-    if (typeof window.cdToast === 'undefined') {
-      window.cdToast = cdToast;
+      try {
+        var container = document.getElementById('toast-container');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'toast-container';
+          document.body.appendChild(container);
+        }
+        var el = document.createElement('div');
+        el.className = 'toast' + (type === 'error' ? ' error' : '');
+        el.textContent = msg;
+        container.appendChild(el);
+        requestAnimationFrame(function () { el.classList.add('show'); });
+        setTimeout(function () {
+          el.classList.remove('show');
+          setTimeout(function () { el.remove(); }, 400);
+        }, 3200);
+      } catch (e) { /* a toast must never break the page */ }
     }
 
     const auth = window.auth || firebase.auth();
@@ -734,7 +835,7 @@
         // We'll skip for now or set a placeholder
       });
 
-      const mrr = proUsers * 24; // assuming $24/month per pro user
+      const mrr = proUsers * 14.99; // assuming $14.99/month per pro user
       const avgPoints = totalUsers > 0 ? Math.round(totalPoints / totalUsers) : 0;
 
       return {
@@ -934,6 +1035,195 @@
     });
 
     // ================================================================
+    // BROADCASTS (notification engine campaign feed)
+    // ================================================================
+    function bcEscape(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function bcStatus(b) {
+      var exp = 0;
+      if (b.expiresAt) {
+        exp = b.expiresAt.toDate ? b.expiresAt.toDate().getTime() : new Date(b.expiresAt).getTime();
+      }
+      return (exp && exp <= Date.now()) ? 'expired' : 'live';
+    }
+
+    function renderBroadcasts(snap) {
+      var list = document.getElementById('bcList');
+      if (!list) return;
+      if (snap.empty) { list.innerHTML = '<p class="bc-empty">No broadcasts yet.</p>'; return; }
+      var html = '';
+      snap.forEach(function (doc) {
+        var b = doc.data() || {};
+        var st = bcStatus(b);
+        var expD = b.expiresAt && b.expiresAt.toDate ? b.expiresAt.toDate() : null;
+        html += '<div class="bc-item" data-id="' + doc.id + '">'
+          + '<div class="bc-main">'
+          + '<div class="bc-title">' + bcEscape(b.title || 'Untitled') + '</div>'
+          + (b.body ? '<div class="bc-body">' + bcEscape(b.body) + '</div>' : '')
+          + '<div class="bc-meta"><span class="bc-pill ' + st + '">' + st.toUpperCase() + '</span>'
+          + '<span>' + bcEscape(b.audience || 'all') + '</span>'
+          + (b.href ? '<span>' + bcEscape(b.href) + '</span>' : '')
+          + (expD ? '<span>expires ' + expD.toLocaleDateString() + '</span>' : '<span>no expiry</span>')
+          + '</div></div>'
+          + '<div class="bc-actions">'
+          + (st === 'live' ? '<button class="bc-mini" data-act="expire">Expire</button>' : '')
+          + '<button class="bc-mini danger" data-act="delete">Delete</button>'
+          + '</div></div>';
+      });
+      list.innerHTML = html;
+    }
+
+    function loadBroadcasts() {
+      db.collection('broadcasts').orderBy('createdAt', 'desc').limit(25)
+        .onSnapshot(renderBroadcasts, function (err) {
+          console.error('Broadcast listener error:', err);
+          var list = document.getElementById('bcList');
+          if (list) list.innerHTML = '<p class="bc-empty">Couldn\u2019t load broadcasts.</p>';
+        });
+    }
+
+    // ================================================================
+    // PRO REQUESTS — manual Pro fulfillment queue.
+    // Buyers pay via Stripe Payment Links, then file a request doc.
+    // Verify each one in the Stripe dashboard (email + amount match),
+    // then Approve: flips users/{uid}.tier to 'pro'.
+    // ================================================================
+    function loadProRequests() {
+      db.collection('proRequests').where('status', '==', 'pending')
+        .orderBy('createdAt', 'asc').limit(50)
+        .onSnapshot(renderProRequests, function (err) {
+          console.error('Pro requests listener error:', err);
+          var list = document.getElementById('proReqList');
+          if (list) list.innerHTML = '<p class="bc-empty">Couldn\u2019t load requests.</p>';
+        });
+    }
+
+    function renderProRequests(snap) {
+      var list = document.getElementById('proReqList');
+      var count = document.getElementById('proReqCount');
+      if (!list) return;
+      var docs = [];
+      snap.forEach(function (d) { docs.push(d); });
+      if (count) {
+        count.hidden = docs.length === 0;
+        count.textContent = docs.length;
+      }
+      if (!docs.length) {
+        list.innerHTML = '<p class="bc-empty">No pending Pro requests. New buyers appear here after paying.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      docs.forEach(function (d) {
+        var r = d.data() || {};
+        var item = document.createElement('div');
+        item.className = 'pro-req-item';
+        var when = '';
+        try {
+          if (r.createdAt && r.createdAt.toDate) when = r.createdAt.toDate().toLocaleString();
+        } catch (e) {}
+        var planLabel = { weekly: 'Weekly · $4.99/wk', monthly: 'Monthly · $14.99/mo', annual: 'Annual · $119/yr' }[r.plan] || (r.plan || '—');
+        item.innerHTML =
+          '<div class="pro-req-main">' +
+            '<div class="pro-req-email"></div>' +
+            '<div class="pro-req-meta"><span></span><span></span></div>' +
+          '</div>' +
+          '<div class="pro-req-actions">' +
+            '<button class="btn-approve">Approve</button>' +
+            '<button class="btn-decline">Decline</button>' +
+          '</div>';
+        item.querySelector('.pro-req-email').textContent = r.email || r.displayName || d.id;
+        var meta = item.querySelectorAll('.pro-req-meta span');
+        meta[0].textContent = planLabel;
+        meta[1].textContent = when;
+        var approveBtn = item.querySelector('.btn-approve');
+        var declineBtn = item.querySelector('.btn-decline');
+        approveBtn.addEventListener('click', function () { approveProRequest(d.id, approveBtn, declineBtn); });
+        declineBtn.addEventListener('click', function () { declineProRequest(d.id, approveBtn, declineBtn); });
+        list.appendChild(item);
+      });
+    }
+
+    async function approveProRequest(uid, approveBtn, declineBtn) {
+      approveBtn.disabled = true; declineBtn.disabled = true;
+      approveBtn.textContent = 'Approving…';
+      try {
+        var batch = db.batch();
+        batch.update(db.collection('users').doc(uid), { tier: 'pro' });
+        batch.update(db.collection('proRequests').doc(uid), {
+          status: 'active',
+          fulfilledAt: firebase.firestore.FieldValue.serverTimestamp(),
+          fulfilledBy: currentUser ? currentUser.uid : null
+        });
+        await batch.commit();
+        cdToast('Pro activated', 'success');
+      } catch (e) {
+        approveBtn.disabled = false; declineBtn.disabled = false;
+        approveBtn.textContent = 'Approve';
+        cdToast(e.message || 'Approval failed', 'error');
+      }
+    }
+
+    async function declineProRequest(uid, approveBtn, declineBtn) {
+      if (!confirm('Decline this Pro request? The buyer keeps their Free account.')) return;
+      approveBtn.disabled = true; declineBtn.disabled = true;
+      try {
+        await db.collection('proRequests').doc(uid).update({ status: 'declined' });
+        cdToast('Request declined', 'success');
+      } catch (e) {
+        approveBtn.disabled = false; declineBtn.disabled = false;
+        cdToast(e.message || 'Decline failed', 'error');
+      }
+    }
+
+    document.getElementById('bcPublish').addEventListener('click', async function () {
+      var title = document.getElementById('bcTitle').value.trim();
+      var body = document.getElementById('bcBody').value.trim();
+      var href = document.getElementById('bcHref').value.trim();
+      var audience = document.getElementById('bcAudience').value;
+      var expVal = document.getElementById('bcExpires').value;
+      if (!title) { cdToast('Give the broadcast a title', 'error'); return; }
+      if (!body) { cdToast('Write the message', 'error'); return; }
+      var data = {
+        title: title, body: body, href: href, audience: audience,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if (expVal) {
+        data.expiresAt = firebase.firestore.Timestamp.fromDate(new Date(expVal + 'T23:59:59'));
+      }
+      try {
+        await db.collection('broadcasts').add(data);
+        cdToast('Broadcast sent!');
+        document.getElementById('bcTitle').value = '';
+        document.getElementById('bcBody').value = '';
+        document.getElementById('bcHref').value = '';
+        document.getElementById('bcExpires').value = '';
+      } catch (err) { cdToast('Failed to send: ' + err.message, 'error'); }
+    });
+
+    document.getElementById('bcList').addEventListener('click', async function (e) {
+      var btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      var item = e.target.closest('.bc-item');
+      var id = item && item.getAttribute('data-id');
+      if (!id) return;
+      var ref = db.collection('broadcasts').doc(id);
+      try {
+        if (btn.getAttribute('data-act') === 'expire') {
+          await ref.update({ expiresAt: firebase.firestore.Timestamp.now() });
+          cdToast('Broadcast expired');
+        } else if (btn.getAttribute('data-act') === 'delete') {
+          if (!confirm('Delete this broadcast for everyone?')) return;
+          await ref.delete();
+          cdToast('Broadcast deleted');
+        }
+      } catch (err) { cdToast('Failed: ' + err.message, 'error'); }
+    });
+
+    // ================================================================
     // AUTH CHECK + RENDER
     // ================================================================
     let currentUser = null;
@@ -970,6 +1260,8 @@
         // Load stats and users
         loadStats(false);
         loadAndListenAnnouncement();
+        loadBroadcasts();
+        loadProRequests();
 
         // Also update the sidebar announcement container directly
         const sidebarAnnouncement = document.getElementById('sidebarAnnouncement');

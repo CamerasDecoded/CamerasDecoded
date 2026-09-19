@@ -87,8 +87,9 @@
     // when signed out — so "any object" is NOT a valid logged-in check.
     const signedIn = (u) => !!(u && (u.isLoggedIn === true || u.uid));
     const isLoggedIn = signedIn(user) || signedIn(userData);
+    const role = String(pick(userData, ['role'], '')).toLowerCase();
     const name = pick(userData, ['displayName', 'name', 'username'],
-               pick(user, ['displayName', 'name'], 'Operator'));
+               pick(user, ['displayName', 'name'], role === 'admin' ? 'Admin' : 'Operator'));
 
     if (greetingEl) greetingEl.textContent = `${greetingText()}, ${name}`;
 
@@ -96,9 +97,17 @@
       if (authButtons) authButtons.style.display = 'none';
 
       const tier = String(pick(userData, ['tier'], pick(user, ['tier'], 'free'))).toLowerCase();
-      const tierLabel = tier === 'pro' ? 'Pro' : 'Free';
+      const tierLabel = role === 'admin' ? 'Admin' : (tier === 'pro' ? 'Pro' : 'Free');
       if (badge) badge.hidden = false;
       if (badgeText) badgeText.textContent = tierLabel;
+
+      // Free tier badge is the upgrade entry point (mobile + desktop).
+      if (badge) {
+        const isFree = tierLabel === 'Free';
+        badge.style.cursor = isFree ? 'pointer' : '';
+        badge.title = isFree ? 'Go Pro' : '';
+        badge.onclick = isFree ? function () { window.location.href = '/pro-checkout.html'; } : null;
+      }
 
       console.log('[Header] Logged in:', name, '| tier:', tierLabel);
     } else {
@@ -143,6 +152,12 @@
     if (!panel || panel.hidden) return;
     panel.classList.remove('open');
     if (bell) bell.setAttribute('aria-expanded', 'false');
+    // Dismissing the bell = seen: stamp broadcasts + mark inbox read only
+    // AFTER the user has viewed the panel (not on open, which wipes
+    // broadcasts before they can be read).
+    if (window.CDNotifs && typeof window.CDNotifs.markSeen === 'function') {
+      try { window.CDNotifs.markSeen(); } catch (e) {}
+    }
     setTimeout(() => { panel.hidden = true; }, 180);
   }
 
@@ -179,8 +194,12 @@
       if (personalNotifs.length) {
         html += personalNotifs.map((n) => {
           const text = n.text || n.message || n.title || 'Notification';
+          const body = n.body || '';
           const time = n.time || n.date || '';
-          return `<div class="announce-item notif"><span class="announce-mark" aria-hidden="true"></span><div><p>${escapeHtml(String(text))}</p>${time ? `<time>${escapeHtml(String(time))}</time>` : ''}</div></div>`;
+          const inner = `<span class="announce-mark" aria-hidden="true"></span><div><p>${escapeHtml(String(text))}</p>${body ? `<span class="announce-sub">${escapeHtml(String(body))}</span>` : ''}${time ? `<time>${escapeHtml(String(time))}</time>` : ''}</div>`;
+          return n.href
+            ? `<a class="announce-item notif" href="${escapeHtml(String(n.href))}">${inner}</a>`
+            : `<div class="announce-item notif">${inner}</div>`;
         }).join('');
       }
       if (!html) {
@@ -287,6 +306,11 @@
       personalUnread = Number.isFinite(n) && n > 0 ? n : 0;
       notifsEnabled = true;
       renderBell();
+    },
+    // Lets the notification engine merge page-fed items (e.g. the operator
+    // dashboard) with automated ones instead of overwriting them.
+    getPersonalNotifs: function() {
+      return { items: personalNotifs.slice(), unread: personalUnread };
     },
     setUserData: function(user, userData) {
       updateAuthUI(user, userData);

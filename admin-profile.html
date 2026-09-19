@@ -114,6 +114,12 @@
         position: fixed;
         width: 280px;
         z-index: 1000;
+        /* Off-canvas container must not swallow taps (e.g. bottom nav):
+           the translated-away sidebar is invisible but still hit-testable. */
+        pointer-events: none;
+      }
+      #sidebarContainer .sidebar.open {
+        pointer-events: auto;
       }
       .sidebar {
         transform: translateX(-100%);
@@ -678,15 +684,25 @@
     // ================================================================
 
     // ---- cdToast: hoisted function to avoid TDZ ----
+    // ---- cdToast: self-contained toast (never recurses; never throws) ----
     function cdToast(msg, type) {
-      if (typeof window.cdToast === 'function') {
-        window.cdToast(msg, type);
-      } else {
-        alert(msg);
-      }
-    }
-    if (typeof window.cdToast === 'undefined') {
-      window.cdToast = cdToast;
+      try {
+        var container = document.getElementById('toast-container');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'toast-container';
+          document.body.appendChild(container);
+        }
+        var el = document.createElement('div');
+        el.className = 'toast' + (type === 'error' ? ' error' : '');
+        el.textContent = msg;
+        container.appendChild(el);
+        requestAnimationFrame(function () { el.classList.add('show'); });
+        setTimeout(function () {
+          el.classList.remove('show');
+          setTimeout(function () { el.remove(); }, 400);
+        }, 3200);
+      } catch (e) { /* a toast must never break the page */ }
     }
 
     const auth = window.auth || firebase.auth();

@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+  <title>Field Manual — Cameras Decoded</title>
+  <meta name="description" content="The Camera Confidence Guide as an interactive field manual. Pro members only." />
+
+  <!-- ===== MASTER LOADER ===== -->
+  <script src="/scripts/master-loader.js?v=20260912d"></script>
+
+  <!-- ===== SHARED COMPONENT CSS ===== -->
+  <link rel="stylesheet" href="header.css?v=20260916a" />
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/badges.js"></script>
+
+  <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
+  <script src="/scripts/user-state.js"></script>
+
+  <!-- ===== BADGE DEFINITIONS ===== -->
+  <script src="/scripts/badge-definitions.js"></script>
+
+  <!-- ===== FIELD MANUAL CONTENT =====
+       Embedded fallback only. Firestore (guideContent/curriculum) is the source
+       of truth; this tag stays until the host file is deleted post-migration.
+       Never commit curriculum to the public repo. -->
+  <script src="/scripts/guide-data.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="header.js?v=20260912e"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
+  <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
+
+  <!-- ===== FONTS & ICONS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+/* ================================================================
+   FIELD MANUAL — dark only. No light variant, no toggle.
+   ================================================================ */
+:root{
+  color-scheme: dark;
+  --bg:#070b09;
+  --panel:#0c120e;
+  --panel2:#0e1611;
+  --line:rgba(141,235,0,.14);
+  --line2:rgba(141,235,0,.32);
+  --neon:#8deb00;
+  --neon-deep:#4d8500;
+  --text:#edf4eb;
+  --dim:#a4bba5;
+  --faint:#6f8571;
+  --amber:#ffb000;
+  --red:#ff6b6b;
+  --mono:'Space Mono',monospace;
+  --sans:'Montserrat',sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg)}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:16px;line-height:1.65;
+  min-height:100vh;
+}
+/* Layout guard: design-system.css (injected site-wide by master-loader.js,
+   loads after this stylesheet) forces body{display:flex;justify-content:center},
+   which centers an over-wide flex item into symmetric edge clipping.
+   The Field Manual manages its own layout, so opt out explicitly. */
+body{display:block !important;justify-content:normal !important;align-items:normal !important;padding:0 !important}
+.fm-wrap{max-width:720px;margin:0 auto;padding:108px 18px 130px}
+.fm-kicker{
+  font-family:var(--mono);font-size:12px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--neon);margin:0 0 10px;
+}
+.fm-title{font-size:30px;font-weight:800;letter-spacing:-.01em;margin:0 0 8px;line-height:1.2}
+.fm-title-img{display:block;max-width:min(300px,78%);height:auto;margin:2px 0 6px}
+.fm-chapter-line{margin:0 0 8px;color:var(--muted);font-size:15px;font-weight:600;letter-spacing:.02em}
+.fm-sub{color:var(--dim);margin:0 0 22px;font-size:15px}
+.fm-card{
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:16px;
+  padding:18px;margin:0 0 14px;
+}
+.fm-transmission{display:flex;gap:14px;align-items:flex-start}
+.fm-avatar{
+  width:56px;height:56px;border-radius:50%;flex:0 0 56px;
+  border:1px solid var(--line2);background:#0a0f0b;object-fit:cover;
+}
+.fm-transmission .fm-who{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--neon);text-transform:uppercase;margin-bottom:6px}
+.fm-transmission p{margin:0;color:var(--dim);font-size:14.5px}
+.fm-progress-meta{display:flex;justify-content:space-between;align-items:baseline;margin:22px 0 8px}
+.fm-progress-meta .fm-kicker{margin:0}
+.fm-count{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.fm-bar{height:8px;border-radius:99px;background:#101711;border:1px solid var(--line);overflow:hidden;margin-bottom:20px}
+.fm-bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--neon-deep),var(--neon));transition:width .5s ease;position:relative;overflow:hidden}
+@media (prefers-reduced-motion:no-preference){
+.fm-bar i{animation:fmBarGlow 3.2s ease-in-out infinite}
+.fm-bar i::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(100deg,transparent 25%,rgba(255,255,255,.32) 50%,transparent 75%);background-size:220% 100%;animation:fmBarSheen 3.2s linear infinite}
+@keyframes fmBarSheen{to{background-position:-220% 0}}
+@keyframes fmBarGlow{0%,100%{box-shadow:0 0 5px rgba(141,235,0,.20)}50%{box-shadow:0 0 12px rgba(141,235,0,.40)}}
+}
+.fm-lesson-row{
+  display:flex;align-items:center;gap:14px;width:100%;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line);border-radius:14px;
+  padding:15px 16px;margin:0 0 10px;color:var(--text);
+  font-family:var(--sans);font-size:15px;text-align:left;cursor:pointer;
+}
+.fm-lesson-row:active{transform:scale(.99)}
+.fm-lesson-ico{
+  width:38px;height:38px;flex:0 0 38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--line2);color:var(--neon);font-size:15px;
+}
+.fm-lesson-row.done .fm-lesson-ico{background:rgba(141,235,0,.12)}
+.fm-lesson-row.mastered .fm-lesson-ico{background:rgba(230,185,61,.14);border-color:rgba(230,185,61,.5);color:#e6b93d}
+.fm-lesson-row.mastered .fm-lesson-sub{color:#e6b93d}
+.fm-badge{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;border:1px solid var(--line2);border-radius:99px;padding:5px 11px;margin:6px 4px 0;color:var(--dim)}
+.fm-badge.gold{color:#e6b93d;border-color:rgba(230,185,61,.5);background:rgba(230,185,61,.1)}
+.fm-badge.green{color:var(--neon);border-color:rgba(141,235,0,.45);background:rgba(141,235,0,.08)}
+.fm-reset-row{display:flex;justify-content:center;align-items:center;gap:14px;margin:26px 0 6px}
+.fm-reset-row .fm-dot{color:var(--faint);font-size:12px}
+.fm-quiet.armed{color:#ff8a8a!important}
+.fm-lesson-main{flex:1;min-width:0}
+.fm-lesson-title{font-weight:700;font-size:15.5px}
+.fm-lesson-sub{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-top:3px;letter-spacing:.06em}
+.fm-lesson-xp{font-family:var(--mono);font-size:12px;color:var(--neon);white-space:nowrap}
+.fm-btn{
+  display:block;width:100%;border:0;border-radius:14px;cursor:pointer;
+  background:var(--neon);color:#0a0f0a;
+  font-family:var(--mono);font-weight:700;font-size:14px;letter-spacing:.12em;text-transform:uppercase;
+  padding:16px;margin:18px 0 0;text-decoration:none;text-align:center;
+}
+.fm-btn:active{transform:scale(.99)}
+.fm-btn.ghost{background:transparent;color:var(--neon);border:1px solid var(--line2)}
+.fm-quiet{
+  display:block;text-align:center;margin:14px 0 0;color:var(--faint);
+  font-size:13.5px;text-decoration:none;font-family:var(--mono);letter-spacing:.04em;
+}
+.fm-quiet:active{color:var(--dim)}
+.fm-lock-note{
+  display:flex;gap:10px;align-items:center;justify-content:center;
+  color:var(--faint);font-family:var(--mono);font-size:12px;letter-spacing:.08em;
+  margin:16px 0 4px;text-transform:uppercase;
+}
+.fm-page-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.fm-back{
+  width:40px;height:40px;flex:0 0 40px;border-radius:50%;
+  border:1px solid var(--line2);background:transparent;color:var(--neon);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;
+}
+.fm-dots{display:flex;gap:6px;margin-left:auto}
+.fm-dots i{width:7px;height:7px;border-radius:50%;background:#1c261e}
+.fm-dots i.on{background:var(--neon)}
+.fm-block{margin:0 0 16px;color:#d9e4d7;font-size:15.5px}
+.fm-block h3{color:var(--text);font-size:17px;margin:22px 0 10px}
+.fm-speclist{margin:0 0 18px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.fm-speclist h4{
+  margin:0;padding:13px 16px;font-size:14.5px;color:var(--neon);
+  background:rgba(141,235,0,.06);border-bottom:1px solid var(--line);font-weight:700;
+}
+.fm-specrow{display:flex;gap:12px;padding:11px 16px;border-bottom:1px solid rgba(141,235,0,.07);font-size:14px}
+.fm-specrow:last-child{border-bottom:0}
+.fm-specrow b{flex:0 0 92px;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--amber);text-transform:uppercase;padding-top:3px;font-weight:700}
+.fm-specrow span{color:#d9e4d7}
+.fm-list{list-style:none;margin:0 0 18px;padding:0}
+.fm-list li{margin:0 0 14px;padding-left:4px;font-size:14.5px;color:#d9e4d7}
+.fm-list li b{color:var(--neon);font-weight:700}
+.fm-pill{
+  display:inline-block;font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--amber);border:1px solid rgba(255,176,0,.35);border-radius:99px;padding:7px 16px;margin-bottom:16px;
+  background:rgba(255,176,0,.06);
+}
+.fm-rule{font-size:15px;color:#d9e4d7;margin:0 0 6px}
+.fm-rule b{color:var(--neon)}
+.fm-takeaway{border-left:3px solid var(--neon);padding:4px 0 4px 14px;margin:18px 0 0;color:var(--text);font-size:15px}
+.fm-takeaway .fm-kicker{margin-bottom:6px}
+.fm-pending{
+  border:1px dashed var(--line2);border-radius:12px;padding:12px 16px;margin:0 0 18px;
+  font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--faint);text-transform:uppercase;text-align:center;
+}
+.fm-scenario{
+  border:1px solid var(--line2);border-radius:14px;padding:15px 16px;margin:0 0 20px;
+  background:rgba(141,235,0,.04);
+}
+.fm-scenario .fm-kicker{margin-bottom:8px}
+.fm-scenario p{margin:0;font-size:14.5px;color:#d9e4d7}
+.fm-q{font-size:17px;font-weight:700;margin:0 0 14px;line-height:1.45}
+.fm-choice{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  color:var(--text);font-family:var(--sans);font-size:14.5px;
+  padding:14px 16px;margin:0 0 10px;line-height:1.5;
+}
+.fm-choice.picked-correct{border-color:var(--neon);background:rgba(141,235,0,.1)}
+.fm-choice.picked-wrong{border-color:var(--red);background:rgba(255,107,107,.08)}
+.fm-choice.is-answer{border-color:var(--neon)}
+.fm-choice:disabled{cursor:default;opacity:.92}
+.fm-reveal{
+  border:1px solid var(--line2);border-radius:12px;padding:13px 16px;margin:14px 0 0;
+  font-size:14px;color:var(--dim);background:rgba(141,235,0,.03);
+}
+.fm-reveal b{color:var(--neon);font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;display:block;margin-bottom:6px}
+.fm-score{font-family:var(--mono);font-size:13px;color:var(--dim);text-align:center;margin:16px 0 0;letter-spacing:.08em}
+.fm-xpline{display:flex;justify-content:space-between;font-family:var(--mono);font-size:13px;color:var(--dim);padding:8px 2px;border-bottom:1px solid rgba(141,235,0,.08)}
+.fm-xpline b{color:var(--neon)}
+.fm-xpline.total{border-bottom:0;color:var(--text);font-size:14px}
+.fm-done-hero{text-align:center;padding:26px 0 8px}
+.fm-done-hero img{width:110px;height:110px;border-radius:50%;border:1px solid var(--line2);object-fit:cover;margin-bottom:14px;background:#0a0f0b}
+.fm-toast{
+  position:fixed;left:50%;bottom:110px;transform:translateX(-50%) translateY(20px);
+  background:#0e1511;border:1px solid var(--line2);color:var(--text);
+  font-family:var(--mono);font-size:13px;padding:12px 20px;border-radius:99px;
+  opacity:0;pointer-events:none;transition:opacity .25s ease,transform .25s ease;z-index:9999;
+  max-width:calc(100vw - 40px);text-align:center;
+}
+.fm-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.fm-center{text-align:center;padding:60px 10px}
+.fm-center .fm-kicker{margin-bottom:12px}
+.fm-spinner{
+  width:34px;height:34px;border-radius:50%;margin:0 auto 18px;
+  border:3px solid var(--line);border-top-color:var(--neon);
+  animation:fmspin 1s linear infinite;
+}
+@keyframes fmspin{to{transform:rotate(360deg)}}
+/* ---------- celebration layer ---------- */
+.fm-choice{transition:transform .12s ease,border-color .2s ease,background .2s ease}
+.fm-choice:active{transform:scale(.97)}
+.fm-choice.picked-correct{animation:fmPulse .55s ease}
+.fm-choice.picked-wrong{animation:fmShake .4s ease}
+@keyframes fmPulse{0%{box-shadow:0 0 0 0 rgba(141,235,0,.55)}100%{box-shadow:0 0 0 16px rgba(141,235,0,0)}}
+@keyframes fmShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}55%{transform:translateX(4px)}80%{transform:translateX(-2px)}}
+.rise-in{animation:fmRise .55s cubic-bezier(.2,.7,.3,1) both;animation-delay:var(--d,0s)}
+@keyframes fmRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+#fmSting{position:fixed;inset:0;z-index:10000;background:#000;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .45s ease}
+#fmSting.on{opacity:1}
+#fmSting.leaving{opacity:0}
+#fmSting[hidden]{display:none}
+#fmSting video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#fmSting .sting-kicker{position:absolute;z-index:2;left:0;right:0;bottom:96px;text-align:center;font:700 13px var(--mono);letter-spacing:.34em;color:#fff;text-transform:uppercase;text-shadow:0 2px 18px rgba(0,0,0,.9);opacity:0;animation:stingKick 1s ease .35s forwards}
+@keyframes stingKick{to{opacity:1}}
+#fmSting .sting-skip{position:absolute;z-index:2;left:0;right:0;bottom:30px;text-align:center;font:600 10.5px var(--mono);letter-spacing:.22em;color:rgba(255,255,255,.45);text-transform:uppercase}
+/* welcome video: Cynetis-7 invite before the paywall (sound on, tap-gated) */
+#fmWelcome{position:fixed;inset:0;z-index:10001;background:#000;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .45s ease}
+#fmWelcome.on{opacity:1}
+#fmWelcome[hidden]{display:none}
+#fmWelcome video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#fmWelcome .wel-gate{position:relative;z-index:2;text-align:center;padding:32px 28px;max-width:360px}
+#fmWelcome .wel-avatar{width:104px;height:104px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 22px;border:2px solid rgba(141,235,0,.45);box-shadow:0 0 44px rgba(141,235,0,.22)}
+#fmWelcome .wel-kicker{font:700 11px var(--mono);letter-spacing:.32em;color:var(--neon);text-transform:uppercase;margin-bottom:14px}
+#fmWelcome .wel-title{font:700 22px/1.3 var(--sans);color:#fff;margin:0 0 10px}
+#fmWelcome .wel-sub{font:400 13.5px/1.65 var(--sans);color:var(--dim);margin:0 0 6px}
+#fmWelcome .wel-skip{position:absolute;z-index:2;left:0;right:0;bottom:30px;text-align:center;font:600 10.5px var(--mono);letter-spacing:.22em;color:rgba(255,255,255,.45);text-transform:uppercase}
+/* paywall: value stack + offer + founders strip */
+.pay-stack{margin:24px 0 4px}
+.pay-row{display:flex;gap:14px;align-items:flex-start;padding:13px 2px;border-bottom:1px solid var(--line)}
+.pay-row:last-child{border-bottom:0}
+.pay-row>i{color:var(--neon);font-size:15px;margin-top:4px;width:22px;text-align:center;flex:0 0 22px}
+.pay-row strong{display:block;font-size:14.5px;font-weight:600;color:var(--text)}
+.pay-row span{display:block;color:var(--faint);font-size:12.5px;margin-top:2px}
+.pay-offer{margin:22px 0 6px;padding:24px 20px 20px;border:1px solid rgba(141,235,0,.35);border-radius:18px;background:linear-gradient(180deg,rgba(141,235,0,.07),rgba(141,235,0,.015));box-shadow:0 0 44px rgba(141,235,0,.08);text-align:center}
+.pay-tag{display:inline-block;font:700 10.5px var(--mono);letter-spacing:.22em;text-transform:uppercase;color:#0a0f0a;background:var(--neon);border-radius:999px;padding:7px 15px;margin-bottom:14px}
+.pay-amount{font:700 46px/1 var(--sans);color:#fff;letter-spacing:-.01em}
+.pay-per{color:var(--faint);font-family:var(--mono);font-size:13px;margin-left:6px}
+.pay-permo{font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.05em;margin:8px 0 12px}
+.pay-includes{font-size:13.5px;color:var(--dim);margin:0 0 16px}
+.pay-includes i{color:var(--neon);margin-right:8px}
+.pay-monthly{display:block;text-align:center;margin:12px 0 0;color:var(--faint);font-size:13px;text-decoration:underline;text-underline-offset:3px;font-family:var(--mono);letter-spacing:.03em}
+.pay-founders{margin:26px 0 6px}
+.pay-f-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px}
+.pay-f-count{font:700 11px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--neon)}
+.pay-f-link{font:600 11px var(--mono);letter-spacing:.06em;color:var(--dim);text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+.pay-f-row{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.pay-f-row::-webkit-scrollbar{display:none}
+.pay-f-chip{flex:0 0 auto;display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:999px;padding:5px 14px 5px 5px}
+.pay-f-ava{position:relative;width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:rgba(141,235,0,.12);border:1px solid rgba(141,235,0,.4);display:flex;align-items:center;justify-content:center;font:700 10.5px var(--mono);color:var(--neon);overflow:hidden}
+.pay-f-ava img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.pay-f-name{font-size:12.5px;color:var(--dim);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.pay-f-note{font-size:12.5px;color:var(--faint);line-height:1.65;margin:10px 0 0}
+.fm-lesson-row.locked{opacity:.6}
+.fm-lesson-row.locked .fm-lesson-ico{color:var(--faint);border-color:var(--line)}
+/* ---------- chapter browser ---------- */
+.fm-chapters{display:flex;gap:8px;overflow-x:auto;margin:2px 0 14px;padding:2px 2px 10px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.fm-chapters::-webkit-scrollbar{display:none}
+.fm-chapter-pill{
+  flex:0 0 auto;display:flex;align-items:center;gap:9px;
+  background:var(--panel);border:1px solid var(--line);border-radius:99px;
+  color:var(--dim);font-family:var(--mono);font-size:12px;letter-spacing:.03em;
+  padding:10px 16px;cursor:pointer;white-space:nowrap;
+}
+.fm-chapter-pill .fm-ch-num{color:var(--faint);font-weight:700}
+.fm-chapter-pill .fm-ch-done{color:var(--faint);font-size:11px}
+.fm-chapter-pill.on{border-color:var(--line2);color:var(--text);background:rgba(141,235,0,.07)}
+.fm-chapter-pill.on .fm-ch-num{color:var(--neon)}
+.fm-chapter-pill.on .fm-ch-done{color:var(--dim)}
+.fm-chapter-pill:active{transform:scale(.97)}
+/* chapter bonus card: tappable to replay the celebration sting (no XP re-award) */
+.fm-bonus-replay{width:100%;display:block;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.fm-bonus-replay:active{transform:scale(.985)}
+.fm-replay-hint{display:block;margin:10px 0 0;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.fm-replay-hint i{margin-right:6px;font-size:10px}
+/* ---------- field-note tip callout ---------- */
+.fm-tip{border:1px solid rgba(141,235,0,.28);border-radius:12px;padding:13px 16px;margin:0 0 18px;background:rgba(141,235,0,.045)}
+.fm-tip .fm-kicker{margin-bottom:6px}
+#fmConfetti{position:fixed;inset:0;z-index:9998;pointer-events:none}
+#fmConfetti[hidden]{display:none}
+.fm-sound{background:none;border:1px solid var(--line);border-radius:10px;color:var(--dim);width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.fm-sound.off{color:rgba(255,255,255,.22)}
+.fm-shimmer{background:linear-gradient(105deg,var(--neon) 20%,#f2ffdc 50%,var(--neon) 80%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fmShimmer 2.8s ease-in-out infinite}
+@keyframes fmShimmer{0%{background-position:115% 0}100%{background-position:-115% 0}}
+@media (prefers-reduced-motion:no-preference){
+.fm-mshimmer{background:linear-gradient(100deg,rgba(255,255,255,.42) 40%,rgba(255,255,255,.95) 50%,rgba(255,255,255,.42) 60%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:fmMShimmer 4.5s linear infinite}
+@keyframes fmMShimmer{to{background-position:-200% 0}}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .fm-bar i{transition:none}
+}
+  </style>
+</head>
+<body>
+  <main class="fm-wrap" id="fm-app" aria-live="polite">
+    <!-- loading -->
+    <section id="fm-loading" class="fm-center">
+      <div class="fm-spinner" aria-hidden="true"></div>
+      <p class="fm-kicker">Establishing uplink</p>
+    </section>
+
+    <!-- content missing (guide-data.js not on host yet) -->
+    <section id="fm-nodata" class="fm-center" hidden>
+      <p class="fm-kicker">Field Manual</p>
+      <h1 class="fm-title">Content syncing</h1>
+      <p class="fm-sub">The manual's pages are still syncing to this device. Check back shortly.</p>
+      <a class="fm-quiet" href="/missions.html">Back to Missions</a>
+    </section>
+
+    <!-- locked / paywall -->
+    <section id="fm-locked" hidden>
+      <p class="fm-kicker rise-in" style="--d:.02s">Field Manual &middot; Pro</p>
+      <h1 class="fm-title rise-in" style="--d:.06s" id="fm-pay-title">You decoded Lesson 1.</h1>
+      <p class="fm-sub rise-in" style="--d:.1s" id="fm-pay-sub">Decode the full manual, lesson by lesson.</p>
+      <div class="fm-card fm-transmission rise-in" style="--d:.14s">
+        <img class="fm-avatar" src="/cynetis-avatar.png" alt="" onerror="this.style.display='none'" />
+        <div>
+          <div class="fm-who">Cynetis-7</div>
+          <p id="fm-pay-cynetis">The first lesson was the handshake. The Manual is the mission.</p>
+        </div>
+      </div>
+      <div class="pay-stack rise-in" style="--d:.18s">
+        <div class="pay-row"><i class="fa-solid fa-book-open" aria-hidden="true"></i><div><strong id="fm-pay-row1">Lessons 2&ndash;3 of this chapter</strong><span>Unlocked the moment you join</span></div></div>
+        <div class="pay-row"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><div><strong>Every future Field Manual chapter</strong><span>Cameras, light, editing, the business &mdash; all of it</span></div></div>
+        <div class="pay-row"><i class="fa-solid fa-rotate" aria-hidden="true"></i><div><strong>System Checks, replay &amp; mastery</strong><span>Retake any lesson and bank XP again</span></div></div>
+        <div class="pay-row"><i class="fa-solid fa-satellite-dish" aria-hidden="true"></i><div><strong>The full Cynetis-7 curriculum</strong><span>Your signal keeper, end to end</span></div></div>
+      </div>
+      <div class="pay-offer rise-in" style="--d:.22s">
+        <div class="pay-tag">Founding rate &middot; locked forever</div>
+        <div><span class="pay-amount" id="fm-pay-annual">$119</span><span class="pay-per">/year</span></div>
+        <p class="pay-permo" id="fm-pay-permo">Just $9.92/month &middot; 30-day money-back guarantee</p>
+        <p class="pay-includes"><i class="fa-solid fa-check" aria-hidden="true"></i>Includes the Camera Confidence Guide</p>
+        <div id="fm-pay-cta"></div>
+        <a class="pay-monthly" href="/products.html">Prefer monthly? $15/mo</a>
+      </div>
+      <div class="pay-founders rise-in" style="--d:.26s" id="fm-pay-founders" hidden>
+        <div class="pay-f-head"><span class="pay-f-count" id="fm-pay-fcount"></span><a class="pay-f-link" href="/founding-200.html">Meet the wall</a></div>
+        <div class="pay-f-row" id="fm-pay-frow"></div>
+        <p class="pay-f-note">Founding members lock this rate forever &mdash; and their names are permanently encoded on the Founders Wall.</p>
+      </div>
+      <a class="fm-quiet rise-in" style="--d:.3s" href="javascript:history.back()" id="fm-pay-quiet">Continue with free content</a>
+    </section>
+
+    <!-- chapter -->
+    <section id="fm-chapter" hidden>
+      <p class="fm-kicker" id="fm-ch-kicker">Field Manual</p>
+      <img src="custom-site-titles/field-manual.png" alt="Field Manual" class="fm-title-img" onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+      <h1 class="fm-title" hidden>Field Manual</h1>
+      <div class="fm-chapters" id="fm-chapters" role="tablist" aria-label="Chapters"></div>
+      <p class="fm-chapter-line" id="fm-ch-title"></p>
+      <p class="fm-sub fm-mshimmer" id="fm-ch-tagline"></p>
+      <div class="fm-card fm-transmission">
+        <img class="fm-avatar" src="/cynetis-avatar.png" alt="" onerror="this.style.display='none'" />
+        <div>
+          <div class="fm-who">Cynetis-7</div>
+          <p id="fm-ch-transmission"></p>
+        </div>
+      </div>
+      <div class="fm-progress-meta">
+        <p class="fm-kicker">Decoding progress</p>
+        <span class="fm-count" id="fm-ch-count"></span>
+      </div>
+      <div class="fm-bar" aria-hidden="true"><i id="fm-ch-bar"></i></div>
+      <div id="fm-ch-continue"></div>
+      <div id="fm-ch-lessons"></div>
+      <div id="fm-ch-bonus"></div>
+      <div id="fm-ch-reset"></div>
+      <a class="fm-quiet" href="/missions.html">Back to Missions</a>
+    </section>
+
+    <!-- lesson -->
+    <section id="fm-lesson" hidden>
+      <div class="fm-page-head">
+        <button class="fm-back" id="fm-back" aria-label="Back to chapter"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
+        <div class="fm-dots" id="fm-dots" aria-hidden="true"></div>
+        <button class="fm-sound" id="fm-sound" aria-label="Toggle sound" aria-pressed="true"><i class="fa-solid fa-volume-high" aria-hidden="true"></i></button>
+      </div>
+      <div id="fm-lesson-body"></div>
+    </section>
+  </main>
+
+  <div class="fm-toast" id="fm-toast" role="status"></div>
+
+  <div id="fmSting" role="dialog" aria-modal="true" aria-label="Celebration" hidden>
+    <video id="fmStingVideo" muted playsinline preload="auto" aria-hidden="true"></video>
+    <div class="sting-kicker" id="fmStingKicker">SIGNAL DECODED</div>
+    <div class="sting-skip">tap to continue</div>
+  </div>
+  <div id="fmWelcome" role="dialog" aria-modal="true" aria-label="A message from Cynetis-7" hidden>
+    <video id="fmWelcomeVideo" playsinline preload="auto" aria-hidden="true" hidden></video>
+    <div class="wel-gate" id="fmWelGate">
+      <img class="wel-avatar" src="/cynetis-avatar.png" alt="Cynetis-7" onerror="this.style.display='none'" />
+      <div class="wel-kicker">Incoming transmission</div>
+      <h2 class="wel-title">Cynetis-7 has a message for you</h2>
+      <p class="wel-sub">A personal invite before you go further. Tap to play — with sound.</p>
+      <button class="fm-btn" id="fmWelPlay" type="button">Play message</button>
+      <a class="fm-quiet" href="#" id="fmWelSkipGate">Not now</a>
+    </div>
+    <div class="wel-skip" id="fmWelSkip" hidden>tap to skip</div>
+  </div>
+  <canvas id="fmConfetti" hidden></canvas>
+
+  <script>
+(function(){
+  "use strict";
+  /* Field Manual player — multi-chapter.
+     Pro-gated: no lesson body is rendered unless tier === 'pro'.
+     Free access: ch03-mode-dial only. */
+
+  var LESSON_XP = 20;
+  var PERFECT_BONUS = 10;
+  var CHAPTER_BONUS = 25;
+
+  var user = null;
+  var tier = "free";
+  var progress = null;
+  var chapter = null;               /* active chapter object; use setChapter() to change */
+  var FREE_LESSON_ID = "ch03-mode-dial";
+  var CHAPTER_KEY = "fm_chapter";   /* localStorage: last-viewed chapter */
+  var quizState = null;
+  var lastAward = null;
+  var _lbName = null;
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function db(){ return (typeof window.db !== "undefined") ? window.db : null; }
+
+  function showView(id){
+    ["fm-loading","fm-nodata","fm-locked","fm-chapter","fm-lesson"].forEach(function(v){
+      $(v).hidden = (v !== id);
+    });
+    try{ window.scrollTo(0,0); }catch(e){}
+  }
+
+  function toast(msg){
+    var t = $("fm-toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._h);
+    t._h = setTimeout(function(){ t.classList.remove("show"); }, 2600);
+  }
+
+  /* ---------------- curriculum delivery ----------------
+     Firestore is the source of truth (guideContent/curriculum); a localStorage
+     copy covers offline and failed fetches; the embedded /scripts/guide-data.js
+     tag — when present — is the last resort until the host file is removed. */
+  var FM_CURR_COLLECTION = "guideContent";
+  var FM_CURR_DOC = "curriculum";
+  var FM_CURR_CACHE = "fm_curriculum";
+
+  function readCurriculumCache(){
+    try{
+      var raw = localStorage.getItem(FM_CURR_CACHE);
+      if(!raw) return null;
+      var c = JSON.parse(raw);
+      if(!c || !c.data || !c.data.chapters || !c.data.chapters.length) return null;
+      return c;
+    }catch(e){ return null; }
+  }
+
+  function writeCurriculumCache(data){
+    try{
+      localStorage.setItem(FM_CURR_CACHE, JSON.stringify({ version: data.version || "unknown", savedAt: Date.now(), data: data }));
+    }catch(e){}
+  }
+
+  function curriculumValid(d){ return !!(d && d.chapters && d.chapters.length); }
+
+  async function loadCurriculum(){
+    var d = db();
+    if(d){
+      try{
+        var snap = await d.collection(FM_CURR_COLLECTION).doc(FM_CURR_DOC).get();
+        if(snap.exists){
+          var data = snap.data() || {};
+          /* stored as a JSON string (lesson blocks are arrays-in-arrays,
+             which Firestore rejects as nested entities) */
+          var parsed = null;
+          if(typeof data.json === "string"){
+            try{ parsed = JSON.parse(data.json); }catch(e){ parsed = null; }
+          }else if(data.chapters && data.chapters.length){
+            parsed = { version: data.version, chapters: data.chapters };
+          }
+          if(parsed && parsed.chapters && parsed.chapters.length){
+            window.GUIDE_DATA = { version: parsed.version || data.version || "firestore", chapters: parsed.chapters };
+            writeCurriculumCache(window.GUIDE_DATA);
+            return true;
+          }
+        }
+      }catch(e){ /* fall through to cache, then embedded */ }
+    }
+    var cached = readCurriculumCache();
+    if(cached){ window.GUIDE_DATA = cached.data; return true; }
+    return curriculumValid(window.GUIDE_DATA);   /* embedded script tag fallback */
+  }
+
+  function freshProgress(){
+    return { completedLessons:[], quizBest:{}, perfectBonus:[], chapterBonus:[], lastLesson:null, xpClaims:{} };
+  }
+
+  /* Cross-chapter lookup: lessons are found across every chapter by stable id. */
+  function chapterById(id){
+    var chs = (window.GUIDE_DATA && GUIDE_DATA.chapters) || [];
+    for(var i=0;i<chs.length;i++) if(chs[i].id===id) return chs[i];
+    return null;
+  }
+  function chapterNum(ch){ return (ch && (ch.num || ch.number)) || ""; }
+  function setChapter(id){
+    var ch = chapterById(id);
+    if(!ch) return false;
+    chapter = ch;
+    try{ localStorage.setItem(CHAPTER_KEY, id); }catch(e){}
+    return true;
+  }
+  function lessonById(id){
+    var chs = (window.GUIDE_DATA && GUIDE_DATA.chapters) || [];
+    for(var c=0;c<chs.length;c++){
+      var ls = chs[c].lessons || [];
+      for(var i=0;i<ls.length;i++) if(ls[i].id===id) return ls[i];
+    }
+    return null;
+  }
+  function owningChapter(lessonId){
+    var chs = (window.GUIDE_DATA && GUIDE_DATA.chapters) || [];
+    for(var c=0;c<chs.length;c++){
+      var ls = chs[c].lessons || [];
+      for(var i=0;i<ls.length;i++) if(ls[i].id===lessonId) return chs[c];
+    }
+    return null;
+  }
+
+  /* ---------------- boot ---------------- */
+  document.addEventListener("DOMContentLoaded", init);
+
+  function init(){
+    $("fm-back").addEventListener("click", function(){ renderChapter(); });
+    wireSoundToggle();
+    var auth = (typeof window.auth !== "undefined") ? window.auth : null;
+    if(auth && auth.onAuthStateChanged){ auth.onAuthStateChanged(boot); }
+    else { boot(null); }
+  }
+
+  async function boot(u){
+    user = u || null;
+    tier = "free";
+    progress = freshProgress();
+    _lbName = null;
+    /* curriculum first: without it there is nothing to render */
+    if(!(await loadCurriculum())){ showView("fm-nodata"); return; }
+    var storedChapter = null;
+    try{ storedChapter = localStorage.getItem(CHAPTER_KEY); }catch(e){}
+    if(!(storedChapter && setChapter(storedChapter))) setChapter(GUIDE_DATA.chapters[0].id);
+    var d = db();
+    if(user && d){
+      try{
+        var snap = await d.collection("users").doc(user.uid).get();
+        var data = snap.exists ? (snap.data()||{}) : {};
+        tier = data.tier || "free";
+        _lbName = data.displayName || data.name || null;
+      }catch(e){}
+      await loadProgress();
+    }
+    route();
+  }
+
+  async function loadProgress(){
+    var d = db();
+    if(!d) return;
+    try{
+      var snap = await d.collection("guideProgress").doc(user.uid).get();
+      if(snap.exists){
+        var p = snap.data()||{};
+        progress.completedLessons = p.completedLessons||[];
+        progress.quizBest = p.quizBest||{};
+        progress.perfectBonus = p.perfectBonus||[];
+        progress.chapterBonus = p.chapterBonus||[];
+        progress.lastLesson = p.lastLesson||null;
+        progress.xpClaims = p.xpClaims||{};
+      }
+    }catch(e){}
+    /* one-time backfill: anything the old claim arrays (or a legacy perfect best)
+       say was already paid gets a permanent ledger entry, so a reset can never re-pay it. */
+    if(migrateXpClaims()) await saveProgress();
+  }
+
+  function migrateXpClaims(){
+    var c = progress.xpClaims || (progress.xpClaims = {});
+    var changed = false;
+    var mark = function(k){ if(!c[k]){ c[k] = true; changed = true; } };
+    progress.completedLessons.forEach(function(id){ mark("lesson:"+id); });
+    progress.perfectBonus.forEach(function(id){ mark("perfect:"+id); });
+    progress.chapterBonus.forEach(function(id){ mark("chapter:"+id); });
+    Object.keys(progress.quizBest).forEach(function(id){
+      var l = lessonById(id);
+      if(l && progress.quizBest[id] === l.quiz.questions.length) mark("perfect:"+id);
+    });
+    return changed;
+  }
+
+  async function saveProgress(){
+    var d = db();
+    if(!d || !user) return;
+    try{
+      await d.collection("guideProgress").doc(user.uid).set({
+        completedLessons: progress.completedLessons,
+        quizBest: progress.quizBest,
+        perfectBonus: progress.perfectBonus,
+        chapterBonus: progress.chapterBonus,
+        lastLesson: progress.lastLesson,
+        xpClaims: progress.xpClaims,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge:true });
+    }catch(e){}
+  }
+
+  function route(){
+    var chs = GUIDE_DATA.chapters || [];
+    if(!chs.length){ showView("fm-nodata"); return; }
+    var deep = null, chapQ = null;
+    try{ var q = new URLSearchParams(location.search); deep = q.get("lesson"); chapQ = q.get("chapter"); }catch(e){}
+    if(chapQ && chapterById(chapQ)) setChapter(chapQ);
+    if(user && deep){
+      var found = lessonById(deep);
+      if(found){
+        var oc = owningChapter(deep);
+        if(oc) setChapter(oc.id);   /* deep links activate the owning chapter */
+        if(canAccess(found)){ openLesson(found, 0); return; }
+        renderLocked(); return;     /* deep links to paid lessons fail closed */
+      }
+    }
+    if(!user){ renderLocked(); return; }
+    renderChapter();
+  }
+
+  /* ---------------- locked (paywall) ---------------- */
+  function renderLocked(){
+    document.title = "Field Manual — Cameras Decoded";
+    var decoded = progress.completedLessons.length > 0;
+    var firstId = freeLessonId();
+    /* paywall copy is computed from the free chapter — never hardcoded lesson counts */
+    var freeCh = owningChapter(firstId) || chapterById("ch03") || chapter;
+    var freeTotal = freeCh ? (freeCh.lessons || []).length : 1;
+    var freeRest = Math.max(freeTotal - 1, 1);
+    var restPlural = freeRest === 1 ? "" : "s";
+    var row1 = $("fm-pay-row1");
+    if(row1) row1.textContent = "Lessons 2\u2013" + freeTotal + " of this chapter";
+    if(user && decoded){
+      $("fm-pay-title").textContent = "You decoded Lesson 1.";
+      $("fm-pay-sub").textContent = freeRest + " more lesson" + restPlural + " stand between you and your first mastered chapter.";
+      $("fm-pay-cynetis").textContent = "The first lesson was the handshake. The Manual is the mission.";
+      $("fm-pay-quiet").textContent = "Continue with free content";
+      $("fm-pay-quiet").href = "javascript:history.back()";
+    } else if(user){
+      $("fm-pay-title").textContent = "The Manual goes deeper.";
+      $("fm-pay-sub").textContent = "Lesson 1 is free \u2014 decode it on the house. The other " + freeRest + " lesson" + restPlural + " are Pro.";
+      $("fm-pay-cynetis").textContent = "Start where every operator starts: lesson one, on me.";
+      $("fm-pay-quiet").textContent = "Start Lesson 1 \u2014 free";
+      $("fm-pay-quiet").href = "/field-manual.html?lesson=" + encodeURIComponent(firstId || "");
+    } else {
+      $("fm-pay-title").textContent = "The Manual goes deeper.";
+      $("fm-pay-sub").textContent = "Log in to check your access \u2014 Lesson 1 is free for every operator.";
+      $("fm-pay-cynetis").textContent = "The full manual is a Pro instrument. Your first lesson is on the house.";
+      $("fm-pay-quiet").textContent = "Continue with free content";
+      $("fm-pay-quiet").href = "javascript:history.back()";
+    }
+    $("fm-pay-annual").textContent = "$" + FM_OFFER.annual;
+    $("fm-pay-permo").textContent = "Just $" + FM_OFFER.annualPerMonth + "/month \u00b7 " + FM_OFFER.guaranteeDays + "-day money-back guarantee";
+    $("fm-pay-cta").innerHTML = user
+      ? '<a class="fm-btn" href="' + FM_OFFER.checkoutUrl + '" id="fm-pay-go">Unlock with Pro</a>'
+      : '<a class="fm-btn" href="/login.html" id="fm-pay-go">Log In</a>';
+    var go = $("fm-pay-go");
+    if(go) go.addEventListener("click", function(){ fmTrack("checkout_start", { annual: FM_OFFER.annual }); });
+    fmTrack("paywall_view", { decoded: decoded, signedIn: !!user });
+    loadFoundingStrip();
+    /* Cynetis-7 invite: once per device, signed-in non-Pro users hear the message before the paywall. */
+    if(user && !fmWelcomeSeen()){ playFmWelcome(function(){ showView("fm-locked"); }); return; }
+    showView("fm-locked");
+  }
+
+  /* founders strip: live count + preview chips from the approved wall; hides silently on failure */
+  var _fStripLoaded = false;
+  function loadFoundingStrip(){
+    if(_fStripLoaded) return; _fStripLoaded = true;
+    var box = $("fm-pay-founders");
+    var d = db();
+    if(!box || !d) return;
+    d.collection("founding200").where("approved", "==", true).get().then(function(snap){
+      var n = snap.size;
+      $("fm-pay-fcount").textContent = n > 0
+        ? n + " of " + FM_OFFER.foundingTotal + " founding spots claimed"
+        : "Be the first name on the wall";
+      var docs = [];
+      snap.forEach(function(s){ docs.push(s.data() || {}); });
+      docs.sort(function(a, b){
+        var ta = (a.joinedAt && a.joinedAt.toMillis) ? a.joinedAt.toMillis() : 0;
+        var tb = (b.joinedAt && b.joinedAt.toMillis) ? b.joinedAt.toMillis() : 0;
+        return ta - tb;
+      });
+      var row = docs.slice(0, 6).map(function(f){
+        var nm = String(f.name || "Operator");
+        var initials = nm.trim().split(/\s+/).map(function(w){ return w.charAt(0); }).join("").slice(0, 2).toUpperCase() || "OP";
+        var photo = (f.photoUrl && /^https?:\/\//i.test(f.photoUrl))
+          ? '<img src="' + esc(f.photoUrl) + '" alt="" loading="lazy" onerror="this.remove()" />' : "";
+        return '<span class="pay-f-chip"><span class="pay-f-ava">' + esc(initials) + photo + '</span>'
+          + '<span class="pay-f-name">' + esc(nm) + '</span></span>';
+      }).join("");
+      if(row) $("fm-pay-frow").innerHTML = row;
+      else $("fm-pay-frow").innerHTML = '<span class="pay-f-name" style="max-width:none">The first 200 lock their rate forever.</span>';
+      box.hidden = false;
+    }).catch(function(){ /* wall unavailable: paywall stands on its own */ });
+  }
+
+  /* ---------------- chapter ---------------- */
+  function renderChapter(){
+    document.title = chapter.title + " — Field Manual";
+    $("fm-ch-kicker").textContent = "Chapter " + chapterNum(chapter);
+    $("fm-ch-title").textContent = chapter.title;
+    $("fm-ch-tagline").textContent = chapter.tagline || "";
+    $("fm-ch-transmission").textContent = chapter.transmission || "";
+    renderChapterPills();
+
+    var total = chapter.lessons.length;
+    var done = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; }).length;
+    var masteredCount = chapter.lessons.filter(function(l){ return progress.quizBest[l.id] === l.quiz.questions.length; }).length;
+    $("fm-ch-count").textContent = done + " of " + total + " decoded" + (masteredCount ? " · " + masteredCount + " mastered" : "");
+    $("fm-ch-bar").style.width = total ? Math.round(done/total*100) + "%" : "0%";
+
+    var cont = "";
+    var last = (progress.lastLesson && owningChapter(progress.lastLesson) === chapter)
+      ? lessonById(progress.lastLesson) : null;
+    var target = (last && progress.completedLessons.indexOf(last.id) === -1) ? last
+      : (done < total ? chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) === -1; })[0] : null);
+    if(target){
+      cont = canAccess(target)
+        ? '<button class="fm-btn" id="fm-continue">' + (progress.completedLessons.length ? "Continue" : "Begin") + " \u2014 " + esc(target.title) + '</button>'
+        : '<button class="fm-btn" id="fm-continue">Unlock Pro \u2014 ' + esc(target.title) + '</button>';
+    }
+    $("fm-ch-continue").innerHTML = cont;
+    var cb = $("fm-continue");
+    if(cb){
+      cb.addEventListener("click", function(){
+        if(target) openLesson(target, 0);  /* openLesson fails closed to the paywall for locked lessons */
+      });
+    }
+
+    $("fm-ch-lessons").innerHTML = chapter.lessons.map(function(l){
+      var isDone = progress.completedLessons.indexOf(l.id) !== -1;
+      var best = progress.quizBest[l.id];
+      var mastered = best === l.quiz.questions.length;
+      var locked = !canAccess(l);
+      var sub = locked ? "PRO LESSON"
+        : mastered
+        ? "MASTERED · SYSTEM CHECK " + best + "/" + l.quiz.questions.length
+        : (isDone
+            ? "DECODED" + (best != null ? " · SYSTEM CHECK " + best + "/" + l.quiz.questions.length : "")
+            : "LESSON · SYSTEM CHECK");
+      return '<button class="fm-lesson-row' + (isDone ? " done" : "") + (mastered ? " mastered" : "") + (locked ? " locked" : "") + '" data-lesson="' + l.id + '">'
+        + '<span class="fm-lesson-ico"><i class="fa-solid ' + (locked ? "fa-lock" : (mastered ? "fa-medal" : (isDone ? "fa-check" : "fa-play"))) + '" aria-hidden="true"></i></span>'
+        + '<span class="fm-lesson-main"><span class="fm-lesson-title">' + esc(l.title) + '</span>'
+        + '<span class="fm-lesson-sub" style="display:block">' + sub + '</span></span>'
+        + '<span class="fm-lesson-xp">+' + l.xp + ' XP</span></button>';
+    }).join("");
+    Array.prototype.forEach.call($("fm-ch-lessons").querySelectorAll("[data-lesson]"), function(el){
+      el.addEventListener("click", function(){
+        var l = lessonById(el.getAttribute("data-lesson"));
+        if(l) openLesson(l, 0);
+      });
+    });
+
+    var bonus = "";
+    if(progress.chapterBonus.indexOf(chapter.id) !== -1){
+      bonus = '<button class="fm-card fm-bonus-replay" id="fm-bonus-replay" style="border-color:var(--line2)" aria-label="Replay chapter celebration">'
+        + '<span class="fm-kicker" style="display:block;margin-bottom:6px">Chapter bonus secured</span>'
+        + '<span class="fm-block" style="display:block;margin:0">Full decode — <b style="color:var(--neon)">+' + CHAPTER_BONUS + ' XP</b> awarded.</span>'
+        + '<span class="fm-replay-hint"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>tap to replay the sting</span></button>';
+    } else if(done === total && total > 0){
+      bonus = '<div class="fm-card"><p class="fm-block" style="margin:0;color:var(--dim)">All lessons decoded. Your chapter bonus lands with your next lesson completion.</p></div>';
+    }
+    $("fm-ch-bonus").innerHTML = bonus;
+    /* secured card replays the celebration sting on tap — XP is never re-awarded */
+    var br = $("fm-bonus-replay");
+    if(br) br.addEventListener("click", function(){
+      sfx("chapter");
+      playFmSting({ src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }, null);
+    });
+    $("fm-ch-reset").innerHTML = '<div class="fm-reset-row">'
+      + '<button class="fm-quiet" id="fm-reset-chapter" style="background:none;border:0;cursor:pointer;font-size:12px">Reset chapter</button>'
+      + '<span class="fm-dot" aria-hidden="true">·</span>'
+      + '<button class="fm-quiet" id="fm-reset-all" style="background:none;border:0;cursor:pointer;font-size:12px">Reset all progress</button></div>';
+    armConfirm($("fm-reset-chapter"), "Tap again to reset chapter", resetChapter);
+    armConfirm($("fm-reset-all"), "Tap again — banked XP stays", resetAllProgress);
+    showView("fm-chapter");
+  }
+
+  /* chapter browser: quiet pills under the title; one chapter per pill, progress baked in */
+  function renderChapterPills(){
+    var box = $("fm-chapters");
+    if(!box) return;
+    var chs = GUIDE_DATA.chapters || [];
+    if(chs.length < 2){ box.innerHTML = ""; box.style.display = "none"; return; }
+    box.style.display = "";
+    box.innerHTML = chs.map(function(ch){
+      var ls = ch.lessons || [];
+      var done = ls.filter(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; }).length;
+      var on = chapter && ch.id === chapter.id;
+      return '<button class="fm-chapter-pill' + (on ? " on" : "") + '" role="tab" aria-selected="' + (on ? "true" : "false") + '" data-chapter="' + ch.id + '">'
+        + '<span class="fm-ch-num">' + esc(chapterNum(ch)) + '</span>'
+        + '<span>' + esc(ch.title) + '</span>'
+        + '<span class="fm-ch-done">' + done + '/' + ls.length + '</span></button>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll("[data-chapter]"), function(el){
+      el.addEventListener("click", function(){
+        if(setChapter(el.getAttribute("data-chapter"))) renderChapter();
+      });
+    });
+  }
+
+  /* ---------------- lesson ---------------- */
+  function lessonPages(lesson){
+    var pages = lesson.parts.map(function(p){ return { type:"part", part:p }; });
+    pages.push({ type:"recap" });
+    pages.push({ type:"quiz" });
+    pages.push({ type:"done" });
+    return pages;
+  }
+
+  function openLesson(lesson, pageIdx){
+    var oc = owningChapter(lesson.id);
+    if(oc) setChapter(oc.id);  /* the active chapter always follows the open lesson */
+    if(!canAccess(lesson)){ renderLocked(); return; }  /* deep links to paid lessons fail closed */
+    quizState = null;
+    renderLessonPage(lesson, pageIdx || 0);
+  }
+
+  function quizPageIdx(lesson){
+    var pages = lessonPages(lesson);
+    for(var i=0;i<pages.length;i++) if(pages[i].type === "quiz") return i;
+    return 0;
+  }
+
+  /* two-tap inline confirm: first tap arms, second executes, auto-disarms */
+  function armConfirm(btn, armedLabel, fn){
+    var orig = btn.textContent, armed = false, timer = null;
+    btn.addEventListener("click", function(){
+      if(!armed){
+        armed = true;
+        btn.textContent = armedLabel;
+        btn.classList.add("armed");
+        timer = setTimeout(function(){ armed = false; btn.textContent = orig; btn.classList.remove("armed"); }, 4000);
+        return;
+      }
+      clearTimeout(timer);
+      fn();
+    });
+  }
+
+  async function resetChapter(){
+    var ids = chapter.lessons.map(function(l){ return l.id; });
+    progress.completedLessons = progress.completedLessons.filter(function(id){ return ids.indexOf(id) === -1; });
+    progress.perfectBonus = progress.perfectBonus.filter(function(id){ return ids.indexOf(id) === -1; });
+    ids.forEach(function(id){ delete progress.quizBest[id]; });
+    if(progress.lastLesson && ids.indexOf(progress.lastLesson) !== -1) progress.lastLesson = null;
+    /* chapterBonus + the XP ledger are append-only: resets clear curriculum state,
+       never payment history — nothing can be re-farmed. */
+    await saveProgress();
+    renderChapter();
+    toast("Chapter reset — run it back.");
+  }
+
+  async function resetAllProgress(){
+    var claims = progress.xpClaims;   /* ledger survives: banked XP can never be re-earned */
+    progress = freshProgress();
+    progress.xpClaims = claims;
+    await saveProgress();
+    renderChapter();
+    toast("Field Manual reset. Banked XP stays.");
+  }
+
+  function renderLessonPage(lesson, pageIdx){
+    var pages = lessonPages(lesson);
+    if(pageIdx < 0) pageIdx = 0;
+    if(pageIdx >= pages.length) pageIdx = pages.length - 1;
+    var page = pages[pageIdx];
+    document.title = lesson.title + " — Field Manual";
+
+    var dots = pages.map(function(_, i){
+      return "<i class=\"" + (i === pageIdx ? "on" : "") + "\"></i>";
+    }).join("");
+    $("fm-dots").innerHTML = dots;
+
+    var body = $("fm-lesson-body");
+    if(page.type === "part") body.innerHTML = renderPart(lesson, page.part, pageIdx, pages.length);
+    else if(page.type === "recap") body.innerHTML = renderRecap(lesson, pageIdx, pages.length);
+    else if(page.type === "quiz"){ renderQuizShell(lesson, pageIdx, pages.length); }
+    else if(page.type === "done") body.innerHTML = renderDone(lesson);
+
+    wirePager(lesson, pageIdx, pages.length);
+    showView("fm-lesson");
+  }
+
+  function pagerHtml(pageIdx, total, backLabel, nextLabel){
+    var h = '<div style="display:flex;gap:10px;margin-top:22px">';
+    if(pageIdx > 0) h += '<button class="fm-btn ghost" id="fm-prev" style="margin:0;flex:0 0 44%">'+backLabel+'</button>';
+    h += '<button class="fm-btn" id="fm-next" style="margin:0;flex:1">' + nextLabel + '</button></div>';
+    return h;
+  }
+
+  function wirePager(lesson, pageIdx, total){
+    var pages = lessonPages(lesson);
+    var prev = $("fm-prev"), next = $("fm-next");
+    if(prev) prev.addEventListener("click", function(){ renderLessonPage(lesson, pageIdx - 1); });
+    if(next) next.addEventListener("click", function(){
+      var p = pages[pageIdx];
+      if(p.type === "quiz"){
+        var last = pages.length - 1;
+        renderLessonPage(lesson, last); /* quiz shell advances itself; fallback */
+      } else {
+        renderLessonPage(lesson, pageIdx + 1);
+      }
+    });
+  }
+
+  function renderPart(lesson, part, pageIdx, total){
+    var h = '<p class="fm-kicker">' + esc(lesson.title) + ' · ' + esc(part.kicker) + '</p>';
+    h += '<h1 class="fm-title" style="font-size:24px">' + esc(part.heading) + '</h1>';
+    if(pageIdx === 0 && lesson.pendingParts && lesson.pendingParts.length){
+      h += '<div class="fm-pending">' + esc(lesson.pendingParts.join(" · ")) + ' — transmission incoming</div>';
+    }
+    h += renderBlocks(part.blocks);
+    h += pagerHtml(pageIdx, total, "Back", pageIdx === total - 3 ? "Recap" : "Continue");
+    return h;
+  }
+
+  function renderBlocks(blocks){
+    return (blocks||[]).map(function(b){
+      if(b.t === "p") return '<p class="fm-block">' + b.text + '</p>';
+      if(b.t === "h") return '<div class="fm-block"><h3>' + b.text + '</h3></div>';
+      if(b.t === "list"){
+        return '<ul class="fm-list">' + (b.items||[]).map(function(i){
+          return '<li><b>' + i.label + '</b> ' + i.text + '</li>';
+        }).join("") + '</ul>';
+      }
+      if(b.t === "spec"){
+        return '<div class="fm-speclist"><h4>' + b.title + '</h4>'
+          + (b.rows||[]).map(function(r){
+              return '<div class="fm-specrow"><b>' + r[0] + '</b><span>' + r[1] + '</span></div>';
+            }).join("") + '</div>';
+      }
+      if(b.t === "tip"){
+        return '<div class="fm-tip"><p class="fm-kicker">Field note</p><p class="fm-block" style="margin:0">' + b.text + '</p></div>';
+      }
+      return "";
+    }).join("");
+  }
+
+  function renderRecap(lesson, pageIdx, total){
+    var r = lesson.recap;
+    var h = '<p class="fm-kicker">' + esc(lesson.title) + ' · Recap</p>';
+    h += '<h1 class="fm-title" style="font-size:24px">' + esc(lesson.title) + ': Recap</h1>';
+    h += '<div class="fm-pill">System Status: ' + esc(r.status || "") + '</div>';
+    h += '<div class="fm-card"><p class="fm-kicker" style="margin-bottom:8px">The Golden Rule</p>'
+      + '<p class="fm-rule">' + (r.goldenRule || "") + '</p></div>';
+    h += '<div class="fm-card"><p class="fm-kicker" style="margin-bottom:8px">The Decoder\u2019s Logic</p><ul class="fm-list" style="margin:0">'
+      + (r.logic||[]).map(function(i){
+          if(typeof i === "string") return '<li>' + i + '</li>';
+          return '<li><b>' + (i.label || "") + '</b> ' + (i.text || "") + '</li>';
+        }).join("")
+      + '</ul></div>';
+    var tk = r.takeaway, tkLabel = "Top Takeaway", tkText = "";
+    if(typeof tk === "string"){ tkText = tk; }
+    else if(tk){ tkLabel = tk.label || tkLabel; tkText = tk.text || ""; }
+    h += '<div class="fm-takeaway"><p class="fm-kicker">' + esc(tkLabel) + '</p><p style="margin:0">' + tkText + '</p></div>';
+    h += '<button class="fm-btn" id="fm-next">Start System Check</button>';
+    h += '<button class="fm-quiet" id="fm-prev" style="background:none;border:0;width:100%;cursor:pointer">Back to lesson</button>';
+    return h;
+  }
+
+  /* ---------------- quiz ---------------- */
+  function renderQuizShell(lesson, pageIdx, total){
+    quizState = { lesson:lesson, pageIdx:pageIdx, qi:0, score:0, answered:false };
+    renderQuestion();
+  }
+
+  function renderQuestion(){
+    var st = quizState;
+    var q = st.lesson.quiz.questions[st.qi];
+    var h = '<p class="fm-kicker">' + esc(st.lesson.title) + ' · System Check · ' + (st.qi+1) + ' of ' + st.lesson.quiz.questions.length + '</p>';
+    var sc = q.scenario || st.lesson.quiz.scenario || "";
+    if(sc) h += '<div class="fm-scenario"><p class="fm-kicker">Scenario</p><p>' + sc + '</p></div>';
+    h += '<p class="fm-q">' + q.q + '</p>';
+    h += '<div id="fm-choices">' + q.choices.map(function(c, i){
+      return '<button class="fm-choice" data-i="' + i + '">' + c + '</button>';
+    }).join("") + '</div>';
+    h += '<div id="fm-qfoot"></div>';
+    $("fm-lesson-body").innerHTML = h;
+    Array.prototype.forEach.call($("fm-choices").querySelectorAll(".fm-choice"), function(btn){
+      btn.addEventListener("click", function(){ answerQuiz(parseInt(btn.getAttribute("data-i"), 10)); });
+    });
+  }
+
+  function answerQuiz(choiceIdx){
+    var st = quizState;
+    if(!st || st.answered) return;
+    st.answered = true;
+    var q = st.lesson.quiz.questions[st.qi];
+    var btns = $("fm-choices").querySelectorAll(".fm-choice");
+    Array.prototype.forEach.call(btns, function(b, i){
+      b.disabled = true;
+      if(i === q.answer) b.classList.add("is-answer");
+    });
+    var picked = btns[choiceIdx];
+    if(choiceIdx === q.answer){
+      picked.classList.add("picked-correct");
+      st.score++;
+      sfx("correct");
+    } else {
+      picked.classList.add("picked-wrong");
+      sfx("wrong");
+    }
+    var isLast = st.qi === st.lesson.quiz.questions.length - 1;
+    $("fm-qfoot").innerHTML =
+      '<div class="fm-reveal"><b>The Reveal</b>' + q.reveal + '</div>'
+      + '<button class="fm-btn" id="fm-qnext">' + (isLast ? "See Results" : "Next Question") + '</button>';
+    $("fm-qnext").addEventListener("click", function(){
+      if(isLast) renderQuizResults();
+      else { st.qi++; st.answered = false; renderQuestion(); }
+    });
+  }
+
+  function renderQuizResults(){
+    var st = quizState;
+    var total = st.lesson.quiz.questions.length;
+    var perfect = st.score === total;
+    var show = function(){
+    var alreadyDone = !!progress.xpClaims["lesson:"+st.lesson.id];
+    var bonusClaimed = !!progress.xpClaims["perfect:"+st.lesson.id];
+    var prevBest = progress.quizBest[st.lesson.id] || 0;
+    var h = '<p class="fm-kicker">' + esc(st.lesson.title) + ' · System Check</p>';
+    h += '<h1 class="fm-title" style="font-size:24px">System check complete</h1>';
+    h += '<p class="fm-score">SCORE &middot; ' + st.score + ' OF ' + total + '</p>';
+    h += '<div class="fm-card" style="margin-top:16px">'
+      + (alreadyDone
+          ? '<div class="fm-xpline"><span>Replay · best ' + prevBest + '/' + total + '</span><span>no repeat XP</span></div>'
+          : '<div class="fm-xpline"><span>Lesson decoded</span><b>+' + LESSON_XP + ' XP</b></div>')
+      + (perfect && !bonusClaimed
+          ? '<div class="fm-xpline"><span class="fm-shimmer">Perfect system check</span><b>+' + PERFECT_BONUS + ' XP</b></div>'
+          : (perfect
+              ? '<div class="fm-xpline"><span class="fm-shimmer">Perfect system check</span><span class="fm-shimmer">bonus claimed</span></div>'
+              : '<div class="fm-xpline"><span>Perfect bonus</span><span>missed</span></div>'))
+      + '</div>';
+    h += '<button class="fm-btn" id="fm-complete">Complete Lesson</button>';
+    h += '<button class="fm-quiet" id="fm-retry" style="background:none;border:0;width:100%;cursor:pointer">Retake system check</button>';
+    $("fm-lesson-body").innerHTML = h;
+    $("fm-complete").addEventListener("click", async function(){
+      $("fm-complete").disabled = true;
+      lastAward = await awardLesson(st.lesson, st.score);
+      var pages = lessonPages(st.lesson);
+      var isChapter = lastAward.lines.some(function(l){ return l[0].indexOf("Chapter complete") === 0; });
+      var showDone = function(){
+        renderLessonPage(st.lesson, pages.length - 1);
+        if(lastAward.gained > 0){
+          toast("Signal decoded — +" + lastAward.gained + " XP");
+          sfx(isChapter ? "chapter" : "lesson");
+          if(isChapter) confettiBurst();
+        }
+      };
+      if(lastAward.gained > 0){
+        playFmSting(isChapter
+          ? { src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }
+          : { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" }, showDone);
+      } else {
+        showDone();
+      }
+    });
+    $("fm-retry").addEventListener("click", function(){
+      st.qi = 0; st.score = 0; st.answered = false; renderQuestion();
+    });
+    }; /* end show */
+    if(perfect){
+      sfx("perfect");
+      playFmSting({ src: "/media/you-win-success.mp4", kick: "YOU WIN" }, show);
+    } else {
+      show();
+    }
+  }
+
+  /* ---------------- done + XP ---------------- */
+  async function awardLesson(lesson, score){
+    var id = lesson.id;
+    var total = lesson.quiz.questions.length;
+    var isPerfect = score === total;
+    var already = progress.completedLessons.indexOf(id) !== -1;
+    var prevBest = progress.quizBest[id] || 0;
+    var result = { gained:0, lines:[], perfect:false, already:already,
+                   score:score, total:total, newBest:score > prevBest, mastered:isPerfect };
+    /* The XP ledger is the only payment authority: it is append-only and survives
+       every reset, so nothing can ever pay twice. Curriculum arrays below only
+       drive UI state (done rows, mastery, bonus-secured card). */
+    var claimed = function(k){ return !!progress.xpClaims[k]; };
+    if(!already){
+      progress.completedLessons.push(id);
+    }
+    if(!claimed("lesson:"+id)){
+      result.gained += LESSON_XP;
+      result.lines.push(["Lesson decoded", "+" + LESSON_XP + " XP"]);
+      progress.xpClaims["lesson:"+id] = true;
+    }
+    /* perfect bonus pays once ever — claimable on any replay, never again after */
+    if(isPerfect && !claimed("perfect:"+id)){
+      result.perfect = true;
+      result.gained += PERFECT_BONUS;
+      result.lines.push(["Perfect system check", "+" + PERFECT_BONUS + " XP"]);
+      progress.xpClaims["perfect:"+id] = true;
+    }
+    if(score > prevBest) progress.quizBest[id] = score;
+    progress.lastLesson = id;
+
+    var allDone = chapter.lessons.every(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; });
+    if(allDone && progress.chapterBonus.indexOf(chapter.id) === -1) progress.chapterBonus.push(chapter.id);
+    if(allDone && !claimed("chapter:"+chapter.id)){
+      progress.xpClaims["chapter:"+chapter.id] = true;
+      result.gained += CHAPTER_BONUS;
+      result.lines.push(["Chapter complete — " + chapter.title, "+" + CHAPTER_BONUS + " XP"]);
+    }
+
+    await saveProgress();
+
+    var d = db();
+    if(result.gained > 0 && d && user){
+      try{
+        await d.collection("users").doc(user.uid).update({
+          totalPoints: firebase.firestore.FieldValue.increment(result.gained)
+        });
+      }catch(e){}
+      await updateLeaderboard(user.uid, result.gained, 0);
+    }
+    return result;
+  }
+
+  function isoWeek(){
+    var d = new Date();
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+    var w1 = new Date(d.getFullYear(), 0, 4);
+    return d.getFullYear() + "-W" + String(1 + Math.round(((d.getTime() - w1.getTime()) / 86400000 - 3 + ((w1.getDay() + 6) % 7)) / 7)).padStart(2, "0");
+  }
+
+  async function updateLeaderboard(uid, xp, plays){
+    var d = db();
+    if(!d || (!xp && !plays)) return;
+    try{
+      var ref = d.collection("leaderboard").doc(uid);
+      var wk = isoWeek();
+      var snap = await ref.get();
+      if(!snap.exists){
+        var init = { displayName: _lbName || "Decoder", xp: xp || 0, plays: plays || 0, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        init["weeks." + wk] = xp || 0;
+        await ref.set(init);
+      } else {
+        var upd = {
+          xp: firebase.firestore.FieldValue.increment(xp || 0),
+          plays: firebase.firestore.FieldValue.increment(plays || 0),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        upd["weeks." + wk] = firebase.firestore.FieldValue.increment(xp || 0);
+        await ref.update(upd);
+      }
+    }catch(e){}
+  }
+
+  /* ---------------- celebration: stings, sound, confetti ---------------- */
+  var fmStingSeq = 0; /* generation counter: a stale timer from a dismissed sting must never hide a fresh replay */
+  function playFmSting(tier, onDone){
+    var mySeq = ++fmStingSeq;
+    tier = tier || { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" };
+    var sting = $("fmSting");
+    var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if(reduceMotion || !sting){ if(onDone) onDone(); return; }
+    var vid = $("fmStingVideo");
+    var kick = $("fmStingKicker");
+    var done = false;
+    var finish = function(){
+      if(done) return; done = true;
+      sting.classList.add("leaving");
+      setTimeout(function(){
+        if(mySeq !== fmStingSeq) return;
+        sting.classList.remove("on","leaving"); sting.hidden = true;
+      }, 450);
+      if(onDone) onDone();
+    };
+    kick.textContent = tier.kick;
+    vid.innerHTML = "";
+    var srcEl = document.createElement("source");
+    srcEl.src = tier.src; srcEl.type = "video/mp4";
+    srcEl.addEventListener("error", finish);
+    vid.appendChild(srcEl);
+    vid.onended = finish;
+    sting.onclick = finish;
+    sting.hidden = false;
+    requestAnimationFrame(function(){ sting.classList.add("on"); });
+    setTimeout(function(){ if(mySeq === fmStingSeq) finish(); }, 3600);
+    try{
+      vid.load();
+      var p = vid.play();
+      if(p && p.catch) p.catch(finish);
+    }catch(e){ finish(); }
+  }
+
+  /* ---------------- welcome video: Cynetis-7 invite before the paywall ----------------
+     Sound-on video can't autoplay (iOS Safari blocks it), so a tap gate starts playback:
+     locked view -> gate card -> tap Play -> fullscreen video w/ sound -> ended/tap -> paywall.
+     Shown once per device. Any failure (missing file, playback error) fails forward to the paywall. */
+  var FM_WELCOME_SRC = "/media/cynetis-7-invite.mp4";
+  var FM_WELCOME_SEEN = "fm_welcome_seen";
+  function fmWelcomeSeen(){ try{ return localStorage.getItem(FM_WELCOME_SEEN) === "1"; }catch(e){ return true; } }
+  function fmMarkWelcomeSeen(){ try{ localStorage.setItem(FM_WELCOME_SEEN, "1"); }catch(e){} }
+
+  function playFmWelcome(onDone){
+    var done = false;
+    var finish = function(reason){
+      if(done) return; done = true;
+      fmMarkWelcomeSeen();
+      if(reason === "ended") fmTrack("invite_complete");
+      else if(reason === "error") fmTrack("invite_error");
+      else fmTrack("invite_skip");
+      var w = $("fmWelcome"), vid = $("fmWelcomeVideo");
+      if(w && vid){ try{ vid.pause(); vid.removeAttribute("src"); vid.load(); }catch(e){} }
+      if(w){ w.classList.remove("on"); w.hidden = true; }
+      if(onDone) onDone();
+    };
+    var w = $("fmWelcome");
+    if(fmWelcomeSeen() || !w){ if(onDone) onDone(); return; }
+    var vid = $("fmWelcomeVideo"), gate = $("fmWelGate"),
+        skip = $("fmWelSkip"), playBtn = $("fmWelPlay"), skipGate = $("fmWelSkipGate");
+    gate.hidden = false; skip.hidden = true; vid.hidden = true;
+    vid.onended = function(){ finish("ended"); };
+    vid.onclick = function(){ finish("skipped"); };
+    skipGate.onclick = function(e){ if(e) e.preventDefault(); finish("skipped"); };
+    vid.innerHTML = "";
+    var srcEl = document.createElement("source");
+    srcEl.src = FM_WELCOME_SRC; srcEl.type = "video/mp4";
+    srcEl.addEventListener("error", function(){ finish("error"); });   /* missing file -> straight to paywall */
+    vid.appendChild(srcEl);
+    try{ vid.load(); }catch(e){}               /* warm the file so a 404 skips the gate */
+    playBtn.onclick = function(){
+      fmTrack("invite_start");
+      gate.hidden = true; skip.hidden = false; vid.hidden = false;
+      try{
+        var p = vid.play();                    /* user gesture -> sound allowed */
+        if(p && p.catch) p.catch(function(){ finish("error"); });
+      }catch(e){ finish("error"); }
+    };
+    w.hidden = false;
+    requestAnimationFrame(function(){ w.classList.add("on"); });
+  }
+
+  /* ---------------- paywall offer config (edit pricing here) ---------------- */
+  var FM_OFFER = {
+    annual: 119, annualPerMonth: "9.92", monthly: 15, guaranteeDays: 30,
+    checkoutUrl: "/products.html",      /* upgrade destination */
+    foundingTotal: 200
+  };
+
+  /* lightweight analytics hook: pushes to dataLayer when present, always emits a DOM event */
+  function fmTrack(name, data){
+    try{
+      if(window.dataLayer) window.dataLayer.push(Object.assign({ event: "fm_" + name }, data || {}));
+      document.dispatchEvent(new CustomEvent("fm:track", { detail: { name: name, data: data || {} } }));
+    }catch(e){}
+  }
+
+  /* free tier: exactly one free lesson — ch03-mode-dial. Everything else is Pro. */
+  function freeLessonId(){ return lessonById(FREE_LESSON_ID) ? FREE_LESSON_ID : null; }
+  function canAccess(lesson){
+    if(!lesson || !user) return false;   /* signed-out: nothing opens, paywall decides */
+    if(tier === "pro") return true;
+    return lesson.id === freeLessonId();
+  }
+
+  var _fmAudio = null;
+  function fmSoundOn(){ return localStorage.getItem("fm_sound") !== "off"; }
+  function sfx(kind){
+    try{
+      if(!fmSoundOn()) return;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return;
+      if(!_fmAudio) _fmAudio = new AC();
+      var ctx = _fmAudio;
+      if(ctx.state === "suspended") ctx.resume();
+      var seq = { correct:[660,880], wrong:[196,147], perfect:[523,659,784,1047],
+                  lesson:[523,659,784], chapter:[392,523,659,784,1047] }[kind] || [660];
+      var t0 = ctx.currentTime;
+      seq.forEach(function(f, i){
+        var t = t0 + i*0.09;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(kind === "wrong" ? 0.06 : 0.11, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(t); o.stop(t + 0.34);
+      });
+    }catch(e){}
+  }
+  function wireSoundToggle(){
+    var btn = $("fm-sound");
+    if(!btn) return;
+    var paint = function(){
+      var on = fmSoundOn();
+      btn.classList.toggle("off", !on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.innerHTML = '<i class="fa-solid ' + (on ? "fa-volume-high" : "fa-volume-xmark") + '" aria-hidden="true"></i>';
+    };
+    btn.addEventListener("click", function(){
+      localStorage.setItem("fm_sound", fmSoundOn() ? "off" : "on");
+      paint();
+      if(fmSoundOn()) sfx("correct");
+    });
+    paint();
+  }
+
+  function confettiBurst(){
+    try{
+      var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if(reduceMotion) return;
+      var cv = $("fmConfetti");
+      var ctx = cv.getContext("2d");
+      cv.width = window.innerWidth; cv.height = window.innerHeight;
+      cv.hidden = false;
+      var colors = ["#8deb00","#ffffff","#ffb300","#5ec900","#e8f5e0"];
+      var ps = [];
+      for(var i=0;i<70;i++){
+        ps.push({ x: cv.width/2 + (Math.random()-0.5)*120, y: cv.height*0.32,
+          vx:(Math.random()-0.5)*9, vy: Math.random()*-7-2, s: Math.random()*7+4,
+          r: Math.random()*Math.PI, vr:(Math.random()-0.5)*0.3,
+          c: colors[i % colors.length], life: 1 });
+      }
+      var t0 = performance.now();
+      (function tick(){
+        var el = performance.now() - t0;
+        ctx.clearRect(0,0,cv.width,cv.height);
+        ps.forEach(function(p){
+          p.vy += 0.28; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life -= 0.008;
+          ctx.save(); ctx.globalAlpha = Math.max(p.life, 0);
+          ctx.translate(p.x, p.y); ctx.rotate(p.r);
+          ctx.fillStyle = p.c; ctx.fillRect(-p.s/2, -p.s/2, p.s, p.s*0.6);
+          ctx.restore();
+        });
+        if(el < 2200) requestAnimationFrame(tick);
+        else { cv.hidden = true; ctx.clearRect(0,0,cv.width,cv.height); }
+      })();
+    }catch(e){}
+  }
+
+  function countUp(el, to, dur){
+    try{
+      var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if(reduceMotion || !el){ if(el) el.textContent = "+" + to + " XP"; return; }
+      var t0 = performance.now(); dur = dur || 900;
+      (function tick(){
+        var k = Math.min((performance.now()-t0)/dur, 1);
+        var eased = 1 - Math.pow(1-k, 3);
+        el.textContent = "+" + Math.round(to*eased) + " XP";
+        if(k < 1) requestAnimationFrame(tick);
+      })();
+    }catch(e){ if(el) el.textContent = "+" + to + " XP"; }
+  }
+
+  /* matrix-style decode: title scrambles through glyphs, then locks in left to right */
+  function decodeText(el){
+    if(!el) return;
+    var final = el.textContent;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if(reduce || !final) return;
+    var glyphs = "▓▒░<>/\\|+*#01", len = final.length, t0 = performance.now(), dur = 1100;
+    (function tick(){
+      var k = Math.min((performance.now()-t0)/dur, 1);
+      var locked = Math.floor(k*len), out = "";
+      for(var i=0;i<len;i++){
+        var ch = final.charAt(i);
+        out += (ch === " " || i < locked) ? ch : glyphs[(Math.random()*glyphs.length)|0];
+      }
+      el.textContent = out;
+      if(k < 1) requestAnimationFrame(tick); else el.textContent = final;
+    })();
+  }
+
+  function renderDone(lesson){
+    var r = lastAward || { gained:0, lines:[], perfect:false, already:true };
+    if(!r.total) r.total = lesson.quiz.questions.length;
+    r.score = r.score || 0;
+    var titleText = r.already ? "Lesson reviewed" : "Lesson decoded";
+    var h = '<div class="fm-done-hero rise-in" style="--d:.05s">'
+      + '<img src="/cynetis-avatar.png" alt="Cynetis-7" onerror="this.style.display=\'none\'" />'
+      + '<p class="fm-kicker">Cynetis-7</p>'
+      + '<h1 class="fm-title" style="font-size:26px" aria-label="' + titleText + '"><span id="fm-decode" aria-hidden="true">' + titleText + '</span></h1>'
+      + '<p class="fm-sub">' + esc(lesson.title) + ' — ' + esc(chapter.title) + '</p></div>';
+    /* score card: always shown — this is the redemption readout */
+    var best = progress.quizBest[lesson.id] || r.score;
+    h += '<div class="fm-card rise-in" style="--d:.14s;text-align:center">'
+      + '<p class="fm-kicker" style="margin-bottom:6px">System check</p>'
+      + '<p class="fm-title" style="font-size:22px;margin:0">' + r.score + '<span style="color:var(--faint)">/' + r.total + '</span></p>'
+      + '<div>'
+      + (r.mastered ? '<span class="fm-badge gold">Mastered</span>' : '')
+      + (r.newBest ? '<span class="fm-badge green">New best</span>' : '')
+      + ((!r.newBest && best > r.score) ? '<span class="fm-badge">Best ' + best + '/' + r.total + '</span>' : '')
+      + '</div></div>';
+    if(r.lines.length){
+      h += '<div class="fm-card rise-in" style="--d:.18s">'
+        + r.lines.map(function(l){
+            return '<div class="fm-xpline"><span>' + esc(l[0]) + '</span><b>' + esc(l[1]) + '</b></div>';
+          }).join("")
+        + '<div class="fm-xpline total"><span class="fm-shimmer">Total</span><b id="fm-xp-total" class="fm-shimmer">+0 XP</b></div></div>';
+    }
+    var next = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) === -1; })[0];
+    if(next && canAccess(next)) h += '<button class="fm-btn rise-in" style="--d:.3s" id="fm-done-next">Next Lesson — ' + esc(next.title) + '</button>';
+    else if(next) h += '<button class="fm-btn rise-in" style="--d:.3s" id="fm-done-next">Unlock Pro — ' + esc(next.title) + '</button>';
+    h += '<button class="fm-quiet rise-in" id="fm-done-retry" style="--d:.34s;background:none;border:0;width:100%;cursor:pointer">Retake system check</button>';
+    h += '<button class="fm-quiet rise-in" id="fm-done-back" style="--d:.38s;background:none;border:0;width:100%;cursor:pointer">Back to chapter</button>';
+    /* wire after paint via delegation below */
+    setTimeout(function(){
+      var nx = $("fm-done-next");
+      if(nx) nx.addEventListener("click", function(){ openLesson(next, 0); });
+      $("fm-done-retry").addEventListener("click", function(){ openLesson(lesson, quizPageIdx(lesson)); });
+      $("fm-done-back").addEventListener("click", function(){ renderChapter(); });
+      decodeText($("fm-decode"));
+      var xpEl = $("fm-xp-total");
+      if(xpEl && r.gained > 0) countUp(xpEl, r.gained, 900);
+    }, 0);
+    return h;
+  }
+})();
+  </script>
+  <script src="/scripts/ptr.js"></script>
+</body>
+</html>
