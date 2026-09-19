@@ -302,6 +302,11 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 .fm-chapter-pill.on .fm-ch-num{color:var(--neon)}
 .fm-chapter-pill.on .fm-ch-done{color:var(--dim)}
 .fm-chapter-pill:active{transform:scale(.97)}
+/* chapter bonus card: tappable to replay the celebration sting (no XP re-award) */
+.fm-bonus-replay{width:100%;display:block;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.fm-bonus-replay:active{transform:scale(.985)}
+.fm-replay-hint{display:block;margin:10px 0 0;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.fm-replay-hint i{margin-right:6px;font-size:10px}
 /* ---------- field-note tip callout ---------- */
 .fm-tip{border:1px solid rgba(141,235,0,.28);border-radius:12px;padding:13px 16px;margin:0 0 18px;background:rgba(141,235,0,.045)}
 .fm-tip .fm-kicker{margin-bottom:6px}
@@ -799,12 +804,20 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 
     var bonus = "";
     if(progress.chapterBonus.indexOf(chapter.id) !== -1){
-      bonus = '<div class="fm-card" style="border-color:var(--line2)"><p class="fm-kicker" style="margin-bottom:6px">Chapter bonus secured</p>'
-        + '<p class="fm-block" style="margin:0">Full decode — <b style="color:var(--neon)">+' + CHAPTER_BONUS + ' XP</b> awarded.</p></div>';
+      bonus = '<button class="fm-card fm-bonus-replay" id="fm-bonus-replay" style="border-color:var(--line2)" aria-label="Replay chapter celebration">'
+        + '<span class="fm-kicker" style="display:block;margin-bottom:6px">Chapter bonus secured</span>'
+        + '<span class="fm-block" style="display:block;margin:0">Full decode — <b style="color:var(--neon)">+' + CHAPTER_BONUS + ' XP</b> awarded.</span>'
+        + '<span class="fm-replay-hint"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>tap to replay the sting</span></button>';
     } else if(done === total && total > 0){
       bonus = '<div class="fm-card"><p class="fm-block" style="margin:0;color:var(--dim)">All lessons decoded. Your chapter bonus lands with your next lesson completion.</p></div>';
     }
     $("fm-ch-bonus").innerHTML = bonus;
+    /* secured card replays the celebration sting on tap — XP is never re-awarded */
+    var br = $("fm-bonus-replay");
+    if(br) br.addEventListener("click", function(){
+      sfx("chapter");
+      playFmSting({ src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }, null);
+    });
     $("fm-ch-reset").innerHTML = '<div class="fm-reset-row">'
       + '<button class="fm-quiet" id="fm-reset-chapter" style="background:none;border:0;cursor:pointer;font-size:12px">Reset chapter</button>'
       + '<span class="fm-dot" aria-hidden="true">·</span>'
@@ -1191,7 +1204,9 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   }
 
   /* ---------------- celebration: stings, sound, confetti ---------------- */
+  var fmStingSeq = 0; /* generation counter: a stale timer from a dismissed sting must never hide a fresh replay */
   function playFmSting(tier, onDone){
+    var mySeq = ++fmStingSeq;
     tier = tier || { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" };
     var sting = $("fmSting");
     var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1202,7 +1217,10 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     var finish = function(){
       if(done) return; done = true;
       sting.classList.add("leaving");
-      setTimeout(function(){ sting.classList.remove("on","leaving"); sting.hidden = true; }, 450);
+      setTimeout(function(){
+        if(mySeq !== fmStingSeq) return;
+        sting.classList.remove("on","leaving"); sting.hidden = true;
+      }, 450);
       if(onDone) onDone();
     };
     kick.textContent = tier.kick;
@@ -1215,7 +1233,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     sting.onclick = finish;
     sting.hidden = false;
     requestAnimationFrame(function(){ sting.classList.add("on"); });
-    setTimeout(finish, 3600);
+    setTimeout(function(){ if(mySeq === fmStingSeq) finish(); }, 3600);
     try{
       vid.load();
       var p = vid.play();
