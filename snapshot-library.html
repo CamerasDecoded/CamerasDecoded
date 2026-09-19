@@ -2,1300 +2,301 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Snapshot Library — Cameras Decoded</title>
 
+  <!-- ===== MASTER LOADER (injects header, bottom nav container, shared CSS) ===== -->
+  <script src="/scripts/master-loader.js"></script>
+
+  <!-- ===== SHARED COMPONENT CSS ===== -->
+  <link rel="stylesheet" href="header.css" />
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <!-- Shared Firebase & UI (must be placed before page script) -->
+  <!-- ===== FIREBASE SDKs ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  
-  <!-- YOUR SHARED LIBRARIES -->
-  <script src="js/firebase-init.js"></script>
-  <script src="js/cd-ui.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="header.js"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
 
   <style>
-    /* ============================================================
-       ROOT & RESET
-       ============================================================ */
     :root {
       --green: #8deb00;
-      --green-dim: rgba(141, 235, 0, 0.12);
+      --green-dim: rgba(141,235,0,0.12);
+      --green-glow: rgba(141,235,0,0.25);
       --text-muted: #b4b4b4;
       --bg-panel: #0A0A0A;
       --border-dim: #1A1A1A;
       --gold: #e0b12d;
+      --radius: 14px;
     }
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin:0; padding:0; box-sizing:border-box; }
     body {
+      display: block !important;
+      justify-content: normal !important;
+      align-items: normal !important;
+      padding: 0 !important;
       background: #050705;
       background-image:
-        radial-gradient(circle at 20% 30%, rgba(141, 235, 0, 0.12) 0%, transparent 50%),
-        radial-gradient(circle at 80% 70%, rgba(141, 235, 0, 0.08) 0%, transparent 45%),
-        linear-gradient(rgba(141, 235, 0, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(141, 235, 0, 0.04) 1px, transparent 1px);
+        radial-gradient(circle at 20% 30%, rgba(141,235,0,0.12) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(141,235,0,0.08) 0%, transparent 45%),
+        linear-gradient(rgba(141,235,0,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(141,235,0,0.04) 1px, transparent 1px);
       background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
       background-attachment: fixed;
       color: #ffffff;
       font-family: 'Montserrat', sans-serif;
       min-height: 100vh;
       overflow-x: hidden;
-      position: relative;
     }
-    a {
-      text-decoration: none;
-      color: inherit;
-      transition: 0.2s;
-    }
-    button {
-      cursor: pointer;
-    }
-    h1,
-    h2,
-    h3,
-    .mono {
-      font-family: 'Space Mono', monospace;
-    }
+    a { text-decoration:none; color:inherit; }
+    h1, h2, h3, .mono { font-family:'Space Mono', monospace; }
 
-    /* ============================================================
-       BINARY RAIN
-       ============================================================ */
-    #binary-rain {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 0;
-      pointer-events: none;
-      opacity: 0.2;
-    }
-    #rain-fade {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100vw;
-      height: 45vh;
-      background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.85) 60%, #000000 100%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* ============================================================
-       CHASING BORDER (cart)
-       ============================================================ */
-    @property --angle {
-      syntax: '<angle>';
-      initial-value: 0deg;
-      inherits: false;
-    }
-    @keyframes spinBorder {
-      to {
-        --angle: 360deg;
-      }
-    }
-    .chasing-border {
-      position: relative;
-      border-color: transparent !important;
-      background-clip: padding-box;
-    }
-    .chasing-border::before {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border-radius: inherit;
-      padding: 1px;
-      background: conic-gradient(from var(--angle), #8deb00, #00e5ff, #a0f520, #8deb00);
-      -webkit-mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
-      -webkit-mask-composite: xor;
-      mask: linear-gradient(black, black) content-box, linear-gradient(black, black) border-box;
-      mask-composite: exclude;
-      animation: spinBorder 4s linear infinite;
-      pointer-events: none;
-      z-index: 0;
-      will-change: transform;
-    }
-    .chasing-border>* {
-      position: relative;
-      z-index: 1;
-    }
-
-    /* ============================================================
-       FLOATING HEADER
-       ============================================================ */
-    .floating-header {
-      position: fixed;
-      top: 12px;
-      left: 252px;
-      right: 12px;
-      z-index: 99;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 6px 14px;
-      background: rgba(0, 0, 0, 0.4);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(141, 235, 0, 0.2);
-      border-radius: 30px;
-      margin: 0;
-      min-height: 40px;
-    }
-    .floating-header a {
-      color: var(--green);
-    }
-    .floating-left-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-    .floating-home-icon {
-      font-size: 15px;
-      transition: color 0.2s;
-    }
-    .floating-home-icon:hover {
-      color: #a0f520;
-    }
-    .floating-toggle {
-      display: none;
-      background: none;
-      border: none;
-      color: var(--green);
-      font-size: 20px;
-      cursor: pointer;
-      padding: 0 4px;
-      flex-shrink: 0;
-      margin-left: 2px;
-    }
-    .floating-toggle:hover {
-      color: #a0f520;
-    }
-    .floating-center-group {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex: 1 1 auto;
-      padding: 0 12px;
-      min-width: 0;
-      gap: 8px;
-    }
-    .floating-title {
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      color: var(--text-muted);
-      letter-spacing: 0.5px;
-      white-space: nowrap;
-    }
-    .floating-title strong {
-      color: var(--green);
-    }
-    .floating-right-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-    .cart-header-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: transparent;
-      border: 1px solid var(--green);
-      border-radius: 20px;
-      padding: 4px 10px;
-      color: var(--green);
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      transition: 0.2s;
-      text-decoration: none;
-      min-height: 26px;
-      line-height: 1;
-    }
-    .cart-header-link:hover {
-      background: rgba(141, 235, 0, 0.1);
-      box-shadow: 0 0 12px rgba(141, 235, 0, 0.3);
-    }
-    .cart-count-badge {
-      background: var(--green);
-      color: #000;
-      border-radius: 50%;
-      padding: 0 5px;
-      font-size: 9px;
-      font-weight: 700;
-      display: inline-block;
-      min-width: 16px;
-      text-align: center;
-      line-height: 16px;
-    }
-    .logout-btn {
-      background: transparent;
-      border: 1px solid var(--green);
-      color: var(--green);
-      padding: 4px 10px;
-      border-radius: 20px;
-      cursor: pointer;
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      white-space: nowrap;
-      transition: 0.2s;
-      min-height: 26px;
-      line-height: 1;
-    }
-    .logout-btn:hover {
-      background: rgba(141, 235, 0, 0.1);
-      box-shadow: 0 0 15px rgba(141, 235, 0, 0.3);
-    }
-
-    /* ---- Badge (matches operator dashboard) ---- */
-    .role-tier-badge {
-      background: rgba(10, 10, 10, 0.9);
-      border: 1px solid rgba(141, 235, 0, 0.3);
-      border-radius: 14px;
-      padding: 2px 12px;
-      font-size: 10px;
-      color: var(--green);
-      white-space: nowrap;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .glow-role {
-      font-weight: 700;
-      text-shadow: 0 0 8px #8deb00, 0 0 12px #8deb00;
-    }
-    .tier-text {
-      opacity: 0.8;
-    }
-
-    /* ============================================================
-       SIDEBAR (desktop visible, mobile slide-in)
-       ============================================================ */
-    .sidebar {
-      width: 240px;
-      background: rgba(0, 0, 0, 0.95);
-      padding: 24px;
-      border-right: 1px solid var(--border-dim);
-      position: fixed;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      height: 100vh;
-      overflow-y: auto;
-      z-index: 100;
-      flex-shrink: 0;
-      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .sidebar .logo img {
-      height: 120px;
-      width: auto;
-    }
-    .sidebar .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 0;
-      color: var(--text-muted);
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      border-bottom: 1px solid transparent;
-      transition: all 0.2s;
-    }
-    .sidebar .nav-item i {
-      width: 20px;
-      text-align: center;
-    }
-    .sidebar .nav-item:hover {
-      color: var(--green);
-      border-bottom: 1px solid var(--green);
-    }
-    .sidebar .nav-item.active {
-      color: var(--green);
-    }
-    .sidebar-divider {
-      border: none;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      margin: 8px 0;
-    }
-    /* Mobile slide-in */
-    .sidebar-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      z-index: 99;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-    .sidebar-backdrop.active {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    .sidebar.mobile-open {
-      transform: translateX(0);
-    }
-
-    /* ============================================================
-       MAIN CONTENT
-       ============================================================ */
     .main-content {
-      margin-left: 240px;
-      padding: 80px 40px 40px;
-      max-width: calc(1200px + 240px);
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 96px 20px 120px;
       position: relative;
       z-index: 2;
-      animation: fadeIn 0.5s ease-in-out forwards;
-    }
-    @keyframes fadeIn {
-      0% {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      100% {
-        opacity: 1;
-        transform: translateY(0);
-      }
     }
 
-    /* ============================================================
-       TWO-TIER LAYOUT (50% opacity blocks)
-       ============================================================ */
-    .tier-container {
-      display: flex;
-      flex-direction: column;
-      gap: 32px;
-      margin-top: 8px;
+    /* ===== HERO ===== */
+    .lib-hero { margin-bottom: 30px; }
+    .kicker {
+      font-family:'Space Mono',monospace; font-size:11px; letter-spacing:3px;
+      text-transform:uppercase; color:var(--green); margin-bottom:10px;
+    }
+    .lib-hero h1 { font-size: clamp(28px, 6vw, 44px); font-weight:700; margin-bottom:10px; }
+    .lib-hero .sub { color:var(--text-muted); font-size:15px; max-width:560px; margin-bottom:20px; }
+    .search-wrap { position:relative; max-width:520px; margin-bottom:16px; }
+    .search-wrap i {
+      position:absolute; left:16px; top:50%; transform:translateY(-50%);
+      color:#666; font-size:14px; pointer-events:none;
+    }
+    .search-wrap input {
+      width:100%; padding:14px 16px 14px 44px;
+      background:rgba(255,255,255,0.03); border:1px solid var(--border-dim);
+      border-radius:12px; color:#fff; font-size:15px; font-family:'Montserrat',sans-serif;
+      outline:none; transition:border-color .2s, box-shadow .2s;
+    }
+    .search-wrap input:focus { border-color:var(--green); box-shadow:0 0 24px rgba(141,235,0,0.08); }
+    .search-wrap input::placeholder { color:#555; }
+    .filter-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; align-items:center; }
+    .filter-label {
+      font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px;
+      text-transform:uppercase; color:#666; margin-right:4px;
+    }
+    .fchip {
+      border:1px solid var(--border-dim); border-radius:999px;
+      background:rgba(255,255,255,0.02); color:#bbb;
+      padding:7px 14px; font-size:12px; font-family:'Montserrat',sans-serif;
+      cursor:pointer; transition:border-color .2s, background .2s, color .2s;
+    }
+    .fchip:hover { border-color:rgba(141,235,0,.4); color:#fff; }
+    .fchip.selected { border-color:var(--green); background:var(--green-dim); color:#fff; }
+
+    /* ===== SECTIONS ===== */
+    .lib-section { margin-bottom:44px; }
+    .section-head {
+      display:flex; align-items:baseline; justify-content:space-between;
+      margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border-dim);
+    }
+    .section-head h2 { font-size:18px; font-weight:700; }
+    .section-head .count {
+      font-family:'Space Mono',monospace; font-size:11px; letter-spacing:1px;
+      color:var(--text-muted); text-transform:uppercase;
     }
 
-    .tier-block {
-      border-radius: 12px;
-      padding: 20px 24px;
-      position: relative;
-      overflow: hidden;
-      border: 1px solid var(--border-dim);
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
+    /* ===== SAVED SHELF ===== */
+    .shelf {
+      display:flex; gap:14px; overflow-x:auto; padding:4px 2px 14px;
+      scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
+      scrollbar-width:thin; scrollbar-color:#2a2a2a transparent;
     }
-    /* 50% opacity overlay = background shows through at 50% */
-    .tier-block::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 0;
+    .shelf-card {
+      flex:0 0 148px; scroll-snap-align:start; position:relative;
+      border-radius:var(--radius); overflow:hidden;
+      border:1px solid var(--border-dim); background:var(--bg-panel);
+      transition:border-color .2s, transform .2s;
     }
-    .tier-block>* {
-      position: relative;
-      z-index: 1;
+    .shelf-card:hover { border-color:rgba(141,235,0,.45); transform:translateY(-2px); }
+    .shelf-card .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+    .shelf-card .shelf-meta { padding:8px 10px; }
+    .shelf-card .shelf-meta .t { font-size:11px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .shelf-card .shelf-meta .s { font-size:10px; color:var(--text-muted); font-family:'Space Mono',monospace; }
+    .remove-btn {
+      position:absolute; top:8px; right:8px; width:28px; height:28px;
+      border-radius:50%; border:1px solid rgba(255,255,255,.15);
+      background:rgba(0,0,0,.65); color:#fff; font-size:12px;
+      display:flex; align-items:center; justify-content:center; cursor:pointer;
+      transition:background .2s, border-color .2s; z-index:2;
     }
+    .remove-btn:hover { background:rgba(255,60,60,.85); border-color:transparent; }
+    .shelf-empty {
+      flex:0 0 100%; border:1px dashed #2a2a2a; border-radius:var(--radius);
+      padding:34px 20px; text-align:center; color:var(--text-muted); font-size:14px;
+    }
+    .shelf-empty i { font-size:28px; color:var(--green-dim); display:block; margin-bottom:10px; }
 
-    /* ---- TIER 1: LIBRARY ---- */
-    .tier-library {
-      max-height: 500px;
-      display: flex;
-      flex-direction: column;
-    }
-    .tier-library .tier-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-    .tier-library .tier-header h2 {
-      font-family: 'Space Mono', monospace;
-      font-size: 18px;
-      color: var(--green);
-    }
-    .tier-library .search-box {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .tier-library .search-box input,
-    .tier-library .search-box select {
-      padding: 6px 12px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-dim);
-      border-radius: 6px;
-      color: #fff;
-      font-size: 12px;
-      font-family: 'Montserrat', sans-serif;
-      outline: none;
-      min-width: 120px;
-      transition: border-color 0.2s;
-      padding-right: 30px;
-    }
-    .tier-library .search-box input:focus,
-    .tier-library .search-box select:focus {
-      border-color: var(--green);
-    }
-    .tier-library .search-box select {
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238deb00' stroke-width='2' fill='none'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      padding-right: 30px;
-    }
-
-    .library-scroll {
-      flex: 1;
-      overflow-y: auto;
-      padding-right: 4px;
-    }
-    .library-scroll::-webkit-scrollbar {
-      width: 4px;
-    }
-    .library-scroll::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    .library-scroll::-webkit-scrollbar-thumb {
-      background: var(--green-dim);
-      border-radius: 4px;
-    }
-
-    .atlas-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 12px;
-    }
-    .atlas-item {
-      background: #0A0A0A;
-      border: 1px solid var(--border-dim);
-      border-radius: 8px;
-      padding: 12px 14px;
-      transition: border-color 0.2s, transform 0.1s;
-    }
-    .atlas-item:hover {
-      border-color: var(--green);
-      transform: translateY(-2px);
-    }
-    .atlas-item .camera {
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      color: var(--green);
-    }
-    .atlas-item .card-link {
-      display: block;
-      color: #fff;
-      text-decoration: none;
-    }
-    .atlas-item .title {
-      font-size: 13px;
-      font-weight: 600;
-      margin-top: 2px;
-      color: #fff;
-    }
-    .atlas-item .meta {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-    .atlas-item .save-btn {
-      margin-top: 8px;
-      padding: 2px 12px;
-      background: transparent;
-      border: 1px solid var(--green);
-      border-radius: 4px;
-      color: var(--green);
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      transition: 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      cursor: pointer;
-    }
-    .atlas-item .save-btn:hover {
-      background: rgba(141, 235, 0, 0.1);
-    }
-    .atlas-item .save-btn.saved {
-      border-color: var(--text-muted);
-      color: var(--text-muted);
-      cursor: default;
-    }
-    .atlas-item .save-btn.saved:hover {
-      background: transparent;
-    }
-
+    /* ===== ATLAS ===== */
+    .brand-group { margin-bottom:36px; }
     .brand-label {
-      grid-column: 1 / -1;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: var(--green);
-      padding: 8px 0 4px 0;
-      border-bottom: 1px solid var(--border-dim);
-      margin-bottom: 4px;
+      font-family:'Space Mono',monospace; font-size:12px; letter-spacing:2px;
+      text-transform:uppercase; color:var(--green); margin-bottom:14px;
+      display:flex; align-items:center; gap:10px;
+    }
+    .brand-label::after { content:''; flex:1; height:1px; background:var(--border-dim); }
+    .card-grid {
+      display:grid; grid-template-columns:repeat(2, 1fr); gap:14px;
+    }
+    @media (min-width:700px) { .card-grid { grid-template-columns:repeat(3, 1fr); } }
+    @media (min-width:1024px) { .card-grid { grid-template-columns:repeat(4, 1fr); } }
+
+    .snap-card {
+      border:1px solid var(--border-dim); border-radius:var(--radius);
+      background:rgba(10,10,10,.6); overflow:hidden;
+      transition:border-color .2s, transform .2s, box-shadow .2s;
+      display:flex; flex-direction:column;
+    }
+    .snap-card:hover {
+      border-color:rgba(141,235,0,.45); transform:translateY(-3px);
+      box-shadow:0 12px 32px rgba(0,0,0,.5);
+    }
+    .snap-card .thumb, .shelf-card .thumb { aspect-ratio:9/16; position:relative; background:#0d0f0d; display:block; overflow:hidden; }
+    .snap-card .thumb img, .shelf-card .thumb img {
+      position:absolute; inset:0; width:100%; height:100%;
+      object-fit:cover; display:block;
+    }
+    .thumb-ph {
+      position:absolute; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:8px; padding:16px;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(141,235,0,.08), transparent 60%),
+        #0d0f0d;
+      text-align:center;
+    }
+    .thumb-ph i { font-size:26px; color:var(--green); opacity:.7; }
+    .thumb-ph span { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1px; color:#777; text-transform:uppercase; }
+    .snap-meta { padding:12px 12px 0; flex:1; }
+    .snap-meta .cam { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1px; color:var(--green); text-transform:uppercase; margin-bottom:4px; }
+    .snap-meta .ttl { font-size:13px; font-weight:600; margin-bottom:4px; }
+    .snap-meta .dif {
+      display:inline-block; font-family:'Space Mono',monospace; font-size:9px;
+      letter-spacing:1px; text-transform:uppercase; padding:3px 8px; border-radius:999px;
+      border:1px solid var(--border-dim); color:var(--text-muted); margin-bottom:10px;
+    }
+    .dif.beginner { border-color:rgba(141,235,0,.4); color:var(--green); }
+    .dif.intermediate { border-color:rgba(224,177,45,.4); color:var(--gold); }
+    .save-btn {
+      margin:0 12px 12px; padding:10px; border-radius:10px;
+      border:1px solid var(--border-dim); background:rgba(255,255,255,.03);
+      color:#fff; font-family:'Space Mono',monospace; font-size:12px; letter-spacing:1px;
+      cursor:pointer; transition:border-color .2s, background .2s;
+      display:flex; align-items:center; justify-content:center; gap:8px;
+    }
+    .save-btn:hover { border-color:rgba(141,235,0,.5); }
+    .save-btn.saved { border-color:var(--green); background:var(--green-dim); color:var(--green); }
+    .no-results {
+      grid-column:1/-1; text-align:center; padding:50px 0; color:var(--text-muted); font-size:14px;
     }
 
-    /* ---- TIER 2: SAVED CARDS CAROUSEL ---- */
-    .tier-saved .tier-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 14px;
+    /* ===== SIGN-IN BANNER ===== */
+    .signin-banner {
+      border:1px solid rgba(141,235,0,.25); border-radius:var(--radius);
+      background:linear-gradient(135deg, rgba(141,235,0,.07), rgba(141,235,0,.02));
+      padding:20px; margin-bottom:36px; display:flex; flex-wrap:wrap;
+      align-items:center; justify-content:space-between; gap:14px;
     }
-    .tier-saved .tier-header h2 {
-      font-family: 'Space Mono', monospace;
-      font-size: 18px;
-      color: var(--green);
+    .signin-banner .msg { font-size:14px; color:#ddd; }
+    .signin-banner .msg strong { color:#fff; }
+    .btn-login {
+      padding:10px 26px; background:var(--green); border:none; border-radius:10px;
+      color:#000; font-family:'Space Mono',monospace; font-size:13px; font-weight:700;
+      cursor:pointer; transition:transform .2s, box-shadow .2s; white-space:nowrap;
     }
-    .tier-saved .tier-header .card-count {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-    .tier-saved .tier-header .add-card-btn {
-      text-decoration: none;
-      padding: 4px 16px;
-      background: var(--green);
-      border: none;
-      border-radius: 6px;
-      color: #000;
-      font-family: 'Space Mono', monospace;
-      font-size: 12px;
-      font-weight: 700;
-      transition: 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-    }
-    .tier-saved .tier-header .add-card-btn:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 20px rgba(141, 235, 0, 0.3);
-    }
-    .add-card-helper {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-top: 2px;
-      opacity: 0.7;
-      font-style: italic;
+    .btn-login:hover { transform:scale(1.03); box-shadow:0 0 30px rgba(141,235,0,.3); }
+
+    .lib-footer {
+      text-align:center; color:#555; font-size:11px; font-family:'Space Mono',monospace;
+      letter-spacing:1px; padding:30px 0 10px;
     }
 
-    .carousel-wrapper {
-      position: relative;
-      overflow: hidden;
-      padding: 4px 0;
+    /* ===== TOAST ===== */
+    #toast-container {
+      position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
+      z-index:9999; display:flex; flex-direction:column; gap:8px; align-items:center;
+      pointer-events:none; width:max-content; max-width:92vw;
     }
-    .carousel-track {
-      display: flex;
-      gap: 16px;
-      overflow-x: auto;
-      padding: 8px 4px 16px 4px;
-      scroll-behavior: smooth;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin;
-      scrollbar-color: var(--green-dim) transparent;
+    .toast {
+      background:#111; border:1px solid var(--green); color:#fff;
+      padding:12px 20px; border-radius:10px; font-size:13px;
+      opacity:0; transform:translateY(8px); transition:opacity .3s, transform .3s;
+      max-width:92vw; text-align:center;
     }
-    .carousel-track::-webkit-scrollbar {
-      height: 4px;
-    }
-    .carousel-track::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    .carousel-track::-webkit-scrollbar-thumb {
-      background: var(--green-dim);
-      border-radius: 4px;
-    }
+    .toast.show { opacity:1; transform:translateY(0); }
+    .toast.error { border-color:#ff4a4a; }
 
-    .carousel-card {
-      flex: 0 0 160px;
-      background: #0A0A0A;
-      border: 1px solid var(--border-dim);
-      border-radius: 10px;
-      padding: 12px;
-      text-align: center;
-      transition: border-color 0.2s, transform 0.2s;
-      position: relative;
-      min-height: 180px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-    .carousel-card:hover {
-      border-color: var(--green);
-      transform: translateY(-4px) scale(1.02);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    }
-    .carousel-card img {
-      width: 100%;
-      height: 90px;
-      object-fit: cover;
-      border-radius: 6px;
-      background: #1a1a1a;
-      margin-bottom: 8px;
-    }
-    .carousel-card .card-name {
-      font-weight: 600;
-      font-size: 13px;
-      color: #fff;
-      line-height: 1.3;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .carousel-card .card-id {
-      font-size: 10px;
-      color: var(--text-muted);
-      font-family: 'Space Mono', monospace;
-      margin-top: 2px;
-    }
-    .carousel-card .remove-btn {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      background: rgba(0, 0, 0, 0.7);
-      border: none;
-      color: #ff4a4a;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      font-size: 11px;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      transition: 0.2s;
-      cursor: pointer;
-    }
-    .carousel-card:hover .remove-btn {
-      display: flex;
-    }
-    .carousel-card .remove-btn:hover {
-      background: #ff4a4a;
-      color: #000;
-    }
-    .carousel-card .empty-placeholder {
-      color: var(--text-muted);
-      font-size: 13px;
-      font-style: italic;
-      padding: 20px 0;
-    }
-    .carousel-card .card-link {
-      display: block;
-      width: 100%;
-      height: 100%;
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .carousel-nav {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin-top: 8px;
-    }
-    .carousel-nav button {
-      background: transparent;
-      border: 1px solid var(--border-dim);
-      border-radius: 50%;
-      width: 32px;
-      height: 32px;
-      color: var(--text-muted);
-      font-size: 14px;
-      transition: 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-    .carousel-nav button:hover {
-      border-color: var(--green);
-      color: var(--green);
-    }
-
-    /* ============================================================
-       LOGIN PROMPT
-       ============================================================ */
-    .login-prompt {
-      text-align: center;
-      padding: 14px 20px;
-      margin-bottom: 20px;
-      border: 1px solid var(--border-dim);
-      border-radius: 10px;
-      background: rgba(0, 0, 0, 0.3);
-      color: var(--text-muted);
-      font-size: 14px;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .login-prompt.show {
-      display: flex;
-    }
-    .login-prompt a {
-      color: var(--green);
-      text-decoration: underline;
-    }
-    .login-prompt a:hover {
-      color: #a0f520;
-    }
-
-    /* ============================================================
-       FOOTER
-       ============================================================ */
-    .footer {
-      border-top: 1px solid var(--border-dim);
-      padding-top: 24px;
-      margin-top: 40px;
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-      font-size: 12px;
-      color: var(--text-muted);
-      text-align: center;
-    }
-    .footer .socials {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-    }
-    .footer .socials a {
-      color: #fff;
-      font-size: 18px;
-      transition: 0.2s;
-    }
-    .footer .socials a:hover {
-      color: var(--green);
-    }
-    .footer .footer-links {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-    .footer .footer-links a {
-      color: var(--green);
-    }
-    .footer .footer-links a:hover {
-      color: #a0f520;
-    }
-
-    .back-link-wrap {
-      margin-top: 24px;
-      text-align: center;
-    }
-    .back-link-wrap a {
-      color: var(--green);
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: gap 0.2s;
-    }
-    .back-link-wrap a:hover {
-      gap: 12px;
-    }
-
-    /* ============================================================
-       RESPONSIVE
-       ============================================================ */
-    @media (max-width: 1024px) {
-      .sidebar {
-        transform: translateX(-100%);
-        width: 280px;
-      }
-      .sidebar.mobile-open {
-        transform: translateX(0);
-      }
-      .sidebar-backdrop.active {
-        opacity: 1;
-        pointer-events: auto;
-      }
-      .main-content {
-        margin-left: 0;
-        padding: 100px 20px 20px;
-      }
-      .floating-header {
-        left: 10px;
-        right: 10px;
-        top: 70px;
-        padding: 6px 12px;
-        gap: 6px;
-        min-height: 36px;
-      }
-      .floating-toggle {
-        display: block !important;
-        margin-left: 4px;
-      }
-      .floating-left-group {
-        flex: 0 1 auto;
-      }
-      .floating-center-group {
-        flex: 1 1 auto;
-        justify-content: center;
-      }
-      .floating-right-group {
-        gap: 6px;
-        flex-shrink: 0;
-      }
-      .cart-header-link {
-        font-size: 10px;
-        padding: 3px 8px;
-        min-height: 22px;
-      }
-      .logout-btn {
-        font-size: 10px;
-        padding: 3px 8px;
-        min-height: 22px;
-      }
-      .tier-library {
-        max-height: 380px;
-      }
-      .atlas-grid {
-        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-      }
-      .floating-title {
-        font-size: 11px;
-      }
-      .role-tier-badge {
-        font-size: 9px;
-        padding: 1px 10px;
-      }
-    }
-
-    @media (max-width: 600px) {
-      .main-content {
-        padding: 80px 12px 20px;
-      }
-      .floating-header {
-        padding: 4px 10px;
-        min-height: 32px;
-        top: 60px;
-      }
-      .floating-title {
-        font-size: 10px;
-      }
-      .floating-center-group {
-        padding: 0 4px;
-      }
-      .cart-header-link {
-        font-size: 9px;
-        padding: 2px 6px;
-        min-height: 20px;
-      }
-      .cart-count-badge {
-        font-size: 8px;
-        min-width: 14px;
-        line-height: 14px;
-      }
-      .tier-library {
-        max-height: 340px;
-        padding: 14px;
-      }
-      .tier-library .search-box input,
-      .tier-library .search-box select {
-        font-size: 11px;
-        padding: 4px 10px;
-        min-width: 80px;
-        padding-right: 24px;
-      }
-      .atlas-grid {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 8px;
-      }
-      .atlas-item {
-        padding: 10px;
-      }
-      .atlas-item .camera {
-        font-size: 10px;
-      }
-      .atlas-item .title {
-        font-size: 12px;
-      }
-      .atlas-item .meta {
-        font-size: 10px;
-      }
-      .atlas-item .save-btn {
-        font-size: 9px;
-        padding: 1px 10px;
-      }
-      .tier-saved {
-        padding: 14px;
-      }
-      .carousel-card {
-        flex: 0 0 130px;
-        min-height: 150px;
-        padding: 10px;
-      }
-      .carousel-card img {
-        height: 70px;
-      }
-      .carousel-card .card-name {
-        font-size: 11px;
-      }
-      .carousel-card .card-id {
-        font-size: 9px;
-      }
-      .carousel-nav button {
-        width: 28px;
-        height: 28px;
-        font-size: 12px;
-      }
-      .back-link-wrap a {
-        font-size: 12px;
-      }
-      .login-prompt {
-        font-size: 12px;
-        padding: 8px 12px;
-      }
-      .role-tier-badge {
-        font-size: 8px;
-        padding: 1px 8px;
-      }
-      .floating-home-icon {
-        font-size: 13px;
-      }
-      .floating-toggle {
-        font-size: 17px;
-      }
-    }
-
-    @media (min-width: 1025px) {
-      .floating-toggle {
-        display: none !important;
-      }
-      .sidebar-backdrop {
-        display: none !important;
-      }
-      .floating-left-group {
-        flex: 0 1 auto;
-      }
-      .floating-center-group {
-        flex: 1 1 auto;
-        justify-content: center;
-      }
-    }
-
-    /* ============================================================
-       LOADING SPINNER
-       ============================================================ */
-    .loading-spinner {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 40px 0;
-      color: var(--text-muted);
-      font-family: 'Space Mono', monospace;
-      font-size: 14px;
-      gap: 12px;
-    }
-    .loading-spinner i {
-      color: var(--green);
-      font-size: 24px;
+    @media (prefers-reduced-motion: reduce) {
+      .snap-card, .shelf-card, .save-btn, .fchip, .btn-login, .toast { transition:none; }
+      .shelf { scroll-snap-type:none; }
     }
   </style>
 </head>
 <body>
 
-  <!-- ===== BINARY RAIN ===== -->
-  <canvas id="binary-rain"></canvas>
-  <div id="rain-fade"></div>
+  <main class="main-content">
+    <div id="toast-container"></div>
 
-  <!-- ===== SIDEBAR BACKDROP ===== -->
-  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-
-  <!-- ===== SIDEBAR ===== -->
-  <aside class="sidebar" id="sidebar">
-    <div class="logo">
-      <a href="https://camerasdecoded.com"><img src="https://camerasdecoded.com/cameras-decoded-logo.png" alt="Cameras Decoded" /></a>
-    </div>
-    <div style="display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:20px; align-self:flex-start;">
-      <a href="https://camerasdecoded.com/login.html" class="header-login-btn" style="color:var(--green); font-family:'Space Mono',monospace; font-size:12px; border:1px solid var(--green); padding:0 10px; border-radius:20px; background:transparent; text-decoration:none; width:fit-content;">Log in</a>
-      <a href="https://camerasdecoded.com/signup.html" class="header-login-btn" style="color:var(--green); font-family:'Space Mono',monospace; font-size:12px; border:1px solid var(--green); padding:0 10px; border-radius:20px; background:transparent; text-decoration:none; width:fit-content;">Sign Up</a>
-    </div>
-    <div class="nav-group" id="navGroupDesktop">
-      <a href="https://camerasdecoded.com/operator-dashboard.html" class="nav-item"><i class="fas fa-chart-simple"></i> Dashboard</a>
-      <a href="https://camerasdecoded.com" class="nav-item"><i class="fas fa-home"></i> Home</a>
-      <a href="https://camerasdecoded.com/operators.html" class="nav-item"><i class="fas fa-user-astronaut"></i> Operators</a>
-      <a href="https://camerasdecoded.com/community.html" class="nav-item"><i class="fas fa-users"></i> Community</a>
-      <a href="https://camerasdecoded.com/educators-pdf-viewer.html" class="nav-item"><i class="fas fa-chalkboard-teacher"></i> Instructors</a>
-      <a href="https://camerasdecoded.com/partners.html" class="nav-item"><i class="fas fa-handshake"></i> Partners</a>
-      <hr class="sidebar-divider">
-      <a href="https://camerasdecoded.com/journey.html" class="nav-item"><i class="fas fa-route"></i> Journey</a>
-      <a href="https://camerasdecoded.com/products.html" class="nav-item"><i class="fas fa-box-open"></i> Products</a>
-      <a href="https://camerasdecoded.com/protocols.html" class="nav-item"><i class="fas fa-code-branch"></i> Protocols</a>
-      <a href="index.html" class="nav-item active"><i class="fas fa-id-card"></i> Snapshot Cards</a>
-      <a href="https://camerasdecoded.com/cynetis-7.html" class="nav-item"><i class="fas fa-robot"></i> Cynetis-7</a>
-      <hr class="sidebar-divider">
-      <a href="https://camerasdecoded.com/blog-updates.html" class="nav-item"><i class="fas fa-newspaper"></i> Blog/Updates</a>
-      <a href="https://camerasdecoded.com/podcast.html" class="nav-item"><i class="fas fa-podcast"></i> Podcast</a>
-      <a href="https://camerasdecoded.com/inner-signal.html" class="nav-item"><i class="fas fa-brain"></i> Inner Signal</a>
-      <a href="https://camerasdecoded.com/about.html" class="nav-item"><i class="fas fa-info-circle"></i> About</a>
-    </div>
-  </aside>
-
-  <!-- ===== FLOATING HEADER ===== -->
-  <div class="floating-header" id="floatingHeader">
-    <div class="floating-left-group">
-      <span id="roleTierBadge" class="role-tier-badge"><span class="glow-role">Operator</span> · <span class="tier-text" id="userTierText">Free</span></span>
-      <a href="https://camerasdecoded.com" class="floating-home-icon" title="Home"><i class="fas fa-home"></i></a>
-    </div>
-
-    <div class="floating-center-group">
-      <span class="floating-title"><strong>Snapshot</strong> Library</span>
-    </div>
-
-    <div class="floating-right-group">
-      <a href="https://camerasdecoded.com/cart.html" class="cart-header-link chasing-border" id="cartHeaderLink">
-        <i class="fas fa-shopping-cart"></i> <span id="cartHeaderLabel">Cart</span>
-        <span class="cart-count-badge" id="cartHeaderCount" style="display:none;">0</span>
-      </a>
-      <button class="logout-btn" id="floatingLogoutBtn" style="display:none;" onclick="handleLogout()">Logout</button>
-      <span class="floating-toggle" id="floatingToggle"><i class="fas fa-bars"></i></span>
-    </div>
-  </div>
-
-  <!-- ===== LOGIN PROMPT ===== -->
-  <div class="login-prompt" id="auth-prompt">
-    <i class="fas fa-lock"></i>
-    <span>Please <a href="https://camerasdecoded.com/login.html">log in</a> to save cards and manage your library.</span>
-  </div>
-
-  <!-- ===== MAIN CONTENT ===== -->
-  <div class="main-content" id="app-layout">
-
-    <div class="tier-container">
-
-      <!-- ---- TIER 1: DECODER ATLAS ---- -->
-      <div class="tier-block tier-library" style="background-image: url('https://via.placeholder.com/1200x600/0A0A0A/8deb00?text=Decoder+Atlas+BG');">
-        <div class="tier-header">
-          <h2><i class="fas fa-compass" style="color:var(--green);"></i> Decoder Atlas</h2>
-          <div class="search-box">
-            <input type="text" id="atlas-search" placeholder="Search..." oninput="filterAtlas()" />
-            <select id="atlas-scenario" onchange="filterAtlas()">
-              <option value="">All Scenarios</option>
-              <option value="Portrait">Portrait</option>
-              <option value="Event">Event</option>
-              <option value="Sports">Sports</option>
-              <option value="Real Estate">Real Estate</option>
-              <option value="Street">Street</option>
-            </select>
-            <select id="atlas-lighting" onchange="filterAtlas()">
-              <option value="">All Lighting</option>
-              <option value="Low Light">Low Light</option>
-              <option value="Bright Natural">Bright Natural</option>
-              <option value="Golden Hour">Golden Hour</option>
-              <option value="Indoor Artificial">Indoor Artificial</option>
-              <option value="Overcast">Overcast</option>
-            </select>
-          </div>
-        </div>
-        <div class="library-scroll">
-          <div class="atlas-grid" id="atlas-grid">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
+    <!-- ===== HERO ===== -->
+    <div class="lib-hero">
+      <div class="kicker">Snapshot Library</div>
+      <h1>Cheat sheets for the field.</h1>
+      <p class="sub">One-page camera setups for real scenarios — save the ones you shoot and pull them up on your next job.</p>
+      <div class="search-wrap">
+        <i class="fas fa-search"></i>
+        <input type="search" id="libSearch" placeholder="Search camera, scenario, lighting…" aria-label="Search snapshot cards" />
       </div>
-
-      <!-- ---- TIER 2: SAVED CARDS CAROUSEL ---- -->
-      <div class="tier-block tier-saved" style="background-image: url('https://via.placeholder.com/1200x600/0A0A0A/8deb00?text=My+Cards+BG');">
-        <div class="tier-header">
-          <div>
-            <h2><i class="fas fa-id-card" style="color:var(--green);"></i> My Cards</h2>
-            <span class="card-count" id="card-count">0 saved</span>
-          </div>
-          <div style="display:flex; flex-direction:column; align-items:flex-end;">
-            <a href="ai-tools.html" class="add-card-btn"><i class="fas fa-plus"></i> Custom Card</a>
-            <span class="add-card-helper">Create with AI Workbench</span>
-          </div>
-        </div>
-
-        <div class="carousel-wrapper">
-          <div class="carousel-track" id="carousel-track">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
-        <div class="carousel-nav">
-          <button id="carousel-left" title="Scroll left"><i class="fas fa-chevron-left"></i></button>
-          <button id="carousel-right" title="Scroll right"><i class="fas fa-chevron-right"></i></button>
-        </div>
-      </div>
-
+      <div class="filter-row" id="scenarioFilters" aria-label="Filter by scenario"></div>
+      <div class="filter-row" id="lightingFilters" aria-label="Filter by lighting"></div>
     </div>
 
-    <!-- ===== BACK LINK ===== -->
-    <div class="back-link-wrap">
-      <a href="https://camerasdecoded.com/operator-dashboard.html">
-        <i class="fas fa-arrow-left"></i> Back to Dashboard
-      </a>
+    <!-- ===== SIGN-IN BANNER (signed out) ===== -->
+    <div class="signin-banner" id="signinBanner" style="display:none;">
+      <div class="msg"><strong>Log in to build your collection.</strong><br/>Browse everything free — saving cards keeps them one tap away.</div>
+      <button class="btn-login" id="bannerLoginBtn">Log In</button>
     </div>
 
-    <!-- ===== FOOTER ===== -->
-    <footer class="footer">
-      <div>© 2026 Cameras Decoded. All rights reserved.</div>
-      <div class="socials">
-        <a href="https://www.youtube.com/@CamerasDecoded" target="_blank"><i class="fab fa-youtube"></i></a>
-        <a href="https://www.tiktok.com/@cameras.decoded" target="_blank"><i class="fab fa-tiktok"></i></a>
-        <a href="https://www.instagram.com/camerasdecoded/reels/" target="_blank"><i class="fab fa-instagram"></i></a>
-        <a href="https://www.facebook.com/profile.php?id=61553594660326" target="_blank"><i class="fab fa-facebook-f"></i></a>
-        <a href="https://camerasdecoded.substack.com" target="_blank"><i class="fas fa-bookmark"></i></a>
-        <a href="https://podcasts.apple.com/us/podcast/cameras-decoded/idYOURID" target="_blank"><i class="fas fa-podcast"></i></a>
+    <!-- ===== YOUR COLLECTION ===== -->
+    <section class="lib-section" id="collectionSection" style="display:none;">
+      <div class="section-head">
+        <h2>Your Collection</h2>
+        <span class="count" id="savedCount">0 saved</span>
       </div>
-      <div>© Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
-      <div class="footer-links">
-        <a href="https://camerasdecoded.com/roadmap.html">Roadmap</a> ·
-        <a href="https://camerasdecoded.com/blog-updates.html">Blog/Updates</a> ·
-        <a href="https://camerasdecoded.com/faq.html">FAQ</a> ·
-        <a href="https://camerasdecoded.com/contact.html">Contact</a> ·
-        <a href="https://camerasdecoded.com/podcast.html">Podcast</a>
-      </div>
-      <div class="footer-links">
-        <a href="https://camerasdecoded.com/terms.html">Privacy/Terms</a>
-        <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
-      </div>
-    </footer>
+      <div class="shelf" id="savedShelf"></div>
+    </section>
 
-  </div>
+    <!-- ===== ATLAS ===== -->
+    <section class="lib-section">
+      <div class="section-head">
+        <h2>Browse the Atlas</h2>
+        <span class="count" id="atlasCount"></span>
+      </div>
+      <div id="atlasGroups"></div>
+    </section>
 
-  <!-- ============================================================
-  JAVASCRIPT – SIMPLE, WORKING
-  ============================================================ -->
+    <div class="lib-footer">© 2026 Cameras Decoded · All signals locked</div>
+  </main>
+
+  <!-- ===== BOTTOM NAV (mobile) ===== -->
+  <div id="bottomNavContainer" data-role="operator"></div>
+
   <script>
-    // ============================================================
-    // BINARY RAIN (same as before)
-    // ============================================================
-    (function() {
-      const canvas = document.getElementById('binary-rain');
-      const ctx = canvas.getContext('2d');
-      let width = window.innerWidth,
-        height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
-      const fontSize = 16;
-      const columns = Math.floor(width / fontSize);
-      const drops = Array(columns).fill(1);
-      const speed = 0.55;
-
-      function draw() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-        ctx.fillRect(0, 0, width, height);
-        ctx.font = fontSize + 'px "Space Mono", monospace';
-        ctx.textAlign = 'center';
-        for (let i = 0; i < drops.length; i++) {
-          const char = Math.random() > 0.5 ? '1' : '0';
-          const x = i * fontSize + fontSize / 2;
-          const y = drops[i] * fontSize;
-          if (char === '1') {
-            ctx.shadowColor = '#8deb00';
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = '#8deb00';
-          } else {
-            ctx.shadowColor = '#3a7a1a';
-            ctx.shadowBlur = 4;
-            ctx.fillStyle = '#4caf50';
-          }
-          ctx.fillText(char, x, y);
-          if (char === '1' && Math.random() < 0.025) {
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(x - 2, y - 8, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-          }
-          if (y > height && Math.random() > 0.97) {
-            drops[i] = 0;
-          }
-          drops[i] += speed;
-        }
-        requestAnimationFrame(draw);
-      }
-      draw();
-      window.addEventListener('resize', () => {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        canvas.width = width;
-        canvas.height = height;
-        const newColumns = Math.floor(width / fontSize);
-        if (newColumns > drops.length) drops.push(...Array(newColumns - drops.length).fill(1));
-        else drops.length = newColumns;
-      });
-    })();
-
-    // ============================================================
-    // SIDEBAR TOGGLE (mobile)
-    // ============================================================
-    const sidebar = document.getElementById('sidebar');
-    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
-    const floatingToggle = document.getElementById('floatingToggle');
-
-    function openSidebar() {
-      sidebar.classList.add('mobile-open');
-      sidebarBackdrop.classList.add('active');
-      document.body.style.overflow = 'hidden';
-    }
-
-    function closeSidebar() {
-      sidebar.classList.remove('mobile-open');
-      sidebarBackdrop.classList.remove('active');
-      document.body.style.overflow = '';
-    }
-
-    if (floatingToggle) floatingToggle.addEventListener('click', openSidebar);
-    if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeSidebar);
-
-    // ============================================================
-    // TOKEN HANDLER
-    // ============================================================
-    const UID_KEY = 'cameras_decoded_uid';
-
-    function resolveUserToken() {
-      const params = new URLSearchParams(window.location.search);
-      const tokenFromUrl = params.get('opToken') || params.get('uid');
-      if (tokenFromUrl) {
-        localStorage.setItem(UID_KEY, tokenFromUrl);
-        params.delete('opToken');
-        params.delete('uid');
-        const cleanSearch = params.toString() ? '?' + params.toString() : '';
-        const cleanUrl = window.location.pathname + cleanSearch + window.location.hash;
-        window.history.replaceState({}, document.title, cleanUrl);
-        return tokenFromUrl;
-      }
-      return localStorage.getItem(UID_KEY);
-    }
-
-    // ============================================================
-    // DOM REFS
-    // ============================================================
-    const carouselTrack = document.getElementById('carousel-track');
-    const atlasGrid = document.getElementById('atlas-grid');
-    const cardCountEl = document.getElementById('card-count');
-    const authPrompt = document.getElementById('auth-prompt');
-    const appLayout = document.getElementById('app-layout');
-    const logoutBtn = document.getElementById('floatingLogoutBtn');
-    const cartCount = document.getElementById('cartHeaderCount');
-    const cartLabel = document.getElementById('cartHeaderLabel');
-    const carouselLeft = document.getElementById('carousel-left');
-    const carouselRight = document.getElementById('carousel-right');
-
-    // ============================================================
-    // STATE
-    // ============================================================
-    let currentUid = null;
-    let unsubscribeFirestore = null;
-    let savedCards = [];
-    let savedCardIds = [];
-
-    // ============================================================
-    // ATLAS ARTICLES
-    // ============================================================
     const articles = [
       // Sony A7IV
       { camera: "Sony A7IV", scenario: "Portrait", lighting: "Low Light", slug: "sony-a7iv-portrait-low-light",
@@ -1500,351 +501,258 @@
         slug: "sony-a6700-real-estate-overcast", difficulty: "Beginner" }
     ];
 
-    articles.forEach(a => a.image = `${a.slug}-card.png`);
-
-    // ============================================================
-    // RENDER FUNCTIONS
-    // ============================================================
-
-    function renderCarousel(cards) {
-      savedCards = cards || [];
-      savedCardIds = savedCards.map(c => {
-        if (typeof c === 'string') return c;
-        return c.id || null;
-      }).filter(id => id !== null);
-
-      if (!savedCards || savedCards.length === 0) {
-        carouselTrack.innerHTML = `
-          <div class="carousel-card" style="flex:0 0 100%; min-height:120px; justify-content:center;">
-            <div class="empty-placeholder">
-              <i class="fas fa-id-card" style="font-size:32px; color:var(--green-dim); display:block; margin-bottom:8px;"></i>
-              No cards saved yet.<br>Browse the Atlas above to add some!
-            </div>
-          </div>
-        `;
-        cardCountEl.textContent = '0 saved';
-        return;
-      }
-
-      cardCountEl.textContent = `${savedCards.length} saved`;
-
-      carouselTrack.innerHTML = savedCards.map(card => {
-        let id, name, imageUrl, baseSlug;
-
-        if (typeof card === 'string') {
-          id = card;
-          const article = articles.find(a => a.slug === id);
-          name = article ? `${article.camera} — ${article.scenario}` : id;
-          if (article) {
-            baseSlug = article.slug;
-            imageUrl = `cards/${article.image}`;
-          } else {
-            baseSlug = id;
-            imageUrl = `cards/${id}-card.png`;
-          }
-        } else {
-          id = card.id || 'card_' + Math.random();
-          name = card.name || 'Untitled Card';
-          if (card.imageUrl && card.imageUrl !==
-            'https://via.placeholder.com/300x140/0A0A0A/8deb00?text=Snapshot+Card') {
-            imageUrl = card.imageUrl;
-          } else {
-            const article = articles.find(a => a.slug === id);
-            if (article) {
-              baseSlug = article.slug;
-              imageUrl = `cards/${article.image}`;
-            } else {
-              baseSlug = id;
-              imageUrl = `cards/${id}-card.png`;
-            }
-          }
-        }
-
-        const fallbackUrl = baseSlug ? `cards/${baseSlug}.png` : '';
-        const imgHtml = `<img src="${imageUrl}" alt="${name}" 
-                          onerror="this.onerror=null; this.src='${fallbackUrl}'; this.onerror=function(){this.src='https://via.placeholder.com/300x140/0A0A0A/8deb00?text=Snapshot+Card';}" />`;
-
-        return `
-          <div class="carousel-card">
-            <a href="snapshot-library/${id}.html" class="card-link">
-              ${imgHtml}
-              <div class="card-name">${name}</div>
-              <div class="card-id">${id}</div>
-            </a>
-            <button class="remove-btn" onclick="event.stopPropagation(); removeCard('${id}');" title="Remove card"><i class="fas fa-times"></i></button>
-          </div>
-        `;
-      }).join('');
+    // ================================================================
+    // SNAPSHOT LIBRARY
+    // ================================================================
+    function cdToast(msg, type) {
+      try {
+        var container = document.getElementById('toast-container');
+        var el = document.createElement('div');
+        el.className = 'toast' + (type === 'error' ? ' error' : '');
+        el.textContent = msg;
+        container.appendChild(el);
+        requestAnimationFrame(function () { el.classList.add('show'); });
+        setTimeout(function () {
+          el.classList.remove('show');
+          setTimeout(function () { el.remove(); }, 400);
+        }, 3000);
+      } catch (e) {}
     }
 
-    function renderAtlas(filtered) {
-      if (!filtered) filtered = articles;
-      atlasGrid.innerHTML = '';
+    const auth = window.auth || firebase.auth();
+    const db = window.db || firebase.firestore();
 
-      if (filtered.length === 0) {
-        atlasGrid.innerHTML =
-          '<div style="grid-column:1/-1; text-align:center; padding:30px 0; color:var(--text-muted);">No matching articles found.</div>';
-        return;
-      }
+    const SCENARIOS = ['Event', 'Portrait', 'Real Estate', 'Sports', 'Street'];
+    const LIGHTINGS = ['Bright Natural', 'Golden Hour', 'Indoor Artificial', 'Low Light', 'Overcast'];
 
+    const filters = { q: '', scenario: '', lighting: '' };
+    let currentUser = null;
+    let savedSlugs = new Set();
+    let unsubSaved = null;
+
+    const $ = (id) => document.getElementById(id);
+    const cardUrl = (slug) => `snapshot-library/${slug}.html`;
+    const imgUrl = (slug) => `/cards/${slug}-card.png`;
+    const articleBySlug = (slug) => articles.find(a => a.slug === slug);
+
+
+    // ---- Filter chips ----
+    function buildFilterChips() {
+      const sWrap = $('scenarioFilters'), lWrap = $('lightingFilters');
+      sWrap.innerHTML = `<span class="filter-label">Scenario</span>` + chipHtml('', 'All', filters.scenario === '');
+      SCENARIOS.forEach(s => { sWrap.innerHTML += chipHtml(s, s, filters.scenario === s, 'scenario'); });
+      lWrap.innerHTML = `<span class="filter-label">Lighting</span>` + chipHtml('', 'All', filters.lighting === '');
+      LIGHTINGS.forEach(l => { lWrap.innerHTML += chipHtml(l, l, filters.lighting === l, 'lighting'); });
+    }
+    function chipHtml(val, label, selected, kind) {
+      return `<button type="button" class="fchip${selected ? ' selected' : ''}" data-kind="${kind || ''}" data-val="${val}">${label}</button>`;
+    }
+    document.addEventListener('click', (e) => {
+      const chip = e.target.closest('.fchip');
+      if (!chip || !chip.dataset.kind) return;
+      const kind = chip.dataset.kind, val = chip.dataset.val;
+      filters[kind] = (filters[kind] === val) ? '' : val;
+      buildFilterChips();
+      renderAtlas();
+    });
+    $('libSearch').addEventListener('input', (e) => {
+      filters.q = e.target.value.trim().toLowerCase();
+      renderAtlas();
+    });
+
+    function filteredArticles() {
+      return articles.filter(a => {
+        if (filters.scenario && a.scenario !== filters.scenario) return false;
+        if (filters.lighting && a.lighting !== filters.lighting) return false;
+        if (filters.q) {
+          const hay = `${a.camera} ${a.scenario} ${a.lighting}`.toLowerCase();
+          if (!hay.includes(filters.q)) return false;
+        }
+        return true;
+      });
+    }
+
+    // ---- Atlas ----
+    function renderAtlas() {
+      const list = filteredArticles();
+      $('atlasCount').textContent = `${list.length} card${list.length === 1 ? '' : 's'}`;
       const groups = {};
-      filtered.forEach(article => {
-        const brand = article.camera.split(' ')[0];
-        if (!groups[brand]) groups[brand] = [];
-        groups[brand].push(article);
+      list.forEach(a => {
+        const brand = a.camera.split(' ')[0];
+        (groups[brand] = groups[brand] || []).push(a);
       });
-
-      Object.keys(groups).sort().forEach(brand => {
-        const items = groups[brand];
-        const label = document.createElement('div');
-        label.className = 'brand-label';
-        label.textContent = `${brand}  (${items.length})`;
-        atlasGrid.appendChild(label);
-
-        items.forEach(article => {
-          const isSaved = savedCardIds.includes(article.slug);
-          const div = document.createElement('div');
-          div.className = 'atlas-item';
-          div.innerHTML = `
-            <a href="snapshot-library/${article.slug}.html" class="card-link">
-              <div class="camera">${article.camera}</div>
-              <div class="title">${article.scenario} — ${article.lighting}</div>
-              <div class="meta">${article.difficulty}</div>
-              <div style="font-size:9px; color:var(--text-muted); opacity:0.5; margin-top:2px; font-family:'Space Mono',monospace;">${article.image}</div>
-            </a>
-            <button class="save-btn ${isSaved ? 'saved' : ''}" onclick="event.stopPropagation(); saveAtlasCard('${article.slug}')" ${isSaved ? 'disabled' : ''}>
-              ${isSaved ? '<i class="fas fa-check"></i> Saved' : '<i class="fas fa-plus"></i> Save'}
-            </button>
-          `;
-          atlasGrid.appendChild(div);
-        });
-      });
-    }
-
-    function filterAtlas() {
-      const search = document.getElementById('atlas-search').value.toLowerCase();
-      const scenario = document.getElementById('atlas-scenario').value;
-      const lighting = document.getElementById('atlas-lighting').value;
-
-      const filtered = articles.filter(article => {
-        const matchSearch = article.camera.toLowerCase().includes(search) ||
-          article.scenario.toLowerCase().includes(search) ||
-          article.lighting.toLowerCase().includes(search);
-        const matchScenario = scenario === '' || article.scenario === scenario;
-        const matchLighting = lighting === '' || article.lighting === lighting;
-        return matchSearch && matchScenario && matchLighting;
-      });
-      renderAtlas(filtered);
-    }
-
-    // ============================================================
-    // SAVE / REMOVE OPERATIONS (uses cdToast and cdConfirm from cd-ui.js)
-    // ============================================================
-
-    // ---- Save ----
-    window.saveAtlasCard = function(slug) {
-      if (!currentUid) {
-        cdToast('Please log in first.', 'error');
+      const wrap = $('atlasGroups');
+      const brands = Object.keys(groups).sort();
+      if (!brands.length) {
+        wrap.innerHTML = `<div class="no-results">No matching cards found.</div>`;
         return;
       }
-      if (savedCardIds.includes(slug)) {
-        cdToast('Already saved.');
+      wrap.innerHTML = brands.map(brand => `
+        <div class="brand-group">
+          <div class="brand-label">${brand} · ${groups[brand].length}</div>
+          <div class="card-grid">
+            ${groups[brand].map(a => {
+              const saved = savedSlugs.has(a.slug);
+              const dif = a.difficulty.toLowerCase();
+              return `
+                <div class="snap-card">
+                  <a href="${cardUrl(a.slug)}" class="thumb" aria-label="${a.camera} ${a.scenario} ${a.lighting}">
+                    ${thumbInner(a)}
+                  </a>
+                  <div class="snap-meta">
+                    <div class="cam">${a.camera}</div>
+                    <div class="ttl">${a.scenario} — ${a.lighting}</div>
+                    <span class="dif ${dif}">${a.difficulty}</span>
+                  </div>
+                  <button type="button" class="save-btn${saved ? ' saved' : ''}" data-slug="${a.slug}">
+                    ${saved ? '<i class="fas fa-check"></i> Saved' : '<i class="fas fa-plus"></i> Save'}
+                  </button>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`).join('');
+    }
+    function thumbInner(a) {
+      const name = `${a.camera} — ${a.scenario} ${a.lighting}`;
+      return `<div class="thumb-ph"><i class="fas fa-id-card"></i><span>${a.camera}</span><span>${a.scenario} · ${a.lighting}</span></div>
+        <img src="${imgUrl(a.slug)}" alt="${name}" loading="lazy" onerror="this.remove()" />`;
+    }
+
+    // Save / unsave toggle (delegated)
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.save-btn');
+      if (!btn) return;
+      const slug = btn.dataset.slug;
+      if (!currentUser) {
+        try { localStorage.setItem('pending_save_card', slug); } catch (err) {}
+        window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
         return;
       }
+      if (savedSlugs.has(slug)) unsaveCard(slug);
+      else saveCard(slug);
+    });
 
-      const article = articles.find(a => a.slug === slug);
-      if (!article) return;
-
-      const newCard = {
-        id: slug,
-        name: `${article.camera} — ${article.scenario}`,
-        camera: article.camera,
-        scenario: article.scenario,
-        lighting: article.lighting,
-        imageUrl: `cards/${article.image}`,
-        savedAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
-
-      db.collection('users').doc(currentUid).set({
-        savedCards: firebase.firestore.FieldValue.arrayUnion(newCard)
+    function saveCard(slug) {
+      db.collection('users').doc(currentUser.uid).set({
+        savedCards: firebase.firestore.FieldValue.arrayUnion(slug)
       }, { merge: true })
-      .then(() => {
-        cdToast('✅ Card saved to your library!');
+      .then(() => cdToast('Card saved to your collection.'))
+      .catch((err) => cdToast('Error saving: ' + err.message, 'error'));
+    }
+
+    function unsaveCard(slug) {
+      db.collection('users').doc(currentUser.uid).update({
+        savedCards: firebase.firestore.FieldValue.arrayRemove(slug)
       })
-      .catch((err) => {
-        console.error('Save error:', err);
-        cdToast('Error saving: ' + err.message, 'error');
-      });
-    };
+      .then(() => cdToast('Card removed.'))
+      .catch((err) => cdToast('Error: ' + err.message, 'error'));
+    }
 
-    // ---- Remove ----
-    window.removeCard = function(cardId) {
-      if (!currentUid) return;
-
-      cdConfirm(`Remove this card from your collection?`).then((confirmed) => {
-        if (!confirmed) return;
-
-        const docRef = db.collection('users').doc(currentUid);
-        docRef.get().then(doc => {
-          if (!doc.exists) return;
-          const cards = doc.data().savedCards || [];
-          const target = cards.find(c => {
-            if (typeof c === 'string') return c === cardId;
-            return c.id === cardId;
-          });
-          if (target !== undefined) {
-            docRef.update({
-              savedCards: firebase.firestore.FieldValue.arrayRemove(target)
-            }).then(() => {
-              cdToast('Card removed.');
-            }).catch((err) => {
-              cdToast('Error: ' + err.message, 'error');
-            });
-          } else {
-            cdToast('Card not found.', 'error');
-          }
-        }).catch((err) => {
-          console.error('Remove error:', err);
-          cdToast('Error removing card.', 'error');
-        });
-      });
-    };
-
-    // ============================================================
-    // REAL-TIME FIRESTORE LISTENER
-    // ============================================================
-    function listenToSavedCards() {
-      if (unsubscribeFirestore) {
-        unsubscribeFirestore();
-        unsubscribeFirestore = null;
-      }
-
-      if (!currentUid) {
-        document.getElementById('auth-prompt').classList.add('show');
-        document.getElementById('app-layout').style.display = 'none';
-        document.getElementById('floatingLogoutBtn').style.display = 'none';
+    // ---- Collection shelf ----
+    function renderCollection() {
+      const section = $('collectionSection');
+      if (!currentUser) { section.style.display = 'none'; return; }
+      section.style.display = 'block';
+      const shelf = $('savedShelf');
+      const list = [...savedSlugs].map(articleBySlug).filter(Boolean);
+      $('savedCount').textContent = `${list.length} saved`;
+      if (!list.length) {
+        shelf.innerHTML = `
+          <div class="shelf-empty">
+            <i class="fas fa-id-card"></i>
+            No cards saved yet.<br/>Browse the Atlas below and tap Save on the ones you shoot.
+          </div>`;
         return;
       }
-
-      document.getElementById('auth-prompt').classList.remove('show');
-      document.getElementById('app-layout').style.display = 'block';
-      document.getElementById('floatingLogoutBtn').style.display = 'inline-block';
-
-      const docRef = db.collection('users').doc(currentUid);
-      unsubscribeFirestore = docRef.onSnapshot((snap) => {
-        if (!snap.exists) {
-          docRef.set({
-            savedCards: [],
-            tier: 'free',
-            username: '',
-            email: ''
-          }, { merge: true }).catch(console.warn);
-          return;
-        }
-        const data = snap.data();
-        renderCarousel(data.savedCards || []);
-        const tier = data.tier || 'free';
-        document.getElementById('userTierText').textContent = tier.charAt(0).toUpperCase() + tier.slice(1);
-        filterAtlas();
-      }, (error) => {
-        console.error('Firestore listener error:', error);
-        cdToast('Error syncing library.', 'error');
-      });
-    }
-
-    // ============================================================
-    // LOGOUT
-    // ============================================================
-    window.handleLogout = function() {
-      auth.signOut().then(() => {
-        localStorage.removeItem(UID_KEY);
-        window.location.href = 'login.html';
-      }).catch(() => {
-        window.location.href = 'login.html';
-      });
-    };
-
-    // ============================================================
-    // CAROUSEL SCROLL
-    // ============================================================
-    carouselLeft.addEventListener('click', () => {
-      carouselTrack.scrollBy({ left: -200, behavior: 'smooth' });
-    });
-    carouselRight.addEventListener('click', () => {
-      carouselTrack.scrollBy({ left: 200, behavior: 'smooth' });
-    });
-
-    // ============================================================
-    // CART COUNTER
-    // ============================================================
-    function getCart() {
-      return JSON.parse(localStorage.getItem('cameras_decoded_cart') || '[]');
-    }
-
-    function updateCartUI() {
-      const cart = getCart();
-      const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
-      if (cartCount) {
-        cartCount.textContent = totalItems;
-        cartCount.style.display = totalItems > 0 ? 'inline-block' : 'none';
-      }
-      if (cartLabel) {
-        cartLabel.textContent = totalItems > 0 ? `Cart (${totalItems})` : 'Cart';
-      }
-    }
-    updateCartUI();
-
-    // ============================================================
-    // AUTH STATE
-    // ============================================================
-    auth.onAuthStateChanged((user) => {
-      if (user) {
-        currentUid = user.uid;
-        localStorage.setItem(UID_KEY, user.uid);
-        listenToSavedCards();
-      } else {
-        currentUid = null;
-        localStorage.removeItem(UID_KEY);
-        document.getElementById('auth-prompt').classList.add('show');
-        document.getElementById('app-layout').style.display = 'none';
-        document.getElementById('floatingLogoutBtn').style.display = 'none';
-        carouselTrack.innerHTML = `
-          <div class="carousel-card" style="flex:0 0 100%; min-height:120px; justify-content:center;">
-            <div class="empty-placeholder">
-              <i class="fas fa-lock" style="font-size:32px; color:var(--green-dim); display:block; margin-bottom:8px;"></i>
-              Log in to see your saved cards.
+      shelf.innerHTML = list.map(a => `
+        <div class="shelf-card">
+          <button type="button" class="remove-btn" data-remove="${a.slug}" title="Remove card" aria-label="Remove ${a.slug}">
+            <i class="fas fa-times"></i>
+          </button>
+          <a href="${cardUrl(a.slug)}" aria-label="${a.camera} ${a.scenario} ${a.lighting}">
+            <div class="thumb">${thumbInner(a)}</div>
+            <div class="shelf-meta">
+              <div class="t">${a.camera}</div>
+              <div class="s">${a.scenario} · ${a.lighting}</div>
             </div>
-          </div>
-        `;
-        cardCountEl.textContent = '0 saved';
-        renderAtlas([]);
-        atlasGrid.innerHTML = `
-          <div style="grid-column:1/-1; text-align:center; padding:40px 0; color:var(--text-muted);">
-            <i class="fas fa-lock" style="font-size:32px; display:block; margin-bottom:8px;"></i>
-            Please log in to browse and save cards.
-          </div>
-        `;
+          </a>
+        </div>`).join('');
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-remove]');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!currentUser) return;
+      if (!confirm('Remove this card from your collection?')) return;
+      unsaveCard(btn.dataset.remove);
+    });
+
+    // ---- Firestore subscription ----
+    function subscribeSaved(uid) {
+      if (unsubSaved) { unsubSaved(); unsubSaved = null; }
+      const ref = db.collection('users').doc(uid);
+      unsubSaved = ref.onSnapshot((snap) => {
+        const data = snap.exists ? snap.data() : {};
+        const raw = data.savedCards || data.savedSnapshots || [];
+        savedSlugs = new Set(raw.map(c => (typeof c === 'string' ? c : c.id)).filter(Boolean));
+        renderCollection();
+        renderAtlas();
+      }, (err) => {
+        console.warn('Saved-cards listener error:', err);
+      });
+    }
+
+    // ---- Auth ----
+    auth.onAuthStateChanged((user) => {
+      currentUser = user || null;
+      if (user) {
+        $('signinBanner').style.display = 'none';
+        // Finish a pending save from a login round-trip
+        let pending = null;
+        try { pending = localStorage.getItem('pending_save_card'); } catch (err) {}
+        if (pending) {
+          try { localStorage.removeItem('pending_save_card'); } catch (err) {}
+          if (articleBySlug(pending)) {
+            db.collection('users').doc(user.uid).set({
+              savedCards: firebase.firestore.FieldValue.arrayUnion(pending)
+            }, { merge: true })
+            .then(() => cdToast('Card saved to your collection.'))
+            .catch(() => {});
+          }
+        }
+        subscribeSaved(user.uid);
+      } else {
+        if (unsubSaved) { unsubSaved(); unsubSaved = null; }
+        savedSlugs = new Set();
+        $('signinBanner').style.display = 'flex';
+        renderCollection();
+        renderAtlas();
       }
     });
 
-    // ============================================================
-    // BOOTSTRAP
-    // ============================================================
-    document.addEventListener('DOMContentLoaded', function() {
-      const token = resolveUserToken();
-      if (token) {
-        localStorage.setItem(UID_KEY, token);
-      }
+    $('bannerLoginBtn').addEventListener('click', () => {
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
     });
 
-    // ============================================================
-    // EXPOSE FUNCTIONS
-    // ============================================================
-    window.filterAtlas = filterAtlas;
-    window.saveAtlasCard = saveAtlasCard;
-    window.removeCard = removeCard;
-    window.handleLogout = handleLogout;
+    // ---- Boot ----
+    buildFilterChips();
+    renderAtlas();
+    renderCollection();
+
+    // Bottom nav role
+    const checkContainer = setInterval(() => {
+      const container = document.getElementById('bottomNavContainer');
+      if (container) {
+        container.dataset.role = 'operator';
+        if (window.BottomNav && typeof window.BottomNav.setRole === 'function') {
+          window.BottomNav.setRole('Operator');
+        }
+        clearInterval(checkContainer);
+      }
+    }, 100);
   </script>
-
+  <script src="/scripts/ptr.js"></script>
 </body>
 </html>
