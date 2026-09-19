@@ -89,7 +89,7 @@
         { href: '/snapshot-library.html', icon: 'camera', title: 'Snapshots',    sub: 'Your saved cards' },
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
         // Community cut for launch — returns as a post-launch web-app update.
-        { href: '/ai-tools.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
+        { href: '/ai-workbench.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
         { action: 'install',              icon: 'download', title: 'Install app', sub: 'Add Cameras Decoded to your Home Screen' },
         { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { action: 'logout',               icon: 'exit',   title: 'Log out',      sub: 'End this session' }
@@ -286,7 +286,7 @@
     if (matches(['/protocols.html', '/snapshot-library.html'], p)) {
       return 'library';
     }
-    if (matches(['/community.html', '/ai-tools.html', '/profile.html', '/leaderboard.html'], p)) {
+    if (matches(['/community.html', '/ai-workbench.html', '/profile.html', '/leaderboard.html'], p)) {
       return 'more';
     }
     if (matches(['/operator-dashboard.html', '/partner-dashboard.html', '/instructor-dashboard.html',
