@@ -288,21 +288,48 @@ function openSheet(skillId){
   const prevXp = lvl === 0 ? 0 : LEVELS[lvl-1].xp;
   const frac = nt ? Math.min(1,(xp-prevXp)/(nt.xp-prevXp)) : 1;
   document.getElementById('sheetXpFill').style.width = (frac*100).toFixed(0)+'%';
-  const reqNames = s.requires.map(id => skillMap[id].name);
-  document.getElementById('sheetReq').innerHTML = s.requires.length
-    ? 'Requires: <b>'+reqNames.join('</b>, <b>')+'</b> (each at level '+UNLOCK_AT+'+)'
-    : 'Starting skill — no prerequisites. Worth <b>'+s.xp+' XP</b> across '+s.lessons+' lessons.';
   const locked = state === 'locked';
   const btnLesson = document.getElementById('btnLesson');
   const btnDrill = document.getElementById('btnDrill');
-  btnLesson.disabled = locked;
-  btnDrill.disabled = locked;
-  // Start lesson / Practice drill: inline cinematic lesson & drill inside
-  // the sheet — no redirects, Darkroom look throughout.
-  btnLesson.onclick = () => { if (window.CDLearn) CDLearn.openLesson(s.id); };
-  btnDrill.onclick  = () => { if (window.CDLearn) CDLearn.openDrill(s.id); };
-  // PRO pill on the buttons for non-Pro users (lessons & drills are Pro).
-  if (window.CDLearn) CDLearn.decorateButtons(s.id);
+  // Reset labels (a previous locked sheet may have repurposed them).
+  btnLesson.textContent = 'Start lesson';
+  btnDrill.textContent = 'Practice drill';
+  btnDrill.style.display = '';
+  if (locked) {
+    // Explicit unlock path: per-prerequisite XP progress + how to earn it.
+    const needXp = LEVELS[UNLOCK_AT - 1].xp;
+    const unmet = s.requires.filter(id => levelFor(xpOf(PROGRESS, id)) < UNLOCK_AT);
+    const rows = unmet.map(id => {
+      const ps = skillMap[id], pxp = xpOf(PROGRESS, id), plvl = levelFor(pxp);
+      const pct = Math.min(100, Math.round(pxp / needXp * 100));
+      return '<div class="unlock-row"><div class="unlock-top"><b>' + ps.name + '</b>' +
+        '<span>Level ' + plvl + ' · ' + pxp + '/' + needXp + ' XP</span></div>' +
+        '<div class="xpbar"><i style="width:' + pct + '%"></i></div></div>';
+    }).join('');
+    document.getElementById('sheetReq').innerHTML =
+      '<span class="unlock-head">Locked — earn XP in:</span>' + rows +
+      '<span class="unlock-how">How to earn XP: lesson <b>+20 XP</b> · daily drill <b>+10 XP</b></span>';
+    const first = skillMap[unmet[0]];
+    btnLesson.textContent = 'Train ' + first.name;
+    btnLesson.disabled = false;
+    btnLesson.onclick = () => { openSheet(unmet[0]); };
+    btnDrill.style.display = 'none';
+    // PRO pill reflects the prerequisite being trained, not this skill.
+    if (window.CDLearn) CDLearn.decorateButtons(unmet[0]);
+  } else {
+    const reqNames = s.requires.map(id => skillMap[id].name);
+    document.getElementById('sheetReq').innerHTML = s.requires.length
+      ? 'Requires: <b>'+reqNames.join('</b>, <b>')+'</b> (each at level '+UNLOCK_AT+'+)'
+      : 'Starting skill — no prerequisites. Worth <b>'+s.xp+' XP</b> across '+s.lessons+' lessons.';
+    btnLesson.disabled = false;
+    btnDrill.disabled = false;
+    // Start lesson / Practice drill: inline cinematic lesson & drill inside
+    // the sheet — no redirects, Darkroom look throughout.
+    btnLesson.onclick = () => { if (window.CDLearn) CDLearn.openLesson(s.id); };
+    btnDrill.onclick  = () => { if (window.CDLearn) CDLearn.openDrill(s.id); };
+    // PRO pill on the buttons for non-Pro users (lessons & drills are Pro).
+    if (window.CDLearn) CDLearn.decorateButtons(s.id);
+  }
   const sc = scrim();
   sc.classList.add('open');
   sc.setAttribute('aria-hidden','false');
@@ -324,10 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = e.target.closest('.node');
     if (!btn) return;
     const s = skillMap[btn.dataset.skill];
-    if (btn.dataset.state === 'locked'){
-      showToast('Locked — reach level '+UNLOCK_AT+' in: '+s.requires.map(id=>skillMap[id].name).join(', '));
-      return;
-    }
+    // Locked skills open the sheet too — it explains the XP needed and how to earn it.
     openSheet(s.id);
   });
   document.getElementById('sheetClose').addEventListener('click', closeSheet);
