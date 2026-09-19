@@ -23,6 +23,7 @@
 
   <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
   <script src="/scripts/user-state.js"></script>
+  <script src="/scripts/haptics.js"></script>
 
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="header.js"></script>
@@ -230,6 +231,40 @@
       letter-spacing:1px; padding:30px 0 10px;
     }
 
+    /* ===== FIRST-SAVE CELEBRATION ===== */
+    .celebrate-overlay {
+      position:fixed; inset:0; z-index:10000;
+      background:rgba(3,5,3,.82); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+      opacity:0; transition:opacity .3s;
+    }
+    .celebrate-overlay[hidden] { display:none; }
+    .celebrate-overlay.show { opacity:1; }
+    .celebrate-card { text-align:center; max-width:340px; }
+    .celebrate-card video {
+      width:200px; height:200px; object-fit:cover; border-radius:16px;
+      border:1px solid rgba(141,235,0,.4); box-shadow:0 0 60px rgba(141,235,0,.25);
+      margin-bottom:18px; background:#000;
+    }
+    .celebrate-kicker {
+      font-family:'Space Mono',monospace; font-size:12px; letter-spacing:4px;
+      text-transform:uppercase; color:var(--green); margin-bottom:8px;
+    }
+    .celebrate-xp { font-size:34px; font-weight:700; margin-bottom:6px; }
+    .celebrate-sub { color:var(--text-muted); font-size:14px; margin-bottom:22px; }
+    .celebrate-cta {
+      display:block; width:100%; padding:14px; border:none; border-radius:12px;
+      background:var(--green); color:#000; font-family:'Space Mono',monospace;
+      font-size:14px; font-weight:700; cursor:pointer; margin-bottom:10px;
+      transition:transform .2s, box-shadow .2s;
+    }
+    .celebrate-cta:hover { transform:scale(1.02); box-shadow:0 0 30px rgba(141,235,0,.35); }
+    .celebrate-dismiss {
+      background:none; border:none; color:var(--text-muted);
+      font-size:13px; cursor:pointer; padding:8px;
+    }
+    .celebrate-dismiss:hover { color:#fff; }
+
     /* ===== TOAST ===== */
     #toast-container {
       position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
@@ -295,6 +330,18 @@
 
     <div class="lib-footer">© 2026 Cameras Decoded · All signals locked</div>
   </main>
+
+    <!-- ===== FIRST-SAVE CELEBRATION ===== -->
+    <div id="firstSaveOverlay" class="celebrate-overlay" hidden>
+      <div class="celebrate-card">
+        <video id="firstSaveVideo" src="/media/mission-complete-success.mp4" muted playsinline preload="auto"></video>
+        <div class="celebrate-kicker">Card secured</div>
+        <div class="celebrate-xp">+10 XP</div>
+        <p class="celebrate-sub">Your first snapshot card is in the collection.</p>
+        <button type="button" class="celebrate-cta" id="firstSaveCta">View your collection</button>
+        <button type="button" class="celebrate-dismiss" id="firstSaveDismiss">Keep browsing</button>
+      </div>
+    </div>
 
   <!-- ===== BOTTOM NAV (mobile) ===== -->
   <div id="bottomNavContainer" data-role="operator"></div>
@@ -632,15 +679,91 @@
         return;
       }
       if (savedSlugs.has(slug)) unsaveCard(slug);
-      else saveCard(slug);
+      else performSave(currentUser.uid, slug);
     });
 
-    function saveCard(slug) {
-      db.collection('users').doc(currentUser.uid).set({
-        savedCards: firebase.firestore.FieldValue.arrayUnion(slug)
-      }, { merge: true })
-      .then(() => cdToast('Card saved to your collection.'))
-      .catch((err) => cdToast('Error saving: ' + err.message, 'error'));
+    const savingSlugs = new Set();
+
+    async function performSave(uid, slug) {
+      if (savingSlugs.has(slug)) return;
+      savingSlugs.add(slug);
+      try {
+        const docRef = db.collection('users').doc(uid);
+        const snap = await docRef.get();
+        const data = snap.exists ? snap.data() : {};
+        const existing = data.savedCards || data.savedSnapshots || [];
+        const isFirst = existing.length === 0 && !data.firstCardCelebrated;
+
+        const payload = { savedCards: firebase.firestore.FieldValue.arrayUnion(slug) };
+        if (isFirst) {
+          const todayKey = new Date().toISOString().slice(0, 10);
+          payload.firstCardCelebrated = true;
+          payload.xpToday = firebase.firestore.FieldValue.increment(10);
+          payload.totalPoints = firebase.firestore.FieldValue.increment(10);
+          payload['xpByDay.' + todayKey] = firebase.firestore.FieldValue.increment(10);
+          payload.recentActivity = firebase.firestore.FieldValue.arrayUnion({
+            label: 'First snapshot card saved', time: 'Just now', xp: 10
+          });
+        }
+        await docRef.set(payload, { merge: true });
+        if (isFirst) celebrateFirstSave();
+        else {
+          cdToast('Card saved to your collection.');
+          try { if (window.CDHaptics && window.CDHaptics.tick) window.CDHaptics.tick(); } catch (e) {}
+        }
+      } catch (err) {
+        cdToast('Error saving: ' + err.message, 'error');
+      } finally {
+        savingSlugs.delete(slug);
+      }
+    }
+
+    // ---- First-save celebration: sting + chime + haptics + CTA ----
+    let _chimeCtx = null;
+    function playChime() {
+      try {
+        if (localStorage.getItem('cd_chime') === 'off') return;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!_chimeCtx) _chimeCtx = new AC();
+        const ctx = _chimeCtx;
+        if (ctx.state === 'suspended') ctx.resume();
+        [523, 659, 880].forEach((f, i) => {
+          const t = ctx.currentTime + i * 0.1;
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+          o.connect(g); g.connect(ctx.destination);
+          o.start(t); o.stop(t + 0.4);
+        });
+      } catch (e) {}
+    }
+
+    function celebrateFirstSave() {
+      const overlay = $('firstSaveOverlay');
+      const video = $('firstSaveVideo');
+      try { if (window.CDHaptics && window.CDHaptics.bigSuccess) window.CDHaptics.bigSuccess(); } catch (e) {}
+      playChime();
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        cdToast('First card secured · +10 XP');
+        return;
+      }
+      overlay.hidden = false;
+      requestAnimationFrame(() => overlay.classList.add('show'));
+      try { video.currentTime = 0; const p = video.play(); if (p) p.catch(() => {}); } catch (e) {}
+      clearTimeout(celebrateFirstSave._t);
+      celebrateFirstSave._t = setTimeout(dismissCelebration, 6000);
+    }
+
+    function dismissCelebration() {
+      const overlay = $('firstSaveOverlay');
+      if (!overlay || overlay.hidden) return;
+      clearTimeout(celebrateFirstSave._t);
+      try { $('firstSaveVideo').pause(); } catch (e) {}
+      overlay.classList.remove('show');
+      setTimeout(() => { overlay.hidden = true; }, 300);
     }
 
     function unsaveCard(slug) {
@@ -717,13 +840,7 @@
         try { pending = localStorage.getItem('pending_save_card'); } catch (err) {}
         if (pending) {
           try { localStorage.removeItem('pending_save_card'); } catch (err) {}
-          if (articleBySlug(pending)) {
-            db.collection('users').doc(user.uid).set({
-              savedCards: firebase.firestore.FieldValue.arrayUnion(pending)
-            }, { merge: true })
-            .then(() => cdToast('Card saved to your collection.'))
-            .catch(() => {});
-          }
+          if (articleBySlug(pending)) performSave(user.uid, pending);
         }
         subscribeSaved(user.uid);
       } else {
@@ -738,6 +855,13 @@
     $('bannerLoginBtn').addEventListener('click', () => {
       window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
     });
+
+    $('firstSaveCta').addEventListener('click', () => {
+      dismissCelebration();
+      const section = $('collectionSection');
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    $('firstSaveDismiss').addEventListener('click', dismissCelebration);
 
     // ---- Boot ----
     buildFilterChips();
