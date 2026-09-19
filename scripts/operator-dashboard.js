@@ -1000,6 +1000,31 @@
     }, (err) => console.warn('[Dashboard] listener error', err));
   }
 
+  // ---- Profile completion nudge (operators): bell prompt until profile completed ----
+  // Fires once per user: skipped when users/{uid}.profile.completed is true,
+  // and skipped when a 'profile' inbox item already exists.
+  async function maybePromptProfileCompletion(uid) {
+    try {
+      const prof = (vm.raw && vm.raw.profile) || {};
+      if (prof.completed) return;
+      const db = window.db;
+      if (!db || !db.collection) return;
+      const existing = await db.collection('notifications').doc(uid).collection('items')
+        .where('kind', '==', 'profile').limit(1).get();
+      if (!existing.empty) return;
+      for (let i = 0; i < 10 && !window.CDNotifs; i++) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (!window.CDNotifs || typeof window.CDNotifs.notify !== 'function') return;
+      await window.CDNotifs.notify({
+        title: 'Complete your profile',
+        body: 'Pick your camera brand, lenses, and interests — 30 seconds, and it tunes your experience.',
+        href: '/profile.html',
+        kind: 'profile'
+      });
+    } catch (e) { /* nudge must never break the dashboard */ }
+  }
+
   async function boot() {
     stage('boot started');
     const ok = await waitForFirebase();
@@ -1018,6 +1043,7 @@
       }
       try {
         await hydrateUser(user.uid);
+        maybePromptProfileCompletion(user.uid); // fire-and-forget bell nudge
         await loadJourney(user.uid);
         renderAll();
         subscribeToUser(user.uid);
