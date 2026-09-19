@@ -118,7 +118,7 @@
         '<div class="cdi-hero">' +
           '<span class="cdi-icon"><img src="/apple-touch-icon.png" alt="" ' +
             'onerror="this.style.display=\'none\'"></span>' +
-          '<div><h2 id="cdiTitle">Install Decoded</h2>' +
+          '<div><h2 id="cdiTitle">Install Cameras Decoded</h2>' +
           '<p>Your darkroom on the Home Screen — one tap to open, no browser chrome.</p></div>' +
         '</div>' +
         '<div data-cdi-body></div>' +
@@ -141,7 +141,7 @@
     if (m === 'installed') {
       body.innerHTML =
         '<div class="cdi-done"><div class="cdi-check">✓</div>' +
-        '<p>You&rsquo;re already running the installed app.<br>Decoded is on your Home Screen.</p></div>' +
+        '<p>You&rsquo;re already running the installed app.<br>Cameras Decoded is on your Home Screen.</p></div>' +
         '<button type="button" class="cdi-cta" data-cdi-dismiss>Got it</button>';
       return;
     }
@@ -149,7 +149,7 @@
       body.innerHTML =
         '<button type="button" class="cdi-cta" data-cdi-install>Install the app</button>' +
         '<button type="button" class="cdi-quiet" data-cdi-dismiss>Not now</button>' +
-        '<p class="cdi-note">Adds the Decoded icon to your Home Screen for instant, full-screen access.</p>';
+        '<p class="cdi-note">Adds the Cameras Decoded icon to your Home Screen for instant, full-screen access.</p>';
       const btn = body.querySelector('[data-cdi-install]');
       btn.addEventListener('click', async () => {
         const dp = window.__cdDeferredPrompt;
@@ -172,7 +172,7 @@
           '<li><span class="cdi-n">2</span><div><b>Tap &ldquo;Add to Home Screen&rdquo;</b>' +
             '<span>Scroll down the share sheet if you don&rsquo;t see it right away.</span></div></li>' +
           '<li><span class="cdi-n">3</span><div><b>Tap Add</b>' +
-            '<span>Decoded lands on your Home Screen with its own icon — no App Store needed.</span></div></li>' +
+            '<span>Cameras Decoded lands on your Home Screen with its own icon — no App Store needed.</span></div></li>' +
         '</ol>' +
         '<button type="button" class="cdi-cta" data-cdi-dismiss>Got it</button>';
       return;
