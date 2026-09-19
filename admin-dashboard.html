@@ -643,7 +643,7 @@
     <div class="notif-panel" id="proRequestsPanel">
       <div class="panel-header">
         <h3><i class="fas fa-bolt"></i> Pro Requests <span id="proReqCount" class="pro-req-count" hidden></span></h3>
-        <span style="font-size:12px; color:var(--text-muted);">Verify each payment in Stripe, then approve</span>
+        <span style="font-size:12px; color:var(--text-muted);">Verify each payment in Stripe, then approve · <span id="foundingStatus">Founding Decoder: …</span></span>
       </div>
       <div id="proReqList" class="bc-list" aria-live="polite">
         <p class="bc-empty">Loading requests…</p>
@@ -1090,9 +1090,22 @@
     // PRO REQUESTS — manual Pro fulfillment queue.
     // Buyers pay via Stripe Payment Links, then file a request doc.
     // Verify each one in the Stripe dashboard (email + amount match),
-    // then Approve: flips users/{uid}.tier to 'pro'.
+    // then Approve: flips users/{uid}.tier to 'pro' and claims a
+    // Founding Decoder spot (first 200) when any remain.
     // ================================================================
+    function loadFoundingStatus() {
+      db.collection('config').doc('founding').get().then(function (snap) {
+        var data = (snap.exists && snap.data()) || {};
+        var cap = Number(data.cap) || 200;
+        var claimed = Number(data.claimed) || 0;
+        document.getElementById('foundingStatus').textContent =
+          'Founding Decoder: ' + claimed + '/' + cap + ' claimed';
+      }).catch(function () {
+        document.getElementById('foundingStatus').textContent = 'Founding Decoder: counter unavailable';
+      });
+    }
     function loadProRequests() {
+      loadFoundingStatus();
       db.collection('proRequests').where('status', '==', 'pending')
         .orderBy('createdAt', 'asc').limit(50)
         .onSnapshot(renderProRequests, function (err) {
@@ -1151,15 +1164,44 @@
       approveBtn.disabled = true; declineBtn.disabled = true;
       approveBtn.textContent = 'Approving…';
       try {
+        // Founding Decoder: claim one of the first 200 spots atomically.
+        // The counter self-seeds on first claim; no spot left = no flag.
+        var foundingNum = 0;
+        await db.runTransaction(async function (tx) {
+          var ref = db.collection('config').doc('founding');
+          var snap = await tx.get(ref);
+          var data = (snap.exists && snap.data()) || {};
+          var cap = Number(data.cap) || 200;
+          var claimed = Number(data.claimed) || 0;
+          if (claimed < cap) {
+            foundingNum = claimed + 1;
+            tx.set(ref, {
+              cap: cap,
+              claimed: foundingNum,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          }
+        });
         var batch = db.batch();
-        batch.update(db.collection('users').doc(uid), { tier: 'pro' });
-        batch.update(db.collection('proRequests').doc(uid), {
+        var userPatch = { tier: 'pro' };
+        if (foundingNum > 0) {
+          userPatch.foundingDecoder = true;
+          userPatch.foundingDecoderNum = foundingNum;
+          userPatch.foundingDecoderAt = firebase.firestore.FieldValue.serverTimestamp();
+        }
+        batch.update(db.collection('users').doc(uid), userPatch);
+        var reqPatch = {
           status: 'active',
           fulfilledAt: firebase.firestore.FieldValue.serverTimestamp(),
           fulfilledBy: currentUser ? currentUser.uid : null
-        });
+        };
+        if (foundingNum > 0) reqPatch.foundingDecoderNum = foundingNum;
+        batch.update(db.collection('proRequests').doc(uid), reqPatch);
         await batch.commit();
-        cdToast('Pro activated', 'success');
+        loadFoundingStatus();
+        cdToast(foundingNum > 0
+          ? 'Pro activated — Founding Decoder #' + foundingNum
+          : 'Pro activated (founding closed)', 'success');
       } catch (e) {
         approveBtn.disabled = false; declineBtn.disabled = false;
         approveBtn.textContent = 'Approve';
