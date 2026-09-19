@@ -14,7 +14,7 @@ const LEVELS = [
   { level: 4, xp: 260 },   // advanced
   { level: 5, xp: 400 },   // mastered
 ];
-const UNLOCK_AT = 2; // a skill unlocks its dependents once it reaches this level
+const UNLOCK_AT = 1; // a skill unlocks its dependents once it reaches this level (one lesson = level 1 = 20 XP)
 
 const SKILL_TREES = {
   'photo-foundations': {
