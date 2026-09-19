@@ -90,7 +90,7 @@
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
         // Community cut for launch — returns as a post-launch web-app update.
         { href: '/ai-tools.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
-        { action: 'install',              icon: 'download', title: 'Install app', sub: 'Add Decoded to your Home Screen' },
+        { action: 'install',              icon: 'download', title: 'Install app', sub: 'Add Cameras Decoded to your Home Screen' },
         { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { action: 'logout',               icon: 'exit',   title: 'Log out',      sub: 'End this session' }
       ]
