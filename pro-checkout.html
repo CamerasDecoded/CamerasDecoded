@@ -79,6 +79,30 @@
     }
     .pro-includes i { color: #8deb00; margin-top: 3px; font-size: 13px; }
 
+    .founding-banner {
+      border: 1px solid rgba(141,235,0,0.35);
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(141,235,0,0.10), rgba(141,235,0,0.02));
+      padding: 16px 18px;
+      margin: 0 0 24px;
+    }
+    .founding-banner[hidden] { display: none; }
+    .founding-tag {
+      display: inline-block;
+      font-family: 'Space Mono', monospace;
+      font-size: 10.5px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #06110a;
+      background: #8deb00;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+    .founding-line { font-size: 14px; color: rgba(255,255,255,0.9); margin: 0 0 4px; line-height: 1.5; }
+    .founding-count { font-size: 12.5px; color: rgba(255,255,255,0.55); margin: 0; font-family: 'Space Mono', monospace; }
+
     .plan-grid { display: grid; gap: 12px; margin-bottom: 20px; }
     .plan-card {
       position: relative;
@@ -231,11 +255,18 @@
     <h1 class="pro-title">Unlock the full signal.</h1>
     <p class="pro-sub">Free teaches you to see. Pro teaches you to master — every mission, every chapter, every game.</p>
 
+    <div class="founding-banner" id="foundingBanner" hidden>
+      <span class="founding-tag">Founding Decoder</span>
+      <p class="founding-line">The first 200 Pro members lock their rate for life — and carry the Founding Decoder badge forever.</p>
+      <p class="founding-count" id="foundingCount"></p>
+    </div>
+
     <div class="pro-notice" id="proNotice" role="status"></div>
 
     <div id="purchasePanel" hidden>
       <ul class="pro-includes">
         <li><i class="fas fa-check"></i><span><strong>Everything in Free</strong> — daily drill, streaks, leaderboard</span></li>
+        <li><i class="fas fa-check"></i><span><strong>Full Darkroom</strong> — composition, color &amp; field mastery: all 14 Pro skills</span></li>
         <li><i class="fas fa-check"></i><span><strong>Full mission library</strong> — every track, every phase</span></li>
         <li><i class="fas fa-check"></i><span><strong>Field Manual</strong> — all chapters, all lessons</span></li>
         <li><i class="fas fa-check"></i><span><strong>All games</strong> — the complete arcade, no rotation</span></li>
@@ -247,17 +278,16 @@
           <span class="plan-price">$4.99</span>
           <span class="plan-note">Billed weekly. Maximum flexibility — cancel anytime.</span>
         </button>
-        <button class="plan-card" data-plan="monthly" role="radio" aria-checked="true">
-          <span class="plan-flag">Most popular</span>
+        <button class="plan-card" data-plan="monthly" role="radio" aria-checked="false">
           <span class="plan-name">Monthly</span>
           <span class="plan-price">$14.99</span>
           <span class="plan-note">Billed monthly. Cancel anytime.</span>
         </button>
-        <button class="plan-card" data-plan="annual" role="radio" aria-checked="false">
-          <span class="plan-flag">Save 34%</span>
+        <button class="plan-card" data-plan="annual" role="radio" aria-checked="true">
+          <span class="plan-flag">Most popular</span>
           <span class="plan-name">Annual</span>
           <span class="plan-price">$119</span>
-          <span class="plan-note">Billed once a year. Two months free vs monthly.</span>
+          <span class="plan-note">Billed once a year — just $9.92/mo. Includes the Camera Confidence Guide free ($47 value).</span>
         </button>
       </div>
 
@@ -283,7 +313,7 @@
   <script>
     (function () {
       'use strict';
-      var selected = 'monthly';
+      var selected = 'annual';
       var links = null;
       var cta = document.getElementById('proCta');
       var notice = document.getElementById('proNotice');
@@ -299,7 +329,7 @@
           monthly: 'Pro Monthly — <strong>$14.99/month</strong>, billed monthly.',
           annual: 'Pro Annual — <strong>$119/year</strong>, billed once a year.'
         };
-        return (map[selected] || map.monthly) + ' Cancel anytime.';
+        return (map[selected] || map.annual) + ' Cancel anytime.';
       }
 
       function selectPlan(name) {
@@ -347,7 +377,27 @@
             if (b === 'weekly' || b === 'monthly' || b === 'annual') return b;
           }
         } catch (e) {}
-        return 'monthly';
+        return 'annual';
+      }
+
+      /* Founding Decoder: live spots-left from config/founding.
+         Hides silently when the counter is unavailable. */
+      function loadFounding() {
+        var banner = document.getElementById('foundingBanner');
+        var count = document.getElementById('foundingCount');
+        if (!banner || !window.db) return;
+        try {
+          window.db.collection('config').doc('founding').get().then(function (snap) {
+            var data = (snap.exists && snap.data()) || {};
+            var cap = Number(data.cap) || 200;
+            var claimed = Number(data.claimed) || 0;
+            var left = Math.max(0, cap - claimed);
+            count.textContent = left > 0
+              ? left + ' of ' + cap + ' founding spots remaining'
+              : 'All ' + cap + ' founding spots claimed';
+            banner.hidden = false;
+          }).catch(function () { /* counter unavailable: banner stays hidden */ });
+        } catch (e) {}
       }
 
       async function boot() {
@@ -383,6 +433,7 @@
 
         document.getElementById('purchasePanel').hidden = false;
         selectPlan(initialPlan());
+        loadFounding();
 
         try {
           links = await window.CDPro.getPaymentLinks();

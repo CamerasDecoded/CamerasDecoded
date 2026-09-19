@@ -13,16 +13,15 @@
 
 const ROUTES = {
   login:  '/login.html',
-  // Interim destinations until dedicated lesson/drill pages exist.
-  // Swap these two strings when /lesson.html and /quick-drill.html are built.
-  lesson: '/quiz-full.html',
-  drill:  '/dailyprotocol.html',
 };
 
 let ACTIVE_TREE = 'photo-foundations';
-let PROGRESS = {};          // { [skillId]: { xp } } — from Firestore
+let PROGRESS = {};          // { [skillId]: { xp, lessonsDone[] } } — from Firestore
 let skillMap = {};
 let firstRenderDone = false;
+let myTier = null;          // 'pro' | 'free' — read once per session
+let lastSkillData = null;   // latest userSkills snapshot (for the wall nudge)
+let lastUid = null;
 
 /* ---------- small helpers ---------- */
 function pipsHTML(lvl){
@@ -52,8 +51,18 @@ function boot(){
     return;
   }
   firebase.auth().onAuthStateChanged(user => {
-    if (!user){ showAuthWall(); return; }
-    hideAuthWall();
+    if (!user){
+      // Signed-out users don't see the Darkroom — straight to login,
+      // back here after (deep link preserved).
+      try { sessionStorage.setItem('cd_post_login_redirect', location.pathname + location.search + location.hash); } catch(e){}
+      location.href = '/login.html';
+      return;
+    }
+    if (window.CDLearn) CDLearn.prefetchTier();
+    // Tier for the wall nudge (one read; the learn engine keeps its own copy).
+    firebase.firestore().collection('users').doc(user.uid).get()
+      .then(s => { myTier = (s.exists && s.data().tier) || 'free'; maybeWallNudge(); })
+      .catch(() => { myTier = 'free'; maybeWallNudge(); });
     subscribeProgress(user.uid);
   });
 }
@@ -64,11 +73,14 @@ function subscribeProgress(uid){
     const data = snap.data() || {};
     const next = {};
     Object.entries(data.skills || {}).forEach(([id, v]) => {
-      if (v && typeof v.xp === 'number') next[id] = { xp: v.xp };
+      if (v && typeof v.xp === 'number')
+        next[id] = { xp: v.xp, lessonsDone: Array.isArray(v.lessonsDone) ? v.lessonsDone : [] };
     });
     PROGRESS = next;
+    lastSkillData = data; lastUid = uid;
     renderAll();
     if (!firstRenderDone){ firstRenderDone = true; applyHash(); }
+    maybeWallNudge();
   }, () => {
     // Firestore read failed (offline/rules) — render the tree unlocked-only
     // rather than a dead page; progress syncs when the read succeeds.
@@ -78,15 +90,40 @@ function subscribeProgress(uid){
   });
 }
 
-/* ---------- auth wall / fatal ---------- */
-function showAuthWall(){
-  document.getElementById('authWall').hidden = false;
-  document.getElementById('darkroomMain').hidden = true;
+/* ---------- wall nudge: free user finishes every free Darkroom lesson ----------
+   Fires once (localStorage fast-flag + userSkills.wallNudgeSent for
+   cross-device). Runs after each progress snapshot and after the tier
+   read, so ordering between the two async sources can't strand it. */
+const WALL_NUDGE_LS = 'cd_wall_nudge_sent';
+function maybeWallNudge(){
+  if (!myTier || myTier === 'pro' || !lastSkillData || !lastUid) return;
+  if (!window.CDLearn || typeof CDLearn.isFreeSkill !== 'function') return;
+  let sent = false;
+  try { sent = localStorage.getItem(WALL_NUDGE_LS) === '1'; } catch(e){}
+  if (sent || lastSkillData.wallNudgeSent) return;
+  const freeIds = Object.keys(skillMap).filter(id => CDLearn.isFreeSkill(id));
+  if (!freeIds.length) return;
+  // 'core' is the lesson-completion key banked by darkroom-learn.js
+  const done = freeIds.every(id => {
+    const ld = (PROGRESS[id] && PROGRESS[id].lessonsDone) || [];
+    return ld.indexOf('core') !== -1;
+  });
+  if (!done) return;
+  try { localStorage.setItem(WALL_NUDGE_LS, '1'); } catch(e){}
+  firebase.firestore().collection('userSkills').doc(lastUid)
+    .set({ wallNudgeSent: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+    .catch(() => {});
+  if (window.CDNotifs && typeof CDNotifs.notify === 'function') {
+    CDNotifs.notify({
+      title: 'You\u2019ve mastered the mechanics',
+      body: 'Every free Darkroom lesson is decoded — Composition and beyond is Pro.',
+      href: '/pro-checkout.html',
+      kind: 'wall-nudge'
+    });
+  }
 }
-function hideAuthWall(){
-  document.getElementById('authWall').hidden = true;
-  document.getElementById('darkroomMain').hidden = false;
-}
+
+/* ---------- fatal ---------- */
 function showFatal(msg){
   const el = document.getElementById('fatal');
   el.textContent = msg; el.hidden = false;
@@ -260,10 +297,12 @@ function openSheet(skillId){
   const btnDrill = document.getElementById('btnDrill');
   btnLesson.disabled = locked;
   btnDrill.disabled = locked;
-  // TODO (integrator): confirm these routes accept ?skill=<id>&track=<treeId>
-  // and award XP to that skillId on completion (see INTEGRATION.md).
-  btnLesson.onclick = () => { location.href = ROUTES.lesson + '?skill=' + encodeURIComponent(s.id) + '&track=' + ACTIVE_TREE; };
-  btnDrill.onclick  = () => { location.href = ROUTES.drill  + '?skill=' + encodeURIComponent(s.id) + '&track=' + ACTIVE_TREE; };
+  // Start lesson / Practice drill: inline cinematic lesson & drill inside
+  // the sheet — no redirects, Darkroom look throughout.
+  btnLesson.onclick = () => { if (window.CDLearn) CDLearn.openLesson(s.id); };
+  btnDrill.onclick  = () => { if (window.CDLearn) CDLearn.openDrill(s.id); };
+  // PRO pill on the buttons for non-Pro users (lessons & drills are Pro).
+  if (window.CDLearn) CDLearn.decorateButtons(s.id);
   const sc = scrim();
   sc.classList.add('open');
   sc.setAttribute('aria-hidden','false');
