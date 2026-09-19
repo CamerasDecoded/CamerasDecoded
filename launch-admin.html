@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CD Admin</title>
+<link rel="apple-touch-icon" href="/apple-touch-icon-admin.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CD Admin">
+<meta name="theme-color" content="#070708">
+<style>
+  html,body{margin:0;padding:0;background:#070708;color:#f2f5ee;
+    font-family:Montserrat,system-ui,sans-serif;min-height:100%}
+  body{display:grid;place-items:center;min-height:100vh;min-height:100dvh;padding:24px;box-sizing:border-box}
+  .card{width:min(360px,100%);text-align:center;background:#0e0f11;
+    border:1px solid rgba(141,235,0,.25);border-radius:20px;padding:32px 24px;
+    box-shadow:0 0 40px rgba(141,235,0,.07)}
+  .card h1{font-family:"Space Mono",ui-monospace,monospace;font-size:17px;color:#8deb00;margin:0 0 8px}
+  .card p{font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0 0 20px}
+  .card button{width:100%;padding:14px;border:none;border-radius:12px;cursor:pointer;
+    background:#8deb00;color:#0a0c08;font-family:"Space Mono",monospace;font-weight:700;font-size:14px}
+  .spin{width:34px;height:34px;margin:0 auto;border-radius:50%;
+    border:3px solid rgba(141,235,0,.2);border-top-color:#8deb00;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spin{animation:none}}
+  #switchUI{display:none}
+</style>
+</head>
+<body>
+  <div class="card" id="loadingUI" aria-live="polite">
+    <div class="spin"></div>
+    <p style="margin:16px 0 0">Opening your admin session&hellip;</p>
+  </div>
+  <div class="card" id="switchUI">
+    <h1>Wrong seat</h1>
+    <p id="switchMsg">This icon is for the admin account.</p>
+    <button type="button" id="switchBtn">Sign out &amp; switch</button>
+  </div>
+<script defer src="/scripts/firebase-app-compat.js?v=20260912c"></script>
+<script defer src="/scripts/firebase-auth-compat.js?v=20260912c"></script>
+<script defer src="/scripts/firebase-firestore-compat.js?v=20260912c"></script>
+<script defer src="/scripts/firebase-init.js?v=20260912c"></script>
+<script defer>
+(function () {
+  'use strict';
+  var WANT_ROLE = 'Admin';
+  var DASH = '/admin-dashboard.html';
+  var loadingUI = document.getElementById('loadingUI');
+  var switchUI = document.getElementById('switchUI');
+
+  function goLogin() {
+    try { sessionStorage.setItem('cd_post_login_redirect', DASH); } catch (e) {}
+    location.replace('/login.html');
+  }
+  function showSwitch(msg) {
+    document.getElementById('switchMsg').textContent = msg;
+    loadingUI.style.display = 'none';
+    switchUI.style.display = 'block';
+  }
+
+  var settled = false;
+  function settle(fn) { if (!settled) { settled = true; fn(); } }
+
+  // Slow-network safety: never trap on this page.
+  setTimeout(function () {
+    settle(function () { goLogin(); });
+  }, 12000);
+
+  function boot() {
+    if (!window.auth || !window.db) { goLogin(); return; }
+    window.auth.onAuthStateChanged(function (user) {
+      if (!user) { settle(goLogin); return; }
+      window.db.collection('users').doc(user.uid).get().then(function (doc) {
+        var role = (doc.exists && doc.data().role) || 'Admin';
+        if (role === WANT_ROLE) { settle(function () { location.replace(DASH); }); }
+        else {
+          settle(function () {
+            showSwitch('You are signed in as ' + (user.email || 'another account') +
+              ' (' + role + '). This icon opens the admin account.');
+          });
+        }
+      }).catch(function () {
+        // Role read failed (offline/rules): fail open to the dashboard,
+        // which enforces its own guards.
+        settle(function () { location.replace(DASH); });
+      });
+    });
+  }
+
+  document.getElementById('switchBtn').addEventListener('click', function () {
+    var go = function () { goLogin(); };
+    if (window.auth && window.auth.signOut) window.auth.signOut().then(go, go);
+    else go();
+  });
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>
