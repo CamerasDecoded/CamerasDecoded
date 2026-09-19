@@ -872,6 +872,8 @@
           xpToday: firebase.firestore.FieldValue.increment(10),
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + todayKey]: firebase.firestore.FieldValue.increment(10),
+          lastActivityDate: todayKey, lastActiveDate: todayKey,
+          lastStreakDate: todayKey, lastXpDate: todayKey,
           recentActivity: firebase.firestore.FieldValue.arrayUnion({ label: 'Daily challenge complete', time: 'Just now', xp: 10 })
         });
         showToast('Challenge complete · +10 XP');
@@ -918,6 +920,10 @@
           xpToday: firebase.firestore.FieldValue.increment(10),
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + new Date().toISOString().slice(0, 10)]: firebase.firestore.FieldValue.increment(10),
+          lastActivityDate: new Date().toISOString().slice(0, 10),
+          lastActiveDate: new Date().toISOString().slice(0, 10),
+          lastStreakDate: new Date().toISOString().slice(0, 10),
+          lastXpDate: new Date().toISOString().slice(0, 10),
           recentActivity: firebase.firestore.FieldValue.arrayUnion({
             label: 'Quick drill complete', time: 'Just now', xp: 10
           })
@@ -942,7 +948,11 @@
           await window.db.collection('users').doc(uid).update({
             xpToday: firebase.firestore.FieldValue.increment(20),
             totalPoints: firebase.firestore.FieldValue.increment(20),
-            ['xpByDay.' + new Date().toISOString().slice(0, 10)]: firebase.firestore.FieldValue.increment(20)
+            ['xpByDay.' + new Date().toISOString().slice(0, 10)]: firebase.firestore.FieldValue.increment(20),
+            lastActivityDate: new Date().toISOString().slice(0, 10),
+            lastActiveDate: new Date().toISOString().slice(0, 10),
+            lastStreakDate: new Date().toISOString().slice(0, 10),
+            lastXpDate: new Date().toISOString().slice(0, 10)
           });
           showToast('Lesson marked complete · +20 XP');
         } catch (err) {

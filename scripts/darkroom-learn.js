@@ -417,10 +417,9 @@ window.CDLearn = (() => {
       const skillPatch = { xp: F.increment(amount), updatedAt: F.serverTimestamp() };
       if (kind === 'lesson') skillPatch.lessonsDone = F.arrayUnion(LESSON_KEY);
       else skillPatch.drillDays = F.arrayUnion(tk);
-      await ref.set({ updatedAt: F.serverTimestamp(), skills: { [skillId]: skillPatch } }, { merge: true });
 
       // global XP ledger (dashboard ring, today's goal)
-      await db.collection('users').doc(uid).set({
+      const globalWrite = {
         xpToday: F.increment(amount),
         totalPoints: F.increment(amount),
         ['xpByDay.' + tk]: F.increment(amount),
@@ -429,7 +428,23 @@ window.CDLearn = (() => {
           skillId, xp: amount, correct: correct || 0,
           at: new Date().toISOString()
         })
-      }, { merge: true });
+      };
+      // Stamp the day keys RewardEngine.award() uses for its day-rollover
+      // reset. Without these, a later award() call sees a stale "last
+      // active" date, assumes a new day, and resets xpToday to 0 + its own
+      // XP — silently wiping the XP banked here from the daily total.
+      globalWrite.lastActivityDate = tk;
+      globalWrite.lastActiveDate = tk;
+      globalWrite.lastStreakDate = tk;
+      globalWrite.lastXpDate = tk;
+
+      // Commit skill + global writes atomically. A half-banked state (skill
+      // XP written, global XP not) can never be retried cleanly, because the
+      // anti-farm flag would already be set above.
+      const batch = db.batch();
+      batch.set(ref, { updatedAt: F.serverTimestamp(), skills: { [skillId]: skillPatch } }, { merge: true });
+      batch.set(db.collection('users').doc(uid), globalWrite, { merge: true });
+      await batch.commit();
       return { banked: true, amount, reason: '' };
     })();
     try {
