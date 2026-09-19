@@ -297,12 +297,11 @@
   }
 
   // 7-day XP sparkline on the Today's-XP stat.
-  // Sources: users/{uid}.xpByDay ledger (drill/lesson XP, written alongside xpToday)
-  // plus game_sessions sums for the last 7 days (game XP backfill; single-field
-  // query so no composite Firestore index is needed).
-  // The two sources are disjoint today (game XP never lands in the ledger), so a
-  // per-day sum is correct. If play.html ever writes the ledger too, switch the
-  // merge from sum to max to avoid double-counting.
+  // Sources: users/{uid}.xpByDay ledger (drill/lesson/challenge/arcade XP,
+  // written alongside xpToday) plus game_sessions for sessions whose XP was
+  // NOT banked to the ledger (bankedDaily flag, set at create time).
+  // Banked sessions are skipped here to avoid double-counting; the merge
+  // stays a sum because the two sources are disjoint per session.
   let sparkReq = 0;
   function drawSpark(el, values) {
     const w = 70, h = 24, p = 3;
@@ -354,8 +353,8 @@
         const t = s.createdAt && s.createdAt.toDate ? s.createdAt.toDate() : null;
         if (!t || typeof s.xp !== 'number') return;
         const k = t.toISOString().slice(0, 10);
-        if (k in perDay) perDay[k] += s.xp;
-        sessions.push({ key: k, xp: s.xp, game: s.game || s.slotId || 'game', score: s.score, ts: t });
+        if (!s.bankedDaily && k in perDay) perDay[k] += s.xp;
+        sessions.push({ key: k, xp: s.xp, game: s.game || s.slotId || 'game', score: s.score, ts: t, bankedDaily: !!s.bankedDaily });
       });
     } catch (err) { /* offline/denied: sparkline falls back to the ledger */ }
     vm.gameSessions = sessions;
@@ -1314,8 +1313,11 @@
     $('xpDetailTotal').textContent = xpToday;
     $('xpDetailGoal').textContent = `${xpToday} of ${xpGoal}`;
 
+    // Only banked sessions itemize here: their XP is inside xpToday, so the
+    // rows (game XP) + the grouped rest (xpToday - gameXp) sum to the total.
+    // Replays don't re-bank — they still count on the leaderboard.
     const sessions = (vm.gameSessions || [])
-      .filter((s) => s.key === tKey && s.xp > 0)
+      .filter((s) => s.key === tKey && s.xp > 0 && s.bankedDaily)
       .sort((a, b) => b.ts - a.ts);
     const gameXp = sessions.reduce((sum, s) => sum + s.xp, 0);
     const rest = Math.max(0, xpToday - gameXp);

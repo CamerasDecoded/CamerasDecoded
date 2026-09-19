@@ -119,6 +119,9 @@
     font-size:12px;letter-spacing:2px;border:1px solid var(--line);background:transparent;color:var(--txt);}
   .cd-rbtn.primary{background:var(--acc);border-color:var(--acc);color:#06110a;font-weight:700;}
   .cd-rbtn:active{transform:scale(.97);}
+  .cd-rexit{display:block;margin:16px auto 0;background:none;border:0;cursor:pointer;
+    font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--dim);opacity:.8;}
+  .cd-rexit:hover{opacity:1;color:var(--txt);}
 
   /* ---------- toast ---------- */
   #cdToast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);z-index:80;
@@ -181,6 +184,7 @@
       <button class="cd-rbtn" id="cdReplay">↻ REPLAY</button>
       <button class="cd-rbtn primary" id="cdNext">NEXT →</button>
     </div>
+    <button class="cd-rexit" id="cdExitArcade">EXIT TO ARCADE</button>
   </div>
 </div>
 
@@ -414,18 +418,71 @@
 
   function persist(rec) {
     var d = db();
-    if (!d) return; // demo mode: nothing to write to
+    if (!d || !slot || !slot.slotId) return; // demo mode: nothing to write to
+    persistWithDailyXp(d, currentUid(), rec);
+  }
+
+  function localDayKey(d) {
+    d = d || new Date();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+
+  /* First scored play of a slot each day also feeds the daily XP total
+     (xpToday / totalPoints / xpByDay). Anti-farm: replays still record a
+     session and count on the leaderboard, but don't re-bank. Sessions are
+     append-only, so the banked flag is set at create time. */
+  async function persistWithDailyXp(d, uid, rec) {
+    var bank = false;
+    if (rec.xp > 0 && uid) {
+      try {
+        var today = localDayKey();
+        var qs = await Promise.race([
+          d.collection('game_sessions').where('uid', '==', uid).limit(200).get(),
+          new Promise(function (_, rej) { setTimeout(function () { rej(new Error('bank-check-timeout')); }, 3000); })
+        ]);
+        var seen = false;
+        qs.forEach(function (doc) {
+          var s = doc.data() || {};
+          if (s.slotId !== slot.slotId || !(s.xp > 0)) return;
+          var t = s.createdAt && s.createdAt.toDate ? s.createdAt.toDate() : null;
+          if (t && localDayKey(t) === today) seen = true;
+        });
+        bank = !seen;
+      } catch (e) { bank = false; }
+    }
     try {
-      d.collection('game_sessions').add({
-        uid: currentUid(),
+      await d.collection('game_sessions').add({
+        uid: uid,
         slotId: slot.slotId, game: slot.game, version: slot.version || 'v1',
         score: rec.score, xp: rec.xp, durationMs: rec.durationMs,
-        detail: rec.detail,
+        detail: rec.detail, bankedDaily: bank,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }).catch(function () {});
-      updateLeaderboard(currentUid(), rec.xp, 1); // best-effort
-      try { if (window.CDStreak) window.CDStreak.touch(d, currentUid()); } catch (e) {} // true day streak: any completed game counts
+      });
     } catch (e) {}
+    if (bank) {
+      // Feed the daily total. Day keys included so RewardEngine.award()'s
+      // day-rollover reset can't wipe this XP (see darkroom-learn bankXp).
+      try {
+        var today = localDayKey();
+        var F = firebase.firestore.FieldValue;
+        var upd = {
+          xpToday: F.increment(rec.xp),
+          totalPoints: F.increment(rec.xp),
+          lastActivityDate: today, lastActiveDate: today,
+          lastStreakDate: today, lastXpDate: today,
+          recentActivity: F.arrayUnion({
+            type: 'arcade_game', label: 'Arcade · ' + (slot.game || 'game'),
+            time: 'Just now', xp: rec.xp
+          })
+        };
+        upd['xpByDay.' + today] = F.increment(rec.xp);
+        await d.collection('users').doc(uid).set(upd, { merge: true });
+      } catch (e) {}
+    }
+    try { updateLeaderboard(uid, rec.xp, 1); } catch (e) {} // best-effort
+    try { if (window.CDStreak) window.CDStreak.touch(d, uid); } catch (e) {} // true day streak: any completed game counts
   }
 
   /* ============ leaderboard hook (best-effort; per-write caps in rules) ============ */
@@ -526,6 +583,7 @@
 
   /* ============ result buttons ============ */
   $('cdReplay').addEventListener('click', function () { location.reload(); });
+  $('cdExitArcade').addEventListener('click', function () { location.href = '/arcade.html'; });
   $('cdNext').addEventListener('click', async function () {
     var d = db();
     // demo queue: swap in place — no page navigation, works in any viewer
