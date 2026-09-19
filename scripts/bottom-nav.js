@@ -77,7 +77,7 @@
         { href: '/field-manual.html',  icon: 'manual',   title: 'Field Manual',      sub: 'The Confidence Guide · Pro' },
         { href: '/darkroom.html',      icon: 'darkroom', title: 'The Darkroom',      sub: 'Your skill tree' },
         { href: '/arcade.html',        icon: 'gamepad',  title: 'Game Arcade',       sub: 'Play drills, earn XP' },
-        { href: '/missions.html',        icon: 'bolt',     title: "Today's challenge", sub: 'Keep your streak alive' },
+        { href: '/challenge.html',       icon: 'bolt',     title: "Today's challenge", sub: 'Keep your streak alive' },
         { href: '/quiz-full.html',     icon: 'quiz',     title: 'Quiz Arena',        sub: 'Test what you know' }
       ]
     },

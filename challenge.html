@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Today's Challenge — Cameras Decoded</title>
+
+  <!-- ===== MASTER LOADER (injects header, bottom nav container, shared CSS) ===== -->
+  <script src="/scripts/master-loader.js"></script>
+
+  <!-- ===== SHARED COMPONENT CSS ===== -->
+  <link rel="stylesheet" href="header.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js"></script>
+
+  <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
+  <script src="/scripts/user-state.js"></script>
+  <script src="/scripts/haptics.js"></script>
+  <script src="/scripts/challenges-data.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="header.js"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
+
+  <style>
+    :root {
+      --green: #8deb00;
+      --green-dim: rgba(141,235,0,0.12);
+      --text-muted: #b4b4b4;
+      --bg-panel: #0A0A0A;
+      --border-dim: #1A1A1A;
+      --gold: #e0b12d;
+      --radius: 14px;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      display: block !important;
+      justify-content: normal !important;
+      align-items: normal !important;
+      padding: 0 !important;
+      background: #050705;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(141,235,0,0.12) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(141,235,0,0.08) 0%, transparent 45%),
+        linear-gradient(rgba(141,235,0,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(141,235,0,0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+      background-attachment: fixed;
+      color: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    a { text-decoration:none; color:inherit; }
+    h1, h2, .mono { font-family:'Space Mono', monospace; }
+
+    .main-content {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 96px 20px 120px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* ===== HERO ===== */
+    .ch-hero { text-align:center; margin-bottom:28px; }
+    .kicker {
+      font-family:'Space Mono',monospace; font-size:11px; letter-spacing:3px;
+      text-transform:uppercase; color:var(--green); margin-bottom:10px;
+    }
+    .ch-date {
+      font-family:'Space Mono',monospace; font-size:12px; letter-spacing:1px;
+      color:var(--text-muted); margin-bottom:14px; text-transform:uppercase;
+    }
+    .ch-hero h1 { font-size:clamp(30px,7vw,46px); font-weight:700; margin-bottom:12px; }
+    .ch-hero .sub { color:var(--text-muted); font-size:15px; max-width:520px; margin:0 auto; }
+
+    /* ===== STREAK STRIP ===== */
+    .streak-strip {
+      display:flex; align-items:center; justify-content:center; gap:14px;
+      margin-bottom:28px; padding:14px;
+      border:1px solid var(--border-dim); border-radius:var(--radius);
+      background:rgba(10,10,10,.6);
+    }
+    .streak-count { font-family:'Space Mono',monospace; font-size:13px; color:var(--gold); white-space:nowrap; }
+    .streak-count strong { font-size:20px; color:#fff; }
+    .week-dots { display:flex; gap:8px; }
+    .dot {
+      width:30px; height:30px; border-radius:50%;
+      border:1px solid #2a2a2a; background:rgba(255,255,255,.02);
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Space Mono',monospace; font-size:10px; color:#666;
+    }
+    .dot.hit { border-color:var(--green); background:var(--green-dim); color:var(--green); }
+    .dot.today { border-color:#fff; color:#fff; }
+
+    /* ===== BRIEF CARD ===== */
+    .brief-card {
+      border:1px solid var(--border-dim); border-radius:var(--radius);
+      background:rgba(10,10,10,.6); padding:24px; margin-bottom:28px;
+    }
+    .brief-card h2 {
+      font-size:13px; letter-spacing:2px; text-transform:uppercase;
+      color:var(--green); margin-bottom:16px;
+    }
+    .tip { display:flex; gap:14px; margin-bottom:14px; }
+    .tip:last-child { margin-bottom:0; }
+    .tip-num {
+      flex:0 0 28px; height:28px; border-radius:50%;
+      border:1px solid rgba(141,235,0,.4); color:var(--green);
+      font-family:'Space Mono',monospace; font-size:12px;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .tip p { font-size:14px; color:#ddd; padding-top:4px; }
+
+    /* ===== CTA ===== */
+    .cta-wrap { text-align:center; margin-bottom:16px; }
+    .btn-complete {
+      width:100%; max-width:420px; padding:16px; border:none; border-radius:12px;
+      background:var(--green); color:#000;
+      font-family:'Space Mono',monospace; font-size:15px; font-weight:700; letter-spacing:1px;
+      cursor:pointer; transition:transform .2s, box-shadow .2s;
+    }
+    .btn-complete:hover:not(:disabled) { transform:scale(1.02); box-shadow:0 0 40px rgba(141,235,0,.35); }
+    .btn-complete:disabled { opacity:.45; cursor:default; }
+    .cta-note {
+      margin-top:12px; font-family:'Space Mono',monospace; font-size:11px;
+      letter-spacing:1px; color:var(--text-muted); text-transform:uppercase;
+    }
+    .done-state {
+      border:1px solid rgba(141,235,0,.4); border-radius:var(--radius);
+      background:var(--green-dim); padding:22px; text-align:center; margin-bottom:16px;
+    }
+    .done-state i { font-size:28px; color:var(--green); margin-bottom:8px; display:block; }
+    .done-state strong { display:block; margin-bottom:4px; }
+    .done-state span { color:var(--text-muted); font-size:13px; }
+
+    /* ===== SIGN-IN BANNER ===== */
+    .signin-banner {
+      border:1px solid rgba(141,235,0,.25); border-radius:var(--radius);
+      background:linear-gradient(135deg, rgba(141,235,0,.07), rgba(141,235,0,.02));
+      padding:20px; margin-bottom:28px; display:flex; flex-wrap:wrap;
+      align-items:center; justify-content:space-between; gap:14px;
+    }
+    .signin-banner .msg { font-size:14px; color:#ddd; }
+    .signin-banner .msg strong { color:#fff; }
+    .btn-login {
+      padding:10px 26px; background:var(--green); border:none; border-radius:10px;
+      color:#000; font-family:'Space Mono',monospace; font-size:13px; font-weight:700;
+      cursor:pointer; white-space:nowrap;
+    }
+
+    .ch-footer {
+      text-align:center; color:#555; font-size:11px; font-family:'Space Mono',monospace;
+      letter-spacing:1px; padding:30px 0 10px;
+    }
+
+    /* ===== CELEBRATION ===== */
+    .celebrate-overlay {
+      position:fixed; inset:0; z-index:10000;
+      background:rgba(3,5,3,.82); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+      opacity:0; transition:opacity .3s;
+    }
+    .celebrate-overlay[hidden] { display:none; }
+    .celebrate-overlay.show { opacity:1; }
+    .celebrate-card { text-align:center; max-width:340px; }
+    .celebrate-card video {
+      width:200px; height:200px; object-fit:cover; border-radius:16px;
+      border:1px solid rgba(141,235,0,.4); box-shadow:0 0 60px rgba(141,235,0,.25);
+      margin-bottom:18px; background:#000;
+    }
+    .celebrate-kicker {
+      font-family:'Space Mono',monospace; font-size:12px; letter-spacing:4px;
+      text-transform:uppercase; color:var(--green); margin-bottom:8px;
+    }
+    .celebrate-xp { font-size:34px; font-weight:700; margin-bottom:6px; }
+    .celebrate-sub { color:var(--text-muted); font-size:14px; margin-bottom:22px; }
+    .celebrate-cta {
+      display:block; width:100%; padding:14px; border:none; border-radius:12px;
+      background:var(--green); color:#000; font-family:'Space Mono',monospace;
+      font-size:14px; font-weight:700; cursor:pointer; margin-bottom:10px;
+      transition:transform .2s, box-shadow .2s;
+    }
+    .celebrate-cta:hover { transform:scale(1.02); box-shadow:0 0 30px rgba(141,235,0,.35); }
+    .celebrate-dismiss {
+      background:none; border:none; color:var(--text-muted);
+      font-size:13px; cursor:pointer; padding:8px;
+    }
+    .celebrate-dismiss:hover { color:#fff; }
+
+    /* ===== TOAST ===== */
+    #toast-container {
+      position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
+      z-index:9999; display:flex; flex-direction:column; gap:8px; align-items:center;
+      pointer-events:none; width:max-content; max-width:92vw;
+    }
+    .toast {
+      background:#111; border:1px solid var(--green); color:#fff;
+      padding:12px 20px; border-radius:10px; font-size:13px;
+      opacity:0; transform:translateY(8px); transition:opacity .3s, transform .3s;
+      max-width:92vw; text-align:center;
+    }
+    .toast.show { opacity:1; transform:translateY(0); }
+    .toast.error { border-color:#ff4a4a; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .btn-complete, .celebrate-cta, .celebrate-overlay, .toast { transition:none; }
+    }
+  </style>
+</head>
+<body>
+
+  <main class="main-content">
+    <div id="toast-container"></div>
+
+    <!-- ===== HERO ===== -->
+    <div class="ch-hero">
+      <div class="kicker">Today's Challenge</div>
+      <div class="ch-date" id="chDate"></div>
+      <h1 id="chTitle">Loading today's challenge…</h1>
+      <p class="sub" id="chDesc"></p>
+    </div>
+
+    <!-- ===== SIGN-IN BANNER (signed out) ===== -->
+    <div class="signin-banner" id="signinBanner" style="display:none;">
+      <div class="msg"><strong>Log in to take the challenge.</strong><br/>Complete it for +10 XP and keep your streak alive.</div>
+      <button class="btn-login" id="bannerLoginBtn">Log In</button>
+    </div>
+
+    <!-- ===== STREAK ===== -->
+    <div class="streak-strip" id="streakStrip" style="display:none;">
+      <div class="streak-count"><strong id="streakNum">0</strong><br/>day streak</div>
+      <div class="week-dots" id="weekDots"></div>
+    </div>
+
+    <!-- ===== BRIEF ===== -->
+    <div class="brief-card">
+      <h2>The brief</h2>
+      <div id="tipList"></div>
+    </div>
+
+    <!-- ===== CTA ===== -->
+    <div class="cta-wrap" id="ctaWrap" style="display:none;">
+      <button class="btn-complete" id="completeBtn" type="button">Mark complete · +10 XP</button>
+      <div class="cta-note">One completion per day · honest work only</div>
+    </div>
+    <div class="done-state" id="doneState" style="display:none;">
+      <i class="fas fa-check-circle"></i>
+      <strong>Challenge complete</strong>
+      <span>Come back tomorrow to keep the streak alive.</span>
+    </div>
+
+    <div class="ch-footer">© 2026 Cameras Decoded · All signals locked</div>
+  </main>
+
+  <!-- ===== CELEBRATION ===== -->
+  <div id="doneOverlay" class="celebrate-overlay" hidden>
+    <div class="celebrate-card">
+      <video id="doneVideo" src="/media/mission-complete-success.mp4" muted playsinline preload="auto"></video>
+      <div class="celebrate-kicker">Challenge complete</div>
+      <div class="celebrate-xp">+10 XP</div>
+      <p class="celebrate-sub" id="doneSub">Streak extended. See you tomorrow.</p>
+      <button type="button" class="celebrate-cta" id="doneCta">Back to dashboard</button>
+      <button type="button" class="celebrate-dismiss" id="doneDismiss">Stay here</button>
+    </div>
+  </div>
+
+  <!-- ===== BOTTOM NAV (mobile) ===== -->
+  <div id="bottomNavContainer" data-role="operator"></div>
+
+  <script>
+    // ================================================================
+    // TODAY'S CHALLENGE
+    // ================================================================
+    function cdToast(msg, type) {
+      try {
+        var container = document.getElementById('toast-container');
+        var el = document.createElement('div');
+        el.className = 'toast' + (type === 'error' ? ' error' : '');
+        el.textContent = msg;
+        container.appendChild(el);
+        requestAnimationFrame(function () { el.classList.add('show'); });
+        setTimeout(function () {
+          el.classList.remove('show');
+          setTimeout(function () { el.remove(); }, 400);
+        }, 3000);
+      } catch (e) {}
+    }
+
+    const auth = window.auth || firebase.auth();
+    const db = window.db || firebase.firestore();
+
+    // Shared pool: /scripts/challenges-data.js (window.CD_CHALLENGES). Fallback below only if it fails to load.
+    const CHALLENGES = window.CD_CHALLENGES || [
+      { title: 'Golden Hour Portrait',
+        desc: 'Capture a portrait during golden hour. Focus on warm tones and backlighting.',
+        tips: ['Shoot with the sun behind your subject and expose for the face.',
+               'Open up to f/1.8–f/2.8 and let the background melt away.',
+               'Push white balance warm — Shade preset or around 6500K.'] },
+      { title: 'Street Scene',
+        desc: 'Capture a candid street moment with strong composition.',
+        tips: ['Pre-focus or use continuous AF — the moment will not wait.',
+               'Build layers: something in the foreground, the subject, and depth behind.',
+               'Shoot a short burst and pick the decisive frame later.'] },
+      { title: 'Minimalist Still Life',
+        desc: 'Arrange 3 objects and create a simple, clean composition.',
+        tips: ['One light source, one shadow — keep it ruthlessly simple.',
+               'Leave negative space so the subject can breathe.',
+               'Shoot top-down or straight-on for strong graphic shapes.'] },
+      { title: 'Macro Details',
+        desc: 'Find a small subject and capture it in extreme detail.',
+        tips: ['Get close — fill the frame with texture.',
+               'Brace the camera or raise the shutter speed to kill shake.',
+               'Manual focus usually beats autofocus at macro distances.'] },
+      { title: 'Reflection Hunt',
+        desc: 'Find a reflection — water, glass, mirror — and make it the subject.',
+        tips: ['Expose for the reflection, not the light source.',
+               'Get low: puddles turn into mirrors at grazing angles.',
+               'Let the reflection dominate the frame — flip the composition.'] }
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    const todayKey = () => new Date().toISOString().slice(0, 10);
+    let currentUser = null;
+    let completing = false;
+
+    // ---- Date line ----
+    try {
+      $('chDate').textContent = new Date().toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric'
+      });
+    } catch (e) {}
+
+    function todaysChallenge(userData) {
+      const dayIdx = Math.floor(Date.now() / 86400000) % CHALLENGES.length;
+      if (userData && userData.dailyChallenge && userData.dailyChallenge.title) {
+        const c = userData.dailyChallenge;
+        return { title: c.title, desc: c.description || c.prompt || CHALLENGES[dayIdx].desc,
+                 tips: c.tips || CHALLENGES[dayIdx].tips };
+      }
+      return CHALLENGES[dayIdx];
+    }
+
+    function renderChallenge(userData) {
+      const c = todaysChallenge(userData);
+      $('chTitle').textContent = c.title;
+      $('chDesc').textContent = c.desc;
+      $('tipList').innerHTML = (c.tips || []).map((t, i) => `
+        <div class="tip"><div class="tip-num">${i + 1}</div><p>${t}</p></div>`).join('');
+    }
+
+    function renderStreak(userData) {
+      const log = (userData && (userData.challengeLog || userData.dailyChallengeLog)) || [];
+      const done = Array.isArray(log) && log.includes(todayKey());
+      const streak = Number((userData && (userData.dailyChallengeStreak || userData.streakDays || userData.streak)) || 0);
+
+      $('streakStrip').style.display = 'flex';
+      $('streakNum').textContent = done ? Math.max(streak, 1) : streak;
+
+      const names = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+      let html = '';
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        const isToday = i === 0;
+        const hit = Array.isArray(log) && log.includes(key);
+        html += `<div class="dot${hit ? ' hit' : ''}${isToday ? ' today' : ''}">${names[d.getDay()]}</div>`;
+      }
+      $('weekDots').innerHTML = html;
+
+      if (done) {
+        $('ctaWrap').style.display = 'none';
+        $('doneState').style.display = 'block';
+      } else {
+        $('doneState').style.display = 'none';
+        $('ctaWrap').style.display = currentUser ? 'block' : 'none';
+      }
+    }
+
+    // ---- Sounds ----
+    let _chimeCtx = null;
+    function playChime(notes) {
+      try {
+        if (localStorage.getItem('cd_chime') === 'off') return;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        if (!_chimeCtx) _chimeCtx = new AC();
+        const ctx = _chimeCtx;
+        if (ctx.state === 'suspended') ctx.resume();
+        (notes || [523, 659, 784, 1047]).forEach((f, i) => {
+          const t = ctx.currentTime + i * 0.1;
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.12, t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+          o.connect(g); g.connect(ctx.destination);
+          o.start(t); o.stop(t + 0.45);
+        });
+      } catch (e) {}
+    }
+    function haptic(kind) {
+      try {
+        if (window.CDHaptics && window.CDHaptics[kind]) window.CDHaptics[kind]();
+      } catch (e) {}
+    }
+
+    // ---- Celebration ----
+    function celebrate(newStreak) {
+      haptic('bigSuccess');
+      playChime();
+      $('doneSub').textContent = newStreak > 1
+        ? `${newStreak}-day streak. See you tomorrow.`
+        : 'Streak started. See you tomorrow.';
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        cdToast('Challenge complete · +10 XP');
+        return;
+      }
+      const overlay = $('doneOverlay'), video = $('doneVideo');
+      overlay.hidden = false;
+      requestAnimationFrame(() => overlay.classList.add('show'));
+      try { video.currentTime = 0; const p = video.play(); if (p) p.catch(() => {}); } catch (e) {}
+      clearTimeout(celebrate._t);
+      celebrate._t = setTimeout(dismissCelebration, 6000);
+    }
+    function dismissCelebration() {
+      const overlay = $('doneOverlay');
+      if (!overlay || overlay.hidden) return;
+      clearTimeout(celebrate._t);
+      try { $('doneVideo').pause(); } catch (e) {}
+      overlay.classList.remove('show');
+      setTimeout(() => { overlay.hidden = true; }, 300);
+    }
+    $('doneCta').addEventListener('click', () => {
+      dismissCelebration();
+      window.location.href = '/operator-dashboard.html';
+    });
+    $('doneDismiss').addEventListener('click', dismissCelebration);
+
+    // ---- Complete ----
+    async function completeChallenge() {
+      if (!currentUser || completing) return;
+      completing = true;
+      const btn = $('completeBtn');
+      if (btn) btn.disabled = true;
+      try {
+        const docRef = db.collection('users').doc(currentUser.uid);
+        const snap = await docRef.get();
+        const u = snap.exists ? snap.data() : {};
+        const log = u.challengeLog || u.dailyChallengeLog || [];
+        const key = todayKey();
+        if (Array.isArray(log) && log.includes(key)) {
+          renderStreak(u);
+          return;
+        }
+        const yd = new Date(); yd.setDate(yd.getDate() - 1);
+        const yKey = yd.toISOString().slice(0, 10);
+        const prevStreak = Number(u.dailyChallengeStreak || u.streakDays || u.streak || 0);
+        const newStreak = (Array.isArray(log) && log.includes(yKey)) ? prevStreak + 1 : 1;
+        await docRef.set({
+          challengeLog: firebase.firestore.FieldValue.arrayUnion(key),
+          dailyChallengeStreak: newStreak,
+          xpToday: firebase.firestore.FieldValue.increment(10),
+          totalPoints: firebase.firestore.FieldValue.increment(10),
+          ['xpByDay.' + key]: firebase.firestore.FieldValue.increment(10),
+          recentActivity: firebase.firestore.FieldValue.arrayUnion({
+            label: 'Daily challenge complete', time: 'Just now', xp: 10
+          })
+        }, { merge: true });
+        renderChallenge(u);
+        renderStreak(Object.assign({}, u, { challengeLog: [...(Array.isArray(log) ? log : []), key], dailyChallengeStreak: newStreak }));
+        celebrate(newStreak);
+      } catch (err) {
+        cdToast('Could not save. Check your connection.', 'error');
+        if (btn) btn.disabled = false;
+      } finally {
+        completing = false;
+      }
+    }
+    $('completeBtn').addEventListener('click', completeChallenge);
+
+    // ---- Auth ----
+    auth.onAuthStateChanged(async (user) => {
+      currentUser = user || null;
+      renderChallenge(null);
+      if (user) {
+        $('signinBanner').style.display = 'none';
+        try {
+          const snap = await db.collection('users').doc(user.uid).get();
+          const data = snap.exists ? snap.data() : {};
+          renderChallenge(data);
+          renderStreak(data);
+        } catch (err) {
+          renderStreak({});
+          $('ctaWrap').style.display = 'block';
+        }
+      } else {
+        $('signinBanner').style.display = 'flex';
+        $('streakStrip').style.display = 'none';
+        $('ctaWrap').style.display = 'none';
+        $('doneState').style.display = 'none';
+      }
+    });
+
+    $('bannerLoginBtn').addEventListener('click', () => {
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
+    });
+
+    // Bottom nav role
+    const checkContainer = setInterval(() => {
+      const container = document.getElementById('bottomNavContainer');
+      if (container) {
+        container.dataset.role = 'operator';
+        if (window.BottomNav && typeof window.BottomNav.setRole === 'function') {
+          window.BottomNav.setRole('Operator');
+        }
+        clearInterval(checkContainer);
+      }
+    }, 100);
+  </script>
+  <script src="/scripts/ptr.js"></script>
+</body>
+</html>

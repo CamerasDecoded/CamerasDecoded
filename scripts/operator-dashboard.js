@@ -678,12 +678,13 @@
     const fill = $('aiFill'); if (fill) fill.style.width = pct + '%';
   }
 
-  const CHALLENGES = [
-    { title:'Golden Hour Portrait', desc:'Capture a portrait during golden hour. Focus on warm tones and backlighting.', href:'/dailyprotocol.html' },
-    { title:'Street Scene', desc:'Capture a candid street moment with strong composition.', href:'/dailyprotocol.html' },
-    { title:'Minimalist Still Life', desc:'Arrange 3 objects and create a simple, clean composition.', href:'/dailyprotocol.html' },
-    { title:'Macro Details', desc:'Find a small subject and capture it in extreme detail.', href:'/dailyprotocol.html' },
-    { title:'Reflection Hunt', desc:'Find a reflection (water, glass, mirror) and use it as the main subject.', href:'/dailyprotocol.html' }
+  // Shared pool: /scripts/challenges-data.js (window.CD_CHALLENGES). Fallback below only if it fails to load.
+  const CHALLENGES = window.CD_CHALLENGES || [
+    { title:'Golden Hour Portrait', desc:'Capture a portrait during golden hour. Focus on warm tones and backlighting.' },
+    { title:'Street Scene', desc:'Capture a candid street moment with strong composition.' },
+    { title:'Minimalist Still Life', desc:'Arrange 3 objects and create a simple, clean composition.' },
+    { title:'Macro Details', desc:'Find a small subject and capture it in extreme detail.' },
+    { title:'Reflection Hunt', desc:'Find a reflection (water, glass, mirror) and use it as the main subject.' }
   ];
 
   function renderChallenge() {
@@ -849,7 +850,8 @@
         });
       }
     });
-    $('challengeBtn')?.addEventListener('click', openChallengeModal);
+    // Today's Challenge is its own page now — the button routes there; XP is earned on the page.
+    $('challengeBtn')?.addEventListener('click', () => { window.location.href = '/challenge.html'; });
     $('challengeCompleteBtn')?.addEventListener('click', async () => {
       const uid = vm.user.uid;
       if (!uid) return;
