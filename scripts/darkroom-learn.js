@@ -229,7 +229,7 @@ window.CDLearn = (() => {
           `<button class="dl-opt" data-i="${i}"><span class="dl-key">${'ABCD'[i]}</span>${esc(o)}</button>`).join('')}
         </div>
         <div class="dl-why" hidden></div>
-        <button class="btn btn-primary dl-cta" data-dl="finish" hidden>Bank the XP</button>
+        <button class="btn btn-primary dl-cta" data-dl="finish" hidden>See results</button>
       </div>`;
     const opts = stage().querySelectorAll('.dl-opt');
     const why = stage().querySelector('.dl-why');
@@ -247,6 +247,9 @@ window.CDLearn = (() => {
       why.hidden = false;
       why.innerHTML = `<strong>${right ? 'Correct.' : 'Not quite.'}</strong> ${esc(check.why)}`;
       fin.hidden = false;
+      // Bank the moment the check is answered — not on the next tap — so any
+      // exit from here on preserves the earned XP.
+      st.bankPromise = bankXp(st.skillId, 'lesson', LESSON_XP, 0);
       right ? (sfxGood(), tickH()) : sfxBad();
     }, { once: false }));
     wire(st, { finish: () => finishLesson(st) });
@@ -254,14 +257,15 @@ window.CDLearn = (() => {
 
   async function finishLesson(st) {
     if (st.done) return; st.done = true;
-    const award = await bankXp(st.skillId, 'lesson', LESSON_XP, 0);
+    // XP was already banked when the check was answered; this just awaits it.
+    const award = await (st.bankPromise || bankXp(st.skillId, 'lesson', LESSON_XP, 0));
     sfxWin(); bigH();
     renderResult(st, {
       headline: 'Lesson complete.',
       sub: st.checkRight ? 'Check passed on the first read.' : 'Read through — the check is there when you want it again.',
       xp: award,
-      cta: { label: 'Run the drill', act: () => openDrill(st.skillId) },
-      alt: { label: 'Replay lesson', act: () => openLesson(st.skillId) }
+      cta: { label: 'Back to the map', act: () => { closeLearn(); } },
+      alt: { label: 'Run the drill', act: () => openDrill(st.skillId) }
     });
   }
 
@@ -321,6 +325,12 @@ window.CDLearn = (() => {
       why.hidden = false;
       why.innerHTML = `<strong>${right ? 'Correct.' : 'Not quite.'}</strong> ${esc(q.why)}`;
       next.hidden = false;
+      // On the final question the XP is decided — bank it now so any exit
+      // from here on preserves what was earned.
+      if (i === qs.length - 1) {
+        const xp = st.correct >= 3 ? DRILL_XP : DRILL_CONSOLATION;
+        st.bankPromise = bankXp(st.skillId, 'drill', xp, st.correct);
+      }
       right ? (sfxGood(), tickH()) : sfxBad();
     }));
     wire(st, { next: () => { sfxTick(); i === qs.length - 1 ? finishDrill(st) : renderDrillQ(st, i + 1); } });
@@ -330,7 +340,8 @@ window.CDLearn = (() => {
     if (st.done) return; st.done = true;
     const total = window.DARKROOM_LESSONS[st.skillId].drill.length;
     const xp = st.correct >= 3 ? DRILL_XP : DRILL_CONSOLATION;
-    const award = await bankXp(st.skillId, 'drill', xp, st.correct);
+    // XP was already banked when the last question was answered; await it.
+    const award = await (st.bankPromise || bankXp(st.skillId, 'drill', xp, st.correct));
     sfxWin(); bigH();
     renderResult(st, {
       headline: `${st.correct} of ${total}.`,
@@ -388,7 +399,10 @@ window.CDLearn = (() => {
     const user = me();
     const db = fdb();
     if (!user || !db) return { banked: false, amount: 0, reason: 'Log in to bank XP' };
-    try {
+    // The ledger write races a timeout — a hanging Firestore must never
+    // strand the user on a dead screen. Anti-farm checks live inside the
+    // work itself, so a slow write that lands late still can't double-bank.
+    const work = (async () => {
       const uid = user.uid;
       const ref = db.collection('userSkills').doc(uid);
       const snap = await ref.get();
@@ -417,6 +431,12 @@ window.CDLearn = (() => {
         })
       }, { merge: true });
       return { banked: true, amount, reason: '' };
+    })();
+    try {
+      return await Promise.race([
+        work,
+        new Promise((_, rej) => setTimeout(() => rej(new Error('ledger timeout')), 10000))
+      ]);
     } catch (e) {
       console.warn('[learn] xp write failed', e);
       return { banked: false, amount: 0, reason: 'Could not reach the darkroom ledger' };
