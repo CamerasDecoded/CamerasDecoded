@@ -19,6 +19,9 @@
   <!-- ===== FIREBASE INIT ===== -->
   <script src="/scripts/firebase-init.js"></script>
 
+  <!-- ===== SHARED BADGE DEFINITIONS (single source of truth for badge copy) ===== -->
+  <script src="/scripts/badges.js"></script>
+
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="header.js"></script>
   <script src="/scripts/desktop-sidebar.js"></script>
@@ -619,6 +622,124 @@
 
     @keyframes spinBorder { to { --angle: 360deg; } }
 
+    /* ===== BADGE CASE ===== */
+    .badge-progress-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      border: 1px solid rgba(141,235,0,0.14);
+      border-radius: 10px;
+      background: rgba(141,235,0,0.03);
+    }
+    .badge-progress-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+    .badge-progress-item { display: flex; flex-direction: column; gap: 6px; }
+    .badge-progress-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 12px;
+      color: #ccc;
+    }
+    .badge-progress-meta .pct {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--green);
+    }
+    .badge-progress-track {
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .badge-progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, rgba(141,235,0,0.6), var(--green));
+      box-shadow: 0 0 12px rgba(141,235,0,0.35);
+      transition: width 0.6s ease;
+    }
+    .badge-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .badge-tile {
+      border: 1px solid rgba(141,235,0,0.22);
+      border-radius: 12px;
+      padding: 16px 12px 14px;
+      text-align: center;
+      background: rgba(141,235,0,0.05);
+      box-shadow: 0 0 24px rgba(141,235,0,0.08);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .badge-tile:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 32px rgba(141,235,0,0.16);
+    }
+    .badge-tile.locked {
+      border-color: var(--border-dim);
+      background: rgba(255,255,255,0.02);
+      box-shadow: none;
+      opacity: 0.55;
+    }
+    .badge-tile.locked:hover { transform: none; box-shadow: none; }
+    .badge-emoji { font-size: 30px; line-height: 1; display: block; margin-bottom: 10px; }
+    .badge-tile.locked .badge-emoji { filter: grayscale(1); }
+    .badge-name {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+    .badge-desc { font-size: 11px; color: #999; line-height: 1.45; }
+    .badge-tile.locked .badge-desc::before { content: '🔒 '; }
+    .badge-earned-date {
+      display: block;
+      margin-top: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--green);
+      opacity: 0.8;
+    }
+    .chase-list { display: flex; flex-direction: column; gap: 10px; }
+    .chase-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 14px;
+      border: 1px dashed rgba(141,235,0,0.25);
+      border-radius: 10px;
+      background: rgba(141,235,0,0.02);
+    }
+    .chase-item .badge-emoji { font-size: 24px; margin-bottom: 0; filter: grayscale(0.4); }
+    .chase-item .chase-text { flex: 1; }
+    .chase-item .badge-name { margin-bottom: 2px; }
+    .chase-empty-note {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+      line-height: 1.5;
+    }
+    .chase-empty-note strong { color: var(--green); font-weight: 600; }
+    @media (max-width: 420px) {
+      .badge-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .badge-tile, .badge-progress-fill { transition: none; }
+      .badge-tile:hover { transform: none; }
+    }
+
     .profile-footer {
       margin-top: 40px;
       padding-top: 20px;
@@ -951,6 +1072,21 @@
         </div>
       </div>
 
+      <!-- Badge Case -->
+      <div class="card">
+        <div class="card-header">
+          <img src="/custom-site-titles/badge-case.png" alt="Badge Case" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
+          <span class="title-fallback" hidden>Badge Case</span>
+          <span class="badge" id="badgeCount">0 earned</span>
+        </div>
+        <div id="badgeProgressRow" class="badge-progress-row" hidden>
+          <div class="badge-progress-label">Next unlocks</div>
+          <div id="badgeProgressItems" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+        <div id="badgeGrid" class="badge-grid"></div>
+        <div id="badgeChaseList" class="chase-list" hidden></div>
+      </div>
+
       <!-- Referral & Stats -->
       <div class="card chasing-border">
         <div class="card-header">
@@ -1056,6 +1192,104 @@
     }
 
     // ---- Render profile ----
+    // ================================================================
+    // BADGE CASE — read-only display.
+    // Badge copy (names, descriptions) comes ONLY from window.CDBadges.defs(),
+    // the shared award script. Nothing is hardcoded here and nothing is written.
+    // ================================================================
+    var BADGE_PROGRESS = {
+      'quiz-10':  { target: 10, unit: 'quizzes', getCount: function (d) { return d.quizTotal || 0; } },
+      'streak-7':  { target: 7,  unit: 'days',    getCount: function (d) { return (d.dailyStreak && d.dailyStreak.count) || 0; } }
+    };
+
+    function badgeEarnedDate(ts) {
+      try {
+        var d = ts && typeof ts.toDate === 'function' ? ts.toDate() : new Date(ts);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+      } catch (e) { return ''; }
+    }
+
+    function renderBadgeCase(data) {
+      var defs = (window.CDBadges && typeof window.CDBadges.defs === 'function') ? window.CDBadges.defs() : {};
+      var ids = Object.keys(defs);
+      var grid = document.getElementById('badgeGrid');
+      var chaseList = document.getElementById('badgeChaseList');
+      var progressRow = document.getElementById('badgeProgressRow');
+      var progressItems = document.getElementById('badgeProgressItems');
+      var countPill = document.getElementById('badgeCount');
+      if (!grid || !chaseList || !progressRow) return;
+
+      data = data || {};
+      var earned = data.badges || {};
+      var earnedIds = ids.filter(function (id) { return !!earned[id]; });
+      var lockedIds = ids.filter(function (id) { return !earned[id]; });
+
+      countPill.textContent = earnedIds.length + ' of ' + ids.length + ' earned';
+
+      // ---- Next-unlock progress row (only for progressive badges not yet earned)
+      var progressHtml = '';
+      ids.forEach(function (id) {
+        var prog = BADGE_PROGRESS[id];
+        if (!prog || earned[id]) return;
+        var count = Math.max(0, prog.getCount(data));
+        if (count <= 0) return; // nothing in motion yet — the chase list covers it
+        var capped = Math.min(count, prog.target);
+        var pct = Math.round((capped / prog.target) * 100);
+        progressHtml +=
+          '<div class="badge-progress-item">' +
+            '<div class="badge-progress-meta"><span>' + defs[id].emoji + ' ' + defs[id].name + '</span>' +
+            '<span class="pct">' + capped + '/' + prog.target + ' ' + prog.unit + '</span></div>' +
+            '<div class="badge-progress-track"><div class="badge-progress-fill" style="width:' + pct + '%;"></div></div>' +
+          '</div>';
+      });
+      progressItems.innerHTML = progressHtml;
+      progressRow.hidden = !progressHtml;
+
+      // ---- Earned grid + locked tiles, or the chase list when nothing is earned yet
+      if (earnedIds.length === 0) {
+        grid.innerHTML = '';
+        grid.style.display = 'none';
+        chaseList.hidden = false;
+        var chaseHtml = '<p class="chase-empty-note">No badges on the shelf yet. ' +
+          'Here is <strong>what you are chasing</strong> — each one unlocks the moment you earn it.</p>';
+        ids.forEach(function (id) {
+          var b = defs[id];
+          chaseHtml +=
+            '<div class="chase-item">' +
+              '<span class="badge-emoji">' + b.emoji + '</span>' +
+              '<div class="chase-text"><div class="badge-name">' + b.name + '</div>' +
+              '<div class="badge-desc">' + b.desc + '</div></div>' +
+            '</div>';
+        });
+        chaseList.innerHTML = chaseHtml;
+        return;
+      }
+
+      chaseList.hidden = true;
+      chaseList.innerHTML = '';
+      grid.style.display = '';
+      var html = '';
+      var ordered = earnedIds.concat(lockedIds);
+      ordered.forEach(function (id) {
+        var b = defs[id];
+        var isEarned = !!earned[id];
+        var dateLine = '';
+        if (isEarned) {
+          var when = badgeEarnedDate(earned[id]);
+          if (when) dateLine = '<span class="badge-earned-date">Earned ' + when + '</span>';
+        }
+        html +=
+          '<div class="badge-tile' + (isEarned ? '' : ' locked') + '">' +
+            '<span class="badge-emoji">' + b.emoji + '</span>' +
+            '<div class="badge-name">' + b.name + '</div>' +
+            '<div class="badge-desc">' + b.desc + '</div>' +
+            dateLine +
+          '</div>';
+      });
+      grid.innerHTML = html;
+    }
+
     function renderProfile(data) {
       // Update shared components
       if (window.Header && typeof window.Header.setUserData === 'function') {
@@ -1095,6 +1329,9 @@
       document.getElementById('snapshotCount').textContent = data.snapshots || 0;
       document.getElementById('pointsDisplay').textContent = data.totalPoints || 0;
       document.getElementById('streakDisplay').textContent = data.streak || 0;
+
+      // Badge case (read-only: earned badges + live progress toward next unlocks)
+      renderBadgeCase(data);
 
       // Referral
       const refCode = data.referralCode || '';
