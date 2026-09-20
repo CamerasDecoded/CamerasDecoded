@@ -380,6 +380,14 @@
     document.body.appendChild(script);
   }
 
+  function loadReviews() {
+    if (document.querySelector('script[src*="reviews.js"]')) return;
+    if (window.CDReviews) return;
+    const script = document.createElement('script');
+    script.src = '/scripts/reviews.js?v=20260919a';
+    document.body.appendChild(script);
+  }
+
   function init() {
     loadFontAwesome();
     loadGoogleFonts();
@@ -393,6 +401,7 @@
     injectBottomNavContainer();
     loadBottomNav();
     loadInstall();
+    loadReviews();
     // Ambient sound: (re)start the loop on the first tap of every page.
     // A tap is a gesture, so this is where audio is allowed to begin;
     // CDSound restores the position the last page left off.

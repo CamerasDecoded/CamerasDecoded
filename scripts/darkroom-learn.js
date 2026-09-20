@@ -267,6 +267,7 @@ window.CDLearn = (() => {
       cta: { label: 'Back to the map', act: () => { closeLearn(); } },
       alt: { label: 'Run the drill', act: () => openDrill(st.skillId) }
     });
+    if (window.CDReviews) window.CDReviews.maybePrompt('darkroom-lesson');
   }
 
   /* ================= DRILL ================= */
@@ -350,6 +351,7 @@ window.CDLearn = (() => {
       cta: { label: 'Back to the map', act: () => { closeLearn(); } },
       alt: { label: 'Replay drill', act: () => openDrill(st.skillId) }
     });
+    if (window.CDReviews) window.CDReviews.maybePrompt('darkroom-drill');
   }
 
   /* ================= RESULT ================= */
