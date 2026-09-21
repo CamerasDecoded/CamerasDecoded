@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Quiz Arena — Cameras Decoded</title>
+
+  <!-- ===== MASTER LOADER (shared slim header, mobile bottom nav, design system) ===== -->
+  <script src="/scripts/master-loader.js"></script>
+
+  <!-- ===== SHARED COMPONENT CSS ===== -->
+  <link rel="stylesheet" href="header.css" />
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
@@ -16,17 +22,28 @@
       --border-dim: #1A1A1A;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* Body-layout guard: design-system.css (via master-loader) forces flex
+       centering on body, which clips page edges. This page owns its layout. */
     body {
+      display: block !important;
+      justify-content: normal !important;
+      align-items: normal !important;
+      padding: 0 !important;
       background: #000;
       font-family: 'Montserrat', sans-serif;
       color: #fff;
       min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
       position: relative;
       overflow-x: hidden;
+    }
+    /* App-shell content wrapper: clears the floating header (96px) and the
+       mobile bottom nav (120px). */
+    .main-content {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 96px 20px 120px;
+      position: relative;
+      z-index: 2;
     }
     /* Particle canvas */
     #particles {
@@ -51,6 +68,7 @@
     .quiz-container {
       max-width: 820px;
       width: 100%;
+      margin: 0 auto;
       background: rgba(10,10,10,0.85);
       backdrop-filter: blur(12px);
       border: 1px solid var(--border-dim);
@@ -78,16 +96,6 @@
       color: var(--green);
       letter-spacing: 1px;
     }
-    .quiz-header .back-link {
-      color: var(--text-muted);
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      text-decoration: none;
-      transition: 0.2s;
-    }
-    .quiz-header .back-link:hover { color: var(--green); }
-    .quiz-header .back-link i { margin-right: 6px; }
-
     /* ----- SIGNAL METER ----- */
     .signal-meter {
       background: rgba(255,255,255,0.02);
@@ -298,6 +306,25 @@
       .quiz-header h1 { font-size: 16px; }
     }
 
+    .xp-line {
+      margin-top: 12px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 1px;
+    }
+    .xp-line.banked { color: var(--green); }
+    .xp-line.muted { color: var(--text-muted); }
+    .xp-how {
+      margin-top: 8px;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace; font-size: 11px;
+      letter-spacing: 2px; text-transform: uppercase;
+      text-decoration: underline; text-underline-offset: 3px;
+      padding: 6px;
+    }
+    .xp-how:hover { color: var(--green); }
+
     /* ----- YOU WIN sting (fullscreen, 3s) ----- */
     #quizSting{position:fixed;inset:0;z-index:200;background:#000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .45s ease}
     #quizSting[hidden]{display:none}
@@ -313,11 +340,11 @@
   <!-- PARTICLE CANVAS -->
   <canvas id="particles"></canvas>
 
+  <main class="main-content">
   <div class="quiz-container">
     <!-- HEADER -->
     <div class="quiz-header">
       <h1><img src="/custom-site-titles/quiz-arena.png" alt="Quiz Arena" style="max-width:240px;width:100%;height:auto;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display=''"><span style="display:none"><i class="fas fa-brain" style="margin-right:8px;"></i> Quiz Arena</span></h1>
-      <a href="operator-dashboard.html" class="back-link"><i class="fas fa-arrow-left"></i> Dashboard</a>
     </div>
 
     <!-- SIGNAL METER -->
@@ -367,6 +394,8 @@
         <div class="sub">You scored</div>
         <div class="score-highlight"><span id="finalScore">0</span> / <span id="totalQ">0</span></div>
         <div class="sub" id="resultMsg" style="color:var(--green); font-family:'Space Mono',monospace; margin-top:10px;">Keep decoding!</div>
+        <div class="xp-line" id="xpLine" style="display:none;"></div>
+        <button class="xp-how" id="xpHowBtn" type="button">How XP works</button>
         <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
           <button class="retake-btn" onclick="resetQuiz()"><i class="fas fa-redo"></i> Retake</button>
           <button class="reset-diff-btn" onclick="resetDifficulty()"><i class="fas fa-arrow-left"></i> Change Difficulty</button>
@@ -374,6 +403,7 @@
       </div>
     </div>
   </div>
+  </main>
 
   <div id="quizSting" role="dialog" aria-modal="true" aria-label="Perfect quiz" hidden>
     <video id="quizStingVideo" muted playsinline preload="auto" aria-hidden="true"></video>
@@ -386,6 +416,11 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="/scripts/badges.js"></script>
+  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/user-state.js"></script>
+  <script src="/scripts/xp-explainer.js"></script>
+  <script src="header.js"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
 
   <script>
     // ============================================================
@@ -400,7 +435,10 @@
       appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
       measurementId: "G-YN3M01WW0B"
     };
-    firebase.initializeApp(firebaseConfig);
+    // Guarded: the shared firebase-init.js runs first; unguarded double init throws.
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
     const auth = firebase.auth();
     const db = firebase.firestore();
 
@@ -516,6 +554,7 @@
     let answered = false;
     let streak = 0;
     let currentUser = null;
+    let quizXpState = 'signedout'; // 'banked' | 'already' | 'signedout' | 'error' | 'noscore' 
 
     const letters = ['A', 'B', 'C', 'D'];
     const totalQuestionsPerLevel = 10;
@@ -575,7 +614,7 @@
     // ---- Save quiz data to Firestore ----
     async function saveQuizData(scoreData) {
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) { quizXpState = 'signedout'; return; }
       try {
         await db.collection('users').doc(user.uid).update({
           quizStreak: streak,
@@ -590,6 +629,36 @@
         localStorage.setItem('quizStreak', streak.toString());
         localStorage.setItem('quizLastScore', JSON.stringify(scoreData));
       }
+
+      // ---- Quiz Arena XP: +10 on the first scored run per difficulty per day ----
+      // Every XP writer stamps the active-day keys so a later reward write
+      // cannot erase xpToday (XP day-stamp fix).
+      try {
+        if (!scoreData || !scoreData.total) {
+          quizXpState = 'noscore';
+        } else {
+          const d = new Date();
+          const dayKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+          const uref = db.collection('users').doc(user.uid);
+          const snap = await uref.get();
+          const udata = snap.exists ? snap.data() : {};
+          const dayLog = (udata.quizXpLog && udata.quizXpLog[dayKey]) || {};
+          if (dayLog[currentLevel]) {
+            quizXpState = 'already';
+          } else {
+            const upd = {
+              xpToday: firebase.firestore.FieldValue.increment(10),
+              lastActivityDate: dayKey,
+              lastActiveDate: dayKey,
+              lastStreakDate: dayKey,
+              lastXpDate: dayKey
+            };
+            upd['quizXpLog.' + dayKey + '.' + currentLevel] = true;
+            await uref.set(upd, { merge: true });
+            quizXpState = 'banked';
+          }
+        }
+      } catch (e) { quizXpState = 'error'; }
 
       // ---- Leaderboard XP: 2 XP per correct answer ----
       try {
@@ -631,6 +700,14 @@
       var week = 1 + Math.round(((t - first) / 864e5 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
       return t.getUTCFullYear() + '-W' + ('0' + week).slice(-2);
     }
+
+    // ---- How XP works ----
+    (function() {
+      var b = document.getElementById('xpHowBtn');
+      if (b) b.addEventListener('click', function() {
+        if (window.CDXpExplainer) window.CDXpExplainer.open();
+      });
+    })();
 
     // ---- Difficulty buttons ----
     document.querySelectorAll('.diff-btn').forEach(btn => {
@@ -760,6 +837,26 @@
       else { emoji = '📚'; msg = 'Keep studying the signal! Try again.'; }
       resultEmoji.textContent = emoji;
       resultMsg.textContent = msg;
+
+      // XP status line
+      (function() {
+        var xpLine = document.getElementById('xpLine');
+        if (!xpLine) return;
+        var levelLabel = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' }[currentLevel] || currentLevel;
+        xpLine.style.display = 'block';
+        if (quizXpState === 'banked') {
+          xpLine.className = 'xp-line banked';
+          xpLine.textContent = '\u26A1 +10 XP banked \u2014 first ' + levelLabel + ' run today';
+        } else if (quizXpState === 'already') {
+          xpLine.className = 'xp-line muted';
+          xpLine.textContent = 'XP already claimed for ' + levelLabel + ' today \u2014 replays are practice';
+        } else if (quizXpState === 'signedout') {
+          xpLine.className = 'xp-line muted';
+          xpLine.textContent = 'Log in to bank XP for your runs';
+        } else {
+          xpLine.style.display = 'none';
+        }
+      })();
 
       const finalPct = (score / questions.length) * 100;
       signalFill.style.width = finalPct + '%';
@@ -909,5 +1006,6 @@
       }
     });
   </script>
+  <script src="/scripts/ptr.js"></script>
 </body>
 </html>
