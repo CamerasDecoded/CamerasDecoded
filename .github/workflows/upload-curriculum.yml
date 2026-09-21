@@ -1,0 +1,44 @@
+name: Upload Field Manual curriculum
+
+# Private curriculum delivery: writes the Field Manual curriculum to
+# Firestore guideContent/curriculum. The curriculum itself is NEVER
+# committed to this repo — it arrives per-run as a workflow_dispatch
+# input (base64), so nothing private touches git.
+#
+# One-time setup (owner):
+#   1. Firebase console → Project settings → Service accounts →
+#      "Generate new private key" (downloads a JSON file).
+#   2. GitHub repo → Settings → Secrets and variables → Actions →
+#      New repository secret named FIREBASE_SERVICE_ACCOUNT,
+#      paste the whole JSON.
+# After that, curriculum updates are dispatched via the API —
+# no console trips, no secrets in chat.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Curriculum version string (e.g. 2026-09-21-visuals)'
+        required: true
+      curriculum_b64:
+        description: 'Base64 of JSON.stringify({ version, chapters })'
+        required: true
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/curriculum-uploader
+      - name: Upload curriculum to Firestore
+        run: node upload.js
+        working-directory: tools/curriculum-uploader
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          CURRICULUM_VERSION: ${{ inputs.version }}
+          CURRICULUM_B64: ${{ inputs.curriculum_b64 }}
