@@ -38,6 +38,11 @@
   <script src="/scripts/desktop-sidebar.js"></script>
   <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
 
+  <!-- ===== FIELD MANUAL VISUALS (SVG diagrams, tap-to-define glossary) ===== -->
+  <script src="/scripts/glossary.js"></script>
+  <script src="/scripts/glossary-modal.js"></script>
+  <script src="/scripts/fm-visuals.js"></script>
+
   <!-- ===== FONTS & ICONS ===== -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -310,6 +315,22 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 /* ---------- field-note tip callout ---------- */
 .fm-tip{border:1px solid rgba(141,235,0,.28);border-radius:12px;padding:13px 16px;margin:0 0 18px;background:rgba(141,235,0,.045)}
 .fm-tip .fm-kicker{margin-bottom:6px}
+/* ---------- visuals: SVG diagrams, VS comparisons, Cynetis-7 poses ---------- */
+.fm-visual{margin:20px 0}
+.fm-visual figcaption{font-family:var(--mono);font-size:11.5px;color:var(--faint);letter-spacing:.03em;text-align:center;margin-top:9px;line-height:1.55}
+.fm-vs{margin:20px 0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:rgba(255,255,255,.015)}
+.fm-vs-imgs{position:relative;display:grid;grid-template-columns:1fr 1fr}
+.fm-vs-imgs img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover}
+.fm-vs-imgs img + img{border-left:1px solid var(--line)}
+.fm-vs-badge{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);font:800 12px var(--mono);letter-spacing:.12em;background:#0a0f0a;border:1px solid var(--neon);color:var(--neon);border-radius:99px;padding:8px 13px;box-shadow:0 0 24px rgba(141,235,0,.35);pointer-events:none}
+.fm-vs-labels{display:grid;grid-template-columns:1fr 1fr;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.fm-vs-labels span{padding:9px 12px}
+.fm-vs-labels span + span{border-left:1px solid var(--line);text-align:right}
+.fm-vs-verdict{margin:0;padding:12px 14px;font-size:13.5px;color:var(--dim);border-top:1px solid var(--line);line-height:1.6}
+.fm-vs-verdict b{color:var(--neon)}
+.fm-pose{margin:20px 0;text-align:center}
+.fm-pose img{display:block;width:min(230px,62%);height:auto;margin:0 auto;border-radius:18px;border:1px solid rgba(141,235,0,.25);box-shadow:0 0 44px rgba(141,235,0,.14)}
+.fm-pose figcaption{font-family:var(--mono);font-size:11.5px;color:var(--faint);letter-spacing:.03em;margin-top:9px;line-height:1.55}
 #fmConfetti{position:fixed;inset:0;z-index:9998;pointer-events:none}
 #fmConfetti[hidden]{display:none}
 .fm-sound{background:none;border:1px solid var(--line);border-radius:10px;color:var(--dim);width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
@@ -366,7 +387,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
         <p class="pay-permo" id="fm-pay-permo">Just $9.92/month &middot; 30-day money-back guarantee</p>
         <p class="pay-includes"><i class="fa-solid fa-check" aria-hidden="true"></i>Includes the Camera Confidence Guide</p>
         <div id="fm-pay-cta"></div>
-        <a class="pay-monthly" href="/pro-checkout.html?plan=monthly">Prefer monthly? $15/mo</a>
+        <a class="pay-monthly" href="/products.html">Prefer monthly? $15/mo</a>
       </div>
       <div class="pay-founders rise-in" style="--d:.26s" id="fm-pay-founders" hidden>
         <div class="pay-f-head"><span class="pay-f-count" id="fm-pay-fcount"></span><a class="pay-f-link" href="/founding-200.html">Meet the wall</a></div>
@@ -929,6 +950,9 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     else if(page.type === "quiz"){ renderQuizShell(lesson, pageIdx, pages.length); }
     else if(page.type === "done") body.innerHTML = renderDone(lesson);
 
+    /* tap-to-define: highlight industry terms in the freshly rendered page */
+    try{ if(window.CDGlossary) window.CDGlossary.linkify(body); }catch(e){}
+
     wirePager(lesson, pageIdx, pages.length);
     showView("fm-lesson");
   }
@@ -983,6 +1007,31 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       }
       if(b.t === "tip"){
         return '<div class="fm-tip"><p class="fm-kicker">Field note</p><p class="fm-block" style="margin:0">' + b.text + '</p></div>';
+      }
+      if(b.t === "diagram" || b.t === "graph"){
+        var svg = (window.CDFmVisuals && window.CDFmVisuals.render(b.id)) || "";
+        if(!svg) return "";
+        return '<figure class="fm-visual">' + svg +
+          (b.caption ? '<figcaption>' + b.caption + '</figcaption>' : '') + '</figure>';
+      }
+      if(b.t === "vs"){
+        /* {t:"vs", img:"/media/field-manual/vs-raw-jpeg.jpg",
+            left:"RAW", right:"JPEG", verdict:"..."} — one diptych image */
+        if(!b.img) return "";
+        return '<figure class="fm-vs">'
+          + '<div class="fm-vs-imgs"><img src="' + esc(b.img) + '" alt="' + esc((b.left||"") + " vs " + (b.right||"")) + '" loading="lazy"'
+          + ' onerror="this.closest(\'.fm-vs\').style.display=\'none\'"/>'
+          + '<span class="fm-vs-badge">VS</span></div>'
+          + '<div class="fm-vs-labels"><span>' + esc(b.left || "") + '</span><span>' + esc(b.right || "") + '</span></div>'
+          + (b.verdict ? '<p class="fm-vs-verdict">' + b.verdict + '</p>' : '')
+          + '</figure>';
+      }
+      if(b.t === "cynetis"){
+        /* {t:"cynetis", pose:"pointing"|"aha"|"caution"|"celebrate", caption:"..."} — renders the provided Cynetis-7 artwork only; never AI-generate character images. pose is reserved for future provided pose shots. */
+        return '<figure class="fm-pose">'
+          + '<img src="/images/cynetis-7-the-entity.png" alt="Cynetis-7" loading="lazy"'
+          + ' onerror="this.closest(\'.fm-pose\').style.display=\'none\'"/>'
+          + (b.caption ? '<figcaption>' + b.caption + '</figcaption>' : '') + '</figure>';
       }
       return "";
     }).join("");
@@ -1229,12 +1278,11 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     srcEl.src = tier.src; srcEl.type = "video/mp4";
     srcEl.addEventListener("error", finish);
     vid.appendChild(srcEl);
+    vid.onended = finish;
     sting.onclick = finish;
     sting.hidden = false;
     requestAnimationFrame(function(){ sting.classList.add("on"); });
-    // Hold the sting ~4.8s before auto-advancing (video is 3.0s; the last
-    // frame + kicker linger so the moment can land). Tap skips anytime.
-    setTimeout(function(){ if(mySeq === fmStingSeq) finish(); }, 4800);
+    setTimeout(function(){ if(mySeq === fmStingSeq) finish(); }, 3600);
     try{
       vid.load();
       var p = vid.play();
@@ -1293,7 +1341,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   /* ---------------- paywall offer config (edit pricing here) ---------------- */
   var FM_OFFER = {
     annual: 119, annualPerMonth: "9.92", monthly: 15, guaranteeDays: 30,
-    checkoutUrl: "/pro-checkout.html",      /* upgrade destination */
+    checkoutUrl: "/products.html",      /* upgrade destination */
     foundingTotal: 200
   };
 
