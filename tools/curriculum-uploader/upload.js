@@ -2,7 +2,8 @@
  *
  * Triggered by workflow_dispatch. Reads:
  *   CURRICULUM_VERSION — version string, e.g. "2026-09-21-visuals"
- *   CURRICULUM_B64     — base64 of JSON.stringify({ version, chapters })
+ *   CURRICULUM_B64     — base64 of gzip(JSON.stringify({ version, chapters }))
+ *                      (plain base64 JSON also accepted as a fallback)
  *   SERVICE_ACCOUNT_JSON — repo secret (Firebase service account JSON)
  *
  * Writes guideContent/curriculum = { version, json, updatedAt }, where
@@ -24,7 +25,12 @@ async function main() {
 
   let json;
   try {
-    json = Buffer.from(b64, "base64").toString("utf8");
+    const raw = Buffer.from(b64, "base64");
+    try {
+      json = require("zlib").gunzipSync(raw).toString("utf8");
+    } catch (_) {
+      json = raw.toString("utf8"); // uncompressed fallback
+    }
     const parsed = JSON.parse(json);
     if (!parsed || parsed.version !== version) throw new Error("version mismatch");
     if (!Array.isArray(parsed.chapters) || !parsed.chapters.length) throw new Error("no chapters");
