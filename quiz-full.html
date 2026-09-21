@@ -426,21 +426,17 @@
     // ============================================================
     // 0.  FIREBASE INIT
     // ============================================================
-    const firebaseConfig = {
-      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-      authDomain: "cameras-decoded.firebaseapp.com",
-      projectId: "cameras-decoded",
-      storageBucket: "cameras-decoded.firebasestorage.app",
-      messagingSenderId: "1088920052790",
-      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-      measurementId: "G-YN3M01WW0B"
-    };
-    // Guarded: the shared firebase-init.js runs first; unguarded double init throws.
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+    // NOTE: scripts/firebase-init.js (loaded above via the app shell) owns
+    // `firebaseConfig` and initializes the Firebase app. Do NOT re-declare
+    // `const firebaseConfig` here: classic scripts share the global scope, so
+    // a duplicate `const` throws "Identifier 'firebaseConfig' has already been
+    // declared" at parse time and kills this entire script block (that is what
+    // left the difficulty buttons dead). If the Firebase CDN is ever blocked,
+    // `firebase` is undefined: the quiz still runs fully offline on the local
+    // question bank; only cloud sync and XP banking are skipped.
+    const hasFirebase = (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length);
+    const auth = hasFirebase ? firebase.auth() : null;
+    const db = hasFirebase ? firebase.firestore() : null;
 
     // ============================================================
     // 1.  PARTICLES BACKGROUND
@@ -579,7 +575,7 @@
 
     // ---- Load quiz data from Firestore ----
     async function loadQuizData() {
-      const user = auth.currentUser;
+      const user = auth ? auth.currentUser : null;
       if (!user) return;
       currentUser = user;
       try {
@@ -613,7 +609,7 @@
 
     // ---- Save quiz data to Firestore ----
     async function saveQuizData(scoreData) {
-      const user = auth.currentUser;
+      const user = auth ? auth.currentUser : null;
       if (!user) { quizXpState = 'signedout'; return; }
       try {
         await db.collection('users').doc(user.uid).update({
@@ -970,9 +966,9 @@
     // ============================================================
     document.addEventListener('DOMContentLoaded', async function() {
       // Wait for auth to be ready
-      if (auth.currentUser) {
+      if (auth && auth.currentUser) {
         await loadQuizData();
-      } else {
+      } else if (auth) {
         // Listen for auth
         auth.onAuthStateChanged(async (user) => {
           if (user) {
@@ -996,7 +992,7 @@
     });
 
     // ---- Auth listener for real-time updates ----
-    auth.onAuthStateChanged((user) => {
+    if (auth) auth.onAuthStateChanged((user) => {
       if (user) {
         currentUser = user;
         // If quiz hasn't started yet, load data
