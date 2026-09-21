@@ -21,6 +21,8 @@
 
   <!-- ===== SHARED BADGE DEFINITIONS (single source of truth for badge copy) ===== -->
   <script src="/scripts/badges.js"></script>
+  <script src="/scripts/gear-awards.js"></script>
+  <script src="/scripts/gear-share.js"></script>
 
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="header.js"></script>
@@ -693,6 +695,15 @@
     .badge-tile.locked:hover { transform: none; box-shadow: none; }
     .badge-emoji { font-size: 30px; line-height: 1; display: block; margin-bottom: 10px; }
     .badge-tile.locked .badge-emoji { filter: grayscale(1); }
+    .badge-art { width: 64px; height: 64px; object-fit: contain; display: block; margin: 0 auto 10px; }
+    .badge-tile.locked .badge-art { filter: grayscale(1); opacity: .6; }
+    .badge-tile.rarity-rare { border-color: rgba(141,235,0,.45); }
+    .badge-tile.rarity-legendary { border-color: #B6FF45; box-shadow: 0 0 28px rgba(182,255,69,.22); }
+    .badge-tile.rarity-legendary.locked { box-shadow: none; }
+    .chase-item .badge-art { width: 40px; height: 40px; object-fit: contain; filter: grayscale(1); opacity: .7; flex: none; }
+    .badge-share-btn { margin-top: 10px; padding: 6px 14px; font-size: 11px; font-weight: 700; border: 1px solid var(--border-dim); border-radius: 8px; background: transparent; color: #bbb; }
+    .badge-share-btn:active { background: rgba(141,235,0,.12); }
+    #shareShelfBtn { margin-left: 8px; margin-top: 0; }
     .badge-name {
       font-family: 'Space Mono', monospace;
       font-size: 12px;
@@ -1078,6 +1089,7 @@
           <img src="/custom-site-titles/badge-case.png" alt="Badge Case" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
           <span class="title-fallback" hidden>Badge Case</span>
           <span class="badge" id="badgeCount">0 earned</span>
+          <button type="button" id="shareShelfBtn" class="badge-share-btn" hidden>Share shelf</button>
         </div>
         <div id="badgeProgressRow" class="badge-progress-row" hidden>
           <div class="badge-progress-label">Next unlocks</div>
@@ -1199,7 +1211,11 @@
     // ================================================================
     var BADGE_PROGRESS = {
       'quiz-10':  { target: 10, unit: 'quizzes', getCount: function (d) { return d.quizTotal || 0; } },
-      'streak-7':  { target: 7,  unit: 'days',    getCount: function (d) { return (d.dailyStreak && d.dailyStreak.count) || 0; } }
+      'streak-7':  { target: 7,  unit: 'days',    getCount: function (d) { return (d.dailyStreak && d.dailyStreak.count) || 0; } },
+      'gear-overdrive': { target: 5, unit: 'arcade plays', getCount: function (d) { return ((d.gearProgress || {}).arcadePlays) || 0; } },
+      'gear-arsenal':   { target: 5, unit: 'games',        getCount: function (d) { return (((d.gearProgress || {}).arcadeSlots) || []).length; } },
+      'gear-relic':     { target: 9, unit: 'free lessons', getCount: function (d) { return ((d.gearProgress || {}).freeLessons) || 0; } },
+      'gear-trinity':   { target: 3, unit: 'gear',         getCount: function (d) { var b = d.badges || {}; return Object.keys(b).filter(function (id) { return id.indexOf('gear-') === 0 && id !== 'gear-trinity'; }).length; } }
     };
 
     function badgeEarnedDate(ts) {
@@ -1226,6 +1242,16 @@
       var lockedIds = ids.filter(function (id) { return !earned[id]; });
 
       countPill.textContent = earnedIds.length + ' of ' + ids.length + ' earned';
+
+      // ---- Share-my-shelf button (visible once any gear is earned)
+      var earnedGearIds = earnedIds.filter(function (id) { return id.indexOf('gear-') === 0; });
+      var shelfBtn = document.getElementById('shareShelfBtn');
+      if (shelfBtn) {
+        shelfBtn.hidden = earnedGearIds.length === 0;
+        shelfBtn.onclick = function () {
+          if (window.CDGearShare) window.CDGearShare.shelf(earnedGearIds);
+        };
+      }
 
       // ---- Next-unlock progress row (only for progressive badges not yet earned)
       var progressHtml = '';
@@ -1255,9 +1281,12 @@
           'Here is <strong>what you are chasing</strong> — each one unlocks the moment you earn it.</p>';
         ids.forEach(function (id) {
           var b = defs[id];
+          var chaseArt = b.art
+            ? '<img class="badge-art" src="' + b.art + '" alt="" loading="lazy">'
+            : '<span class="badge-emoji">' + b.emoji + '</span>';
           chaseHtml +=
             '<div class="chase-item">' +
-              '<span class="badge-emoji">' + b.emoji + '</span>' +
+              chaseArt +
               '<div class="chase-text"><div class="badge-name">' + b.name + '</div>' +
               '<div class="badge-desc">' + b.desc + '</div></div>' +
             '</div>';
@@ -1274,20 +1303,34 @@
       ordered.forEach(function (id) {
         var b = defs[id];
         var isEarned = !!earned[id];
+        var isGear = id.indexOf('gear-') === 0;
+        var rarityCls = b.rarity ? ' rarity-' + b.rarity : '';
+        var artHtml = b.art
+          ? '<img class="badge-art" src="' + b.art + '" alt="' + b.name + '" loading="lazy">'
+          : '<span class="badge-emoji">' + b.emoji + '</span>';
         var dateLine = '';
         if (isEarned) {
           var when = badgeEarnedDate(earned[id]);
           if (when) dateLine = '<span class="badge-earned-date">Earned ' + when + '</span>';
         }
+        var shareBtn = (isEarned && isGear)
+          ? '<button type="button" class="badge-share-btn" data-share-badge="' + id + '">Share</button>'
+          : '';
         html +=
-          '<div class="badge-tile' + (isEarned ? '' : ' locked') + '">' +
-            '<span class="badge-emoji">' + b.emoji + '</span>' +
+          '<div class="badge-tile' + (isEarned ? '' : ' locked') + rarityCls + '">' +
+            artHtml +
             '<div class="badge-name">' + b.name + '</div>' +
             '<div class="badge-desc">' + b.desc + '</div>' +
-            dateLine +
+            dateLine + shareBtn +
           '</div>';
       });
       grid.innerHTML = html;
+      grid.querySelectorAll('[data-share-badge]').forEach(function (btn) {
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          if (window.CDGearShare) window.CDGearShare.card(btn.getAttribute('data-share-badge'));
+        });
+      });
     }
 
     function renderProfile(data) {

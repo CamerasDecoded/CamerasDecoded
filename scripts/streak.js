@@ -38,6 +38,9 @@
       if (count === 7 && window.CDBadges) {
         try { window.CDBadges.award(uid, 'streak-7', db); } catch (e) { /* best-effort */ }
       }
+      if (count === 3 && window.CDGear) {
+        try { window.CDGear.award(uid, 'gear-longshot', db); } catch (e) { /* best-effort */ }
+      }
       // Milestone inbox notifications (cross-device via the bell).
       if ((count === 7 || count === 30 || count === 100) && window.CDNotifs) {
         try {
