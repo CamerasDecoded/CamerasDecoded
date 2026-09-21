@@ -573,6 +573,13 @@
     const waveDots = document.querySelectorAll('.wave-dot');
     const streakDisplay = document.querySelector('.streak-display');
 
+    // Safe text update: legacy ids (streakNum2, lastScoreDisplay) have no
+    // element on this page — never let a missing node throw and kill the handler.
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+
     // ---- Load quiz data from Firestore ----
     async function loadQuizData() {
       const user = auth ? auth.currentUser : null;
@@ -589,21 +596,21 @@
             streak = parseInt(localStorage.getItem('quizStreak') || '0');
           }
           // Update UI
-          document.getElementById('streakNum2').textContent = streak;
+          setText('streakNum2', streak);
           localStorage.setItem('quizStreak', streak.toString());
           // Last score
           if (data.quizLastScore) {
             const score = data.quizLastScore;
             const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
             const levelIcon = levelNames[score.level] || '';
-            document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${score.score}/${score.total}`;
+            setText('lastScoreDisplay', `${levelIcon} ${score.score}/${score.total}`);
             localStorage.setItem('quizLastScore', JSON.stringify(score));
           }
         }
       } catch (err) {
         console.warn('Error loading quiz data:', err);
         streak = parseInt(localStorage.getItem('quizStreak') || '0');
-        document.getElementById('streakNum2').textContent = streak;
+        setText('streakNum2', streak);
       }
     }
 
@@ -765,7 +772,7 @@
       const isCorrect = selected === q.c;
       if (isCorrect) { score++; streak++; } else { streak = 0; }
       // Update UI streak
-      document.getElementById('streakNum2').textContent = streak;
+      setText('streakNum2', streak);
       localStorage.setItem('quizStreak', streak.toString());
 
       const btns = document.querySelectorAll('.answer-btn');
@@ -863,7 +870,7 @@
       // Update dashboard display (last score)
       const levelNames = { beginner:'🌱', intermediate:'⚡', advanced:'🚀' };
       const levelIcon = levelNames[currentLevel] || '';
-      document.getElementById('lastScoreDisplay').textContent = `${levelIcon} ${score}/${questions.length}`;
+      setText('lastScoreDisplay', `${levelIcon} ${score}/${questions.length}`);
 
       if (score === questions.length) launchConfetti();
     }
