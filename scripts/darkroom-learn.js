@@ -259,6 +259,9 @@ window.CDLearn = (() => {
     if (st.done) return; st.done = true;
     // XP was already banked when the check was answered; this just awaits it.
     const award = await (st.bankPromise || bankXp(st.skillId, 'lesson', LESSON_XP, 0));
+    if (award && award.banked && window.CDGear) {
+      try { window.CDGear.trackLesson(fdb(), me() && me().uid, isFreeSkill(st.skillId)); } catch (e) { /* best-effort */ }
+    }
     sfxWin(); bigH();
     renderResult(st, {
       headline: 'Lesson complete.',
