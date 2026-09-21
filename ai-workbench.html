@@ -1057,20 +1057,15 @@
         // ============================================================
         // FIREBASE INIT (your config)
         // ============================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
-            authDomain: "cameras-decoded.firebaseapp.com",
-            projectId: "cameras-decoded",
-            storageBucket: "cameras-decoded.firebasestorage.app",
-            messagingSenderId: "1088920052790",
-            appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
-            measurementId: "G-YN3M01WW0B"
-        };
-        // Shared /scripts/firebase-init.js already initialized the app in <head>;
-        // guard here so the page also works standalone.
-        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+        // NOTE: /scripts/firebase-init.js (loaded in <head>) owns `firebaseConfig`
+        // and initializes the Firebase app. Do NOT re-declare `const
+        // firebaseConfig` here: classic scripts share the global scope, so a
+        // duplicate `const` throws at parse time and kills this entire script
+        // block. If the Firebase CDN is ever blocked, the tools simply stay in
+        // their signed-out state; the page itself keeps working.
+        const hasFirebase = (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length);
+        const auth = hasFirebase ? firebase.auth() : null;
+        const db = hasFirebase ? firebase.firestore() : null;
 
         // ============================================================
         // TOAST SYSTEM
@@ -1167,7 +1162,7 @@
         // ============================================================
         // AUTH
         // ============================================================
-        auth.onAuthStateChanged((user) => {
+        if (auth) auth.onAuthStateChanged((user) => {
             currentUser = user;
             if (user) {
                 loadUsage();
