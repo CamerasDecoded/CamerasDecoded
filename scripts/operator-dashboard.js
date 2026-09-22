@@ -201,8 +201,20 @@
   // Goal crushed celebration: fullscreen sting once per crushed day, then the
   // panel rests on the full ring with the crushed copy + streak CTA. The ring
   // itself is never hidden anymore (the old in-ring video swap is gone).
-  let crushStingPlayed = false;
   let crushStingSeq = 0;
+  /* "Once per crushed day" must survive full page reloads, so it lives in
+     localStorage (a JS flag resets on every dashboard open and the sting
+     replayed each visit). Keyed by local date; a new day gets a fresh key. */
+  function crushStingKey() {
+    const d = new Date();
+    return 'cd_crush_sting_' + d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+  function crushStingDone() {
+    try { return localStorage.getItem(crushStingKey()) === '1'; } catch (e) { return false; }
+  }
+  function markCrushStingDone() {
+    try { localStorage.setItem(crushStingKey(), '1'); } catch (e) { /* private mode */ }
+  }
   function whenVeilGone(fn) {
     /* Cold open shows a tap-to-enter boot veil; never cover its tap target. */
     if (!document.getElementById('cdBootVeil')) { fn(); return; }
@@ -248,8 +260,8 @@
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (on) {
       panel.classList.add('goal-crushed');
-      if (!reduce && !crushStingPlayed) {
-        crushStingPlayed = true;
+      if (!reduce && !crushStingDone()) {
+        markCrushStingDone();
         whenVeilGone(playCrushSting);
       }
       note.innerHTML = '<b>🔥 Goal crushed.</b> Take the streak into tomorrow.<br><button class="btn btn-primary btn-chase chasing-border" id="crushCta" type="button"><i class="fas fa-play" aria-hidden="true"></i> Keep the streak alive</button>';
@@ -257,7 +269,6 @@
       if (cta) cta.addEventListener('click', () => openModal('drill'));
     } else {
       panel.classList.remove('goal-crushed');
-      crushStingPlayed = false;   /* next crush earns its celebration again */
       note.innerHTML = '<b id="xpRemaining"></b> to finish today';
     }
   }
