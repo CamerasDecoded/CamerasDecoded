@@ -201,6 +201,7 @@
   // Goal crushed celebration: swap the ring for the success sting, flip the
   // copy, and offer the streak-saving drill. Degrades to the full ring if the
   // video is missing or motion is reduced.
+  let crushCelebrated = false;   /* sting plays once per crushed day, then rests */
   function setGoalCrushed(on) {
     const panel = $('goalPanel');
     const note = $('goalNote');
@@ -209,10 +210,11 @@
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (on) {
       panel.classList.add('goal-crushed');
-      if (!reduce && !panel.querySelector('.ring-video')) {
+      if (!reduce && !crushCelebrated && !panel.querySelector('.ring-video')) {
+        crushCelebrated = true;
         const v = document.createElement('video');
         v.className = 'ring-video';
-        v.muted = true; v.loop = true; v.playsInline = true;
+        v.muted = true; v.playsInline = true;
         v.setAttribute('aria-hidden', 'true');
         v.preload = 'auto';
         const killVideo = () => { v.remove(); panel.classList.add('goal-crushed-static'); };
@@ -228,6 +230,14 @@
         v.addEventListener('canplay', tryPlay, { once: true });
         /* Never leave the ring hidden behind a stalled video. */
         setTimeout(() => { if (v.isConnected && !v.classList.contains('on') && v.paused) killVideo(); }, 5000);
+        /* Celebration, not a screensaver: two loops, then settle on the full ring. */
+        let loops = 0;
+        v.addEventListener('ended', () => {
+          loops += 1;
+          if (loops < 2) { tryPlay(); return; }
+          v.classList.remove('on');
+          setTimeout(() => { v.remove(); panel.classList.add('goal-crushed-static'); }, 850);
+        });
         v.src = '/media/mission-complete-success.mp4';
         $('xpRing').appendChild(v);
         tryPlay();
@@ -239,6 +249,7 @@
       if (cta) cta.addEventListener('click', () => openModal('drill'));
     } else {
       panel.classList.remove('goal-crushed', 'goal-crushed-static');
+      crushCelebrated = false;   /* next crush earns its celebration again */
       const v = panel.querySelector('.ring-video');
       if (v) v.remove();
       note.innerHTML = '<b id="xpRemaining"></b> to finish today';
