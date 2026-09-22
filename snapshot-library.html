@@ -699,11 +699,18 @@
 
         const payload = { savedCards: firebase.firestore.FieldValue.arrayUnion(slug) };
         if (isFirst) {
-          const todayKey = new Date().toISOString().slice(0, 10);
+          // Local day key (not UTC) + day-aware: xpTodayDate is the day
+          // authority — on a fresh day the stored total is yesterday's.
+          const d = new Date();
+          const todayKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+          const freshDay = !!data && data.xpTodayDate === todayKey;
           payload.firstCardCelebrated = true;
-          payload.xpToday = firebase.firestore.FieldValue.increment(10);
+          if (freshDay) { payload.xpToday = firebase.firestore.FieldValue.increment(10); }
+          else { payload.xpToday = 10; payload.dailyXp = 10; payload.xpTodayDate = todayKey; }
           payload.totalPoints = firebase.firestore.FieldValue.increment(10);
           payload['xpByDay.' + todayKey] = firebase.firestore.FieldValue.increment(10);
+          payload.lastActivityDate = todayKey; payload.lastActiveDate = todayKey;
+          payload.lastStreakDate = todayKey; payload.lastXpDate = todayKey;
           payload.recentActivity = firebase.firestore.FieldValue.arrayUnion({
             label: 'First snapshot card saved', time: 'Just now', xp: 10
           });

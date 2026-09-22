@@ -467,11 +467,15 @@
     if (bank) {
       // Feed the daily total. Day keys included so RewardEngine.award()'s
       // day-rollover reset can't wipe this XP (see darkroom-learn bankXp).
+      // Day-aware: xpTodayDate (local) is the day authority — on a fresh day
+      // the stored total is yesterday's, so set it absolutely.
       try {
         var today = localDayKey();
         var F = firebase.firestore.FieldValue;
+        var usnap = await d.collection('users').doc(uid).get().catch(function(){ return null; });
+        var udata = (usnap && usnap.exists) ? usnap.data() : null;
+        var freshDay = !!udata && udata.xpTodayDate === today;
         var upd = {
-          xpToday: F.increment(rec.xp),
           totalPoints: F.increment(rec.xp),
           lastActivityDate: today, lastActiveDate: today,
           lastStreakDate: today, lastXpDate: today,
@@ -480,6 +484,8 @@
             time: 'Just now', xp: rec.xp
           })
         };
+        if (freshDay) { upd.xpToday = F.increment(rec.xp); }
+        else { upd.xpToday = rec.xp; upd.dailyXp = rec.xp; upd.xpTodayDate = today; }
         upd['xpByDay.' + today] = F.increment(rec.xp);
         await d.collection('users').doc(uid).set(upd, { merge: true });
       } catch (e) {}
