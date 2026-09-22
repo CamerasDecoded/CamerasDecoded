@@ -198,9 +198,48 @@
     setGoalCrushed(ring.dataset.crushed === '1');
   }
 
-  // Goal crushed celebration: swap the ring for the success sting, flip the
-  // copy, and offer the streak-saving drill. Degrades to the full ring if the
-  // video is missing or motion is reduced.
+  // Goal crushed celebration: fullscreen sting once per crushed day, then the
+  // panel rests on the full ring with the crushed copy + streak CTA. The ring
+  // itself is never hidden anymore (the old in-ring video swap is gone).
+  let crushStingPlayed = false;
+  let crushStingSeq = 0;
+  function whenVeilGone(fn) {
+    /* Cold open shows a tap-to-enter boot veil; never cover its tap target. */
+    if (!document.getElementById('cdBootVeil')) { fn(); return; }
+    const mo = new MutationObserver(() => {
+      if (!document.getElementById('cdBootVeil')) { mo.disconnect(); fn(); }
+    });
+    mo.observe(document.body, { childList: true });
+    setTimeout(() => { mo.disconnect(); if (!document.getElementById('cdBootVeil')) fn(); }, 30000);
+  }
+  function playCrushSting() {
+    const mySeq = ++crushStingSeq;
+    const sting = $('crushSting'), vid = $('crushStingVideo');
+    if (!sting || !vid) return;
+    let done = false;
+    const finish = () => {
+      if (done) return; done = true;
+      sting.classList.add('leaving');
+      setTimeout(() => {
+        if (mySeq !== crushStingSeq) return;
+        sting.classList.remove('on', 'leaving');
+        sting.hidden = true;
+      }, 450);
+    };
+    vid.innerHTML = '';
+    const srcEl = document.createElement('source');
+    srcEl.src = '/media/mission-complete-success.mp4';
+    srcEl.type = 'video/mp4';
+    srcEl.addEventListener('error', finish);
+    vid.appendChild(srcEl);
+    vid.onended = finish;
+    sting.onclick = finish;
+    sting.hidden = false;
+    requestAnimationFrame(() => sting.classList.add('on'));
+    setTimeout(() => { if (mySeq === crushStingSeq) finish(); }, 5000);
+    try { vid.load(); const p = vid.play(); if (p && p.catch) p.catch(finish); }
+    catch (e) { finish(); }
+  }
   function setGoalCrushed(on) {
     const panel = $('goalPanel');
     const note = $('goalNote');
@@ -209,38 +248,16 @@
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (on) {
       panel.classList.add('goal-crushed');
-      if (!reduce && !panel.querySelector('.ring-video')) {
-        const v = document.createElement('video');
-        v.className = 'ring-video';
-        v.muted = true; v.loop = true; v.playsInline = true;
-        v.setAttribute('aria-hidden', 'true');
-        v.preload = 'auto';
-        const killVideo = () => { v.remove(); panel.classList.add('goal-crushed-static'); };
-        /* NOTE: an earlier revision built a <source> node but never appended it,
-           so the video had no media, `canplay` never fired, and the faded-out
-           ring was never replaced — the goal ring "disappeared". Set src
-           directly so a detached node can't silently break playback again. */
-        v.addEventListener('error', killVideo, { once: true });
-        /* Fade in only once frames are actually moving: `canplay` also fires on
-           a buffered-but-paused video, and this clip opens on a black frame. */
-        v.addEventListener('playing', () => v.classList.add('on'), { once: true });
-        const tryPlay = () => { try { const p = v.play(); if (p && p.catch) p.catch(killVideo); } catch (e) { killVideo(); } };
-        v.addEventListener('canplay', tryPlay, { once: true });
-        /* Never leave the ring hidden behind a stalled video. */
-        setTimeout(() => { if (v.isConnected && !v.classList.contains('on') && v.paused) killVideo(); }, 5000);
-        v.src = '/media/mission-complete-success.mp4';
-        $('xpRing').appendChild(v);
-        tryPlay();
-      } else {
-        panel.classList.add('goal-crushed-static');
+      if (!reduce && !crushStingPlayed) {
+        crushStingPlayed = true;
+        whenVeilGone(playCrushSting);
       }
       note.innerHTML = '<b>🔥 Goal crushed.</b> Take the streak into tomorrow.<br><button class="btn btn-primary btn-chase chasing-border" id="crushCta" type="button"><i class="fas fa-play" aria-hidden="true"></i> Keep the streak alive</button>';
       const cta = $('crushCta');
       if (cta) cta.addEventListener('click', () => openModal('drill'));
     } else {
-      panel.classList.remove('goal-crushed', 'goal-crushed-static');
-      const v = panel.querySelector('.ring-video');
-      if (v) v.remove();
+      panel.classList.remove('goal-crushed');
+      crushStingPlayed = false;   /* next crush earns its celebration again */
       note.innerHTML = '<b id="xpRemaining"></b> to finish today';
     }
   }
