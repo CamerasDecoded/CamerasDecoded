@@ -212,16 +212,25 @@
       if (!reduce && !panel.querySelector('.ring-video')) {
         const v = document.createElement('video');
         v.className = 'ring-video';
-        v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true;
+        v.muted = true; v.loop = true; v.playsInline = true;
         v.setAttribute('aria-hidden', 'true');
-        const src = document.createElement('source');
-        src.src = '/media/mission-complete-success.mp4';
-        src.type = 'video/mp4';
+        v.preload = 'auto';
         const killVideo = () => { v.remove(); panel.classList.add('goal-crushed-static'); };
+        /* NOTE: an earlier revision built a <source> node but never appended it,
+           so the video had no media, `canplay` never fired, and the faded-out
+           ring was never replaced — the goal ring "disappeared". Set src
+           directly so a detached node can't silently break playback again. */
         v.addEventListener('error', killVideo, { once: true });
-        src.addEventListener('error', killVideo, { once: true });
-        v.addEventListener('canplay', () => v.classList.add('on'), { once: true });
+        /* Fade in only once frames are actually moving: `canplay` also fires on
+           a buffered-but-paused video, and this clip opens on a black frame. */
+        v.addEventListener('playing', () => v.classList.add('on'), { once: true });
+        const tryPlay = () => { try { const p = v.play(); if (p && p.catch) p.catch(killVideo); } catch (e) { killVideo(); } };
+        v.addEventListener('canplay', tryPlay, { once: true });
+        /* Never leave the ring hidden behind a stalled video. */
+        setTimeout(() => { if (v.isConnected && !v.classList.contains('on') && v.paused) killVideo(); }, 5000);
+        v.src = '/media/mission-complete-success.mp4';
         $('xpRing').appendChild(v);
+        tryPlay();
       } else {
         panel.classList.add('goal-crushed-static');
       }
