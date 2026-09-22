@@ -57,6 +57,20 @@
   };
   const toNum = (v, fb=0) => typeof v === 'number' && isFinite(v) ? v : (parseInt(v,10) || fb);
 
+  // ---- Local-day helpers: "today" is the user's calendar day, not UTC.
+  // xpToday is day-bound; every reader and writer must agree on the day key,
+  // or yesterday's total leaks into (or gets wiped from) the goal ring.
+  const cdTodayKey = (d) => {
+    d = d || new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  };
+  const cdIsNewDay = (u) => {
+    if (!u) return true;
+    const t = cdTodayKey();
+    return !['lastActivityDate','lastActiveDate','lastStreakDate','lastXpDate'].some(k => u[k] === t);
+  };
+  let dayRolloverFired = false;
+
   // ---- Shared header bell: announcements are owned by header.js now.
   // The dashboard only feeds its personal notifications into the shared bell.
   function pushNotificationsToHeader() {
@@ -76,6 +90,18 @@
     if (!snap.exists) throw new Error('User doc not found');
     const u = snap.data();
 
+    // Day rollover on READ: the reset must not wait for the next XP award,
+    // or yesterday's total lingers in the goal ring past midnight.
+    const rolledDay = cdIsNewDay(u);
+    if (rolledDay && !dayRolloverFired) {
+      dayRolloverFired = true;
+      const tk = cdTodayKey();
+      window.db.collection('users').doc(uid).set({
+        xpToday: 0, dailyXp: 0,
+        lastActivityDate: tk, lastActiveDate: tk, lastStreakDate: tk, lastXpDate: tk
+      }, { merge: true }).catch(e => console.warn('[Dashboard] day rollover failed', e));
+    }
+
     const display = pick(u, ['displayName','name','username'], 'Operator');
     const role = pick(u, ['role','roleName','accountRole','userRole'], 'Operator');
     const rawTier = pick(u, ['tier','plan','planName','planTier','subscriptionTier','membershipTier','membershipLevel'], 'free');
@@ -93,7 +119,7 @@
 
     vm.stats = {
       streak: toNum(pick(u, ['dailyChallengeStreak','streakDays','streak'], 0)),
-      xpToday: toNum(pick(u, ['xpToday','dailyXp'], 0)),
+      xpToday: rolledDay ? 0 : toNum(pick(u, ['xpToday','dailyXp'], 0)),
       xpGoal: toNum(pick(u, ['xpGoal','dailyXpGoal'], 100), 100),
       rank: pick(u, ['rank','operatorRank','level'], '—')
     };
@@ -893,19 +919,24 @@
       if (!uid) return;
       const u = vm.raw || {};
       const log = u.challengeLog || u.dailyChallengeLog || [];
-      const todayKey = new Date().toISOString().slice(0, 10);
+      const todayKey = cdTodayKey();
       if (Array.isArray(log) && log.includes(todayKey)) { closeModal($('challengeModal')); return; }
       const yd = new Date(); yd.setDate(yd.getDate() - 1);
-      const yKey = yd.toISOString().slice(0, 10);
+      const yKey = cdTodayKey(yd);
       const prevStreak = toNum(pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0));
       const newStreak = (Array.isArray(log) && log.includes(yKey)) ? prevStreak + 1 : 1;
       const btn = $('challengeCompleteBtn');
       if (btn) btn.disabled = true;
+      // Day-aware: on a fresh day the stored total is yesterday's — set the
+      // day's first XP absolutely instead of incrementing the stale total.
+      const freshDay = cdIsNewDay(u);
       try {
         await window.db.collection('users').doc(uid).update({
           challengeLog: firebase.firestore.FieldValue.arrayUnion(todayKey),
           dailyChallengeStreak: newStreak,
-          xpToday: firebase.firestore.FieldValue.increment(10),
+          ...(freshDay
+            ? { xpToday: 10, dailyXp: 10 }
+            : { xpToday: firebase.firestore.FieldValue.increment(10) }),
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + todayKey]: firebase.firestore.FieldValue.increment(10),
           lastActivityDate: todayKey, lastActiveDate: todayKey,
@@ -952,14 +983,18 @@
       const uid = vm.user.uid;
       if (!uid) return;
       try {
+        const tk = cdTodayKey();
+        const freshDay = cdIsNewDay(vm.raw || {});
         await window.db.collection('users').doc(uid).update({
-          xpToday: firebase.firestore.FieldValue.increment(10),
+          ...(freshDay
+            ? { xpToday: 10, dailyXp: 10 }
+            : { xpToday: firebase.firestore.FieldValue.increment(10) }),
           totalPoints: firebase.firestore.FieldValue.increment(10),
-          ['xpByDay.' + new Date().toISOString().slice(0, 10)]: firebase.firestore.FieldValue.increment(10),
-          lastActivityDate: new Date().toISOString().slice(0, 10),
-          lastActiveDate: new Date().toISOString().slice(0, 10),
-          lastStreakDate: new Date().toISOString().slice(0, 10),
-          lastXpDate: new Date().toISOString().slice(0, 10),
+          ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(10),
+          lastActivityDate: tk,
+          lastActiveDate: tk,
+          lastStreakDate: tk,
+          lastXpDate: tk,
           recentActivity: firebase.firestore.FieldValue.arrayUnion({
             label: 'Quick drill complete', time: 'Just now', xp: 10
           })
@@ -982,13 +1017,15 @@
             completedNodes: firebase.firestore.FieldValue.arrayUnion(nextId)
           }, { merge: true });
           await window.db.collection('users').doc(uid).update({
-            xpToday: firebase.firestore.FieldValue.increment(20),
+            ...(cdIsNewDay(vm.raw || {})
+              ? { xpToday: 20, dailyXp: 20 }
+              : { xpToday: firebase.firestore.FieldValue.increment(20) }),
             totalPoints: firebase.firestore.FieldValue.increment(20),
-            ['xpByDay.' + new Date().toISOString().slice(0, 10)]: firebase.firestore.FieldValue.increment(20),
-            lastActivityDate: new Date().toISOString().slice(0, 10),
-            lastActiveDate: new Date().toISOString().slice(0, 10),
-            lastStreakDate: new Date().toISOString().slice(0, 10),
-            lastXpDate: new Date().toISOString().slice(0, 10)
+            ['xpByDay.' + cdTodayKey()]: firebase.firestore.FieldValue.increment(20),
+            lastActivityDate: cdTodayKey(),
+            lastActiveDate: cdTodayKey(),
+            lastStreakDate: cdTodayKey(),
+            lastXpDate: cdTodayKey()
           });
           showToast('Lesson marked complete · +20 XP');
         } catch (err) {
@@ -1035,8 +1072,22 @@
   }
 
   let unsub = null;
+  let midnightTimer = null;
+  // Re-roll the day if the page stays open across local midnight.
+  function armMidnightRollover(uid) {
+    if (midnightTimer) clearTimeout(midnightTimer);
+    const mid = new Date(); mid.setHours(24, 0, 0, 0);
+    midnightTimer = setTimeout(async () => {
+      midnightTimer = null;
+      dayRolloverFired = false; // allow the new day's rollover write
+      try { await hydrateUser(uid); renderAll(); }
+      catch (e) { console.warn('[Dashboard] midnight refresh failed', e); }
+      armMidnightRollover(uid);
+    }, Math.max(1000, Math.min(mid - Date.now(), 2147483647)));
+  }
   function subscribeToUser(uid) {
     if (unsub) unsub();
+    armMidnightRollover(uid);
     unsub = window.db.collection('users').doc(uid).onSnapshot(async (snap) => {
       if (!snap.exists) return;
       try {
