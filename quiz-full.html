@@ -651,13 +651,18 @@
           if (dayLog[currentLevel]) {
             quizXpState = 'already';
           } else {
+            // Day-aware: xpTodayDate (local) is the day authority — on a
+            // fresh day the stored total is yesterday's, so set it absolutely
+            // instead of incrementing the stale total.
+            const freshDay = !!udata && udata.xpTodayDate === dayKey;
             const upd = {
-              xpToday: firebase.firestore.FieldValue.increment(10),
               lastActivityDate: dayKey,
               lastActiveDate: dayKey,
               lastStreakDate: dayKey,
               lastXpDate: dayKey
             };
+            if (freshDay) { upd.xpToday = firebase.firestore.FieldValue.increment(10); }
+            else { upd.xpToday = 10; upd.dailyXp = 10; upd.xpTodayDate = dayKey; }
             upd['quizXpLog.' + dayKey + '.' + currentLevel] = true;
             await uref.set(upd, { merge: true });
             quizXpState = 'banked';

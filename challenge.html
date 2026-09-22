@@ -333,15 +333,12 @@
 
     const $ = (id) => document.getElementById(id);
     // Local calendar day — must match the dashboard and RewardEngine, not UTC.
+    // xpTodayDate is the day authority: every xpToday writer stamps it.
     const cdTodayKey = (d) => {
       d = d || new Date();
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     };
-    const cdIsNewDay = (u) => {
-      if (!u) return true;
-      const t = cdTodayKey();
-      return !['lastActivityDate','lastActiveDate','lastStreakDate','lastXpDate'].some(k => u[k] === t);
-    };
+    const cdDayFresh = (u) => !!u && u.xpTodayDate === cdTodayKey();
     const todayKey = () => cdTodayKey();
     let currentUser = null;
     let completing = false;
@@ -483,12 +480,13 @@
         const newStreak = (Array.isArray(log) && log.includes(yKey)) ? prevStreak + 1 : 1;
         // Day-aware: on a fresh day the stored total is yesterday's — set the
         // day's first XP absolutely instead of incrementing the stale total.
-        const freshDay = cdIsNewDay(u);
+        // xpTodayDate is the day authority (local, stamped by every writer).
+        const freshDay = cdDayFresh(u);
         await docRef.set({
           challengeLog: firebase.firestore.FieldValue.arrayUnion(key),
           dailyChallengeStreak: newStreak,
           ...(freshDay
-            ? { xpToday: 10, dailyXp: 10 }
+            ? { xpToday: 10, dailyXp: 10, xpTodayDate: key }
             : { xpToday: firebase.firestore.FieldValue.increment(10) }),
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + key]: firebase.firestore.FieldValue.increment(10),

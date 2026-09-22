@@ -49,13 +49,16 @@
     const today    = todayKey();
     const yday     = yesterdayKey();
     const lastSeen = pick(data, LAST_ACTIVE_KEYS, null);
-    const isNewDay = lastSeen !== today;
+    // Day authority is xpTodayDate (local, written by every xpToday writer).
+    // Legacy UTC-stamped keys can't be trusted across the migration: a UTC
+    // date equals the *next* local day after 7pm CT, so they fake "today".
+    const isNewDay = lastSeen !== today || data.xpTodayDate !== today;
 
     // --- XP (resets when the day rolls over) ---
     const baseXp   = isNewDay ? 0 : toNum(pick(data, XP_KEYS, 0), 0);
     const newXp    = baseXp + toNum(xp, 0);
     const xpGoal   = toNum(pick(data, XP_GOAL_KEYS, 100), 100);
-    const xpPatch  = {};
+    const xpPatch  = { xpTodayDate: today };
     XP_KEYS.forEach(k => { xpPatch[k] = newXp; });
     if (!XP_GOAL_KEYS.some(k => data[k] !== undefined)) xpPatch.xpGoal = xpGoal;
 

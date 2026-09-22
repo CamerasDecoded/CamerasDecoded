@@ -58,17 +58,14 @@
   const toNum = (v, fb=0) => typeof v === 'number' && isFinite(v) ? v : (parseInt(v,10) || fb);
 
   // ---- Local-day helpers: "today" is the user's calendar day, not UTC.
-  // xpToday is day-bound; every reader and writer must agree on the day key,
-  // or yesterday's total leaks into (or gets wiped from) the goal ring.
+  // xpToday is day-bound. The single authority is xpTodayDate (a local
+  // YYYY-MM-DD stamped by every xpToday writer). Legacy UTC-stamped day keys
+  // can't be trusted: after 7pm CT a UTC date equals the *next* local day.
   const cdTodayKey = (d) => {
     d = d || new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   };
-  const cdIsNewDay = (u) => {
-    if (!u) return true;
-    const t = cdTodayKey();
-    return !['lastActivityDate','lastActiveDate','lastStreakDate','lastXpDate'].some(k => u[k] === t);
-  };
+  const cdDayFresh = (u) => !!u && u.xpTodayDate === cdTodayKey();
   let dayRolloverFired = false;
 
   // ---- Shared header bell: announcements are owned by header.js now.
@@ -92,12 +89,12 @@
 
     // Day rollover on READ: the reset must not wait for the next XP award,
     // or yesterday's total lingers in the goal ring past midnight.
-    const rolledDay = cdIsNewDay(u);
+    const rolledDay = !cdDayFresh(u);
     if (rolledDay && !dayRolloverFired) {
       dayRolloverFired = true;
       const tk = cdTodayKey();
       window.db.collection('users').doc(uid).set({
-        xpToday: 0, dailyXp: 0,
+        xpToday: 0, dailyXp: 0, xpTodayDate: tk,
         lastActivityDate: tk, lastActiveDate: tk, lastStreakDate: tk, lastXpDate: tk
       }, { merge: true }).catch(e => console.warn('[Dashboard] day rollover failed', e));
     }
@@ -929,13 +926,15 @@
       if (btn) btn.disabled = true;
       // Day-aware: on a fresh day the stored total is yesterday's — set the
       // day's first XP absolutely instead of incrementing the stale total.
-      const freshDay = cdIsNewDay(u);
+      // Re-read the doc: vm.raw can predate XP banked on another page.
+      const freshSnap = await window.db.collection('users').doc(uid).get();
+      const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
       try {
         await window.db.collection('users').doc(uid).update({
           challengeLog: firebase.firestore.FieldValue.arrayUnion(todayKey),
           dailyChallengeStreak: newStreak,
           ...(freshDay
-            ? { xpToday: 10, dailyXp: 10 }
+            ? { xpToday: 10, dailyXp: 10, xpTodayDate: todayKey }
             : { xpToday: firebase.firestore.FieldValue.increment(10) }),
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + todayKey]: firebase.firestore.FieldValue.increment(10),
@@ -984,10 +983,11 @@
       if (!uid) return;
       try {
         const tk = cdTodayKey();
-        const freshDay = cdIsNewDay(vm.raw || {});
+        const freshSnap = await window.db.collection('users').doc(uid).get();
+        const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
         await window.db.collection('users').doc(uid).update({
           ...(freshDay
-            ? { xpToday: 10, dailyXp: 10 }
+            ? { xpToday: 10, dailyXp: 10, xpTodayDate: tk }
             : { xpToday: firebase.firestore.FieldValue.increment(10) }),
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(10),
@@ -1016,16 +1016,19 @@
           await window.db.collection('userJourney').doc(uid).set({
             completedNodes: firebase.firestore.FieldValue.arrayUnion(nextId)
           }, { merge: true });
+          const tk = cdTodayKey();
+          const freshSnap = await window.db.collection('users').doc(uid).get();
+          const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
           await window.db.collection('users').doc(uid).update({
-            ...(cdIsNewDay(vm.raw || {})
-              ? { xpToday: 20, dailyXp: 20 }
+            ...(freshDay
+              ? { xpToday: 20, dailyXp: 20, xpTodayDate: tk }
               : { xpToday: firebase.firestore.FieldValue.increment(20) }),
             totalPoints: firebase.firestore.FieldValue.increment(20),
-            ['xpByDay.' + cdTodayKey()]: firebase.firestore.FieldValue.increment(20),
-            lastActivityDate: cdTodayKey(),
-            lastActiveDate: cdTodayKey(),
-            lastStreakDate: cdTodayKey(),
-            lastXpDate: cdTodayKey()
+            ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(20),
+            lastActivityDate: tk,
+            lastActiveDate: tk,
+            lastStreakDate: tk,
+            lastXpDate: tk
           });
           showToast('Lesson marked complete · +20 XP');
         } catch (err) {
