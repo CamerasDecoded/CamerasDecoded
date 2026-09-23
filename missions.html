@@ -2346,6 +2346,20 @@ button{font-family:inherit}
         // True day streak: completing a mission step counts as activity.
         if (window.CDStreak) window.CDStreak.touch(db, currentUser.uid).catch(function () {});
         if (newCompleted.length === 1 && window.CDGear) { try { window.CDGear.award(currentUser.uid, 'gear-flatline', db); } catch (e) {} }
+        // Glass: first fully-completed mission (module) — award once per new mission.
+        if (window.CDGear && journeyData && journeyData.modules) {
+          try {
+            var beforeSteps = userProgress.completedSteps || [];
+            var missionDone = journeyData.modules.some(function (mod) {
+              var ids = (mod.steps || []).map(function (s) { return s.id; });
+              if (!ids.length) return false;
+              var was = ids.every(function (id) { return beforeSteps.indexOf(id) !== -1; });
+              var now = ids.every(function (id) { return newCompleted.indexOf(id) !== -1; });
+              return !was && now;
+            });
+            if (missionDone) window.CDGear.trackMission(db, currentUser.uid);
+          } catch (e) {}
+        }
         // Bell: stamp activity for the resume nudge.
         try {
           if (window.CDNotifs) window.CDNotifs.stampActivity(step.title || 'Mission step', '/missions.html');
