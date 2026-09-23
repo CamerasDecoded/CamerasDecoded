@@ -15,7 +15,10 @@
   var KEY = 'cd_sound';
   var POS_KEY = 'cd_sound_pos';
   var SRC = '/media/background-sound.mp3';
+  var TARGET_VOL = 0.32; // background bed, not foreground — sits under UI, never shouts
+  var FADE_MS = 2600;   // swell in gently instead of blurting at full volume
   var el = null;
+  var fadeTimer = null;
 
   function isOn() {
     try { return localStorage.getItem(KEY) !== '0'; }
@@ -41,7 +44,7 @@
     el.src = SRC;
     el.loop = true;
     el.preload = 'auto';
-    el.volume = 0.45; // background bed, not foreground
+    el.volume = 0; // start silent; start() fades up to TARGET_VOL
     // Resume where the last page left off (same tab session).
     el.addEventListener('loadedmetadata', function () {
       try {
@@ -56,16 +59,27 @@
   }
 
   // Start the loop. Must be called inside a user gesture to unlock audio.
+  // Fades up from silence so the bed swells in instead of starting abruptly.
   function start() {
     if (!isOn()) return false;
     try {
-      var p = ensure().play();
+      var a = ensure();
+      if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
+      a.volume = 0;
+      var p = a.play();
       if (p && typeof p.catch === 'function') p.catch(function () {});
+      var t0 = Date.now();
+      fadeTimer = setInterval(function () {
+        var k = Math.min(1, (Date.now() - t0) / FADE_MS);
+        try { a.volume = TARGET_VOL * k; } catch (e) {}
+        if (k >= 1) { clearInterval(fadeTimer); fadeTimer = null; }
+      }, 60);
       return true;
     } catch (e) { return false; }
   }
 
   function stop() {
+    if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
     if (!el) return;
     try { el.pause(); } catch (e) {}
   }
@@ -77,6 +91,11 @@
     if (on) start();
     return on;
   }
+
+  // Warm the audio cache at parse time (master-loader injects this script
+  // during boot) so the file is already loaded when the veil tap calls
+  // start() — no delayed blurt while the MP3 downloads.
+  try { ensure(); } catch (e) {}
 
   window.CDSound = {
     isOn: isOn,
