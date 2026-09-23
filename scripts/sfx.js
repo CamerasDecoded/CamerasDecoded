@@ -14,6 +14,7 @@
      CDSfx.play('chapter');   // chapter complete
      CDSfx.play('tick');      // subtle UI tap
      CDSfx.play('continue');  // continue / next-page advance
+     CDSfx.play('back');      // back navigation
 
    Design notes:
    - Web Audio with pre-decoded buffers: every sound is fetched and decoded
@@ -40,7 +41,8 @@
     lesson:  ['lesson.mp3',   0.85],
     chapter: ['chapter.mp3',  0.9],
     tick:    ['tick.mp3',     0.5],
-    continue:['continue.mp3', 0.7]
+    continue:['continue.mp3', 0.7],
+    back:    ['back.mp3',     0.55]
   };
 
   var ctx = null;       // AudioContext (created early, resumed in a gesture)
