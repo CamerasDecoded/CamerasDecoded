@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+  <title>Decoders Crew — Cameras Decoded</title>
+  <meta name="description" content="Meet the crew behind your signal: the Signal Keeper, Cynetis-7, and three mentors teaching you to decode light." />
+  <meta property="og:title" content="Decoders Crew — Cameras Decoded" />
+  <meta property="og:description" content="Five minds. One signal. Meet the crew teaching you to decode light." />
+  <meta property="og:type" content="website" />
+
+  <!-- ===== MASTER LOADER (shared chrome: floating header, sidebar, mobile bottom nav) ===== -->
+  <script src="/scripts/master-loader.js?v=20260912d"></script>
+  <link rel="stylesheet" href="header.css?v=20260916a" />
+
+  <!-- ===== FIREBASE (guarded init for the shared header auth bridge; page itself is static) ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/user-state.js"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="header.js?v=20260912e"></script>
+  <script src="/scripts/desktop-sidebar.js"></script>
+  <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
+
+  <!-- ===== FONTS & ICONS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+:root{
+  --green:#8deb00;
+  --green-dim:rgba(141,235,0,.55);
+  --green-soft:rgba(141,235,0,.08);
+  --green-border:rgba(141,235,0,.28);
+  --bg:#070807;
+  --surface:#0d0e0d;
+  --surface-2:#121413;
+  --text:#f4f7f2;
+  --muted:#a9b8a2;
+  --muted-2:#6f7d68;
+  --border:rgba(255,255,255,.09);
+  --amber:#ffb020;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --font-d:'Space Mono',monospace;
+  --font-b:'Montserrat',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--font-b);line-height:1.6;
+  display:block!important;justify-content:normal!important;align-items:normal!important;padding:0!important;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+/* ambient glow */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(720px 420px at 50% -80px, rgba(141,235,0,.10), transparent 65%),
+    radial-gradient(560px 560px at 88% 108%, rgba(141,235,0,.05), transparent 60%);
+}
+button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer}
+img{max-width:100%}
+:focus-visible{outline:2px solid rgba(141,235,0,.75);outline-offset:3px;border-radius:6px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+.cwrap{
+  max-width:1060px;margin:0 auto;position:relative;z-index:1;
+  padding:calc(env(safe-area-inset-top) + 84px) 20px calc(132px + env(safe-area-inset-bottom));
+}
+
+/* ---------- entrance choreography ---------- */
+.rise{opacity:0;transform:translateY(16px);animation:riseIn .8s var(--ease) forwards;animation-delay:var(--d,0s)}
+@keyframes riseIn{to{opacity:1;transform:none}}
+.js-anim .rv{opacity:0;transform:translateY(26px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.js-anim .rv.in{opacity:1;transform:none}
+
+/* ---------- hero ---------- */
+.crew-hero{margin:4px 0 8px;position:relative}
+.kicker{
+  display:inline-flex;align-items:center;gap:9px;
+  font:700 11px var(--font-d);letter-spacing:.24em;text-transform:uppercase;color:var(--green);
+  border:1px solid var(--green-border);border-radius:999px;padding:7px 14px;background:var(--green-soft);
+}
+.kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:blink 2.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.ttl{display:block;margin:18px 0 12px}
+.ttl img{display:block;max-width:min(480px,88vw);height:auto;filter:drop-shadow(0 6px 26px rgba(141,235,0,.18))}
+.ttl-fb{
+  display:block;font:800 clamp(40px,11vw,76px)/1.02 var(--font-b);letter-spacing:-.02em;
+}
+.ttl-fb em{font-style:normal;color:var(--green);text-shadow:0 0 34px rgba(141,235,0,.35)}
+.lede{max-width:34rem;color:var(--muted);font-size:15.5px;line-height:1.75}
+.lede strong{color:var(--text);font-weight:700}
+
+/* manifest meta strip */
+.manifest{
+  display:flex;flex-wrap:wrap;gap:8px 0;margin:22px 0 6px;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+}
+.manifest div{
+  flex:1 1 auto;min-width:120px;padding:12px 14px;text-align:center;
+  font:700 11px var(--font-d);letter-spacing:.18em;color:var(--muted);text-transform:uppercase;
+}
+.manifest div+div{border-left:1px solid var(--border)}
+.manifest b{display:block;font-size:22px;letter-spacing:0;color:var(--green);margin-bottom:2px;text-shadow:0 0 18px rgba(141,235,0,.35)}
+
+/* ---------- marquee ---------- */
+.marquee{
+  margin:26px -20px 8px;overflow:hidden;white-space:nowrap;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+          mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+}
+.marquee-track{display:inline-block;padding:11px 0;animation:marq 26s linear infinite}
+.marquee-track span{
+  font:700 12px var(--font-d);letter-spacing:.34em;text-transform:uppercase;color:var(--muted-2);
+  margin:0 26px;
+}
+.marquee-track span i{font-style:normal;color:var(--green);margin-right:26px}
+@keyframes marq{to{transform:translateX(-50%)}}
+
+/* ---------- roster ---------- */
+.roster{position:relative;margin-top:34px}
+.roster::before{ /* signal spine (mobile) */
+  content:"";position:absolute;left:11px;top:14px;bottom:14px;width:2px;
+  background:linear-gradient(180deg,transparent,var(--green-dim) 12%,var(--green-dim) 88%,transparent);
+  opacity:.5;
+}
+.dossier{position:relative;padding:0 0 44px 44px}
+.dossier:last-child{padding-bottom:8px}
+.node{
+  position:absolute;left:4px;top:34px;width:16px;height:16px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--green);box-shadow:0 0 14px rgba(141,235,0,.7);
+  animation:nodePulse 3s ease-in-out infinite;z-index:2;
+}
+@keyframes nodePulse{0%,100%{box-shadow:0 0 10px rgba(141,235,0,.5)}50%{box-shadow:0 0 20px rgba(141,235,0,.95)}}
+.d-card{
+  position:relative;border:1px solid var(--border);border-radius:18px;background:linear-gradient(180deg,var(--surface-2),var(--surface));
+  padding:22px;overflow:hidden;transition:border-color .35s var(--ease),transform .35s var(--ease),box-shadow .35s var(--ease);
+}
+.d-card:hover{border-color:var(--green-border);transform:translateY(-3px);box-shadow:0 18px 44px rgba(0,0,0,.5),0 0 0 1px rgba(141,235,0,.12)}
+.ghost{
+  position:absolute;right:6px;top:-14px;font:800 110px/1 var(--font-b);letter-spacing:-.04em;
+  color:transparent;-webkit-text-stroke:1px rgba(141,235,0,.16);pointer-events:none;user-select:none;
+}
+.d-grid{display:grid;gap:18px;position:relative}
+
+/* portrait slot — cinematic viewfinder frame */
+.pslot{
+  position:relative;width:min(240px,62vw);aspect-ratio:4/5;border-radius:12px;overflow:hidden;
+  border:1px solid var(--border-strong,rgba(255,255,255,.16));background:#0a0b0a;
+  box-shadow:0 14px 40px rgba(0,0,0,.55);
+}
+.pslot::before,.pslot::after,
+.vf::before,.vf::after{ /* viewfinder corner ticks */
+  content:"";position:absolute;width:22px;height:22px;z-index:3;pointer-events:none;
+  border:2px solid var(--green);opacity:.9;
+}
+.pslot::before{top:8px;left:8px;border-right:0;border-bottom:0;border-radius:4px 0 0 0}
+.pslot::after{top:8px;right:8px;border-left:0;border-bottom:0;border-radius:0 4px 0 0}
+.vf::before{bottom:8px;left:8px;border-right:0;border-top:0;border-radius:0 0 0 4px}
+.vf::after{bottom:8px;right:8px;border-left:0;border-top:0;border-radius:0 0 4px 0}
+.slot-inner{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:
+    radial-gradient(220px 200px at 50% 38%, rgba(141,235,0,.10), transparent 70%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 3px);
+}
+.slot-inner .mono{font:700 54px var(--font-d);color:rgba(141,235,0,.5);letter-spacing:.02em}
+.slot-note{font:700 9.5px var(--font-d);letter-spacing:.3em;color:var(--muted-2);text-transform:uppercase}
+.scan{ /* sweeping scanline */
+  position:absolute;left:0;right:0;top:-30%;height:26%;z-index:2;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(141,235,0,.14),transparent);
+  animation:scan 4.5s var(--ease) infinite;
+}
+@keyframes scan{0%{top:-30%}60%,100%{top:110%}}
+.pimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1} /* drop-in class for future portraits */
+.d-card:hover .pslot{box-shadow:0 14px 40px rgba(0,0,0,.55),0 0 26px rgba(141,235,0,.14)}
+
+/* dossier text */
+.d-name{font:800 clamp(26px,6.4vw,38px)/1.05 var(--font-b);letter-spacing:-.015em;margin:2px 40px 8px 0}
+.d-name .aka{color:var(--green)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.chip{
+  font:700 10.5px var(--font-d);letter-spacing:.2em;text-transform:uppercase;
+  padding:6px 12px;border-radius:999px;border:1px solid var(--green-border);color:var(--green);background:var(--green-soft);
+}
+.chip.dim{border-color:var(--border);color:var(--muted);background:rgba(255,255,255,.03)}
+.js-anim .rv.in .chip{animation:chipPop .5s var(--ease) backwards}
+.js-anim .rv.in .chip:nth-child(2){animation-delay:.08s}
+.js-anim .rv.in .chip:nth-child(3){animation-delay:.16s}
+@keyframes chipPop{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+.essence{color:var(--muted);font-size:14.5px;line-height:1.7;max-width:36rem}
+.essence strong{color:var(--text)}
+
+/* expandable dossier */
+.d-toggle{
+  display:inline-flex;align-items:center;gap:8px;margin-top:14px;
+  font:700 11.5px var(--font-d);letter-spacing:.24em;text-transform:uppercase;color:var(--green);
+}
+.d-toggle .arr{transition:transform .35s var(--ease);font-size:13px}
+.dossier.open .d-toggle .arr{transform:rotate(180deg)}
+.d-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .5s var(--ease)}
+.dossier.open .d-body{grid-template-rows:1fr}
+.d-body-in{overflow:hidden;min-height:0}
+.dossier.open .d-body-in{padding-top:16px}
+.bio{color:var(--muted);font-size:14.5px;line-height:1.75;max-width:38rem;border-top:1px dashed var(--border);padding-top:16px}
+.sig{margin-top:16px}
+.sig-k{font:700 10.5px var(--font-d);letter-spacing:.26em;text-transform:uppercase;color:var(--muted-2);margin-bottom:6px}
+.sig-v{font:600 15px var(--font-b);color:var(--text)}
+.sig-v i{color:var(--green);font-style:normal;margin-right:8px}
+
+/* ---------- learning arc ---------- */
+.arc{margin:44px 0 8px;text-align:center}
+.arc-h{font:800 clamp(24px,6vw,34px) var(--font-b);letter-spacing:-.01em;margin-bottom:6px}
+.arc-h em{font-style:normal;color:var(--green)}
+.arc-sub{color:var(--muted);font-size:14px;max-width:32rem;margin:0 auto 24px;line-height:1.7}
+.steps{display:grid;gap:12px}
+.step{
+  position:relative;border:1px solid var(--border);border-radius:16px;background:var(--surface);
+  padding:20px 18px;text-align:left;overflow:hidden;
+  transition:border-color .35s var(--ease),transform .35s var(--ease);
+}
+.step:hover{border-color:var(--green-border);transform:translateY(-3px)}
+.step .n{font:700 11px var(--font-d);letter-spacing:.24em;color:var(--green);text-transform:uppercase}
+.step h3{font:800 19px var(--font-b);margin:8px 0 4px}
+.step p{color:var(--muted);font-size:13.5px;line-height:1.65}
+.step .who{display:block;margin-top:10px;font:700 11px var(--font-d);letter-spacing:.18em;text-transform:uppercase;color:var(--muted-2)}
+.step .who b{color:var(--text)}
+
+/* ---------- CTA ---------- */
+.cta{
+  margin:46px 0 10px;text-align:center;border:1px solid var(--green-border);border-radius:20px;
+  background:radial-gradient(480px 220px at 50% 0%, rgba(141,235,0,.12), transparent 70%),var(--surface);
+  padding:38px 22px;position:relative;overflow:hidden;
+}
+.cta h2{font:800 clamp(24px,6.4vw,36px)/1.1 var(--font-b);letter-spacing:-.01em;margin-bottom:8px}
+.cta h2 em{font-style:normal;color:var(--green)}
+.cta p{color:var(--muted);font-size:14px;max-width:30rem;margin:0 auto 22px;line-height:1.7}
+.btn-loud{
+  display:inline-flex;align-items:center;gap:10px;
+  font:800 15px var(--font-b);letter-spacing:.02em;color:#06130a;
+  background:linear-gradient(180deg,#a5ff2e,var(--green));border-radius:14px;padding:16px 34px;
+  box-shadow:0 10px 34px rgba(141,235,0,.35),inset 0 1px 0 rgba(255,255,255,.5);
+  transition:transform .25s var(--ease),box-shadow .25s var(--ease);text-decoration:none;
+}
+.btn-loud:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 16px 44px rgba(141,235,0,.5),inset 0 1px 0 rgba(255,255,255,.5)}
+.btn-loud:active{transform:translateY(0) scale(.99)}
+
+/* ---------- footer ---------- */
+.cfoot{
+  margin-top:54px;padding:34px 6px 0;text-align:center;
+  border-top:1px solid var(--border);
+  font:600 12px var(--font-d);letter-spacing:.06em;color:var(--muted-2);
+}
+.cfoot .socials{display:flex;justify-content:center;gap:6px;margin-bottom:16px}
+.cfoot .socials a{
+  width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;
+  border:1px solid var(--border);color:var(--muted);font-size:16px;text-decoration:none;
+  transition:color .3s,border-color .3s,transform .3s var(--ease);
+}
+.cfoot .socials a:hover{color:var(--green);border-color:var(--green-border);transform:translateY(-3px)}
+.cfoot .tag{margin-bottom:14px;line-height:1.8}
+.cfoot .flinks{margin-bottom:10px}
+.cfoot .flinks a{color:var(--muted);text-decoration:none;margin:0 4px}
+.cfoot .flinks a:hover{color:var(--green)}
+.cfoot .fine{font-size:11px;opacity:.75}
+
+/* ---------- desktop ---------- */
+@media(min-width:900px){
+  .roster::before{display:none}
+  .dossier{padding-left:0}
+  .node{display:none}
+  .d-grid{grid-template-columns:330px 1fr;gap:34px;align-items:start}
+  .dossier:nth-child(even) .d-grid{direction:rtl}
+  .dossier:nth-child(even) .d-grid>*{direction:ltr}
+  .pslot{width:100%}
+  .ghost{font-size:150px;top:-26px}
+  .steps{grid-template-columns:repeat(3,1fr)}
+  .step:not(:last-child)::after{
+    content:"›";position:absolute;right:-16px;top:50%;transform:translateY(-50%);
+    color:var(--green);font:700 26px var(--font-d);opacity:.7;
+  }
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .rise,.js-anim .rv{opacity:1!important;transform:none!important}
+  .marquee-track{animation:none;white-space:normal}
+  html{scroll-behavior:auto}
+}
+  </style>
+</head>
+<body>
+  <main class="cwrap" id="mainContent">
+
+    <!-- ================= HERO ================= -->
+    <header class="crew-hero rise" style="--d:.02s">
+      <span class="kicker"><span class="dot" aria-hidden="true"></span>The crew &middot; behind the signal</span>
+      <span class="ttl">
+        <img src="/custom-site-titles/decoders-crew.png" alt="Decoders Crew"
+             onerror="this.style.display='none';var f=document.getElementById('fallbackTitle');if(f)f.hidden=false;" />
+        <span class="ttl-fb" id="fallbackTitle" hidden>Decoders <em>Crew</em></span>
+      </span>
+      <p class="lede"><strong>Five minds. One signal.</strong> The founder, the entity, and three mentors teaching you to decode light — each one owning a different stretch of your journey.</p>
+      <div class="manifest" aria-label="Crew at a glance">
+        <div><b>05</b>operatives</div>
+        <div><b>01</b>keeper</div>
+        <div><b>01</b>entity</div>
+        <div><b>03</b>mentors</div>
+      </div>
+    </header>
+
+    <!-- ================= MARQUEE ================= -->
+    <div class="marquee rise" style="--d:.1s" aria-hidden="true">
+      <div class="marquee-track" id="marqueeTrack">
+        <span><i>◆</i>light</span><span><i>◆</i>vision</span><span><i>◆</i>craft</span><span><i>◆</i>signal</span><span><i>◆</i>instinct</span><span><i>◆</i>story</span>
+      </div>
+    </div>
+
+    <!-- ================= ROSTER ================= -->
+    <section class="roster" aria-label="Crew roster">
+
+      <!-- 01 · THE SIGNAL KEEPER -->
+      <article class="dossier rv" data-dossier>
+        <span class="node" aria-hidden="true"></span>
+        <div class="d-card">
+          <span class="ghost" aria-hidden="true">01</span>
+          <div class="d-grid">
+            <div class="pslot" data-portrait="keeper">
+              <!-- ══ PLUG IMAGE: replace .slot-inner with <img class="pimg" src="/images/crew/signal-keeper.png" alt="The Signal Keeper"> ══ -->
+              <div class="slot-inner" aria-hidden="true"><span class="mono">SK</span><span class="slot-note">Portrait incoming</span></div>
+              <span class="vf" aria-hidden="true"></span><span class="scan" aria-hidden="true"></span>
+            </div>
+            <div>
+              <h2 class="d-name">The Signal <span class="aka">Keeper</span></h2>
+              <div class="chips"><span class="chip">Founder</span><span class="chip dim">Vision &amp; direction</span></div>
+              <p class="essence"><strong>Sets the vision. Keeps the signal clean.</strong> The one who decided photography should be learned by doing — not by lecture.</p>
+              <button class="d-toggle" type="button" aria-expanded="false"><span>Read dossier</span><span class="arr">▾</span></button>
+              <div class="d-body"><div class="d-body-in">
+                <p class="bio">The founder. He started Cameras Decoded on a simple frustration: photography is taught like a classroom subject when it should be learned like a game — reps, feedback, momentum. He sets the vision, guards the standard, and keeps the signal clean so every lesson earns its place.</p>
+                <div class="sig"><div class="sig-k">Signature lesson</div><div class="sig-v"><i>◆</i>The Inner Signal — the mindset underneath every shot you'll ever take.</div></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 02 · CYNETIS-7 -->
+      <article class="dossier rv" data-dossier>
+        <span class="node" aria-hidden="true"></span>
+        <div class="d-card">
+          <span class="ghost" aria-hidden="true">02</span>
+          <div class="d-grid">
+            <div class="pslot" data-portrait="cynetis">
+              <!-- ══ PLUG IMAGE: replace .slot-inner with <img class="pimg" src="/images/cynetis-7-the-entity.png" alt="Cynetis-7"> ══ -->
+              <div class="slot-inner" aria-hidden="true"><span class="mono">C7</span><span class="slot-note">Portrait incoming</span></div>
+              <span class="vf" aria-hidden="true"></span><span class="scan" aria-hidden="true"></span>
+            </div>
+            <div>
+              <h2 class="d-name">Cynetis-<span class="aka">7</span></h2>
+              <div class="chips"><span class="chip">The Guide</span><span class="chip dim">Missions &middot; Drills &middot; Momentum</span></div>
+              <p class="essence"><strong>Briefs your missions. Never lets you coast.</strong> Neither quite AI nor quite legend — the entity walking every step with you.</p>
+              <button class="d-toggle" type="button" aria-expanded="false"><span>Read dossier</span><span class="arr">▾</span></button>
+              <div class="d-body"><div class="d-body-in">
+                <p class="bio">The teaching entity. Cynetis-7 briefs your missions, calls your shots, reviews your reps, and refuses to let "good enough" slide. Ancient signal, modern camera. The star of the show — the rest of us just keep the lights on.</p>
+                <div class="sig"><div class="sig-k">Signature lesson</div><div class="sig-v"><i>◆</i>Mission briefings — every operation starts with her voice in your ear.</div></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 03 · MARISOL LUNA -->
+      <article class="dossier rv" data-dossier>
+        <span class="node" aria-hidden="true"></span>
+        <div class="d-card">
+          <span class="ghost" aria-hidden="true">03</span>
+          <div class="d-grid">
+            <div class="pslot" data-portrait="marisol">
+              <!-- ══ PLUG IMAGE: replace .slot-inner with <img class="pimg" src="/images/crew/marisol-luna.png" alt="Marisol Luna"> ══ -->
+              <div class="slot-inner" aria-hidden="true"><span class="mono">ML</span><span class="slot-note">Portrait incoming</span></div>
+              <span class="vf" aria-hidden="true"></span><span class="scan" aria-hidden="true"></span>
+            </div>
+            <div>
+              <h2 class="d-name">Marisol <span class="aka">Luna</span></h2>
+              <div class="chips"><span class="chip">The Peer</span><span class="chip dim">People &amp; lifestyle</span></div>
+              <p class="essence"><strong>The friend who hands you a camera and says "you've got this."</strong> Zero jargon, all encouragement.</p>
+              <button class="d-toggle" type="button" aria-expanded="false"><span>Read dossier</span><span class="arr">▾</span></button>
+              <div class="d-body"><div class="d-body-in">
+                <p class="bio">Learning photography shouldn't feel like sitting in an exam hall. Marisol teaches the way a great friend would — camera in hand, laughing through the mistakes, celebrating every small win until the wins stop feeling small. Her superpower is making beginners feel like they belong here from frame one.</p>
+                <div class="sig"><div class="sig-k">Signature lesson</div><div class="sig-v"><i>◆</i>The 10-minute portrait — connection before settings, every time.</div></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 04 · KENJI TANAKA -->
+      <article class="dossier rv" data-dossier>
+        <span class="node" aria-hidden="true"></span>
+        <div class="d-card">
+          <span class="ghost" aria-hidden="true">04</span>
+          <div class="d-grid">
+            <div class="pslot" data-portrait="kenji">
+              <!-- ══ PLUG IMAGE: replace .slot-inner with <img class="pimg" src="/images/crew/kenji-tanaka.png" alt="Kenji Tanaka"> ══ -->
+              <div class="slot-inner" aria-hidden="true"><span class="mono">KT</span><span class="slot-note">Portrait incoming</span></div>
+              <span class="vf" aria-hidden="true"></span><span class="scan" aria-hidden="true"></span>
+            </div>
+            <div>
+              <h2 class="d-name">Kenji <span class="aka">Tanaka</span></h2>
+              <div class="chips"><span class="chip">The Craftsman</span><span class="chip dim">Technical mastery</span></div>
+              <p class="essence"><strong>The "why" behind every setting, finally in plain words.</strong> Precise, patient, quietly funny.</p>
+              <button class="d-toggle" type="button" aria-expanded="false"><span>Read dossier</span><span class="arr">▾</span></button>
+              <div class="d-body"><div class="d-body-in">
+                <p class="bio">The "why" behind every dial and setting. Kenji turns exposure triangles, light ratios, and menu mazes into plain common sense — methodical and detail-obsessed, but warm about it. He measures twice so you only have to learn once.</p>
+                <div class="sig"><div class="sig-k">Signature lesson</div><div class="sig-v"><i>◆</i>Exposure, finally explained — the last exposure lesson you'll ever need.</div></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 05 · VIVIAN HART -->
+      <article class="dossier rv" data-dossier>
+        <span class="node" aria-hidden="true"></span>
+        <div class="d-card">
+          <span class="ghost" aria-hidden="true">05</span>
+          <div class="d-grid">
+            <div class="pslot" data-portrait="vivian">
+              <!-- ══ PLUG IMAGE: replace .slot-inner with <img class="pimg" src="/images/crew/vivian-hart.png" alt="Vivian Hart"> ══ -->
+              <div class="slot-inner" aria-hidden="true"><span class="mono">VH</span><span class="slot-note">Portrait incoming</span></div>
+              <span class="vf" aria-hidden="true"></span><span class="scan" aria-hidden="true"></span>
+            </div>
+            <div>
+              <h2 class="d-name">Vivian <span class="aka">Hart</span></h2>
+              <div class="chips"><span class="chip">The Master</span><span class="chip dim">Vision &amp; artistry</span></div>
+              <p class="essence"><strong>Teaches you to see before you shoot.</strong> Decades behind the lens; praise you earn.</p>
+              <button class="d-toggle" type="button" aria-expanded="false"><span>Read dossier</span><span class="arr">▾</span></button>
+              <div class="d-body"><div class="d-body-in">
+                <p class="bio">Decades behind the lens. Vivian teaches the part no manual covers: learning to see before you shoot. Composition, story, instinct — the eye you can't buy, taught by someone who's earned hers. Her praise lands hardest because she doesn't give it cheaply.</p>
+                <div class="sig"><div class="sig-k">Signature lesson</div><div class="sig-v"><i>◆</i>See it before you shoot it — developing the eye, frame by frame.</div></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ================= LEARNING ARC ================= -->
+    <section class="arc rv" aria-label="The learning arc">
+      <h2 class="arc-h">One arc. <em>Three mentors.</em></h2>
+      <p class="arc-sub">The Keeper sets the vision. Cynetis-7 walks with you. And your three mentors each own a stretch of the climb:</p>
+      <div class="steps">
+        <div class="step">
+          <span class="n">Phase 01</span>
+          <h3>Shoot people</h3>
+          <p>Connection before settings. Portraits, lifestyle, and the confidence to point your camera at the people you love.</p>
+          <span class="who">Mentor · <b>Marisol Luna</b></span>
+        </div>
+        <div class="step">
+          <span class="n">Phase 02</span>
+          <h3>Master the craft</h3>
+          <p>Exposure, light, and gear — the technical backbone, taught so plainly you'll wonder why it ever felt hard.</p>
+          <span class="who">Mentor · <b>Kenji Tanaka</b></span>
+        </div>
+        <div class="step">
+          <span class="n">Phase 03</span>
+          <h3>Find your vision</h3>
+          <p>Composition, story, instinct. The leap from taking pictures to making photographs.</p>
+          <span class="who">Mentor · <b>Vivian Hart</b></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CTA ================= -->
+    <section class="cta rv" aria-label="Get started">
+      <h2>Your crew is <em>ready.</em></h2>
+      <p>Cynetis-7 has your first mission briefed. Marisol, Kenji, and Vivian are standing by. All that's missing is you.</p>
+      <a class="btn-loud" href="/missions.html">Begin your first mission →</a>
+    </section>
+
+    <!-- ================= FOOTER ================= -->
+    <footer class="cfoot rv">
+      <div class="socials">
+        <a href="https://www.youtube.com/@CamerasDecoded" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+        <a href="https://www.tiktok.com/@cameras.decoded" aria-label="TikTok"><i class="fab fa-tiktok"></i></a>
+        <a href="https://www.instagram.com/camerasdecoded/reels/" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+        <a href="https://www.facebook.com/profile.php?id=61553594660326" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+        <a href="https://camerasdecoded.substack.com" aria-label="Substack"><i class="fas fa-bookmark"></i></a>
+      </div>
+      <div class="tag">© Cameras Decoded — The Entity transmits. The Signal Keeper builds. You decode.</div>
+      <div class="flinks">
+        <a href="/roadmap.html">Roadmap</a> · <a href="/blog-updates.html">Blog/Updates</a> · <a href="/faq.html">FAQ</a> · <a href="/contact.html">Contact</a>
+      </div>
+      <div class="flinks fine">
+        <a href="/terms.html">Privacy/Terms</a> · <a href="mailto:signal@camerasdecoded.com">signal@camerasdecoded.com</a>
+      </div>
+    </footer>
+  </main>
+
+  <!-- PTR: pull-to-refresh (touch + narrow screens only; self-contained) -->
+  <script src="/scripts/ptr.js"></script>
+
+  <script>
+  (function(){
+    "use strict";
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(!reduceMotion){ document.documentElement.classList.add('js-anim'); }
+
+    function setText(id, value){
+      var el = document.getElementById(id);
+      if(el){ el.textContent = value; }
+    }
+
+    /* duplicate marquee content for a seamless loop */
+    var track = document.getElementById('marqueeTrack');
+    if(track){ track.innerHTML += track.innerHTML; }
+
+    /* scroll reveals */
+    var rvEls = document.querySelectorAll('.rv');
+    if('IntersectionObserver' in window && !reduceMotion && rvEls.length){
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+          if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+        });
+      }, {threshold:.12, rootMargin:'0px 0px -6% 0px'});
+      rvEls.forEach(function(el){ io.observe(el); });
+    } else {
+      rvEls.forEach(function(el){ el.classList.add('in'); });
+    }
+
+    /* dossier expand toggles */
+    document.querySelectorAll('[data-dossier]').forEach(function(d){
+      var btn = d.querySelector('.d-toggle');
+      if(!btn) return;
+      btn.addEventListener('click', function(){
+        var open = d.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        var label = btn.querySelector('span');
+        if(label) label.textContent = open ? 'Close dossier' : 'Read dossier';
+      });
+    });
+  })();
+  </script>
+</body>
+</html>
