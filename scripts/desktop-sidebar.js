@@ -57,6 +57,7 @@
       { id: 'snapshots',label: 'Snapshots',     icon: 'fa-camera',           href: '/snapshot-library.html' },
       { id: 'leaderboard', label: 'Leaderboard', icon: 'fa-trophy',           href: '/leaderboard.html' },
       { id: 'ai',       label: 'AI Workbench',  icon: 'fa-brain',            href: '/ai-workbench.html' },
+      { id: 'crew',     label: 'Decoders Crew', icon: 'fa-users',            href: '/decoders-crew.html' },
       { id: 'profile',  label: 'Profile',       icon: 'fa-circle-user',      href: '/profile.html', role: 'profile' }
     ]}
   ];
