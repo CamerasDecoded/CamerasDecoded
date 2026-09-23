@@ -190,6 +190,7 @@
       veilAwaitingTap = false;
       markEntered();
       if (window.CDSound) window.CDSound.start(); // inside the gesture: audio unlocks
+      if (window.CDSfx) window.CDSfx.unlock();
       else window.__cdSoundPendingStart = true;   // sound.js not loaded yet: start on load
       hideVeil(true);
     });
@@ -407,7 +408,7 @@
     // CDSound restores the position the last page left off.
     window.addEventListener('pointerdown', function mlAudioStart() {
       window.removeEventListener('pointerdown', mlAudioStart);
-      try { if (window.CDSound) window.CDSound.start(); } catch (e) {}
+      try { if (window.CDSound) window.CDSound.start(); if (window.CDSfx) window.CDSfx.unlock(); } catch (e) {}
     });
     console.log('✅ Master loader complete.');
   }
