@@ -175,13 +175,226 @@
     return frame(360, 234, inner);
   }
 
+  /* ---------------- 7. myth vs method (contrast) ---------------- */
+  function mythVsMethod(){
+    var inner =
+      label(180, 30, "MYTH vs METHOD", 12, NEON, "middle", 700) +
+      '<line x1="180" y1="46" x2="180" y2="226" stroke="rgba(141,235,0,.18)"/>' +
+      /* left: myth */
+      label(96, 54, "MAGIC BUTTON", 10, FAINT, "middle", 700) +
+      label(96, 68, "MYTH", 10, FAINT, "middle", 700) +
+      '<circle cx="96" cy="104" r="17" fill="none" stroke="' + FAINT + '" stroke-width="2"/>' +
+      '<circle cx="96" cy="104" r="6" fill="' + FAINT + '"/>' +
+      label(96, 138, "presses one button", 9, FAINT) +
+      label(96, 152, "expects art", 9, FAINT) +
+      '<line x1="96" y1="162" x2="96" y2="178" stroke="' + DIM + '" stroke-width="1.5"/>' +
+      label(96, 200, "\u2715 FRUSTRATION", 11, "#e06c5b", "middle", 700) +
+      /* right: method */
+      label(264, 54, "DECODER\u2019S", 10, NEON, "middle", 700) +
+      label(264, 68, "METHOD", 10, NEON, "middle", 700);
+    ["TOOL", "SIGNAL", "METHOD"].forEach(function(w, i){
+      var y = 88 + i * 34;
+      inner += '<rect x="222" y="' + y + '" width="84" height="26" rx="8" fill="rgba(141,235,0,.06)" stroke="' + NEON + '" stroke-width="1.5"/>' +
+        label(264, y + 17, w, 10, TEXT, "middle", 700);
+    });
+    inner += '<line x1="264" y1="192" x2="264" y2="204" stroke="' + NEON + '" stroke-width="1.5"/>' +
+      label(264, 222, "\u2713 CONFIDENCE", 11, NEON, "middle", 700);
+    return frame(360, 244, inner);
+  }
+
+  /* ---------------- 8. what's in the box (flat-lay) ---------------- */
+  function boxEcosystem(){
+    function card(x, y, icon, name, role){
+      return '<rect x="' + x + '" y="' + y + '" width="150" height="86" rx="10" fill="rgba(141,235,0,.04)" stroke="rgba(141,235,0,.25)"/>' +
+        icon +
+        label(x + 75, y + 62, name, 10, TEXT, "middle", 700) +
+        label(x + 75, y + 76, role, 9, FAINT);
+    }
+    var inner =
+      label(180, 30, "WHAT\u2019S IN THE BOX", 12, NEON, "middle", 700) +
+      card(28, 52,
+        '<rect x="86" y="62" width="34" height="24" rx="5" fill="none" stroke="' + NEON + '" stroke-width="2"/>' +
+        '<circle cx="103" cy="74" r="7" fill="none" stroke="' + NEON + '" stroke-width="1.5"/>',
+        "BODY", "the brain") +
+      card(182, 52,
+        '<rect x="240" y="64" width="44" height="20" rx="6" fill="none" stroke="' + NEON + '" stroke-width="2"/>' +
+        '<ellipse cx="240" cy="74" rx="5" ry="10" fill="none" stroke="' + NEON + '" stroke-width="1.5"/>',
+        "LENS", "the eye") +
+      card(28, 148,
+        '<rect x="88" y="158" width="30" height="16" rx="3" fill="none" stroke="' + NEON + '" stroke-width="2"/>' +
+        '<rect x="114" y="162" width="8" height="8" fill="' + NEON + '"/>',
+        "BATTERY", "the lifeblood") +
+      card(182, 148,
+        '<rect x="244" y="160" width="32" height="18" rx="4" fill="none" stroke="' + NEON + '" stroke-width="2"/>' +
+        '<line x1="252" y1="160" x2="252" y2="152" stroke="' + NEON + '" stroke-width="2"/>' +
+        '<line x1="268" y1="160" x2="268" y2="152" stroke="' + NEON + '" stroke-width="2"/>',
+        "CHARGER", "usb-c power") +
+      '<rect x="28" y="248" width="304" height="52" rx="10" fill="none" stroke="' + FAINT + '" stroke-width="1.5" stroke-dasharray="7 5"/>' +
+      label(180, 268, "NOT IN THE BOX", 10, FAINT, "middle", 700) +
+      label(180, 286, "HIGH-SPEED SD CARD \u2014 BUY SEPARATELY", 10, TEXT, "middle", 700);
+    return frame(360, 322, inner);
+  }
+
+  /* ---------------- 9. menu map (tree) ---------------- */
+  function menuMap(){
+    var cats = ["SHOOTING", "AF", "PLAYBK", "NETWORK", "SETUP"];
+    var inner = label(180, 30, "MENU MAP", 12, NEON, "middle", 700);
+    cats.forEach(function(c, i){
+      var x = 40 + i * 70;
+      inner += '<rect x="' + (x - 32) + '" y="48" width="64" height="24" rx="7" fill="rgba(141,235,0,.05)" stroke="' + DIM + '"/>' +
+        label(x, 64, c, 9, TEXT, "middle", 700) +
+        '<line x1="' + x + '" y1="72" x2="180" y2="196" stroke="' + DIM + '" stroke-width="1" opacity=".45"/>';
+    });
+    var sets = ["IMAGE QUALITY", "ISO LIMITS", "FOCUS AREA", "EYE AF", "DRIVE MODE", "FORMAT CARD"];
+    sets.forEach(function(s, i){
+      var x = 66 + (i % 3) * 114, y = 104 + Math.floor(i / 3) * 36;
+      inner += '<rect x="' + (x - 52) + '" y="' + y + '" width="104" height="26" rx="8" fill="rgba(141,235,0,.04)" stroke="rgba(141,235,0,.3)"/>' +
+        label(x, y + 17, s, 9, TEXT, "middle", 700) +
+        '<line x1="' + x + '" y1="' + (y + 26) + '" x2="180" y2="196" stroke="' + DIM + '" stroke-width="1" opacity=".45"/>';
+    });
+    inner += '<rect x="110" y="196" width="140" height="34" rx="10" fill="rgba(141,235,0,.1)" stroke="' + NEON + '" stroke-width="2"/>' +
+      label(180, 218, "MY MENU \u2605", 12, NEON, "middle", 700) +
+      label(180, 254, "EVERY BRAND, SAME FIVE TERRITORIES \u2014 LEARN THE MAP ONCE", 9, FAINT);
+    return frame(360, 276, inner);
+  }
+
+  /* ---------------- 10. SD card anatomy ---------------- */
+  function sdAnatomy(){
+    var inner =
+      label(180, 30, "READ THE CARD", 12, NEON, "middle", 700) +
+      /* card body with notched corner */
+      '<polygon points="52,64 138,64 162,88 162,244 52,244" fill="rgba(141,235,0,.05)" stroke="' + NEON + '" stroke-width="2"/>' +
+      '<rect x="66" y="200" width="82" height="26" rx="3" fill="none" stroke="' + DIM + '"/>' +
+      label(107, 218, "contacts", 8, FAINT);
+    var rows = [
+      [96, "CAPACITY", "how much it holds"],
+      [120, "READ SPEED", "MB/s offload"],
+      [144, "WRITE SPEED", "MB/s record"],
+      [168, "V60 / V90", "video class"],
+      [192, "SDXC", "card type"],
+      [216, "UHS-II", "bus interface"]
+    ];
+    rows.forEach(function(r){
+      inner += '<line x1="162" y1="' + r[0] + '" x2="196" y2="' + r[0] + '" stroke="' + DIM + '"/>' +
+        '<circle cx="162" cy="' + r[0] + '" r="3" fill="' + NEON + '"/>' +
+        label(202, r[0] - 2, r[1], 10, TEXT, "start", 700) +
+        label(202, r[0] + 12, r[2], 9, FAINT, "start");
+    });
+    inner += label(180, 272, "EVERY MARKING IS A SPEC \u2014 READ BEFORE YOU TRUST", 9, FAINT);
+    return frame(360, 294, inner);
+  }
+
+  /* ---------------- 11. lens mount flow ---------------- */
+  function lensMountFlow(){
+    var steps = [
+      ["1", "FIND THE MARK", "white dot on lens"],
+      ["2", "ALIGN", "match the body mark"],
+      ["3", "ROTATE", "until it CLICKS"]
+    ];
+    var inner = label(180, 30, "MOUNT THE LENS", 12, NEON, "middle", 700);
+    steps.forEach(function(s, i){
+      var x = 66 + i * 114;
+      inner += '<circle cx="' + x + '" cy="76" r="20" fill="rgba(141,235,0,.07)" stroke="' + NEON + '" stroke-width="2"/>' +
+        label(x, 82, s[0], 14, NEON, "middle", 700) +
+        label(x, 116, s[1], 10, TEXT, "middle", 700) +
+        label(x, 132, s[2], 9, FAINT);
+      if(i < 2){
+        inner += '<line x1="' + (x + 26) + '" y1="76" x2="' + (x + 82) + '" y2="76" stroke="' + NEON + '" stroke-width="1.5"/>' +
+          '<polygon points="' + (x + 82) + ',70 ' + (x + 82) + ',82 ' + (x + 92) + ',76" fill="' + NEON + '"/>';
+      }
+    });
+    inner += label(180, 168, "NEVER FORCE IT \u2014 NEVER PRESS THE RELEASE TO MOUNT", 9, FAINT);
+    return frame(360, 190, inner);
+  }
+
+  /* ---------------- 12. focus peaking demo ---------------- */
+  function peakingDemo(){
+    var inner =
+      label(180, 30, "FOCUS PEAKING", 12, NEON, "middle", 700) +
+      label(96, 56, "OFF", 10, FAINT, "middle", 700) +
+      label(264, 56, "ON", 10, NEON, "middle", 700) +
+      /* left: plain silhouette */
+      '<circle cx="96" cy="106" r="26" fill="none" stroke="' + FAINT + '" stroke-width="2"/>' +
+      '<path d="M58 168 C62 140 130 140 134 168" fill="none" stroke="' + FAINT + '" stroke-width="2"/>' +
+      /* right: same silhouette with neon edge glow */
+      '<circle cx="264" cy="106" r="26" fill="none" stroke="' + FAINT + '" stroke-width="2"/>' +
+      '<circle cx="264" cy="106" r="26" fill="none" stroke="' + NEON + '" stroke-width="4" opacity=".35"/>' +
+      '<path d="M226 168 C230 140 298 140 302 168" fill="none" stroke="' + NEON + '" stroke-width="4" opacity=".35"/>' +
+      '<path d="M226 168 C230 140 298 140 302 168" fill="none" stroke="#ffd23f" stroke-width="1.6" stroke-dasharray="6 4"/>' +
+      '<circle cx="264" cy="106" r="26" fill="none" stroke="#ffd23f" stroke-width="1.6" stroke-dasharray="6 4"/>' +
+      label(180, 200, "EDGES GLOW WHERE FOCUS LANDS", 10, TEXT, "middle", 700) +
+      label(180, 218, "MORE COLOR = MORE IN FOCUS", 10, NEON, "middle", 700);
+    return frame(360, 240, inner);
+  }
+
+  /* ---------------- 13. zebra demo ---------------- */
+  function zebraDemo(){
+    var inner =
+      label(180, 30, "ZEBRA \u2014 HIGHLIGHT ALERT", 12, NEON, "middle", 700) +
+      '<defs>' +
+      '<linearGradient id="zb-sky" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#f4f7ef"/><stop offset="1" stop-color="#5c6b58"/></linearGradient>' +
+      '<pattern id="zb-stripes" width="12" height="12" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">' +
+      '<rect width="12" height="12" fill="rgba(0,0,0,0)"/>' +
+      '<rect width="6" height="12" fill="rgba(20,20,20,.85)"/></pattern>' +
+      '</defs>' +
+      label(100, 56, "WITHOUT", 10, FAINT, "middle", 700) +
+      label(260, 56, "WITH ZEBRA", 10, NEON, "middle", 700) +
+      /* left photo: blown sky, no warning */
+      '<rect x="30" y="66" width="140" height="110" rx="8" fill="url(#zb-sky)"/>' +
+      '<rect x="30" y="130" width="140" height="46" rx="0" fill="#2c352c"/>' +
+      /* right photo: same + zebra overlay on sky */
+      '<rect x="190" y="66" width="140" height="110" rx="8" fill="url(#zb-sky)"/>' +
+      '<rect x="190" y="66" width="140" height="64" fill="url(#zb-stripes)" opacity=".9"/>' +
+      '<rect x="190" y="130" width="140" height="46" fill="#2c352c"/>' +
+      label(100, 198, "clipped \u2014 and you", 9, FAINT) +
+      label(100, 212, "would never know", 9, FAINT) +
+      label(260, 198, "stripes = overexposed", 9, NEON, "middle", 700) +
+      label(260, 212, "dial it back on the spot", 9, FAINT);
+    return frame(360, 234, inner);
+  }
+
+  /* ---------------- 14. out-of-box settings checklist ---------------- */
+  function settingsChecklist(){
+    var steps = [
+      ["PHYSICAL SETUP", "battery \u00b7 card \u00b7 lens"],
+      ["IMAGE QUALITY", "RAW + JPEG"],
+      ["RELEASE W/O LENS", "ON"],
+      ["MODE DIAL", "A \u2014 aperture priority"],
+      ["ISO AUTO", "capped 6400 / 12800"],
+      ["AUTOFOCUS", "AF-C \u00b7 wide \u00b7 eye AF"],
+      ["FOCUS PEAKING", "ON \u2014 red / yellow"],
+      ["HIGHLIGHT ALERT", "zebra \u2014 ON"],
+      ["EVF", "setting effect ON"]
+    ];
+    var inner = label(180, 28, "OUT-OF-BOX SEQUENCE", 12, NEON, "middle", 700);
+    inner += '<line x1="40" y1="52" x2="40" y2="' + (52 + (steps.length - 1) * 36) + '" stroke="' + DIM + '" stroke-width="2"/>';
+    steps.forEach(function(s, i){
+      var y = 52 + i * 36;
+      inner += '<circle cx="40" cy="' + y + '" r="11" fill="#0b120a" stroke="' + NEON + '" stroke-width="2"/>' +
+        label(40, y + 4, String(i + 1), 10, NEON, "middle", 700) +
+        label(62, y - 1, s[0], 10, TEXT, "start", 700) +
+        label(62, y + 13, s[1], 9, FAINT, "start");
+    });
+    inner += label(200, 52 + 9 * 36 + 6, "SET ONCE \u2014 SHOOT FOREVER", 10, NEON, "middle", 700);
+    return frame(360, 52 + 9 * 36 + 30, inner);
+  }
+
   var LIB = {
     "exposure-triangle": exposureTriangle,
     "aperture-dof": apertureDof,
     "iso-noise": isoNoise,
     "shutter-blur": shutterBlur,
     "camera-anatomy": cameraAnatomy,
-    "light-path": lightPath
+    "light-path": lightPath,
+    "myth-vs-method": mythVsMethod,
+    "box-ecosystem": boxEcosystem,
+    "menu-map": menuMap,
+    "sd-anatomy": sdAnatomy,
+    "lens-mount-flow": lensMountFlow,
+    "peaking-demo": peakingDemo,
+    "zebra-demo": zebraDemo,
+    "settings-checklist": settingsChecklist
   };
 
   window.CDFmVisuals = {
