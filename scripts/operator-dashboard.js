@@ -924,8 +924,9 @@
       const newStreak = (Array.isArray(log) && log.includes(yKey)) ? prevStreak + 1 : 1;
       const btn = $('challengeCompleteBtn');
       if (btn) btn.disabled = true;
-      // Day-aware: on a fresh day the stored total is yesterday's — set the
-      // day's first XP absolutely instead of incrementing the stale total.
+      // Day-aware: freshDay means the stored total already belongs to today
+      // (xpTodayDate === today) — increment it. Otherwise the stored total
+      // is yesterday's stale value — set the day's first XP absolutely.
       // Re-read the doc: vm.raw can predate XP banked on another page.
       const freshSnap = await window.db.collection('users').doc(uid).get();
       const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
@@ -934,8 +935,8 @@
           challengeLog: firebase.firestore.FieldValue.arrayUnion(todayKey),
           dailyChallengeStreak: newStreak,
           ...(freshDay
-            ? { xpToday: 10, dailyXp: 10, xpTodayDate: todayKey }
-            : { xpToday: firebase.firestore.FieldValue.increment(10) }),
+            ? { xpToday: firebase.firestore.FieldValue.increment(10) }
+            : { xpToday: 10, dailyXp: 10, xpTodayDate: todayKey }),
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + todayKey]: firebase.firestore.FieldValue.increment(10),
           lastActivityDate: todayKey, lastActiveDate: todayKey,
@@ -987,8 +988,8 @@
         const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
         await window.db.collection('users').doc(uid).update({
           ...(freshDay
-            ? { xpToday: 10, dailyXp: 10, xpTodayDate: tk }
-            : { xpToday: firebase.firestore.FieldValue.increment(10) }),
+            ? { xpToday: firebase.firestore.FieldValue.increment(10) }
+            : { xpToday: 10, dailyXp: 10, xpTodayDate: tk }),
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(10),
           lastActivityDate: tk,
@@ -1021,8 +1022,8 @@
           const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
           await window.db.collection('users').doc(uid).update({
             ...(freshDay
-              ? { xpToday: 20, dailyXp: 20, xpTodayDate: tk }
-              : { xpToday: firebase.firestore.FieldValue.increment(20) }),
+              ? { xpToday: firebase.firestore.FieldValue.increment(20) }
+              : { xpToday: 20, dailyXp: 20, xpTodayDate: tk }),
             totalPoints: firebase.firestore.FieldValue.increment(20),
             ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(20),
             lastActivityDate: tk,
