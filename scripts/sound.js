@@ -62,7 +62,10 @@
   // Cold start fades up from silence so the bed swells in instead of
   // starting abruptly. But when a saved position exists, the music was
   // already playing this session — come back at full volume from that
-  // spot so it feels like it continues instead of restarting.
+  // spot so it feels like it continues instead of restarting. When the
+  // metadata isn't in yet, wait for it before playing: starting playback
+  // first and seeking after is what made every page load sound like a
+  // restart (a blip of the track start, then a jump).
   function start() {
     if (!isOn()) return false;
     try {
@@ -71,28 +74,38 @@
       var resumePos = 0;
       try { resumePos = parseFloat(sessionStorage.getItem(POS_KEY) || '0'); } catch (e) {}
       var resuming = resumePos > 1;
-      if (resuming) {
-        try {
-          if (a.readyState >= 1) {
+      var begun = false;
+      var begin = function () {
+        if (begun) return; begun = true;
+        try { a.removeEventListener('loadedmetadata', begin); } catch (e) {}
+        if (!isOn()) return true;
+        if (resuming) {
+          try {
             var dur = a.duration || 0;
             if (dur > 0 && resumePos < dur - 2) a.currentTime = resumePos;
-          }
-        } catch (e) {}
-        try { a.volume = TARGET_VOL; } catch (e) {}
-      } else {
-        try { a.volume = 0; } catch (e) {}
+          } catch (e) {}
+          try { a.volume = TARGET_VOL; } catch (e) {}
+        } else {
+          try { a.volume = 0; } catch (e) {}
+        }
+        var p = a.play();
+        if (p && typeof p.catch === 'function') p.catch(function () {});
+        if (!resuming) {
+          var t0 = Date.now();
+          fadeTimer = setInterval(function () {
+            var k = Math.min(1, (Date.now() - t0) / FADE_MS);
+            try { a.volume = TARGET_VOL * k; } catch (e) {}
+            if (k >= 1) { clearInterval(fadeTimer); fadeTimer = null; }
+          }, 60);
+        }
+        return true;
+      };
+      if (resuming && a.readyState < 1) {
+        a.addEventListener('loadedmetadata', begin);
+        setTimeout(begin, 1500); // backstop: play anyway if metadata stalls
+        return true;
       }
-      var p = a.play();
-      if (p && typeof p.catch === 'function') p.catch(function () {});
-      if (!resuming) {
-        var t0 = Date.now();
-        fadeTimer = setInterval(function () {
-          var k = Math.min(1, (Date.now() - t0) / FADE_MS);
-          try { a.volume = TARGET_VOL * k; } catch (e) {}
-          if (k >= 1) { clearInterval(fadeTimer); fadeTimer = null; }
-        }, 60);
-      }
-      return true;
+      return begin();
     } catch (e) { return false; }
   }
 
