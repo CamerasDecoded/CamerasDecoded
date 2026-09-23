@@ -15,33 +15,18 @@ window.CDLearn = (() => {
 
   const $ = (id) => document.getElementById(id);
   const reduced = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const chimeOn = () => { try { return localStorage.getItem('cd_chime') !== 'off'; } catch (e) { return true; } };
-  const hapticsOn = () => { try { return localStorage.getItem('cd_haptics') !== 'off'; } catch (e) { return true; } };
-  const tickH = () => { if (hapticsOn() && window.CDHaptics) window.CDHaptics.tick(); };
-  const bigH = () => { if (hapticsOn() && window.CDHaptics) window.CDHaptics.bigSuccess(); };
-
-  /* ---------- tiny WebAudio: tick + completion chime ---------- */
-  let AC = null;
-  function ac() {
-    if (AC || !chimeOn()) return AC;
-    try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; }
-    return AC;
-  }
-  function blip(freq, t0, dur, gain) {
-    const ctx = ac(); if (!ctx) return;
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = 'sine'; o.frequency.value = freq;
-    const t = ctx.currentTime + t0;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(ctx.destination);
-    o.start(t); o.stop(t + dur + 0.05);
-  }
-  const sfxTick = () => blip(660, 0, 0.12, 0.08);
-  const sfxGood = () => { blip(523, 0, 0.14, 0.09); blip(784, 0.07, 0.16, 0.09); };
-  const sfxBad = () => blip(220, 0, 0.18, 0.07);
-  const sfxWin = () => { blip(523, 0, 0.16, 0.1); blip(659, 0.1, 0.16, 0.1); blip(880, 0.2, 0.3, 0.11); };
+  /* ---------- shared sound identity: real samples via CDSfx ----------
+     Mute lives in CDSfx (localStorage "cd_sound"); haptics live in
+     CDHaptics (localStorage "cd_haptics" + reduced-motion). No local
+     copies, no hand-rolled synth. */
+  const cds = () => (window.CDSfx && typeof window.CDSfx.play === 'function') ? window.CDSfx : null;
+  const tickH = () => { try { if (window.CDHaptics) window.CDHaptics.tick(); } catch (e) {} };
+  const bigH = () => { try { if (window.CDHaptics) window.CDHaptics.bigSuccess(); } catch (e) {} };
+  const sfxTick = () => { const c = cds(); if (c) c.play('tick'); };
+  const sfxGood = () => { const c = cds(); if (c) c.play('correct'); };
+  const sfxBad = () => { const c = cds(); if (c) c.play('wrong'); };
+  const sfxLessonDone = () => { const c = cds(); if (c) c.play('lesson'); };
+  const sfxDrillDone = () => { const c = cds(); if (c) c.play('chapter'); };
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
@@ -262,7 +247,7 @@ window.CDLearn = (() => {
     if (award && award.banked && window.CDGear) {
       try { window.CDGear.trackLesson(fdb(), me() && me().uid, isFreeSkill(st.skillId)); } catch (e) { /* best-effort */ }
     }
-    sfxWin(); bigH();
+    sfxLessonDone(); bigH();
     renderResult(st, {
       headline: 'Lesson complete.',
       sub: st.checkRight ? 'Check passed on the first read.' : 'Read through — the check is there when you want it again.',
@@ -347,7 +332,7 @@ window.CDLearn = (() => {
     // XP was already banked when the last question was answered; await it.
     const award = await (st.bankPromise || bankXp(st.skillId, 'drill', xp, st.correct));
     if (award && award.banked) { try { if (window.CDGear) window.CDGear.trackDrill(fdb(), me() && me().uid); } catch (e) {} }
-    sfxWin(); bigH();
+    sfxDrillDone(); bigH();
     renderResult(st, {
       headline: `${st.correct} of ${total}.`,
       sub: st.correct >= 3 ? 'Sharp. That is drill-ready shooting.' : 'Reps build instinct. Run it again tomorrow.',

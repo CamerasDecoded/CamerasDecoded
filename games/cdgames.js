@@ -143,16 +143,32 @@
     }
   };
 
-  /* ---------- synthesized micro-audio (no assets, created on gesture) --- */
+  /* ---------- shared sound identity (real samples via CDSfx) ----------
+     blip() maps the old synth pitches to the shared sample set; sfx()
+     passes a sample name straight through. The only synth that remains
+     is shutterClick — the camera shutter is thematic and there is no
+     sample for it. Mute lives in CDSfx (localStorage "cd_sound"). */
   var AC = null;
   function audio() {
     if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
     if (AC && AC.state === 'suspended') AC.resume();
     return AC;
   }
+  /* ---------- shared sound identity: real samples via CDSfx ---------- */
+  // sfx(name) passes straight through to the shared sample library
+  // (correct / wrong / perfect / lesson / chapter / tick / continue / back).
+  function sfx(name) {
+    try { if (window.CDSfx && window.CDSfx.play) return window.CDSfx.play(name); } catch (e) {}
+    return false;
+  }
+  // blip(freq) keeps its signature for the game modules but plays samples:
+  // high pitch = correct, low pitch = wrong, mid = tick. Falls back to the
+  // old synth only when the page never loaded /scripts/sfx.js.
   function blip(freq, durMs) {
-    var c = audio(); if (!c) return;
     freq = freq || 880; durMs = durMs || 140;
+    var name = freq >= 880 ? 'correct' : (freq <= 330 ? 'wrong' : 'tick');
+    if (sfx(name)) return;
+    var c = audio(); if (!c) return;
     var o = c.createOscillator(), g = c.createGain();
     o.type = 'sine'; o.frequency.value = freq;
     g.gain.setValueAtTime(0.16, c.currentTime);
@@ -182,6 +198,7 @@
     fx: fx,
     audio: audio,
     blip: blip,
+    sfx: sfx,
     shutterClick: shutterClick
   };
 })();
