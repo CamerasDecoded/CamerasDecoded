@@ -1219,9 +1219,29 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     var d = db();
     if(result.gained > 0 && d && user){
       try{
-        await d.collection("users").doc(user.uid).update({
-          totalPoints: firebase.firestore.FieldValue.increment(result.gained)
-        });
+        /* Field Manual XP counts toward the daily goal too. Day-aware:
+           xpTodayDate (local) is the day authority — if the stored total
+           already belongs to today, increment it; otherwise set the day's
+           first XP absolutely. Day keys stamped so a later
+           RewardEngine.award() can't wipe this on a stale date. */
+        var now = new Date();
+        var tk = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        var F = firebase.firestore.FieldValue;
+        var usnap = await d.collection("users").doc(user.uid).get().catch(function(){ return null; });
+        var udata = (usnap && usnap.exists) ? usnap.data() : null;
+        var freshDay = !!udata && udata.xpTodayDate === tk;
+        var upd = {
+          totalPoints: F.increment(result.gained),
+          lastActivityDate: tk, lastActiveDate: tk,
+          lastStreakDate: tk, lastXpDate: tk,
+          recentActivity: F.arrayUnion({
+            label: 'Field Manual lesson complete', time: 'Just now', xp: result.gained
+          })
+        };
+        if(freshDay){ upd.xpToday = F.increment(result.gained); }
+        else { upd.xpToday = result.gained; upd.dailyXp = result.gained; upd.xpTodayDate = tk; }
+        upd['xpByDay.' + tk] = F.increment(result.gained);
+        await d.collection("users").doc(user.uid).update(upd);
       }catch(e){}
       await updateLeaderboard(user.uid, result.gained, 0);
     }
