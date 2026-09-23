@@ -648,7 +648,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     progress.chapterBonus.forEach(function(id){ mark("chapter:"+id); });
     Object.keys(progress.quizBest).forEach(function(id){
       var l = lessonById(id);
-      if(l && progress.quizBest[id] === l.quiz.questions.length) mark("perfect:"+id);
+      if(l && l.quiz && l.quiz.questions && progress.quizBest[id] === l.quiz.questions.length) mark("perfect:"+id);
     });
     return changed;
   }
@@ -777,7 +777,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 
     var total = chapter.lessons.length;
     var done = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; }).length;
-    var masteredCount = chapter.lessons.filter(function(l){ return progress.quizBest[l.id] === l.quiz.questions.length; }).length;
+    var masteredCount = chapter.lessons.filter(function(l){ return l.quiz && l.quiz.questions && progress.quizBest[l.id] === l.quiz.questions.length; }).length;
     $("fm-ch-count").textContent = done + " of " + total + " decoded" + (masteredCount ? " · " + masteredCount + " mastered" : "");
     $("fm-ch-bar").style.width = total ? Math.round(done/total*100) + "%" : "0%";
 
@@ -802,14 +802,16 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     $("fm-ch-lessons").innerHTML = chapter.lessons.map(function(l){
       var isDone = progress.completedLessons.indexOf(l.id) !== -1;
       var best = progress.quizBest[l.id];
-      var mastered = best === l.quiz.questions.length;
+      var hasQuiz = !!(l.quiz && l.quiz.questions);
+      var mastered = hasQuiz && best === l.quiz.questions.length;
       var locked = !canAccess(l);
+      var checkSub = (hasQuiz && best != null) ? " · SYSTEM CHECK " + best + "/" + l.quiz.questions.length : "";
       var sub = locked ? "PRO LESSON"
         : mastered
-        ? "MASTERED · SYSTEM CHECK " + best + "/" + l.quiz.questions.length
+        ? "MASTERED" + checkSub
         : (isDone
-            ? "DECODED" + (best != null ? " · SYSTEM CHECK " + best + "/" + l.quiz.questions.length : "")
-            : "LESSON · SYSTEM CHECK");
+            ? "DECODED" + checkSub
+            : "LESSON" + (hasQuiz ? " · SYSTEM CHECK" : ""));
       return '<button class="fm-lesson-row' + (isDone ? " done" : "") + (mastered ? " mastered" : "") + (locked ? " locked" : "") + '" data-lesson="' + l.id + '">'
         + '<span class="fm-lesson-ico"><i class="fa-solid ' + (locked ? "fa-lock" : (mastered ? "fa-medal" : (isDone ? "fa-check" : "fa-play"))) + '" aria-hidden="true"></i></span>'
         + '<span class="fm-lesson-main"><span class="fm-lesson-title">' + esc(l.title) + '</span>'
@@ -874,8 +876,9 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   /* ---------------- lesson ---------------- */
   function lessonPages(lesson){
     var pages = lesson.parts.map(function(p){ return { type:"part", part:p }; });
-    pages.push({ type:"recap" });
-    pages.push({ type:"quiz" });
+    /* intro/orientation lessons may ship without a recap or a system check */
+    if(lesson.recap) pages.push({ type:"recap" });
+    if(lesson.quiz) pages.push({ type:"quiz" });
     pages.push({ type:"done" });
     return pages;
   }
@@ -973,6 +976,9 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       if(p.type === "quiz"){
         var last = pages.length - 1;
         renderLessonPage(lesson, last); /* quiz shell advances itself; fallback */
+      } else if(!lesson.quiz && (p.type === "recap" || (p.type === "part" && pageIdx === pages.length - 2))){
+        /* quiz-less lesson: the last content page completes it */
+        finishLesson(lesson, 0);
       } else {
         renderLessonPage(lesson, pageIdx + 1);
       }
@@ -986,7 +992,12 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       h += '<div class="fm-pending">' + esc(lesson.pendingParts.join(" · ")) + ' — transmission incoming</div>';
     }
     h += renderBlocks(part.blocks);
-    h += pagerHtml(pageIdx, total, "Back", pageIdx === total - 3 ? "Recap" : "Continue");
+    var _pages = lessonPages(lesson);
+    var _nextType = _pages[pageIdx + 1] ? _pages[pageIdx + 1].type : null;
+    var _nextLabel = _nextType === "recap" ? "Recap"
+      : _nextType === "quiz" ? "System Check"
+      : _nextType === "done" ? "Complete Lesson" : "Continue";
+    h += pagerHtml(pageIdx, total, "Back", _nextLabel);
     return h;
   }
 
@@ -1062,7 +1073,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     if(typeof tk === "string"){ tkText = tk; }
     else if(tk){ tkLabel = tk.label || tkLabel; tkText = tk.text || ""; }
     h += '<div class="fm-takeaway"><p class="fm-kicker">' + esc(tkLabel) + '</p><p style="margin:0">' + tkText + '</p></div>';
-    h += '<button class="fm-btn" id="fm-next">Start System Check</button>';
+    h += '<button class="fm-btn" id="fm-next">' + (lesson.quiz ? "Start System Check" : "Complete Lesson") + '</button>';
     h += '<button class="fm-quiet" id="fm-prev" style="background:none;border:0;width:100%;cursor:pointer">Back to lesson</button>';
     return h;
   }
@@ -1119,6 +1130,32 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     });
   }
 
+  /* Shared completion: awards XP, plays the sting, lands on the done page.
+     Used by the quiz "Complete Lesson" button and by quiz-less lessons
+     (their last content page completes them directly). */
+  async function finishLesson(lesson, score){
+    var btn = $("fm-complete") || $("fm-next");
+    if(btn) btn.disabled = true;
+    lastAward = await awardLesson(lesson, score);
+    var pages = lessonPages(lesson);
+    var isChapter = lastAward.lines.some(function(l){ return l[0].indexOf("Chapter complete") === 0; });
+    var showDone = function(){
+      renderLessonPage(lesson, pages.length - 1);
+      if(lastAward.gained > 0){
+        toast("Signal decoded — +" + lastAward.gained + " XP");
+        sfx(isChapter ? "chapter" : "lesson");
+        if(isChapter) confettiBurst();
+      }
+    };
+    if(lastAward.gained > 0){
+      playFmSting(isChapter
+        ? { src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }
+        : { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" }, showDone);
+    } else {
+      showDone();
+    }
+  }
+
   function renderQuizResults(){
     var st = quizState;
     var total = st.lesson.quiz.questions.length;
@@ -1143,26 +1180,8 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     h += '<button class="fm-btn" id="fm-complete">Complete Lesson</button>';
     h += '<button class="fm-quiet" id="fm-retry" style="background:none;border:0;width:100%;cursor:pointer">Retake system check</button>';
     $("fm-lesson-body").innerHTML = h;
-    $("fm-complete").addEventListener("click", async function(){
-      $("fm-complete").disabled = true;
-      lastAward = await awardLesson(st.lesson, st.score);
-      var pages = lessonPages(st.lesson);
-      var isChapter = lastAward.lines.some(function(l){ return l[0].indexOf("Chapter complete") === 0; });
-      var showDone = function(){
-        renderLessonPage(st.lesson, pages.length - 1);
-        if(lastAward.gained > 0){
-          toast("Signal decoded — +" + lastAward.gained + " XP");
-          sfx(isChapter ? "chapter" : "lesson");
-          if(isChapter) confettiBurst();
-        }
-      };
-      if(lastAward.gained > 0){
-        playFmSting(isChapter
-          ? { src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }
-          : { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" }, showDone);
-      } else {
-        showDone();
-      }
+    $("fm-complete").addEventListener("click", function(){
+      finishLesson(st.lesson, st.score);
     });
     $("fm-retry").addEventListener("click", function(){
       st.qi = 0; st.score = 0; st.answered = false; renderQuestion();
@@ -1179,8 +1198,9 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   /* ---------------- done + XP ---------------- */
   async function awardLesson(lesson, score){
     var id = lesson.id;
-    var total = lesson.quiz.questions.length;
-    var isPerfect = score === total;
+    var hasQuiz = !!(lesson.quiz && lesson.quiz.questions);
+    var total = hasQuiz ? lesson.quiz.questions.length : 0;
+    var isPerfect = hasQuiz && score === total;
     var already = progress.completedLessons.indexOf(id) !== -1;
     var prevBest = progress.quizBest[id] || 0;
     var result = { gained:0, lines:[], perfect:false, already:already,
@@ -1206,7 +1226,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       result.lines.push(["Perfect system check", "+" + PERFECT_BONUS + " XP"]);
       progress.xpClaims["perfect:"+id] = true;
     }
-    if(score > prevBest) progress.quizBest[id] = score;
+    if(hasQuiz && score > prevBest) progress.quizBest[id] = score;
     progress.lastLesson = id;
 
     var allDone = chapter.lessons.every(function(l){ return progress.completedLessons.indexOf(l.id) !== -1; });
@@ -1501,7 +1521,8 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 
   function renderDone(lesson){
     var r = lastAward || { gained:0, lines:[], perfect:false, already:true };
-    if(!r.total) r.total = lesson.quiz.questions.length;
+    var hasQuiz = !!(lesson.quiz && lesson.quiz.questions);
+    if(!r.total) r.total = hasQuiz ? lesson.quiz.questions.length : 0;
     r.score = r.score || 0;
     var titleText = r.already ? "Lesson reviewed" : "Lesson decoded";
     var h = '<div class="fm-done-hero rise-in" style="--d:.05s">'
@@ -1509,16 +1530,18 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       + '<p class="fm-kicker">Cynetis-7</p>'
       + '<h1 class="fm-title" style="font-size:26px" aria-label="' + titleText + '"><span id="fm-decode" aria-hidden="true">' + titleText + '</span></h1>'
       + '<p class="fm-sub">' + esc(lesson.title) + ' — ' + esc(chapter.title) + '</p></div>';
-    /* score card: always shown — this is the redemption readout */
-    var best = progress.quizBest[lesson.id] || r.score;
-    h += '<div class="fm-card rise-in" style="--d:.14s;text-align:center">'
-      + '<p class="fm-kicker" style="margin-bottom:6px">System check</p>'
-      + '<p class="fm-title" style="font-size:22px;margin:0">' + r.score + '<span style="color:var(--faint)">/' + r.total + '</span></p>'
-      + '<div>'
-      + (r.mastered ? '<span class="fm-badge gold">Mastered</span>' : '')
-      + (r.newBest ? '<span class="fm-badge green">New best</span>' : '')
-      + ((!r.newBest && best > r.score) ? '<span class="fm-badge">Best ' + best + '/' + r.total + '</span>' : '')
-      + '</div></div>';
+    /* score card: quiz lessons only — this is the redemption readout */
+    if(hasQuiz){
+      var best = progress.quizBest[lesson.id] || r.score;
+      h += '<div class="fm-card rise-in" style="--d:.14s;text-align:center">'
+        + '<p class="fm-kicker" style="margin-bottom:6px">System check</p>'
+        + '<p class="fm-title" style="font-size:22px;margin:0">' + r.score + '<span style="color:var(--faint)">/' + r.total + '</span></p>'
+        + '<div>'
+        + (r.mastered ? '<span class="fm-badge gold">Mastered</span>' : '')
+        + (r.newBest ? '<span class="fm-badge green">New best</span>' : '')
+        + ((!r.newBest && best > r.score) ? '<span class="fm-badge">Best ' + best + '/' + r.total + '</span>' : '')
+        + '</div></div>';
+    }
     if(r.lines.length){
       h += '<div class="fm-card rise-in" style="--d:.18s">'
         + r.lines.map(function(l){
@@ -1529,13 +1552,14 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     var next = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) === -1; })[0];
     if(next && canAccess(next)) h += '<button class="fm-btn rise-in" style="--d:.3s" id="fm-done-next">Next Lesson — ' + esc(next.title) + '</button>';
     else if(next) h += '<button class="fm-btn rise-in" style="--d:.3s" id="fm-done-next">Unlock Pro — ' + esc(next.title) + '</button>';
-    h += '<button class="fm-quiet rise-in" id="fm-done-retry" style="--d:.34s;background:none;border:0;width:100%;cursor:pointer">Retake system check</button>';
+    if(hasQuiz) h += '<button class="fm-quiet rise-in" id="fm-done-retry" style="--d:.34s;background:none;border:0;width:100%;cursor:pointer">Retake system check</button>';
     h += '<button class="fm-quiet rise-in" id="fm-done-back" style="--d:.38s;background:none;border:0;width:100%;cursor:pointer">Back to chapter</button>';
     /* wire after paint via delegation below */
     setTimeout(function(){
       var nx = $("fm-done-next");
       if(nx) nx.addEventListener("click", function(){ openLesson(next, 0); });
-      $("fm-done-retry").addEventListener("click", function(){ openLesson(lesson, quizPageIdx(lesson)); });
+      var rt = $("fm-done-retry");
+      if(rt) rt.addEventListener("click", function(){ openLesson(lesson, quizPageIdx(lesson)); });
       $("fm-done-back").addEventListener("click", function(){ renderChapter(); });
       decodeText($("fm-decode"));
       var xpEl = $("fm-xp-total");
