@@ -81,10 +81,13 @@
   // Cold start fades up from silence so the bed swells in instead of
   // starting abruptly. But when a saved position exists, the music was
   // already playing this session — come back at full volume from that
-  // spot so it feels like it continues instead of restarting. When the
-  // metadata isn't in yet, wait for it before playing: starting playback
-  // first and seeking after is what made every page load sound like a
-  // restart (a blip of the track start, then a jump).
+  // spot so it feels like it continues instead of restarting.
+  //
+  // Speed matters more than ceremony here: the theme is the priority, so
+  // when resuming we kick off playback IMMEDIATELY at silence (that kick
+  // is also what makes iOS start fetching/decoding without delay), then
+  // seek to the saved spot and unmute the instant metadata lands. Never
+  // any audible blip of the track start, never a wait.
   function start() {
     if (!isOn()) return false;
     try {
@@ -93,38 +96,50 @@
       var resumePos = 0;
       try { resumePos = getPos(); } catch (e) {}
       var resuming = resumePos > 1;
-      var begun = false;
-      var begin = function () {
-        if (begun) return; begun = true;
-        try { a.removeEventListener('loadedmetadata', begin); } catch (e) {}
-        if (!isOn()) return true;
-        if (resuming) {
-          try {
-            var dur = a.duration || 0;
-            if (dur > 0 && resumePos < dur - 2) a.currentTime = resumePos;
-          } catch (e) {}
-          try { a.volume = TARGET_VOL; } catch (e) {}
-        } else {
-          try { a.volume = 0; } catch (e) {}
-        }
+
+      var playNow = function () {
         var p = a.play();
         if (p && typeof p.catch === 'function') p.catch(function () {});
-        if (!resuming) {
-          var t0 = Date.now();
-          fadeTimer = setInterval(function () {
-            var k = Math.min(1, (Date.now() - t0) / FADE_MS);
-            try { a.volume = TARGET_VOL * k; } catch (e) {}
-            if (k >= 1) { clearInterval(fadeTimer); fadeTimer = null; }
-          }, 60);
+      };
+      var applyResume = function () {
+        // Metadata is in: seek to the saved spot, then come back at full
+        // volume. The loop continues instead of restarting.
+        try {
+          var dur = a.duration || 0;
+          if (dur > 0 && resumePos < dur - 2) a.currentTime = resumePos;
+        } catch (e) {}
+        try { a.volume = TARGET_VOL; } catch (e) {}
+      };
+
+      if (resuming) {
+        if (a.readyState >= 1) {
+          applyResume(); // metadata already in: seek, then play — instant
+          playNow();
+        } else {
+          try { a.volume = 0; } catch (e) {}
+          playNow(); // pipeline starts now, silently
+          var metaDone = false;
+          var onMeta = function () {
+            if (metaDone) return; metaDone = true;
+            try { a.removeEventListener('loadedmetadata', onMeta); } catch (e) {}
+            if (!isOn()) return;
+            applyResume();
+          };
+          a.addEventListener('loadedmetadata', onMeta);
+          setTimeout(onMeta, 1500); // backstop: unmute even if metadata stalls
         }
         return true;
-      };
-      if (resuming && a.readyState < 1) {
-        a.addEventListener('loadedmetadata', begin);
-        setTimeout(begin, 1500); // backstop: play anyway if metadata stalls
-        return true;
       }
-      return begin();
+      // Cold start: fade up from silence.
+      try { a.volume = 0; } catch (e) {}
+      playNow();
+      var t0 = Date.now();
+      fadeTimer = setInterval(function () {
+        var k = Math.min(1, (Date.now() - t0) / FADE_MS);
+        try { a.volume = TARGET_VOL * k; } catch (e) {}
+        if (k >= 1) { clearInterval(fadeTimer); fadeTimer = null; }
+      }, 60);
+      return true;
     } catch (e) { return false; }
   }
 

@@ -325,7 +325,7 @@
     if (document.querySelector('script[src*="sound.js"]')) return;
     if (window.CDSound) { wireSoundToggle(); return; }
     const script = document.createElement('script');
-    script.src = '/scripts/sound.js?v=20260923f';
+    script.src = '/scripts/sound.js?v=20260923g';
     script.onload = () => {
       try {
         if (window.__cdSoundPendingStart && window.CDSound) {
