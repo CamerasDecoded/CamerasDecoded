@@ -39,12 +39,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <style>
-/* ================================================================
-   MISSIONS — Cameras Decoded
-   "A matured Duolingo": the path, the streak loop, the always-clear
-   next step, and the mentor presence — in the operator dashboard's
-   dark-neon visual language. Restrained, premium, motion-safe.
-   ================================================================ */
 :root{
   --green:#8deb00;
   --green-soft:rgba(141,235,0,.12);
@@ -122,27 +116,6 @@ button{font-family:inherit}
   .cmd-top{flex-wrap:wrap}
 }
 
-/* ---------- operator strip ---------- */
-.op-strip{
-  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  padding:14px 16px;margin:0 0 16px;
-  background:
-    linear-gradient(180deg,rgba(4,7,4,.62),rgba(4,7,4,.74)),
-    url('/images/mission-banners/operator-bg.jpg') center/cover no-repeat,
-    linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0) 55%),var(--surface);
-  border:1px solid var(--border);border-radius:16px;
-}
-.op-avatar{
-  width:50px;height:50px;flex:0 0 50px;border-radius:50%;overflow:hidden;
-  border:1.5px solid rgba(141,235,0,.55);
-  background:radial-gradient(circle at 35% 30%, #1d2419, #0c0e0a);
-  display:flex;align-items:center;justify-content:center;
-  font:800 20px var(--font-b);color:var(--green);
-  box-shadow:0 0 18px rgba(141,235,0,.14);
-}
-.op-avatar img{width:100%;height:100%;object-fit:cover;display:block}
-.op-id{min-width:0;flex:1 1 130px}
-.op-name{font:800 15px var(--font-b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Slim strip: streak stat pins to the right of the single row */
 .op-strip .op-stat{margin-left:auto;flex:0 1 auto}
 .op-level-wrap{position:relative;display:inline-flex;align-items:center;border-radius:10px}
@@ -262,49 +235,175 @@ button{font-family:inherit}
 
 
 .orb-eye{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 40% 35%, #d6ff9e, var(--green) 55%, #4d8a00);box-shadow:0 0 16px rgba(141,235,0,.8)}
-/* ---------- hero: next mission ---------- */
-.hero{
-  position:relative;overflow:hidden;border-radius:20px;
-  border:1px solid rgba(141,235,0,.22);
-  background:linear-gradient(180deg,#11140e,#0b0d09 70%);
-  box-shadow:0 18px 50px rgba(0,0,0,.45);
-  margin:0 0 8px;
-}
+/* ================================================================
+   MISSIONS — "Signal Path" (redesigned)
+   Flow: what this is (command header) -> what to do (next-up hero)
+   -> why it matters (stat strip + today's goal) -> and then what
+   (the path). All data/logic JS below is untouched.
+   ================================================================ */
+
+/* ---------- next-mission hero ---------- */
+@property --ha{syntax:'<angle>';initial-value:0deg;inherits:false}
+.hero{position:relative;border-radius:22px;overflow:hidden;border:1px solid var(--border);
+  background:linear-gradient(165deg,#131a0f 0%,#0d0f0c 55%,#0a0b09 100%);
+  box-shadow:0 24px 60px -28px rgba(0,0,0,.9),0 0 70px -38px rgba(141,235,0,.4)}
+.hero.chase{isolation:isolate}
+.hero.chase::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1.5px;
+  background:conic-gradient(from var(--ha),transparent 0deg,transparent 200deg,rgba(141,235,0,.16) 252deg,var(--green) 318deg,rgba(141,235,0,.16) 354deg,transparent 360deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask-composite:exclude;animation:heroChase 5.5s linear infinite;pointer-events:none;z-index:3}
+@keyframes heroChase{to{--ha:360deg}}
 .hero-art{position:absolute;inset:0;pointer-events:none}
 .hero-art img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .7s ease}
-.hero-art img.loaded{opacity:.28}
-.hero::after{
-  content:'';position:absolute;inset:0;pointer-events:none;
-  background:
-    linear-gradient(180deg,rgba(7,9,7,.18),rgba(7,9,7,.82) 80%),
-    radial-gradient(rgba(255,255,255,.028) 1px, transparent 1px);
-  background-size:auto,26px 26px;
-}
-.hero-inner{position:relative;z-index:1;padding:24px;display:flex;flex-direction:column;gap:12px}
-.hero-kicker{
-  display:inline-flex;align-items:center;gap:8px;
-  font:700 10.5px var(--font-d);letter-spacing:.2em;text-transform:uppercase;
-  color:var(--green);
-}
+.hero-art img.loaded{opacity:.2}
+.hero-art::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,8,7,.28),rgba(7,8,7,.8))}
+.hero-inner{position:relative;z-index:2;padding:22px 20px;display:flex;flex-direction:column;gap:11px}
+.hero-kicker{display:inline-flex;align-items:center;gap:8px;
+  font:700 10.5px var(--font-d);letter-spacing:.2em;text-transform:uppercase;color:var(--green)}
 .hero-kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
-.hero-title{font:800 clamp(21px,4.6vw,30px)/1.15 var(--font-b);letter-spacing:-.01em}
-.hero-voice{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:52ch;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.hero-voice strong{color:#fff}
-.hero-who{font:700 10.5px var(--font-d);letter-spacing:.18em;color:var(--green);text-transform:uppercase;margin-right:8px}
+.hero-title{font:800 clamp(22px,5.4vw,30px)/1.12 var(--font-b);letter-spacing:-.01em}
+.hero-voice{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:52ch;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.hero-who{display:inline-block;margin:0 8px 4px 0;vertical-align:middle;
+  font:700 9.5px var(--font-d);letter-spacing:.16em;text-transform:uppercase;color:var(--green);
+  border:1px solid rgba(141,235,0,.35);background:rgba(141,235,0,.08);padding:4px 10px;border-radius:99px}
 .hero-meta{display:flex;flex-wrap:wrap;gap:8px}
-.hero .btn-begin{margin-top:4px}
-/* Desktop: the phase art becomes a proper side panel.
-   Repurposes the old intel-rail 1.32fr/1fr split. */
-@media(min-width:960px){
-  .hero{display:grid;grid-template-columns:1.32fr 1fr;align-items:stretch}
-  .hero-art{position:relative;min-height:280px;
-    -webkit-mask-image:linear-gradient(90deg,transparent,#000 24%);mask-image:linear-gradient(90deg,transparent,#000 24%)}
-  .hero-art img.loaded{opacity:1}
-  .hero::after{background:radial-gradient(rgba(255,255,255,.028) 1px, transparent 1px);background-size:26px 26px;opacity:.5}
+.hero .btn-begin{margin-top:6px}
+
+/* ---------- stat strip ---------- */
+.stat-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 0}
+.stat-cell{min-width:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.034),rgba(255,255,255,0) 55%),var(--surface);
+  border:1px solid var(--border);border-radius:16px;padding:14px 13px}
+.stat-k{display:block;font:700 9.5px var(--font-d);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted-2);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat-v{display:flex;align-items:baseline;gap:3px;font:700 23px/1 var(--font-d);color:#fff}
+.stat-v.g{color:var(--green);text-shadow:0 0 18px rgba(141,235,0,.4)}
+.stat-v small{font-size:11px;font-weight:400;color:var(--muted-2)}
+
+/* ---------- today's goal ---------- */
+.goal-card{margin-top:10px;
+  background:linear-gradient(180deg,rgba(255,255,255,.034),rgba(255,255,255,0) 55%),var(--surface);
+  border:1px solid var(--border);border-radius:16px;padding:15px 16px}
+.goal-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px}
+.goal-top b{font-size:13.5px;font-weight:700}
+.goal-top span{font:700 11px var(--font-d);color:var(--muted)}
+.goal-top em{font-style:normal;color:var(--green)}
+.goal-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.goal-bar i{display:block;height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,#6fbf00,#a6f423);box-shadow:0 0 14px rgba(141,235,0,.45);
+  transition:width .8s var(--ease)}
+.goal-sub{margin-top:9px;font:500 10.5px var(--font-d);letter-spacing:.05em;color:var(--muted-2)}
+
+/* ---------- section label ---------- */
+.sec-label{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin:26px 2px 12px;font:700 10.5px var(--font-d);letter-spacing:.2em;
+  text-transform:uppercase;color:var(--muted-2)}
+.sec-label span:last-child{letter-spacing:.06em}
+
+/* ---------- campaign line ---------- */
+.campaign-line{display:flex;align-items:center;gap:12px;margin:0 2px 14px}
+.path-track{flex:1;height:5px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.path-fill{display:block;height:100%;width:0;background:linear-gradient(90deg,#6fbf00,#a6f423);
+  border-radius:99px;transition:width .8s var(--ease)}
+.path-pts{display:inline-flex;align-items:center;gap:7px;font:700 12px var(--font-d);color:#fff;white-space:nowrap}
+.path-pts i{color:var(--green);font-size:11px}
+
+/* ---------- mission path: phase unit cards ---------- */
+.phase-group{margin:0 0 14px;padding:18px 14px 12px;
+  background:linear-gradient(180deg,rgba(255,255,255,.032),rgba(255,255,255,0) 42%),var(--surface);
+  border:1px solid var(--border);border-radius:20px}
+.phase-head{display:flex;align-items:center;gap:13px;margin-bottom:2px}
+.phase-badge{width:48px;height:48px;flex:0 0 48px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font:700 15px var(--font-d);color:var(--muted);
+  background:#141514;border:1px solid var(--border-strong);
+  transition:border-color .3s var(--ease),color .3s var(--ease),box-shadow .3s var(--ease),background .3s var(--ease)}
+.phase-group.current .phase-badge{color:#fff;border-color:rgba(141,235,0,.65);box-shadow:0 0 18px rgba(141,235,0,.28)}
+.phase-group.done .phase-badge{color:var(--green);border-color:rgba(141,235,0,.5);background:rgba(141,235,0,.08)}
+.phase-head-text{flex:1;min-width:0}
+.phase-kicker{font:700 10px var(--font-d);letter-spacing:.18em;color:var(--muted-2);text-transform:uppercase;margin-bottom:4px}
+.phase-group.current .phase-kicker{color:var(--green)}
+.phase-title{font:800 16.5px/1.3 var(--font-b);color:#fff}
+.phase-title-img{display:block;max-width:min(230px,60vw);height:auto;margin:2px 0}
+.phase-pct{font:700 13px var(--font-d);color:var(--green);white-space:nowrap}
+.phase-bar{height:4px;background:rgba(255,255,255,.07);border-radius:99px;margin:12px 2px 4px;overflow:hidden}
+.phase-bar>div{display:block;height:100%;width:0;background:linear-gradient(90deg,#6fbf00,#a6f423);
+  border-radius:99px;transition:width .8s var(--ease)}
+.phase-desc{color:var(--muted-2);font-size:12.5px;line-height:1.6;margin:8px 2px 0;max-width:64ch}
+.phase-steps{position:relative;margin-top:8px}
+.phase-steps::before{content:'';position:absolute;left:27px;top:18px;bottom:18px;width:2px;
+  border-radius:2px;background:rgba(255,255,255,.07)}
+.phase-group.current .phase-steps::before{background:linear-gradient(180deg,rgba(141,235,0,.55),rgba(141,235,0,.08))}
+.phase-group.done .phase-steps::before{background:rgba(141,235,0,.25)}
+
+/* ---------- dossier: node rows on the rail ---------- */
+.dossier{position:relative}
+.dossier-head{position:relative;z-index:1;display:flex;align-items:center;gap:13px;width:100%;
+  padding:11px 8px;background:none;border:1px solid transparent;border-radius:14px;cursor:pointer;
+  color:inherit;text-align:left;transition:background .2s var(--ease),border-color .2s var(--ease)}
+.dossier-head:hover{background:rgba(255,255,255,.03)}
+.dossier-status{position:relative;z-index:1;flex:0 0 40px;width:40px;height:40px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:#151615;border:1.5px solid var(--border-strong);color:var(--muted);
+  font:700 13px var(--font-d);
+  transition:background .3s var(--ease),border-color .3s var(--ease),color .3s var(--ease),box-shadow .3s var(--ease)}
+.dossier-status i{font-size:13px}
+.dossier.completed .dossier-status{background:rgba(141,235,0,.13);border-color:rgba(141,235,0,.5);color:var(--green)}
+.dossier.completed .dossier-titles{opacity:.6}
+.dossier.locked .dossier-status{opacity:.5}
+.dossier.locked .dossier-title{color:var(--muted-2)}
+.dossier.next-up .dossier-head{background:rgba(141,235,0,.05);border-color:rgba(141,235,0,.3)}
+.dossier.next-up .dossier-status{background:var(--green);border-color:var(--green);color:#0b0e06}
+.dossier.next-up .dossier-kicker{color:var(--green)}
+.dossier.next-up .dossier-kicker::after{content:' · Next up'}
+.dossier-titles{flex:1;min-width:0}
+.dossier-kicker{font:700 9.5px var(--font-d);letter-spacing:.16em;color:var(--muted-2);text-transform:uppercase;display:block}
+.dossier.completed .dossier-kicker{color:rgba(141,235,0,.55)}
+.dossier-title{font:800 15px/1.3 var(--font-b);margin-top:3px;display:block;color:#fff}
+.dossier-chevron{flex:0 0 auto;color:var(--muted-2);font-size:12px;transition:transform .35s var(--ease),color .35s var(--ease)}
+.dossier-head[aria-expanded="true"] .dossier-chevron{transform:rotate(180deg);color:var(--green)}
+.dossier-body{margin:2px 0 8px 61px;background:rgba(0,0,0,.3);border:1px solid var(--border);
+  border-radius:14px;padding:15px 16px}
+.dossier-body[hidden]{display:none}
+
+/* ---------- motion ---------- */
+@media(prefers-reduced-motion:no-preference){
+  .btn-begin{animation:spin-angle 5s linear infinite}
+  .dossier.next-up .dossier-status{animation:nodePulse 2.8s ease-in-out infinite}
+  .hero-kicker .dot{animation:blinkDot 2.4s ease-in-out infinite}
 }
+@keyframes spin-angle{to{--angle:360deg}}
+@keyframes nodePulse{
+  0%,100%{box-shadow:0 0 0 4px rgba(141,235,0,.12),0 0 20px rgba(141,235,0,.28)}
+  50%{box-shadow:0 0 0 8px rgba(141,235,0,.06),0 0 30px rgba(141,235,0,.42)}
+}
+@keyframes blinkDot{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ---------- responsive ---------- */
+@media(max-width:640px){
+  .mwrap{padding:calc(env(safe-area-inset-top) + 88px) 16px calc(118px + env(safe-area-inset-bottom))}
+  .hero-inner{padding:20px 18px}
+  .dossier-body{margin-left:0}
+  .stat-v{font-size:21px}
+}
+@media(min-width:641px) and (max-width:959px){
+  .dossier-head{padding:13px 10px}
+  .btn-step{padding:13px 20px}
+}
+@media(min-width:1100px){
+  .mwrap{max-width:1120px}
+}
+
 @media(prefers-reduced-motion:reduce){
-  .hero-art img{transition:none}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  html{scroll-behavior:auto}
+  .rise{opacity:1;transform:none}
+  .btn-begin{animation:none}
+  .hero.chase::before{animation:none;opacity:.55}
 }
+
 .btn-begin{
   position:relative;--angle:0deg;
   display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
@@ -320,6 +419,53 @@ button{font-family:inherit}
 .btn-begin:hover{transform:translateY(-2px);filter:brightness(1.05);box-shadow:0 16px 36px rgba(141,235,0,.38), inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.16)}
 .btn-begin:active{transform:translateY(0)}
 .btn-begin i{font-size:14px}
+
+.dossier-desc{font-size:13.5px;line-height:1.7;color:#cfd8c9;max-width:62ch}
+.step-content{
+  font-size:13.5px;line-height:1.7;color:#d5dfcb;
+  background:rgba(0,0,0,.32);border:1px solid var(--border);border-radius:12px;
+  padding:14px;margin-top:12px;overflow-wrap:break-word;
+}
+.step-content iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:8px}
+.step-content img{max-width:100%;height:auto;border-radius:8px}
+.step-content a{color:var(--green)}
+.step-content ul,.step-content ol{margin:8px 0 8px 20px}
+.step-content p{margin:0 0 10px}
+.step-content p:last-child{margin-bottom:0}
+.dossier-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+.meta-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  font:700 11px var(--font-d);letter-spacing:.03em;color:var(--muted);
+  background:rgba(255,255,255,.045);border:1px solid var(--border);
+  padding:6px 11px;border-radius:99px;white-space:nowrap;
+}
+.meta-chip i{color:var(--green);font-size:11px}
+.meta-chip.points{color:var(--green);border-color:rgba(141,235,0,.32);background:var(--green-soft)}
+.cynetis-tip{
+  display:flex;gap:10px;margin-top:12px;padding:12px 14px;
+  background:rgba(141,235,0,.05);border:1px solid rgba(141,235,0,.17);border-radius:12px;
+  font-size:13px;line-height:1.6;color:#d5dfcb;
+}
+.tip-from{
+  display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;align-self:flex-start;
+  font:700 10px var(--font-d);letter-spacing:.12em;color:var(--green);text-transform:uppercase;
+  padding-top:2px;
+}
+.locked-note{display:flex;align-items:center;gap:9px;color:var(--muted-2);font-size:12.5px;margin-top:12px;line-height:1.5}
+.locked-note i{color:var(--amber);font-size:12px;flex:0 0 auto}
+.dossier-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.btn-step{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:11px 18px;border-radius:10px;cursor:pointer;
+  font:800 13px var(--font-b);color:var(--green);
+  background:rgba(141,235,0,.09);border:1px solid rgba(141,235,0,.35);
+  transition:background .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease);
+}
+.btn-step:hover{background:rgba(141,235,0,.17);transform:translateY(-1px);box-shadow:0 6px 18px rgba(141,235,0,.18)}
+.btn-step.secondary{background:rgba(255,255,255,.05);border-color:var(--border-strong);color:#fff}
+.btn-step.secondary:hover{background:rgba(255,255,255,.09);box-shadow:none}
+.btn-step:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
+.btn-step i{font-size:12px}
 
 /* ---------- daily drill: slim collapsible strip ---------- */
 .daily-drill{margin:2px 0 4px}
@@ -376,141 +522,6 @@ button{font-family:inherit}
 .drill-board{display:inline-flex;align-items:center;gap:7px;font:600 12px var(--font-d);color:var(--muted-2);text-decoration:none}
 .drill-board:hover{color:var(--amber)}
 @media(max-width:380px){.drill-reset{display:none}}
-
-/* ---------- path header: progress folded in (was the campaign section) ---------- */
-.path-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.path-pts{display:inline-flex;align-items:center;gap:6px;font:700 11px var(--font-d);letter-spacing:.1em;color:var(--green);text-transform:uppercase}
-.path-pts i{font-size:11px}
-.path-campaign{display:flex;align-items:center;gap:10px;flex:0 0 auto}
-.path-pct{font:700 15px var(--font-d);color:var(--green)}
-.path-track{width:110px;height:8px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
-.path-fill{
-  display:block;height:100%;width:0;border-radius:99px;
-  background:linear-gradient(90deg,#6fbf00,#a6f423);
-  box-shadow:0 0 14px rgba(141,235,0,.5);
-  transition:width .9s var(--ease);
-}
-@media(max-width:520px){.path-track{width:84px}}
-
-/* ---------- mission path ---------- */
-.path-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin:30px 0 20px}
-.path-head h2{font:800 clamp(19px,4.4vw,24px) var(--font-b);letter-spacing:-.01em}
-.path-head p{color:var(--muted-2);font-size:12.5px;margin-top:4px}
-.path-count{font:700 11px var(--font-d);letter-spacing:.14em;color:var(--muted-2);white-space:nowrap}
-
-.phase-group{margin-bottom:30px}
-.phase-head{display:flex;align-items:center;gap:14px;padding-left:12px;margin-bottom:2px}
-.phase-badge{
-  width:52px;height:52px;flex:0 0 52px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  font:700 16px var(--font-d);color:var(--muted);
-  background:#141514;border:1px solid var(--border-strong);
-  transition:border-color .3s var(--ease), color .3s var(--ease), box-shadow .3s var(--ease), background .3s var(--ease);
-}
-.phase-group.current .phase-badge{color:#fff;border-color:rgba(141,235,0,.65);box-shadow:0 0 18px rgba(141,235,0,.28)}
-.phase-group.done .phase-badge{color:var(--green);border-color:rgba(141,235,0,.5);background:rgba(141,235,0,.08)}
-.phase-head-text{flex:1;min-width:0}
-.phase-kicker{font:700 10px var(--font-d);letter-spacing:.18em;color:var(--muted-2);text-transform:uppercase;margin-bottom:4px}
-.phase-group.current .phase-kicker{color:var(--green)}
-.phase-title{font:800 16.5px/1.3 var(--font-b);color:#fff}
-.phase-title-img{display:block;max-width:min(230px,60vw);height:auto;margin:2px 0}
-.phase-pct{font:700 13px var(--font-d);color:var(--green);white-space:nowrap}
-.phase-bar{height:4px;background:rgba(255,255,255,.07);border-radius:99px;margin:12px 0 6px 78px;overflow:hidden}
-.phase-bar>div{display:block;height:100%;width:0;background:linear-gradient(90deg,#6fbf00,#a6f423);border-radius:99px;transition:width .8s var(--ease)}
-.phase-desc{color:var(--muted-2);font-size:12.5px;line-height:1.6;margin:8px 0 0 78px;max-width:64ch}
-
-.phase-steps{position:relative;padding-top:10px}
-.phase-steps::before{
-  content:'';position:absolute;left:37px;top:14px;bottom:14px;width:2px;border-radius:2px;
-  background:rgba(255,255,255,.06);
-}
-.phase-group.current .phase-steps::before{background:linear-gradient(180deg,rgba(141,235,0,.5),rgba(141,235,0,.07))}
-.phase-group.done .phase-steps::before{background:rgba(141,235,0,.22)}
-
-/* dossier = a node on the path */
-.dossier{
-  position:relative;margin:0 0 10px;border:1px solid var(--border);border-radius:16px;
-  background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,0) 42%),#0f100f;
-  overflow:hidden;
-  transition:border-color .3s var(--ease), box-shadow .3s var(--ease), opacity .3s var(--ease), transform .3s var(--ease);
-}
-.dossier:hover{border-color:var(--border-strong)}
-.dossier.done{opacity:.72}
-.dossier.done:hover{opacity:1}
-.dossier.next-up{border-color:rgba(141,235,0,.42);box-shadow:0 8px 30px rgba(141,235,0,.09)}
-.dossier-head{
-  display:flex;align-items:center;gap:14px;width:100%;
-  padding:15px 16px;background:none;border:0;cursor:pointer;
-  color:inherit;text-align:left;
-}
-.dossier-status{
-  position:relative;z-index:1;flex:0 0 44px;width:44px;height:44px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
-  background:#151615;border:1px solid var(--border-strong);color:var(--muted);font-size:14px;
-  transition:background .3s var(--ease), border-color .3s var(--ease), color .3s var(--ease), box-shadow .3s var(--ease);
-}
-.dossier.done .dossier-status{background:rgba(141,235,0,.13);border-color:rgba(141,235,0,.5);color:var(--green)}
-.dossier.locked .dossier-status{opacity:.55}
-.dossier.next-up .dossier-status{
-  border-color:var(--green);color:var(--green);
-  box-shadow:0 0 0 4px rgba(141,235,0,.12), 0 0 20px rgba(141,235,0,.32);
-}
-.dossier-titles{flex:1;min-width:0}
-.dossier-kicker{font:700 10px var(--font-d);letter-spacing:.16em;color:var(--muted-2);text-transform:uppercase;display:block}
-.dossier.next-up .dossier-kicker::after{content:' · Next up';color:var(--green)}
-.dossier.done .dossier-kicker{color:rgba(141,235,0,.6)}
-.dossier-title{font:800 15.5px/1.3 var(--font-b);margin-top:3px;display:block}
-.dossier-chevron{flex:0 0 auto;color:var(--muted-2);font-size:13px;transition:transform .35s var(--ease), color .35s var(--ease)}
-.dossier-head[aria-expanded="true"] .dossier-chevron{transform:rotate(180deg);color:var(--green)}
-
-.dossier-body{padding:4px 16px 18px 74px}
-.dossier-body[hidden]{display:none}
-.dossier-desc{font-size:13.5px;line-height:1.7;color:#cfd8c9;max-width:62ch}
-.step-content{
-  font-size:13.5px;line-height:1.7;color:#d5dfcb;
-  background:rgba(0,0,0,.32);border:1px solid var(--border);border-radius:12px;
-  padding:14px;margin-top:12px;overflow-wrap:break-word;
-}
-.step-content iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:8px}
-.step-content img{max-width:100%;height:auto;border-radius:8px}
-.step-content a{color:var(--green)}
-.step-content ul,.step-content ol{margin:8px 0 8px 20px}
-.step-content p{margin:0 0 10px}
-.step-content p:last-child{margin-bottom:0}
-.dossier-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
-.meta-chip{
-  display:inline-flex;align-items:center;gap:7px;
-  font:700 11px var(--font-d);letter-spacing:.03em;color:var(--muted);
-  background:rgba(255,255,255,.045);border:1px solid var(--border);
-  padding:6px 11px;border-radius:99px;white-space:nowrap;
-}
-.meta-chip i{color:var(--green);font-size:11px}
-.meta-chip.points{color:var(--green);border-color:rgba(141,235,0,.32);background:var(--green-soft)}
-.cynetis-tip{
-  display:flex;gap:10px;margin-top:12px;padding:12px 14px;
-  background:rgba(141,235,0,.05);border:1px solid rgba(141,235,0,.17);border-radius:12px;
-  font-size:13px;line-height:1.6;color:#d5dfcb;
-}
-.tip-from{
-  display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;align-self:flex-start;
-  font:700 10px var(--font-d);letter-spacing:.12em;color:var(--green);text-transform:uppercase;
-  padding-top:2px;
-}
-.locked-note{display:flex;align-items:center;gap:9px;color:var(--muted-2);font-size:12.5px;margin-top:12px;line-height:1.5}
-.locked-note i{color:var(--amber);font-size:12px;flex:0 0 auto}
-.dossier-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-.btn-step{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:11px 18px;border-radius:10px;cursor:pointer;
-  font:800 13px var(--font-b);color:var(--green);
-  background:rgba(141,235,0,.09);border:1px solid rgba(141,235,0,.35);
-  transition:background .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease);
-}
-.btn-step:hover{background:rgba(141,235,0,.17);transform:translateY(-1px);box-shadow:0 6px 18px rgba(141,235,0,.18)}
-.btn-step.secondary{background:rgba(255,255,255,.05);border-color:var(--border-strong);color:#fff}
-.btn-step.secondary:hover{background:rgba(255,255,255,.09);box-shadow:none}
-.btn-step:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
-.btn-step i{font-size:12px}
 
 /* ---------- cynetis assistant ---------- */
 .cynetis-assistant{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:1200}
@@ -603,63 +614,15 @@ button{font-family:inherit}
 }
 .mfoot .sep{color:rgba(141,235,0,.5);margin:0 10px}
 
-/* ---------- motion ---------- */
-@media(prefers-reduced-motion:no-preference){
-  .btn-begin{animation:spin-angle 5s linear infinite}
-  .dossier.next-up .dossier-status{animation:nodePulse 2.8s ease-in-out infinite}
-  .hero-kicker .dot{animation:blinkDot 2.4s ease-in-out infinite}
-  .op-stat>i.fa-star{transform-origin:50% 50%;animation:starTwinkle 2.8s ease-in-out infinite}
-  .op-stat.streak>i.fa-fire{transform-origin:50% 88%;animation:fireFlicker 1.7s ease-in-out infinite}
-}
-@keyframes spin-angle{to{--angle:360deg}}
-@keyframes nodePulse{
-  0%,100%{box-shadow:0 0 0 4px rgba(141,235,0,.12), 0 0 20px rgba(141,235,0,.28)}
-  50%{box-shadow:0 0 0 8px rgba(141,235,0,.06), 0 0 30px rgba(141,235,0,.42)}
-}
-@keyframes blinkDot{0%,100%{opacity:1}50%{opacity:.35}}
-@keyframes starTwinkle{
-  0%,100%{transform:scale(1) rotate(0deg);text-shadow:0 0 6px rgba(141,235,0,.35)}
-  50%{transform:scale(1.14) rotate(10deg);text-shadow:0 0 14px rgba(141,235,0,.65)}
-}
-@keyframes fireFlicker{
-  0%,100%{transform:scale(1,1) rotate(-2deg);text-shadow:0 0 6px rgba(255,176,32,.35)}
-  30%{transform:scale(1.06,1.16) rotate(3deg);text-shadow:0 0 14px rgba(255,176,32,.6)}
-  60%{transform:scale(.97,1.05) rotate(-1deg);text-shadow:0 0 9px rgba(255,176,32,.45)}
-}
-
-/* ---------- responsive ---------- */
-@media(max-width:640px){
-  .mwrap{padding:calc(env(safe-area-inset-top) + 88px) 16px calc(118px + env(safe-area-inset-bottom))}
-  .hero-inner{padding:20px 18px}
-  .op-strip{padding:12px}
-  .phase-bar{margin-left:70px}
-  .dossier-body{padding-left:16px}
-  .phase-steps::before{left:37px}
-}
-@media(min-width:641px) and (max-width:959px){
-  /* foldable / small-tablet band: single column, roomier touch targets */
-  .dossier-head{padding:17px 18px}
-  .btn-step{padding:13px 20px}
-}
-@media(min-width:1100px){
-  .mwrap{max-width:1120px}
-}
-
-@media(prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
-  html{scroll-behavior:auto}
-  .rise{opacity:1;transform:none}
-  .btn-begin{animation:none}
-}
 
   </style>
 </head>
 <body>
   <main class="mwrap" id="mainContent">
 
-    <!-- command header -->
+    <!-- command header: what this page is -->
     <header class="cmd-head rise" style="--d:.02s">
-      <span class="cmd-kicker">Operations · Guided track</span>
+      <span class="cmd-kicker">Operations &middot; Guided track</span>
       <div class="cmd-top">
         <span class="cmd-title">
           <img id="journeyTitleImg" src="/custom-site-titles/cynetis-7-journey.png" alt="Cynetis-7 Missions" onerror="this.style.display='none';var f=document.getElementById('fallbackTitle');if(f)f.style.display='inline-flex';" />
@@ -681,29 +644,14 @@ button{font-family:inherit}
           </button>
         </span>
       </div>
-      <p class="cmd-tag">A coach-led sequence, not a syllabus. Cynetis-7 briefs your next mission — you execute it.</p>
+      <p class="cmd-tag">A coach-led sequence, not a syllabus. Cynetis-7 briefs your next mission &mdash; you execute it.</p>
     </header>
 
-    <!-- operator strip: one slim row -->
-    <section class="op-strip rise" style="--d:.08s" aria-label="Operator status">
-      <div class="op-avatar" aria-hidden="true">
-        <img id="operatorAvatarImg" alt="" hidden />
-        <span id="operatorAvatarInitial">O</span>
-      </div>
-      <div class="op-id">
-        <div class="op-name" id="operatorName">Operator</div>
-      </div>
-      <div class="op-stat streak" aria-label="Daily streak">
-        <i class="fas fa-fire" aria-hidden="true"></i>
-        <div><div class="v" id="dailyStreak">0</div><div class="k">Day streak</div></div>
-      </div>
-    </section>
-
-    <!-- next-mission hero -->
-    <section class="hero rise" style="--d:.14s" aria-label="Next mission">
+    <!-- next-mission hero: what to do -->
+    <section class="hero chase rise" style="--d:.1s" aria-label="Next mission">
       <div class="hero-inner">
         <span class="hero-kicker"><span class="dot" aria-hidden="true"></span><span id="heroLabel">Your next mission</span></span>
-        <h2 class="hero-title" id="heroTitle">Loading your briefing…</h2>
+        <h2 class="hero-title" id="heroTitle">Loading your briefing&hellip;</h2>
         <p class="hero-voice"><span class="hero-who">Cynetis-7</span><span id="heroDesc"></span></p>
         <div class="hero-meta" id="heroMeta"></div>
         <button type="button" class="btn-begin" id="heroCta">Begin mission <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
@@ -711,28 +659,46 @@ button{font-family:inherit}
       <div class="hero-art" aria-hidden="true"><img id="heroBg" alt="" /></div>
     </section>
 
-    <!-- mission path -->
-    <div class="path-head rise" style="--d:.2s">
-      <div>
-        <h2>Mission path</h2>
-        <p class="path-meta"><span id="pathCount"></span> &middot; <span class="path-pts"><i class="fas fa-star" aria-hidden="true"></i><span id="totalPointsDisplay">0</span>&nbsp;pts</span></p>
+    <!-- stat strip: why it matters -->
+    <section class="stat-strip rise" style="--d:.16s" aria-label="Your stats">
+      <div class="stat-cell">
+        <span class="stat-k">Streak</span>
+        <span class="stat-v"><span id="dailyStreak">0</span><small>d</small></span>
       </div>
-      <div class="path-campaign">
-        <div class="path-track" id="pathBar" role="progressbar" aria-label="Campaign progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <span class="path-fill" id="pathFill"></span>
-        </div>
-        <span class="path-pct" id="pathPct">0%</span>
+      <div class="stat-cell">
+        <span class="stat-k">XP today</span>
+        <span class="stat-v g" id="xpTodayStat">0</span>
       </div>
+      <div class="stat-cell">
+        <span class="stat-k">Badges</span>
+        <span class="stat-v" id="badgesStat">0</span>
+      </div>
+    </section>
+
+    <!-- today's goal -->
+    <section class="goal-card rise" style="--d:.2s" aria-label="Today's goal">
+      <div class="goal-top"><b>Today&apos;s goal</b><span><em id="goalXp">0</em> / 100 XP</span></div>
+      <div class="goal-bar" id="goalBar" role="progressbar" aria-label="Today's XP goal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="goalFill"></i></div>
+      <div class="goal-sub" id="goalSub"></div>
+    </section>
+
+    <!-- the path: and then what -->
+    <div class="sec-label rise" style="--d:.24s"><span>Your path</span><span id="pathCount"></span></div>
+    <div class="campaign-line rise" style="--d:.26s">
+      <div class="path-track" id="pathBar" role="progressbar" aria-label="Campaign progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <span class="path-fill" id="pathFill"></span>
+      </div>
+      <span class="path-pts"><i class="fas fa-star" aria-hidden="true"></i><span id="totalPointsDisplay">0</span>&nbsp;pts</span>
     </div>
-    <div id="stepContainer" class="rise" style="--d:.24s"></div>
+    <div id="stepContainer" class="rise" style="--d:.3s"></div>
     <div id="moduleComplete" style="display:none"></div>
-    <!-- daily drill: slim collapsible strip — present, never competing -->
-    <section class="daily-drill rise" style="--d:.3s" id="dailyDrill" aria-label="Daily drill">
+    <!-- daily drill: slim collapsible strip &mdash; present, never competing -->
+    <section class="daily-drill rise" style="--d:.34s" id="dailyDrill" aria-label="Daily drill">
       <button type="button" class="drill-bar" id="drillBar" aria-expanded="false" aria-controls="drillDrawer">
         <span class="drill-bar-icon" id="drillBarIcon"><i class="fas fa-bolt" aria-hidden="true"></i></span>
         <span class="drill-bar-text">
           <span class="drill-bar-kicker" id="drillBarKicker">Daily drill</span>
-          <span class="drill-bar-title" id="dailyTitle">Loading today's drill…</span>
+          <span class="drill-bar-title" id="dailyTitle">Loading today&apos;s drill&hellip;</span>
         </span>
         <span class="drill-bar-meta">
           <span class="drill-reset" id="drillReset" title="A new drill drops at midnight"></span>
@@ -745,7 +711,7 @@ button{font-family:inherit}
           <p class="daily-desc" id="dailyDesc"></p>
           <div class="daily-tip"><i class="fas fa-lightbulb" aria-hidden="true"></i><span id="dailyTipText"></span></div>
           <div class="drill-foot">
-            <a class="drill-play" id="dailyCta" href="#"><span>Play today's drill</span><i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+            <a class="drill-play" id="dailyCta" href="#"><span>Play today&apos;s drill</span><i class="fas fa-arrow-right" aria-hidden="true"></i></a>
             <a class="drill-board" href="/leaderboard.html"><i class="fas fa-trophy" aria-hidden="true"></i><span>Leaderboard</span></a>
           </div>
         </div>
@@ -758,7 +724,7 @@ button{font-family:inherit}
     </div>
 
     <footer class="mfoot rise" style="--d:.4s">
-      Cameras Decoded<span class="sep">·</span>Signal decoded
+      Cameras Decoded<span class="sep">&middot;</span>Signal decoded
     </footer>
   </main>
 
@@ -1971,6 +1937,7 @@ button{font-family:inherit}
       renderHero();
       updatePathProgress();
       renderHeroBackdrop();
+      renderStatStrip();
 
       // Phase completion is detected across the whole path (was: current module only).
       const completedSteps = (userProgress && userProgress.completedSteps) || [];
@@ -2196,7 +2163,8 @@ button{font-family:inherit}
         const isLocked = step.prerequisites && step.prerequisites.some(pre => !completed.includes(pre));
         const isActive = !isCompleted && !isLocked;
         const statusClass = isCompleted ? 'completed' : (isLocked ? 'locked' : 'active');
-        const statusIcon = isCompleted ? '<i class="fas fa-check" aria-hidden="true"></i>' : (isLocked ? '<i class="fas fa-lock" aria-hidden="true"></i>' : '<i class="fas fa-play" aria-hidden="true"></i>');
+        const isNext = step.id === nextId;
+        const statusIcon = isCompleted ? '<i class="fas fa-check" aria-hidden="true"></i>' : (isLocked ? '<i class="fas fa-lock" aria-hidden="true"></i>' : (isNext ? '<span class="node-num" aria-hidden="true">' + (i + 1) + '</span>' : '<i class="fas fa-play" aria-hidden="true"></i>'));
         const bodyId = `dossier-body-${step.id}`;
         const badgeDef = step.badge && window.BADGE_DEFS && window.BADGE_DEFS[step.badge];
 
@@ -2939,6 +2907,44 @@ button{font-family:inherit}
         switchTrack(level).catch(err => console.warn('Track switch failed:', err));
       });
     })();
+
+    // STAT STRIP + TODAY'S GOAL — user-level numbers, day-aware.
+    function renderStatStrip() {
+      const b = document.getElementById('badgesStat');
+      if (b) b.textContent = String(((userProgress && userProgress.badgesEarned) || []).length);
+      renderGoalBar();
+    }
+    function renderGoalBar() {
+      const GOAL = 100;
+      let today = 0;
+      try {
+        if (userData && userData.xpTodayDate === dateKey()) today = userData.xpToday || 0;
+      } catch (e) {}
+      const xpEl = document.getElementById('xpTodayStat');
+      if (xpEl) xpEl.textContent = String(today);
+      const goalXp = document.getElementById('goalXp');
+      if (goalXp) goalXp.textContent = String(Math.min(today, GOAL));
+      const pct = Math.min(100, Math.round((today / GOAL) * 100));
+      const fill = document.getElementById('goalFill');
+      if (fill) fill.style.width = pct + '%';
+      const bar = document.getElementById('goalBar');
+      if (bar) bar.setAttribute('aria-valuenow', String(pct));
+      const sub = document.getElementById('goalSub');
+      if (sub) {
+        if (today >= GOAL) {
+          sub.textContent = 'GOAL CRUSHED · STREAK FUEL FROM HERE';
+        } else {
+          let left = 0;
+          if (journeyData && journeyData.modules) {
+            const done = (userProgress && userProgress.completedSteps) || [];
+            journeyData.modules.forEach(function (m) {
+              (m.steps || []).forEach(function (s) { if (done.indexOf(s.id) === -1) left++; });
+            });
+          }
+          sub.textContent = (GOAL - today) + ' XP TO GO' + (left > 0 ? ' · ' + left + ' MISSION' + (left === 1 ? '' : 'S') + ' LEFT ON THIS TRACK' : '');
+        }
+      }
+    }
 
     // Operator strip: avatar (auth photo or initial), name, track label.
     function renderOperator(user, userData) {
