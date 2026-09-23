@@ -13,6 +13,7 @@
      CDSfx.play('lesson');    // lesson complete
      CDSfx.play('chapter');   // chapter complete
      CDSfx.play('tick');      // subtle UI tap
+     CDSfx.play('continue');  // continue / next-page advance
 
    Design notes:
    - HTMLAudio (not Web Audio): reliable on iOS once unlocked by a gesture.
@@ -37,7 +38,8 @@
     perfect: ['perfect.mp3',  0.85],
     lesson:  ['lesson.mp3',  0.85],
     chapter: ['chapter.mp3',  0.9],
-    tick:    ['tick.mp3',     0.5]
+    tick:    ['tick.mp3',     0.5],
+    continue:['continue.mp3', 0.65]
   };
 
   var els = {};
