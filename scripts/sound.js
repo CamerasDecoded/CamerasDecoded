@@ -59,21 +59,39 @@
   }
 
   // Start the loop. Must be called inside a user gesture to unlock audio.
-  // Fades up from silence so the bed swells in instead of starting abruptly.
+  // Cold start fades up from silence so the bed swells in instead of
+  // starting abruptly. But when a saved position exists, the music was
+  // already playing this session — come back at full volume from that
+  // spot so it feels like it continues instead of restarting.
   function start() {
     if (!isOn()) return false;
     try {
       var a = ensure();
       if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
-      a.volume = 0;
+      var resumePos = 0;
+      try { resumePos = parseFloat(sessionStorage.getItem(POS_KEY) || '0'); } catch (e) {}
+      var resuming = resumePos > 1;
+      if (resuming) {
+        try {
+          if (a.readyState >= 1) {
+            var dur = a.duration || 0;
+            if (dur > 0 && resumePos < dur - 2) a.currentTime = resumePos;
+          }
+        } catch (e) {}
+        try { a.volume = TARGET_VOL; } catch (e) {}
+      } else {
+        try { a.volume = 0; } catch (e) {}
+      }
       var p = a.play();
       if (p && typeof p.catch === 'function') p.catch(function () {});
-      var t0 = Date.now();
-      fadeTimer = setInterval(function () {
-        var k = Math.min(1, (Date.now() - t0) / FADE_MS);
-        try { a.volume = TARGET_VOL * k; } catch (e) {}
-        if (k >= 1) { clearInterval(fadeTimer); fadeTimer = null; }
-      }, 60);
+      if (!resuming) {
+        var t0 = Date.now();
+        fadeTimer = setInterval(function () {
+          var k = Math.min(1, (Date.now() - t0) / FADE_MS);
+          try { a.volume = TARGET_VOL * k; } catch (e) {}
+          if (k >= 1) { clearInterval(fadeTimer); fadeTimer = null; }
+        }, 60);
+      }
       return true;
     } catch (e) { return false; }
   }

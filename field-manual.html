@@ -27,7 +27,8 @@
 
   <!-- ===== BADGE DEFINITIONS ===== -->
   <script src="/scripts/badge-definitions.js"></script>
-  <script src="/scripts/sfx.js?v=20260923c"></script>
+  <script src="/scripts/sfx.js?v=20260923d"></script>
+  <script src="/scripts/haptics.js"></script>
 
   <!-- ===== FIELD MANUAL CONTENT =====
        Firestore (guideContent/curriculum) is the source of truth, with a
@@ -590,7 +591,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   document.addEventListener("DOMContentLoaded", init);
 
   function init(){
-    $("fm-back").addEventListener("click", function(){ renderChapter(); });
+    $("fm-back").addEventListener("click", function(){ tapFx("back"); renderChapter(); });
     wireSoundToggle();
     var auth = (typeof window.auth !== "undefined") ? window.auth : null;
     if(auth && auth.onAuthStateChanged){ auth.onAuthStateChanged(boot); }
@@ -796,7 +797,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     var cb = $("fm-continue");
     if(cb){
       cb.addEventListener("click", function(){
-        sfx("continue");
+        tapFx("continue");
         if(target) openLesson(target, 0);  /* openLesson fails closed to the paywall for locked lessons */
       });
     }
@@ -972,9 +973,9 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   function wirePager(lesson, pageIdx, total){
     var pages = lessonPages(lesson);
     var prev = $("fm-prev"), next = $("fm-next");
-    if(prev) prev.addEventListener("click", function(){ renderLessonPage(lesson, pageIdx - 1); });
+    if(prev) prev.addEventListener("click", function(){ tapFx("back"); renderLessonPage(lesson, pageIdx - 1); });
     if(next) next.addEventListener("click", function(){
-      sfx("continue");
+      tapFx("continue");
       var p = pages[pageIdx];
       if(p.type === "quiz"){
         var last = pages.length - 1;
@@ -1128,7 +1129,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       '<div class="fm-reveal"><b>The Reveal</b>' + q.reveal + '</div>'
       + '<button class="fm-btn" id="fm-qnext">' + (isLast ? "See Results" : "Next Question") + '</button>';
     $("fm-qnext").addEventListener("click", function(){
-      sfx("continue");
+      tapFx("continue");
       if(isLast) renderQuizResults();
       else { st.qi++; st.answered = false; renderQuestion(); }
     });
@@ -1442,6 +1443,13 @@ body{display:block !important;justify-content:normal !important;align-items:norm
         o.start(t); o.stop(t + 0.34);
       });
     }catch(e){}
+  }
+  /* Button feedback: branded sound + a light haptic tick. iOS browsers
+     expose no vibration API, so the haptic safely no-ops there (the
+     CDHaptics module guards it); Android gets the tick. */
+  function tapFx(kind){
+    sfx(kind);
+    try{ if(window.CDHaptics) CDHaptics.tick(); }catch(e){}
   }
   function wireSoundToggle(){
     var btn = $("fm-sound");
