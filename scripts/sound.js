@@ -5,6 +5,11 @@
    track. Mirrors the CDHaptics preference pattern:
      localStorage "cd_sound"  ('1' = on, default; '0' = muted)
 
+   Position persists in localStorage ("cd_sound_pos") so the loop resumes
+   mid-track across page loads AND fresh tabs — sessionStorage alone could
+   never survive the user's fresh-open test loop, which is why the music
+   kept restarting from the top on every new tab.
+
    Autoplay rule: browsers (esp. iOS Safari) only allow audio after a user
    gesture. Call CDSound.start() synchronously inside a tap/click handler
    (the master-loader boot veil's tap-to-enter does this once per session).
@@ -30,10 +35,24 @@
     if (!on) stop();
   }
 
+  function getPos() {
+    // localStorage survives fresh tabs; sessionStorage is the fallback for
+    // private mode where localStorage writes throw.
+    try {
+      var raw = null;
+      try { raw = localStorage.getItem(POS_KEY); } catch (e) {}
+      if (raw == null) { try { raw = sessionStorage.getItem(POS_KEY); } catch (e) {} }
+      var p = parseFloat(raw || '0');
+      return isNaN(p) ? 0 : p;
+    } catch (e) { return 0; }
+  }
+
   function savePos() {
     try {
       if (el && !el.paused && el.currentTime > 0) {
-        sessionStorage.setItem(POS_KEY, String(el.currentTime));
+        var v = String(el.currentTime);
+        try { localStorage.setItem(POS_KEY, v); } catch (e) {}
+        try { sessionStorage.setItem(POS_KEY, v); } catch (e) {}
       }
     } catch (e) {}
   }
@@ -48,7 +67,7 @@
     // Resume where the last page left off (same tab session).
     el.addEventListener('loadedmetadata', function () {
       try {
-        var p = parseFloat(sessionStorage.getItem(POS_KEY) || '0');
+        var p = getPos();
         var dur = el.duration || 0;
         if (p > 1 && dur > 0 && p < dur - 2) el.currentTime = p;
       } catch (e) {}
@@ -72,7 +91,7 @@
       var a = ensure();
       if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
       var resumePos = 0;
-      try { resumePos = parseFloat(sessionStorage.getItem(POS_KEY) || '0'); } catch (e) {}
+      try { resumePos = getPos(); } catch (e) {}
       var resuming = resumePos > 1;
       var begun = false;
       var begin = function () {
