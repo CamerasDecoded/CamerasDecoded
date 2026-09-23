@@ -16,13 +16,14 @@
      CDSfx.play('continue');  // continue / next-page advance
 
    Design notes:
-   - HTMLAudio (not Web Audio): reliable on iOS once unlocked by a gesture.
-     Every sound in the app is triggered by a tap, so playback naturally
-     happens inside user gestures. A rejected play() is caught and ignored.
-   - Sounds are preloaded at parse time; play() before load finishes is a
-     silent no-op — sound must never break the app.
-   - Rapid re-triggers restart the sound (currentTime = 0), which is the
-     right feel for UI feedback.
+   - Web Audio with pre-decoded buffers: every sound is fetched and decoded
+     while the page loads, so play() fires near-instantly (<20ms) — no
+     HTMLAudio spin-up lag on taps. Each play() gets its own BufferSource,
+     so rapid re-triggers overlap cleanly instead of restarting.
+   - The AudioContext is created pre-gesture (starts suspended — that's
+     fine); unlock() resumes it inside a real tap (boot veil) for iOS.
+   - HTMLAudio fallback if Web Audio is unavailable; silent no-op if a file
+     fails — sound must never break the app.
    - Per-sound volumes keep effects sitting cleanly above the ambient loop.
    ========================================================================== */
 (function () {
@@ -33,24 +34,56 @@
 
   /* name -> [file, volume] */
   var SOUNDS = {
-    correct: ['correct.mp3', 0.8],
-    wrong:   ['wrong.mp3',   0.7],
+    correct: ['correct.mp3',  0.8],
+    wrong:   ['wrong.mp3',    0.7],
     perfect: ['perfect.mp3',  0.85],
-    lesson:  ['lesson.mp3',  0.85],
+    lesson:  ['lesson.mp3',   0.85],
     chapter: ['chapter.mp3',  0.9],
     tick:    ['tick.mp3',     0.5],
-    continue:['continue.mp3', 0.65]
+    continue:['continue.mp3', 0.7]
   };
 
-  var els = {};
+  var ctx = null;       // AudioContext (created early, resumed in a gesture)
+  var buffers = {};     // name -> decoded AudioBuffer, ready to fire
+  var loading = {};     // name -> true while fetch/decode is in flight
+  var htmlEls = {};     // fallback Audio elements when Web Audio is missing
 
   function isOn() {
     try { return localStorage.getItem(KEY) !== '0'; }
     catch (e) { return true; }
   }
 
-  function ensure(name) {
-    if (els[name]) return els[name];
+  function ac() {
+    if (ctx) return ctx;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { ctx = new AC(); } catch (e) { ctx = null; }
+    return ctx;
+  }
+
+  /* Fetch + decode a sound as early as possible so play() never waits. */
+  function prime(name) {
+    var def = SOUNDS[name];
+    if (!def || buffers[name] || loading[name]) return;
+    var c = ac();
+    if (!c) { htmlPrime(name); return; }
+    loading[name] = true;
+    fetch(BASE + def[0]).then(function (r) {
+      if (!r.ok) throw new Error('sfx ' + r.status);
+      return r.arrayBuffer();
+    }).then(function (ab) {
+      return c.decodeAudioData(ab);
+    }).then(function (buf) {
+      buffers[name] = buf;
+    }).catch(function () {
+      /* silent — play() falls back to HTMLAudio */
+    }).then(function () {
+      loading[name] = false;
+    });
+  }
+
+  function htmlPrime(name) {
+    if (htmlEls[name]) return htmlEls[name];
     var def = SOUNDS[name];
     if (!def) return null;
     try {
@@ -58,51 +91,61 @@
       a.src = BASE + def[0];
       a.preload = 'auto';
       a.volume = def[1];
-      els[name] = a;
-      /* warm the cache without playing */
       a.load();
+      htmlEls[name] = a;
       return a;
     } catch (e) { return null; }
   }
 
-  /* Preload everything up front so first taps are instant. */
-  function preload() {
-    Object.keys(SOUNDS).forEach(ensure);
-  }
-
-  function play(name) {
-    if (!isOn()) return false;
-    var a = ensure(name);
+  function htmlPlay(name) {
+    var a = htmlPrime(name);
     if (!a) return false;
     try {
       a.currentTime = 0;
       var p = a.play();
-      if (p && p.catch) p.catch(function () { /* iOS gesture guard: silent */ });
+      if (p && p.catch) p.catch(function () {});
       return true;
     } catch (e) { return false; }
   }
 
-  /* Call once inside a user gesture (e.g. the boot veil tap) to unlock
-     audio on iOS for sounds that might fire outside later gestures. */
-  function unlock() {
-    if (!isOn()) return;
-    Object.keys(els).forEach(function (name) {
-      var a = els[name];
+  function play(name) {
+    if (!isOn()) return false;
+    var def = SOUNDS[name];
+    if (!def) return false;
+    prime(name); /* no-op when already primed or priming */
+    var c = ac(), buf = buffers[name];
+    if (c && buf) {
       try {
-        var p = a.play();
-        if (p && p.then) {
-          p.then(function () { a.pause(); a.currentTime = 0; })
-           .catch(function () {});
-        } else { a.pause(); a.currentTime = 0; }
-      } catch (e) {}
-    });
+        if (c.state === 'suspended') c.resume();
+        var src = c.createBufferSource();
+        src.buffer = buf;
+        var g = c.createGain();
+        g.gain.value = def[1];
+        src.connect(g);
+        g.connect(c.destination);
+        src.start(0);
+        return true;
+      } catch (e) { return htmlPlay(name); }
+    }
+    return htmlPlay(name);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', preload);
-  } else {
-    preload();
+  /* Call inside a user gesture (the boot veil tap): unlocks the
+     AudioContext on iOS and finishes priming every sound. */
+  function unlock() {
+    var c = ac();
+    if (c && c.state === 'suspended') {
+      try {
+        var p = c.resume();
+        if (p && p.catch) p.catch(function () {});
+      } catch (e) {}
+    }
+    Object.keys(SOUNDS).forEach(prime);
   }
+
+  /* Prime everything at parse time: decode happens while the page loads,
+     so the first tap fires instantly. */
+  try { Object.keys(SOUNDS).forEach(prime); } catch (e) {}
 
   window.CDSfx = {
     play: play,
