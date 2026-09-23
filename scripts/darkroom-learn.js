@@ -424,16 +424,17 @@ window.CDLearn = (() => {
       else skillPatch.drillDays = F.arrayUnion(tk);
 
       // global XP ledger (dashboard ring, today's goal)
-      // Day-aware: xpTodayDate (local) is the day authority. On a fresh day
-      // the stored total is yesterday's — set it absolutely instead of
-      // incrementing the stale total.
+      // Day-aware: xpTodayDate (local) is the day authority. freshDay means
+      // the stored total already belongs to today — increment it. Otherwise
+      // the stored total is yesterday's stale value — set the day's first XP
+      // absolutely instead of incrementing the stale total.
       const usnap = await db.collection('users').doc(uid).get().catch(() => null);
       const udata = (usnap && usnap.exists) ? usnap.data() : null;
       const freshDay = !!udata && udata.xpTodayDate === tk;
       const globalWrite = {
         ...(freshDay
-          ? { xpToday: amount, dailyXp: amount, xpTodayDate: tk }
-          : { xpToday: F.increment(amount) }),
+          ? { xpToday: F.increment(amount) }
+          : { xpToday: amount, dailyXp: amount, xpTodayDate: tk }),
         totalPoints: F.increment(amount),
         ['xpByDay.' + tk]: F.increment(amount),
         recentActivity: F.arrayUnion({
