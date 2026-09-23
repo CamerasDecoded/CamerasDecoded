@@ -33,6 +33,7 @@
       var data = snap.exists ? snap.data() : null;
       var s = (data && data.dailyStreak) || { last: null, count: 0 };
       if (s.last === today) return { count: s.count || 0, secured: false };
+      var lapsed = s.last && s.last !== yest;
       var count = (s.last === yest) ? (s.count || 0) + 1 : 1;
       await ref.set({ dailyStreak: { last: today, count: count } }, { merge: true });
       if (count === 7 && window.CDBadges) {
@@ -40,6 +41,16 @@
       }
       if (count === 3 && window.CDGear) {
         try { window.CDGear.award(uid, 'gear-longshot', db); } catch (e) { /* best-effort */ }
+      }
+      if (count === 14 && window.CDGear) {
+        try { window.CDGear.award(uid, 'glass-steady', db); } catch (e) { /* best-effort */ }
+      }
+      // Dust Off: the signal went quiet for a week or more, then came back.
+      if (lapsed && count === 1 && window.CDGear) {
+        try {
+          var gapMs = Date.now() - new Date(s.last + 'T12:00:00').getTime();
+          if (gapMs >= 7 * 864e5) window.CDGear.award(uid, 'glass-dustoff', db);
+        } catch (e) { /* best-effort */ }
       }
       // Milestone inbox notifications (cross-device via the bell).
       if ((count === 7 || count === 30 || count === 100) && window.CDNotifs) {

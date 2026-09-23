@@ -346,6 +346,7 @@ window.CDLearn = (() => {
     const xp = st.correct >= 3 ? DRILL_XP : DRILL_CONSOLATION;
     // XP was already banked when the last question was answered; await it.
     const award = await (st.bankPromise || bankXp(st.skillId, 'drill', xp, st.correct));
+    if (award && award.banked) { try { if (window.CDGear) window.CDGear.trackDrill(fdb(), me() && me().uid); } catch (e) {} }
     sfxWin(); bigH();
     renderResult(st, {
       headline: `${st.correct} of ${total}.`,
