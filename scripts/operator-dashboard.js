@@ -399,7 +399,7 @@
     if (!uid || !el || !window.db) return;
     const my = ++sparkReq;
     const days = [];
-    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push(d.toISOString().slice(0, 10)); }
+    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push(cdTodayKey(d)); }
     const perDay = {};
     days.forEach(k => { perDay[k] = 0; });
     const ledger = (vm.raw && vm.raw.xpByDay) || {};
@@ -412,7 +412,7 @@
         const s = doc.data() || {};
         const t = s.createdAt && s.createdAt.toDate ? s.createdAt.toDate() : null;
         if (!t || typeof s.xp !== 'number') return;
-        const k = t.toISOString().slice(0, 10);
+        const k = cdTodayKey(t);
         if (!s.bankedDaily && k in perDay) perDay[k] += s.xp;
         sessions.push({ key: k, xp: s.xp, game: s.game || s.slotId || 'game', score: s.score, ts: t, bankedDaily: !!s.bankedDaily });
       });
@@ -473,7 +473,7 @@
     let html = '';
     for (let i = 6; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i);
-      const k = d.toISOString().slice(0, 10);
+      const k = cdTodayKey(d);
       const active = typeof ledger[k] === 'number' && ledger[k] > 0;
       const idx = 6 - i;
       html += `<span class="dot${active ? ' on' : ''}${idx === 6 ? ' today' : ''}" style="--i:${idx}"></span>`;
@@ -681,7 +681,7 @@
   function openChallengeModal() {
     const u = vm.raw || {};
     const log = u.challengeLog || u.dailyChallengeLog || [];
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = cdTodayKey();
     if (Array.isArray(log) && log.includes(todayKey)) return;
     const name = $('challengeModalName');
     const desc = $('challengeModalDesc');
@@ -716,8 +716,8 @@
 
   function renderCollections() {
     const c = vm.counts;
-    const ids = ['protocolCount','snapshotCount','postCount'];
-    const vals = [c.protocols, c.snapshots, c.posts];
+    const ids = ['protocolCount','snapshotCount'];
+    const vals = [c.protocols, c.snapshots];
     ids.forEach((id, i) => { const el = $(id); if (el) el.textContent = vals[i]; });
   }
 
@@ -749,7 +749,7 @@
   function renderChallenge() {
     const u = vm.raw;
     const log = u.challengeLog || u.dailyChallengeLog || [];
-    const todayKey = new Date().toISOString().slice(0,10);
+    const todayKey = cdTodayKey();
     const done = Array.isArray(log) && log.includes(todayKey);
     const dayIdx = Math.floor(Date.now() / 86400000) % CHALLENGES.length;
     const c = u.dailyChallenge || CHALLENGES[dayIdx];
@@ -770,7 +770,7 @@
       let html = '';
       for (let i = 6; i >= 0; i--) {
         const dt = new Date(); dt.setDate(dt.getDate() - i);
-        const key = dt.toISOString().slice(0,10);
+        const key = cdTodayKey(dt);
         const ok = Array.isArray(log) && log.includes(key);
         html += `<span class="log-day${ok ? ' complete' : ''}">${dayNames[dt.getDay()]}</span>`;
       }
@@ -854,12 +854,12 @@
   // under prefers-reduced-motion.
   const ENTRANCE_ORDER = ['.hero-block','.goal-panel','.stats-strip','.drill-card','.journey-block','.activity-panel','.challenge-grid','.more-toggle','.workspace-heading','.collections-strip','.ai-section','.protocol-section','.referral-card','.quiz-card','.ambassador-card','.dashboard-footer'];
   function prepEntrance() {
-    ENTRANCE_ORDER.forEach(sel => { const el = $(sel); if (el) el.classList.add('rise'); });
+    ENTRANCE_ORDER.forEach(sel => { const el = document.querySelector(sel); if (el) el.classList.add('rise'); });
   }
   function playEntrance() {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     ENTRANCE_ORDER
-      .map(sel => $(sel))
+      .map(sel => document.querySelector(sel))
       .filter(el => el && el.offsetParent !== null)
       .forEach((el, i) => {
         if (reduce || i === 0) { el.classList.add('in'); return; }
@@ -1014,8 +1014,13 @@
       const nextId = vm.journey.next && vm.journey.next.id;
       if (uid && nextId) {
         try {
-          await window.db.collection('userJourney').doc(uid).set({
-            completedNodes: firebase.firestore.FieldValue.arrayUnion(nextId)
+          // Canonical journey progress: userJourney/{uid}/levels/{level} →
+          // completedSteps, the same doc the Missions page and this
+          // dashboard's hero read. (A previous write targeted a
+          // `completedNodes` field on the parent doc that nothing reads.)
+          const level = (vm.journey && vm.journey.level) || 'beginner';
+          await window.db.collection('userJourney').doc(uid).collection('levels').doc(level).set({
+            completedSteps: firebase.firestore.FieldValue.arrayUnion(nextId)
           }, { merge: true });
           const tk = cdTodayKey();
           const freshSnap = await window.db.collection('users').doc(uid).get();
@@ -1273,8 +1278,10 @@
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
   }
-  function utcKey(d) { return d.toISOString().slice(0, 10); }
-  function todayKey() { return utcKey(new Date()); }
+  // Local-day key shared by the calendar, XP breakdown, and rank preview.
+  // The xpByDay ledger and challenge log are stamped with the user's local
+  // calendar day (never UTC) — after 7pm CT a UTC date is tomorrow.
+  function todayKey() { return cdTodayKey(); }
 
   function prettyGameName(g) {
     const s = String(g || '').trim();
