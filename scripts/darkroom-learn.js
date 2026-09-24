@@ -9,8 +9,7 @@ window.CDLearn = (() => {
   'use strict';
 
   const LESSON_XP = 20;
-  const DRILL_XP = 10;
-  const DRILL_CONSOLATION = 5;
+  const DRILL_XP = 10; // flat for finishing — no hidden score gate
   const LESSON_KEY = 'core'; // lessonsDone entry for the single core lesson
 
   const $ = (id) => document.getElementById(id);
@@ -317,8 +316,7 @@ window.CDLearn = (() => {
       // On the final question the XP is decided — bank it now so any exit
       // from here on preserves what was earned.
       if (i === qs.length - 1) {
-        const xp = st.correct >= 3 ? DRILL_XP : DRILL_CONSOLATION;
-        st.bankPromise = bankXp(st.skillId, 'drill', xp, st.correct);
+        st.bankPromise = bankXp(st.skillId, 'drill', DRILL_XP, st.correct);
       }
       right ? (sfxGood(), tickH()) : sfxBad();
     }));
@@ -328,9 +326,8 @@ window.CDLearn = (() => {
   async function finishDrill(st) {
     if (st.done) return; st.done = true;
     const total = window.DARKROOM_LESSONS[st.skillId].drill.length;
-    const xp = st.correct >= 3 ? DRILL_XP : DRILL_CONSOLATION;
     // XP was already banked when the last question was answered; await it.
-    const award = await (st.bankPromise || bankXp(st.skillId, 'drill', xp, st.correct));
+    const award = await (st.bankPromise || bankXp(st.skillId, 'drill', DRILL_XP, st.correct));
     if (award && award.banked) { try { if (window.CDGear) window.CDGear.trackDrill(fdb(), me() && me().uid); } catch (e) {} }
     sfxDrillDone(); bigH();
     renderResult(st, {

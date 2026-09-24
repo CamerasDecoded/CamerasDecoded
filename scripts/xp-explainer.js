@@ -80,7 +80,7 @@
 
   var EARN = [
     { amt: '+20', what: 'Darkroom lesson', rule: 'Once per skill · banked at the check' },
-    { amt: '+10', what: 'Darkroom drill', rule: 'Once per skill, per day · +5 consolation' },
+    { amt: '+10', what: 'Darkroom drill', rule: 'Once per skill, per day · finishing is enough' },
     { amt: '+20', what: 'Field Manual lesson', rule: 'Once per lesson' },
     { amt: '+10', what: 'Field Manual perfect quiz', rule: 'Once per lesson · all answers right' },
     { amt: '+25', what: 'Field Manual chapter', rule: 'Once per chapter' },
@@ -91,7 +91,7 @@
 
   var RUNGS = [
     { lvl: 1, xp: 20, name: 'Started', sub: 'One lesson in. You have seen the shape of it.' },
-    { lvl: 2, xp: 60, name: 'Functional', sub: 'Working knowledge. This is the gate.', gate: true },
+    { lvl: 2, xp: 40, name: 'Functional', sub: 'Working knowledge. This is the gate.', gate: true },
     { lvl: 3, xp: 140, name: 'Solid', sub: 'Instinct is forming. Keep the reps coming.' },
     { lvl: 4, xp: 260, name: 'Advanced', sub: 'You see light before you raise the camera.' },
     { lvl: 5, xp: 400, name: 'Mastered', sub: 'The skill is yours. It does not fade.' }
@@ -157,7 +157,7 @@
       '<img class="xpx-banner" src="' + IMG_CLIMB + '" alt="" loading="lazy" style="margin-top:22px">' +
       '<p class="xpx-h">THE CLIMB</p>' +
       '<div class="xpx-ladder">' + rungHtml + '</div>' +
-      '<p class="xpx-note"><strong>Level 2 (60 XP) is the gate.</strong> The next skill unlocks only when the one before it reaches Functional. A lesson alone (+20) will not do it — daily drills carry you the rest of the way. That is deliberate.</p>' +
+      '<p class="xpx-note"><strong>Level 2 (40 XP) is the gate.</strong> The next skill unlocks only when the one before it reaches Functional. A lesson alone (+20) will not do it — daily drills carry you the rest of the way. That is deliberate.</p>' +
       '<p class="xpx-h">WHY IT IS BUILT THIS WAY</p>' +
       '<div class="xpx-why">' + whyHtml + '</div>' +
       '<button class="xpx-cta" type="button">Got it</button>' +
