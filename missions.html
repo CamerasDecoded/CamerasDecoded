@@ -803,8 +803,50 @@ section.hero.dossier-slot::before{display:none}
   background-blend-mode:soft-light;
 }
 
+/* ---------- staggered shimmer: campaign-complete hero ----------
+   "Campaign complete" -> "After-action report" -> "Missions debriefed",
+   one sweep at a time, top to bottom, looping. */
+.shimmer{
+  --shimmer-base:rgba(255,255,255,.6);
+  background-image:linear-gradient(100deg,var(--shimmer-base) 38%,#ffffff 50%,var(--shimmer-base) 62%);
+  background-size:280% 100%;
+  background-repeat:no-repeat;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  -webkit-text-fill-color:transparent;
+  animation:shimmerSweep 9s linear infinite;
+}
+.shimmer-d1{--shimmer-base:var(--green);animation-delay:0s}
+.shimmer-d2{animation-delay:3s}
+.shimmer-d3{animation-delay:6s}
+@keyframes shimmerSweep{
+  0%{background-position:130% 0}
+  33.333%{background-position:-130% 0}
+  100%{background-position:-130% 0}
+}
+
+/* ---------- folder-collapsible operations ---------- */
+button.phase-head{position:relative;width:100%;margin:10px 0 0;padding:0 0 12px;
+  background:none;border:0;border-bottom:1px solid rgba(255,255,255,.2);border-radius:0;
+  display:grid;grid-template-columns:1fr auto auto;gap:4px 12px;align-items:end;
+  color:inherit;font:inherit;text-align:left;cursor:pointer}
+button.phase-head::before{content:"";position:absolute;top:-11px;left:16px;width:58px;height:11px;
+  background:#0c0c0c;border:1px solid rgba(255,255,255,.22);border-bottom:0;
+  clip-path:polygon(0 100%,14% 0,100% 0,100% 100%)}
+button.phase-head:focus-visible{outline:2px solid var(--green);outline-offset:4px}
+button.phase-head .phase-kicker{display:block}
+.folder-chev{color:rgba(255,255,255,.38);font-size:11px;transition:transform .25s ease;padding-bottom:3px}
+.phase-group.collapsed .folder-chev{transform:rotate(-90deg)}
+.phase-group.collapsed button.phase-head{border-bottom-color:transparent}
+.phase-contents{display:grid;grid-template-rows:1fr;transition:grid-template-rows .32s cubic-bezier(.2,.78,.2,1)}
+.phase-contents-inner{overflow:hidden;min-height:0}
+.phase-group.collapsed .phase-contents{grid-template-rows:0fr}
+
 /* ---------- motion discipline ---------- */
 @media (prefers-reduced-motion:reduce){
+  .shimmer{animation:none;background:none;color:var(--shimmer-base);-webkit-text-fill-color:var(--shimmer-base)}
+  .phase-contents,.folder-chev{transition:none}
   .sheet.active{animation:none}
   .stamp,.phase-group.locked::before,.dossier-stamp{transform:none}
   .field-ref summary .chev{transition:none}
@@ -985,6 +1027,20 @@ section.hero.dossier-slot::before{display:none}
     let currentLevel = 'beginner';  // default
     // Instructor deep link: ?m=<stepId> opens that dossier, even in a locked operation.
     const deepLinkStepId = new URLSearchParams(window.location.search).get('m');
+
+    // ---------- operation folders: collapse state (persisted) ----------
+    function readFoldState() {
+      try { return JSON.parse(localStorage.getItem('cd_opfold_v1') || '{}'); } catch (e) { return {}; }
+    }
+    function writeFoldState(s) {
+      try { localStorage.setItem('cd_opfold_v1', JSON.stringify(s)); } catch (e) {}
+    }
+    function setFolderState(section, open) {
+      if (!section) return;
+      section.classList.toggle('collapsed', !open);
+      const btn = section.querySelector('.folder-toggle');
+      if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
 
     // ================================================================
     // DOM REFS
@@ -2623,7 +2679,7 @@ section.hero.dossier-slot::before{display:none}
         const pts = (userProgress && userProgress.totalPoints) || 0;
         heroSec.innerHTML = `
           <div class="dossier-wrap">
-            <div class="stamp">Campaign complete</div>
+            <div class="stamp shimmer shimmer-d1">Campaign complete</div>
             <div class="case-id">File / All clear</div>
             <article class="dossier file beat-scope">
               <header class="dossier-heading">
@@ -2633,10 +2689,10 @@ section.hero.dossier-slot::before{display:none}
               </header>
               <div class="sheet-stage">
                 <section class="sheet active" data-panel="brief" role="tabpanel">
-                  <p class="sheet-kicker">After-action report</p>
+                  <p class="sheet-kicker shimmer shimmer-d2">After-action report</p>
                   <p class="objective">You ran the full campaign. Review your operations, or take on the next level.</p>
                   <div class="metadata">
-                    <span class="skill-line">Missions debriefed<br><b>${done}</b></span>
+                    <span class="skill-line shimmer shimmer-d3">Missions debriefed<br><b>${done}</b></span>
                     <span class="points-line">+${pts} PTS</span>
                   </div>
                 </section>
@@ -2739,6 +2795,11 @@ section.hero.dossier-slot::before{display:none}
         const isCurrent = next ? next.modIndex === mi : (!isDone && !isLocked);
         const num = String(mi + 1).padStart(2, '0');
         const groupClass = isDone ? 'done' : (isLocked ? 'locked' : (isCurrent ? 'current' : ''));
+        // Folder state: done operations start closed, current + locked start
+        // open (locked shows its unlock note); the user's toggles persist.
+        const savedFold = readFoldState();
+        const defaultOpen = isCurrent || isLocked;
+        const folderOpen = savedFold[mod.id] !== undefined ? !!savedFold[mod.id] : defaultOpen;
         // Instructor deep link (?m=<stepId>) opens one dossier inside a locked
         // operation - the lock guides browsing, it never blocks a direct link.
         const deepStep = (isLocked && deepLinkStepId)
@@ -2750,24 +2811,29 @@ section.hero.dossier-slot::before{display:none}
           ? `<p class="locked-note"><i class="fas fa-lock" aria-hidden="true"></i> Complete ${prevLeft} more mission${prevLeft === 1 ? '' : 's'} in Operation ${mi} to unlock.</p>`
           : '';
         html += `
-          <section class="phase-group ${groupClass}" id="phase-group-${mod.id}" aria-label="Operation ${mi + 1}: ${mod.title}">
-            <div class="phase-head">
+          <section class="phase-group ${groupClass}${folderOpen ? '' : ' collapsed'}" id="phase-group-${mod.id}" aria-label="Operation ${mi + 1}: ${mod.title}">
+            <button type="button" class="phase-head folder-toggle" aria-expanded="${folderOpen ? 'true' : 'false'}" aria-controls="phase-contents-${mod.id}">
               <span class="phase-badge" aria-hidden="true">${isDone ? '✓' : num}</span>
-              <div class="phase-head-text">
-                <div class="phase-kicker">Operation ${mi + 1}${isDone ? ' · Complete' : ''}${isLocked ? ' · Locked' : ''}</div>
+              <span class="phase-head-text">
+                <span class="phase-kicker">Operation ${mi + 1}${isDone ? ' · Complete' : ''}${isLocked ? ' · Locked' : ''}</span>
                                 ${phaseTitle(mod)}
-              </div>
+              </span>
               <span class="phase-pct mono">${pct}%</span>
-            </div>
-            <div class="phase-bar" role="progressbar" aria-label="${mod.title} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
-              <div style="width:${pct}%"></div>
-            </div>
-            ${mod.description ? `<p class="phase-desc">${mod.description}</p>` : ''}
-            <div class="phase-steps">
-              ${lockedNote}
-              ${deepStep
-                ? renderDossier(deepStep, steps.indexOf(deepStep), nextId, numOf[deepStep.id])
-                : (!isLocked ? steps.map((s, i) => renderDossier(s, i, nextId, numOf[s.id])).join('') : '')}
+              <span class="folder-chev" aria-hidden="true"><i class="fas fa-chevron-down" aria-hidden="true"></i></span>
+            </button>
+            <div class="phase-contents" id="phase-contents-${mod.id}">
+              <div class="phase-contents-inner">
+                <div class="phase-bar" role="progressbar" aria-label="${mod.title} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+                  <div style="width:${pct}%"></div>
+                </div>
+                ${mod.description ? `<p class="phase-desc">${mod.description}</p>` : ''}
+                <div class="phase-steps">
+                  ${lockedNote}
+                  ${deepStep
+                    ? renderDossier(deepStep, steps.indexOf(deepStep), nextId, numOf[deepStep.id])
+                    : (!isLocked ? steps.map((s, i) => renderDossier(s, i, nextId, numOf[s.id])).join('') : '')}
+                </div>
+              </div>
             </div>
           </section>`;
       });
@@ -2777,10 +2843,17 @@ section.hero.dossier-slot::before{display:none}
         const total = journeyData.modules.reduce((n, m) => n + ((m.steps || []).length), 0);
         pc.textContent = journeyData.modules.length + ' operations · ' + total + ' missions';
       }
-      // Deep link: expand and scroll to the requested dossier after paint.
+      // Deep link: expand the folder, then expand and scroll to the requested dossier after paint.
       if (deepLinkStepId) {
         const card = stepContainer.querySelector('[data-step-id="' + deepLinkStepId + '"]');
         if (card) {
+          const group = card.closest('.phase-group');
+          if (group) {
+            setFolderState(group, true);
+            const fs = readFoldState();
+            fs[group.id.replace('phase-group-', '')] = true;
+            writeFoldState(fs);
+          }
           const head = card.querySelector('.dossier-head');
           const body = card.querySelector('.dossier-body');
           if (head) head.setAttribute('aria-expanded', 'true');
@@ -2943,8 +3016,21 @@ section.hero.dossier-slot::before{display:none}
         `;
     }
 
-    // Dossier expand/collapse (delegated – survives re-renders)
+    // Dossier expand/collapse + operation folder toggle (delegated – survives re-renders)
     stepContainer.addEventListener('click', (e) => {
+      const folderBtn = e.target.closest('.folder-toggle');
+      if (folderBtn && stepContainer.contains(folderBtn)) {
+        const section = folderBtn.closest('.phase-group');
+        const open = folderBtn.getAttribute('aria-expanded') !== 'true';
+        setFolderState(section, open);
+        if (section) {
+          const fs = readFoldState();
+          fs[section.id.replace('phase-group-', '')] = open;
+          writeFoldState(fs);
+        }
+        try { if (window.CDHaptics) window.CDHaptics.tick(); } catch (err) {}
+        return;
+      }
       const head = e.target.closest('.dossier-head');
       if (!head || !stepContainer.contains(head)) return;
       const expanded = head.getAttribute('aria-expanded') === 'true';
