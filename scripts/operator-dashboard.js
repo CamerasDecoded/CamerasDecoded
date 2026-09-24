@@ -876,6 +876,37 @@
     modal.setAttribute('aria-hidden','false');
     document.body.style.overflow = 'hidden';
     setTimeout(() => modal.querySelector('.close-btn')?.focus(), 20);
+    // Quick drill: if today's +10 is already banked, say so up front — the
+    // finish button must never promise XP it won't pay. The write guard in
+    // the drillFinish handler stays authoritative.
+    if (id === 'drill') primeDrillMode();
+  }
+  // Practice mode for the quick drill. +10 XP banks once per local day;
+  // quickDrillDays on users/{uid} is the anti-farm ledger (same shape as
+  // the Darkroom's drillDays). Repeats are still playable, worth +0.
+  let drillPrimeToken = 0;
+  async function drillBankedToday(uid) {
+    try {
+      const snap = await window.db.collection('users').doc(uid).get();
+      const u = snap.exists ? snap.data() : null;
+      return { banked: ((u && u.quickDrillDays) || []).includes(cdTodayKey()), data: u };
+    } catch (e) { return { banked: false, data: null }; }
+  }
+  async function primeDrillMode() {
+    const my = ++drillPrimeToken;
+    const note = $('drillPracticeNote'), btn = $('drillFinish');
+    if (note) note.hidden = true;
+    if (btn) btn.textContent = 'Finish drill · +10 XP';
+    try {
+      const uid = vm.user && vm.user.uid;
+      if (!uid || !window.db) return;
+      const { banked } = await drillBankedToday(uid);
+      if (my !== drillPrimeToken) return;
+      if (banked) {
+        if (note) note.hidden = false;
+        if (btn) btn.textContent = 'Finish drill · practice';
+      }
+    } catch (e) { /* keep the bankable default on read failure */ }
   }
   function closeModal(modal) {
     modal.classList.remove('open');
@@ -979,19 +1010,30 @@
       }));
     });
 
+    // Quick drill: +10 XP once per local day. The quickDrillDays ledger is
+    // checked before every write — repeats are playable but bank +0.
+    let drillBusy = false;
     $('drillFinish')?.addEventListener('click', async () => {
       const uid = vm.user.uid;
-      if (!uid) return;
+      if (!uid || drillBusy) return;
+      drillBusy = true;
       try {
         const tk = cdTodayKey();
-        const freshSnap = await window.db.collection('users').doc(uid).get();
-        const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
+        const { banked, data } = await drillBankedToday(uid);
+        if (banked) {
+          showToast('Drill XP already banked today · practice reps are +0');
+          announce('Drill XP already banked today.');
+          closeModal($('drillModal'));
+          return;
+        }
+        const freshDay = cdDayFresh(data);
         await window.db.collection('users').doc(uid).update({
           ...(freshDay
             ? { xpToday: firebase.firestore.FieldValue.increment(10) }
             : { xpToday: 10, dailyXp: 10, xpTodayDate: tk }),
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(10),
+          quickDrillDays: firebase.firestore.FieldValue.arrayUnion(tk),
           lastActivityDate: tk,
           lastActiveDate: tk,
           lastStreakDate: tk,
@@ -1006,41 +1048,56 @@
       } catch (err) {
         console.warn('[Dashboard] Drill write failed:', err);
         showToast('Could not save drill. Check your connection.');
+      } finally {
+        drillBusy = false;
       }
     });
 
+    // Lesson preview: +20 XP once ever — this is a single fixed lesson, so
+    // repeats must not re-bank. lessonPreviewBanked on users/{uid} is the
+    // once-only flag (the journey's completedSteps stays the progress record).
+    let lessonBusy = false;
     $('lessonFinish')?.addEventListener('click', async () => {
       const uid = vm.user.uid;
       const nextId = vm.journey.next && vm.journey.next.id;
-      if (uid && nextId) {
-        try {
-          // Canonical journey progress: userJourney/{uid}/levels/{level} →
-          // completedSteps, the same doc the Missions page and this
-          // dashboard's hero read. (A previous write targeted a
-          // `completedNodes` field on the parent doc that nothing reads.)
-          const level = (vm.journey && vm.journey.level) || 'beginner';
-          await window.db.collection('userJourney').doc(uid).collection('levels').doc(level).set({
-            completedSteps: firebase.firestore.FieldValue.arrayUnion(nextId)
-          }, { merge: true });
-          const tk = cdTodayKey();
-          const freshSnap = await window.db.collection('users').doc(uid).get();
-          const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
-          await window.db.collection('users').doc(uid).update({
-            ...(freshDay
-              ? { xpToday: firebase.firestore.FieldValue.increment(20) }
-              : { xpToday: 20, dailyXp: 20, xpTodayDate: tk }),
-            totalPoints: firebase.firestore.FieldValue.increment(20),
-            ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(20),
-            lastActivityDate: tk,
-            lastActiveDate: tk,
-            lastStreakDate: tk,
-            lastXpDate: tk
-          });
-          showToast('Lesson marked complete · +20 XP');
-        } catch (err) {
-          console.warn('[Dashboard] Lesson write failed:', err);
-          showToast('Could not save lesson progress.');
+      if (!uid || !nextId || lessonBusy) { closeModal($('lessonModal')); return; }
+      lessonBusy = true;
+      try {
+        const lsnap = await window.db.collection('users').doc(uid).get().catch(() => null);
+        const ludata = (lsnap && lsnap.exists) ? lsnap.data() : null;
+        if (ludata && ludata.lessonPreviewBanked) {
+          showToast('Lesson XP already banked');
+          closeModal($('lessonModal'));
+          return;
         }
+        // Canonical journey progress: userJourney/{uid}/levels/{level} →
+        // completedSteps, the same doc the Missions page and this
+        // dashboard's hero read. (A previous write targeted a
+        // `completedNodes` field on the parent doc that nothing reads.)
+        const level = (vm.journey && vm.journey.level) || 'beginner';
+        await window.db.collection('userJourney').doc(uid).collection('levels').doc(level).set({
+          completedSteps: firebase.firestore.FieldValue.arrayUnion(nextId)
+        }, { merge: true });
+        const tk = cdTodayKey();
+        const freshDay = cdDayFresh(ludata);
+        await window.db.collection('users').doc(uid).update({
+          ...(freshDay
+            ? { xpToday: firebase.firestore.FieldValue.increment(20) }
+            : { xpToday: 20, dailyXp: 20, xpTodayDate: tk }),
+          totalPoints: firebase.firestore.FieldValue.increment(20),
+          ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(20),
+          lessonPreviewBanked: true,
+          lastActivityDate: tk,
+          lastActiveDate: tk,
+          lastStreakDate: tk,
+          lastXpDate: tk
+        });
+        showToast('Lesson marked complete · +20 XP');
+      } catch (err) {
+        console.warn('[Dashboard] Lesson write failed:', err);
+        showToast('Could not save lesson progress.');
+      } finally {
+        lessonBusy = false;
       }
       closeModal($('lessonModal'));
     });
