@@ -409,7 +409,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       </div>
       <div class="pay-stack rise-in" style="--d:.18s">
         <div class="pay-row"><i class="fa-solid fa-book-open" aria-hidden="true"></i><div><strong id="fm-pay-row1">Lessons 2&ndash;3 of this chapter</strong><span>Unlocked the moment you join</span></div></div>
-        <div class="pay-row"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><div><strong>Every future Field Manual chapter</strong><span>Cameras, light, editing, the business &mdash; all of it</span></div></div>
+        <div class="pay-row"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><div><strong id="fm-pay-row2">Every future Field Manual chapter</strong><span id="fm-pay-row2sub">Cameras, light, editing, the business &mdash; all of it</span></div></div>
         <div class="pay-row"><i class="fa-solid fa-rotate" aria-hidden="true"></i><div><strong>System Checks, replay &amp; mastery</strong><span>Retake any lesson and bank XP again</span></div></div>
         <div class="pay-row"><i class="fa-solid fa-satellite-dish" aria-hidden="true"></i><div><strong>The full Cynetis-7 curriculum</strong><span>Your signal keeper, end to end</span></div></div>
       </div>
@@ -493,7 +493,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   "use strict";
   /* Field Manual player — multi-chapter.
      Pro-gated: no lesson body is rendered unless tier === 'pro'.
-     Free access: Chapters 1-2 only. */
+     Free access: Chapters 1-3 only. */
 
   var LESSON_XP = 20;
   var PERFECT_BONUS = 10;
@@ -731,6 +731,15 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     var firstFree = (fcs[0] && fcs[0].lessons && fcs[0].lessons[0]) || null;
     var row1 = $("fm-pay-row1");
     if(row1) row1.textContent = "Everything from " + lockedFrom + " on";
+    /* sell what's behind the door: name the next chapter concretely */
+    var _allCh = (window.GUIDE_DATA && GUIDE_DATA.chapters) || [];
+    var _lockedCh = _allCh.slice(freeChapters().length);
+    if(_lockedCh.length){
+      var _nc = _lockedCh[0];
+      var _r2 = $("fm-pay-row2"), _r2s = $("fm-pay-row2sub");
+      if(_r2) _r2.textContent = "Chapter " + (parseInt(chapterNum(_nc), 10) || "") + " · " + _nc.title;
+      if(_r2s) _r2s.textContent = _nc.tagline || "";
+    }
     if(user && decoded){
       $("fm-pay-title").textContent = "The free chapters are yours.";
       $("fm-pay-sub").textContent = "You've started " + freeName + " \u2014 the rest of the Manual is Pro.";
@@ -746,7 +755,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     } else {
       $("fm-pay-title").textContent = "The Manual goes deeper.";
       $("fm-pay-sub").textContent = "Log in to check your access \u2014 " + freeName + " are free for every operator.";
-      $("fm-pay-cynetis").textContent = "The full manual is a Pro instrument. Your first two chapters are on the house.";
+      $("fm-pay-cynetis").textContent = "The full manual is a Pro instrument. Your first " + fcs.length + " chapters are on the house.";
       $("fm-pay-quiet").textContent = "Continue with free content";
       $("fm-pay-quiet").href = "javascript:history.back()";
     }
@@ -1440,8 +1449,8 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     }catch(e){}
   }
 
-  /* free tier: the first two chapters are free. Chapter 3 and beyond are Pro. */
-  function freeChapters(){ var chs = (window.GUIDE_DATA && GUIDE_DATA.chapters) || []; return chs.slice(0, 2); }
+  /* free tier: the first three chapters are free. Chapter 4 and beyond are Pro. */
+  function freeChapters(){ var chs = (window.GUIDE_DATA && GUIDE_DATA.chapters) || []; return chs.slice(0, 3); }
   function canAccess(lesson){
     if(!lesson || !user) return false;   /* signed-out: nothing opens, paywall decides */
     if(tier === "pro") return true;
@@ -1599,12 +1608,27 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     var next = chapter.lessons.filter(function(l){ return progress.completedLessons.indexOf(l.id) === -1; })[0];
     if(next && canAccess(next)) h += '<button class="fm-btn rise-in" style="--d:.3s" id="fm-done-next">Next Lesson — ' + esc(next.title) + '</button>';
     else if(next) h += '<button class="fm-btn rise-in" style="--d:.3s" id="fm-done-next">Unlock Pro — ' + esc(next.title) + '</button>';
+    else {
+      /* chapter complete — if the next chapter is paywalled, tease it (the open loop) */
+      var _chs = (window.GUIDE_DATA && GUIDE_DATA.chapters) || [];
+      var _nextCh = _chs[_chs.indexOf(chapter) + 1] || null;
+      var _nextLesson = _nextCh && _nextCh.lessons && _nextCh.lessons[0];
+      if(_nextCh && _nextLesson && tier !== "pro" && !canAccess(_nextLesson)){
+        h += '<div class="fm-card rise-in" style="--d:.3s">'
+          + '<p class="fm-kicker">Up next · Pro</p>'
+          + '<p class="fm-chapter-line">' + esc("Chapter " + (parseInt(chapterNum(_nextCh), 10) || "") + " · " + _nextCh.title) + '</p>'
+          + '<p class="fm-sub" style="margin:0">' + esc(_nextCh.tagline || "") + '</p></div>'
+          + '<button class="fm-btn rise-in" style="--d:.34s" id="fm-done-unlock">Unlock ' + esc(_nextCh.title) + '</button>';
+      }
+    }
     if(hasQuiz) h += '<button class="fm-quiet rise-in" id="fm-done-retry" style="--d:.34s;background:none;border:0;width:100%;cursor:pointer">Retake system check</button>';
     h += '<button class="fm-quiet rise-in" id="fm-done-back" style="--d:.38s;background:none;border:0;width:100%;cursor:pointer">Back to chapter</button>';
     /* wire after paint via delegation below */
     setTimeout(function(){
       var nx = $("fm-done-next");
       if(nx) nx.addEventListener("click", function(){ openLesson(next, 0); });
+      var un = $("fm-done-unlock");
+      if(un) un.addEventListener("click", function(){ renderLocked(); });
       var rt = $("fm-done-retry");
       if(rt) rt.addEventListener("click", function(){ openLesson(lesson, quizPageIdx(lesson)); });
       $("fm-done-back").addEventListener("click", function(){ renderChapter(); });
