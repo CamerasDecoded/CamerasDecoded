@@ -114,9 +114,18 @@
       avatar: String(display).trim().charAt(0).toUpperCase() || 'O'
     };
 
+    // Today's XP for the goal ring: prefer the xpByDay ledger. It is
+    // increment-only (every XP writer stamps it), so each banked XP counts
+    // exactly once — immune to the absolute-set day-boundary races that can
+    // wipe or strand the xpToday counter. Falls back to xpToday/dailyXp for
+    // docs whose ledger predates the writers' stamps.
+    const ringDayKey = cdTodayKey();
+    const ledgerToday = (u && u.xpByDay && typeof u.xpByDay[ringDayKey] === 'number')
+      ? u.xpByDay[ringDayKey] : null;
+
     vm.stats = {
       streak: toNum(pick(u, ['dailyChallengeStreak','streakDays','streak'], 0)),
-      xpToday: rolledDay ? 0 : toNum(pick(u, ['xpToday','dailyXp'], 0)),
+      xpToday: ledgerToday !== null ? ledgerToday : (rolledDay ? 0 : toNum(pick(u, ['xpToday','dailyXp'], 0))),
       xpGoal: toNum(pick(u, ['xpGoal','dailyXpGoal'], 100), 100),
       rank: pick(u, ['rank','operatorRank','level'], '—')
     };

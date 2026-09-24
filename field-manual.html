@@ -1298,7 +1298,10 @@ body{display:block !important;justify-content:normal !important;align-items:norm
         if(freshDay){ upd.xpToday = F.increment(result.gained); }
         else { upd.xpToday = result.gained; upd.dailyXp = result.gained; upd.xpTodayDate = tk; }
         upd['xpByDay.' + tk] = F.increment(result.gained);
-        await d.collection("users").doc(user.uid).update(upd);
+        /* set-with-merge, not update: if the users doc doesn't exist yet,
+           update() throws (swallowed below) and the banked XP never reaches
+           the daily total even though the ledger already paid it. */
+        await d.collection("users").doc(user.uid).set(upd, { merge: true });
       }catch(e){}
       await updateLeaderboard(user.uid, result.gained, 0);
     }
