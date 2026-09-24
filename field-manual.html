@@ -493,7 +493,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   "use strict";
   /* Field Manual player — multi-chapter.
      Pro-gated: no lesson body is rendered unless tier === 'pro'.
-     Free access: Chapter 1 only. */
+     Free access: Chapters 1-2 only. */
 
   var LESSON_XP = 20;
   var PERFECT_BONUS = 10;
@@ -722,30 +722,31 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   function renderLocked(){
     document.title = "Field Manual — Cameras Decoded";
     var decoded = progress.completedLessons.length > 0;
-    /* paywall copy is computed from the free chapter — never hardcoded lesson counts */
-    var fc = freeChapter();
-    var freeNum = fc ? (parseInt(chapterNum(fc), 10) || 1) : 1;
-    var freeName = "Chapter " + freeNum;
-    var freeLessons = fc ? (fc.lessons || []) : [];
-    var firstFree = freeLessons[0] || null;
+    /* paywall copy is computed from the free chapters — never hardcoded lesson counts */
+    var fcs = freeChapters();
+    var firstNum = fcs[0] ? (parseInt(chapterNum(fcs[0]), 10) || 1) : 1;
+    var lastNum = fcs.length ? (parseInt(chapterNum(fcs[fcs.length - 1]), 10) || firstNum) : firstNum;
+    var freeName = lastNum > firstNum ? "Chapters " + firstNum + "\u2013" + lastNum : "Chapter " + firstNum;
+    var lockedFrom = "Chapter " + (lastNum + 1);
+    var firstFree = (fcs[0] && fcs[0].lessons && fcs[0].lessons[0]) || null;
     var row1 = $("fm-pay-row1");
-    if(row1) row1.textContent = "Everything after " + freeName;
+    if(row1) row1.textContent = "Everything from " + lockedFrom + " on";
     if(user && decoded){
-      $("fm-pay-title").textContent = "The free chapter is yours.";
+      $("fm-pay-title").textContent = "The free chapters are yours.";
       $("fm-pay-sub").textContent = "You've started " + freeName + " \u2014 the rest of the Manual is Pro.";
-      $("fm-pay-cynetis").textContent = "Chapter 1 was the handshake. The Manual is the mission.";
+      $("fm-pay-cynetis").textContent = "The free chapters were the handshake. The Manual is the mission.";
       $("fm-pay-quiet").textContent = "Continue with free content";
       $("fm-pay-quiet").href = "javascript:history.back()";
     } else if(user){
       $("fm-pay-title").textContent = "The Manual goes deeper.";
-      $("fm-pay-sub").textContent = freeName + " is free \u2014 decode it on the house. Everything after it is Pro.";
+      $("fm-pay-sub").textContent = freeName + " are free \u2014 decode them on the house. Everything from " + lockedFrom + " on is Pro.";
       $("fm-pay-cynetis").textContent = "Start where every operator starts: chapter one, on me.";
-      $("fm-pay-quiet").textContent = "Start " + freeName + " \u2014 free";
+      $("fm-pay-quiet").textContent = "Start Chapter " + firstNum + " \u2014 free";
       $("fm-pay-quiet").href = "/field-manual.html?lesson=" + encodeURIComponent(firstFree ? firstFree.id : "");
     } else {
       $("fm-pay-title").textContent = "The Manual goes deeper.";
-      $("fm-pay-sub").textContent = "Log in to check your access \u2014 " + freeName + " is free for every operator.";
-      $("fm-pay-cynetis").textContent = "The full manual is a Pro instrument. Your first chapter is on the house.";
+      $("fm-pay-sub").textContent = "Log in to check your access \u2014 " + freeName + " are free for every operator.";
+      $("fm-pay-cynetis").textContent = "The full manual is a Pro instrument. Your first two chapters are on the house.";
       $("fm-pay-quiet").textContent = "Continue with free content";
       $("fm-pay-quiet").href = "javascript:history.back()";
     }
@@ -1436,13 +1437,12 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     }catch(e){}
   }
 
-  /* free tier: the entire first chapter is free. Everything after it is Pro. */
-  function freeChapter(){ var chs = (window.GUIDE_DATA && GUIDE_DATA.chapters) || []; return chs[0] || null; }
+  /* free tier: the first two chapters are free. Chapter 3 and beyond are Pro. */
+  function freeChapters(){ var chs = (window.GUIDE_DATA && GUIDE_DATA.chapters) || []; return chs.slice(0, 2); }
   function canAccess(lesson){
     if(!lesson || !user) return false;   /* signed-out: nothing opens, paywall decides */
     if(tier === "pro") return true;
-    var fc = freeChapter();
-    return !!(fc && owningChapter(lesson.id) === fc);
+    return freeChapters().indexOf(owningChapter(lesson.id)) !== -1;
   }
 
   var _fmAudio = null;
