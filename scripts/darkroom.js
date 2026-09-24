@@ -311,8 +311,25 @@ function openSheet(skillId){
         '<span>Level ' + plvl + ' · ' + pxp + '/' + needXp + ' XP</span></div>' +
         '<div class="xpbar"><i style="width:' + pct + '%"></i></div></div>';
     }).join('');
+    // Plain-words unlock path: exactly what stands between the user and this
+    // node, so nobody has to do XP math. (Drills pay a flat +10/day now —
+    // no hidden score gate — so the count is exact.)
+    function unlockPathLine(){
+      const pid = unmet[0], p = skillMap[pid], pxp = xpOf(PROGRESS, pid);
+      const pLessons = (PROGRESS[pid] && PROGRESS[pid].lessonsDone) || [];
+      const left = needXp - pxp;
+      if (!pLessons.length){
+        const d = Math.max(0, Math.ceil((left - 20) / 10));
+        return 'Complete the <b>' + p.name + '</b> lesson (+20 XP)' +
+          (d > 0 ? ', then <b>' + d + ' daily drill' + (d === 1 ? '' : 's') + '</b>' : '') +
+          ' to unlock.';
+      }
+      const d = Math.max(1, Math.ceil(left / 10));
+      return '<b>' + d + ' more daily drill' + (d === 1 ? '' : 's') + '</b> to unlock.';
+    }
     document.getElementById('sheetReq').innerHTML =
       '<span class="unlock-head">Locked — earn XP in:</span>' + rows +
+      '<span class="unlock-path">' + unlockPathLine() + '</span>' +
       '<span class="unlock-how">How to earn XP: lesson <b>+20 XP</b> · daily drill <b>+10 XP</b></span>' +
       '<button type="button" class="xpx-inline-link" id="unlockXpLink">How XP works &rarr;</button>';
     const xpLink = document.getElementById('unlockXpLink');
