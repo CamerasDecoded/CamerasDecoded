@@ -3037,6 +3037,88 @@ button.phase-head .phase-kicker{display:block}
         `;
     }
 
+    // ---------- dossier foley: paper + folder sounds (WebAudio, procedural) ----------
+    // A tiny synthesized foley kit for the folders and tabs. Paper tabs get a
+    // paper-slide swish; operation folders get a cardboard thump + slide.
+    // Respects the cd_sound mute pref via CDSound; the theme bed always wins
+    // (these are short and quiet). The AudioContext is created lazily inside
+    // the tap, which is what iOS requires to unlock audio.
+    var Foley = (function () {
+      var ctx = null, noiseBuf = null, master = null;
+      function soundOn() {
+        try { return !window.CDSound || window.CDSound.isOn(); }
+        catch (e) { return true; }
+      }
+      function ensure() {
+        if (ctx) { if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} } return true; }
+        try {
+          var AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return false;
+          ctx = new AC();
+          master = ctx.createGain();
+          master.gain.value = 0.42;
+          master.connect(ctx.destination);
+          var len = Math.floor(ctx.sampleRate * 1.2);
+          noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+          var d = noiseBuf.getChannelData(0);
+          for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+          return true;
+        } catch (e) { return false; }
+      }
+      // One filtered noise grain with a snappy attack and exponential decay.
+      function grain(t0, dur, type, freq, q, peak) {
+        try {
+          var src = ctx.createBufferSource();
+          src.buffer = noiseBuf;
+          src.playbackRate.value = 0.9 + Math.random() * 0.2; // never mechanical
+          var f = ctx.createBiquadFilter();
+          f.type = type; f.frequency.value = freq; f.Q.value = q;
+          var g = ctx.createGain();
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0011), t0 + 0.012);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+          src.connect(f); f.connect(g); g.connect(master);
+          src.start(t0, Math.random() * 0.8);
+          src.stop(t0 + dur + 0.05);
+        } catch (e) {}
+      }
+      // Soft low thump with a pitch drop — the cardboard body of a folder.
+      function thump(t0, dur, f0, f1, peak) {
+        try {
+          var o = ctx.createOscillator();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(f0, t0);
+          o.frequency.exponentialRampToValueAtTime(f1, t0 + dur * 0.7);
+          var g = ctx.createGain();
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0011), t0 + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+          o.connect(g); g.connect(master);
+          o.start(t0); o.stop(t0 + dur + 0.05);
+        } catch (e) {}
+      }
+      function paper() {
+        if (!soundOn() || !ensure()) return;
+        var t = ctx.currentTime;
+        grain(t, 0.22, 'bandpass', 4200, 1.1, 0.5);         // crisp slide
+        grain(t + 0.03, 0.26, 'bandpass', 2300, 1.4, 0.28); // body swish
+        grain(t + 0.07, 0.18, 'highpass', 6000, 0.8, 0.16); // airy tail
+      }
+      function folder(open) {
+        if (!soundOn() || !ensure()) return;
+        var t = ctx.currentTime;
+        if (open) {
+          thump(t, 0.16, 105, 58, 0.55);
+          grain(t + 0.01, 0.2, 'lowpass', 750, 0.7, 0.4);    // cardboard body
+          grain(t + 0.06, 0.24, 'bandpass', 3400, 1.2, 0.22); // paper settles
+        } else {
+          thump(t, 0.12, 130, 70, 0.45);
+          grain(t + 0.01, 0.14, 'lowpass', 650, 0.7, 0.32);
+        }
+      }
+      return { paper: paper, folder: folder };
+    })();
+
     // Dossier expand/collapse + operation folder toggle (delegated – survives re-renders)
     stepContainer.addEventListener('click', (e) => {
       const folderBtn = e.target.closest('.folder-toggle');
@@ -3049,7 +3131,8 @@ button.phase-head .phase-kicker{display:block}
           fs[section.id.replace('phase-group-', '')] = open;
           writeFoldState(fs);
         }
-        try { if (window.CDHaptics) window.CDHaptics.tick(); } catch (err) {}
+        try { Foley.folder(open); } catch (err) {}
+        try { if (window.CDHaptics) window.CDHaptics[open ? 'success' : 'tick'](); } catch (err) {}
         return;
       }
       const head = e.target.closest('.dossier-head');
@@ -3058,6 +3141,8 @@ button.phase-head .phase-kicker{display:block}
       head.setAttribute('aria-expanded', String(!expanded));
       const body = document.getElementById(head.getAttribute('aria-controls'));
       if (body) body.hidden = expanded;
+      if (!expanded) { try { Foley.paper(); } catch (err) {} }
+      try { if (window.CDHaptics) window.CDHaptics.tick(); } catch (err) {}
     });
 
     // ================================================================
@@ -3078,6 +3163,8 @@ button.phase-head .phase-kicker{display:block}
         panel.hidden = !on;
         panel.classList.toggle('active', on);
       });
+      try { if (typeof Foley !== 'undefined') Foley.paper(); } catch (e) {}
+      try { if (window.CDHaptics) window.CDHaptics.tick(); } catch (e) {}
       if (focus) { try { tab.focus(); } catch (e) {} }
     }
     document.addEventListener('click', function (e) {
