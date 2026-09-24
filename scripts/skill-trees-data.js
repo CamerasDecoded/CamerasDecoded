@@ -9,7 +9,7 @@
 
 const LEVELS = [
   { level: 1, xp: 20  },   // started
-  { level: 2, xp: 60  },   // functional — unlocks downstream skills
+  { level: 2, xp: 40  },   // functional — unlocks downstream skills
   { level: 3, xp: 140 },   // solid
   { level: 4, xp: 260 },   // advanced
   { level: 5, xp: 400 },   // mastered
