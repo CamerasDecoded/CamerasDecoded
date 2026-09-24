@@ -933,7 +933,7 @@
       if (open) {
         const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         ['.protocol-section', '.referral-card', '.quiz-card', '.ambassador-card'].forEach((sel, i) => {
-          const el = $(sel);
+          const el = document.querySelector(sel);
           if (!el) return;
           if (reduce) { el.classList.add('in'); return; }
           setTimeout(() => el.classList.add('in'), 60 + i * 70);
