@@ -48,7 +48,12 @@ window.CDFinalExams = (function () {
   function db() {
     return (typeof window.db !== 'undefined' && window.db) ? window.db : null;
   }
-  function user() { return (C && C.getUser) ? C.getUser() : null; }
+  /* Host context first (field-manual.html); fall back to the global auth
+     state so standalone pages (retake-success.html) work without init(). */
+  function user() {
+    if (C && C.getUser) { var u = C.getUser(); if (u) return u; }
+    return (typeof window.auth !== 'undefined' && window.auth) ? window.auth.currentUser : null;
+  }
 
   function exam() {
     var gd = window.GUIDE_DATA;
