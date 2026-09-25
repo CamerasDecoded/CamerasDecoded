@@ -6,7 +6,7 @@
   <title>Chapter — Cameras Decoded</title>
 
   <!-- Master Loader -->
-  <script src="/scripts/master-loader.js?v=20260923g"></script>
+  <script src="/scripts/master-loader.js?v=20260924e"></script>
 
   <!-- Guide & Quiz Styles -->
   <link rel="stylesheet" href="/styles/guide-styles.css?v=20260911a" />
@@ -26,7 +26,7 @@
 
   <!-- Rewards -->
   <script src="/scripts/badge-definitions.js?v=20260911a"></script>
-  <script src="/scripts/reward-engine.js?v=20260911a"></script>
+  <script src="/scripts/reward-engine.js?v=20260924a"></script>
 
   <!-- Guide-specific scripts -->
   <script src="/scripts/guide-loader.js?v=20260911a"></script>
@@ -196,8 +196,25 @@
               }`;
 
             // --- Reward loop ---
+            // The in-page flag alone lets a page reload re-pay +20 without limit.
+            // The persistent ledger below is the real payment authority: one
+            // +20 per chapter, ever. The claim is stamped only after a
+            // successful award, so a failed award stays retryable.
             if (final.passed && !rewardsAwarded) {
               rewardsAwarded = true;
+              const claimRef = firebase.firestore().collection('users').doc(userId);
+              let quizXpPaid = false;
+              try {
+                const claimSnap = await claimRef.get();
+                const claimData = claimSnap.exists ? claimSnap.data() : {};
+                quizXpPaid = !!((claimData.guideQuizXpPaid || {})[chapterId]);
+              } catch (claimReadErr) {
+                console.warn('guide quiz claim read failed', claimReadErr);
+              }
+              if (quizXpPaid) {
+                document.getElementById('quizFeedback').innerHTML +=
+                  '<br><em>Quiz XP already earned for this chapter.</em>';
+              } else {
               try {
                 const rewards = await RewardEngine.award({
                   uid: userId,
@@ -210,6 +227,14 @@
                   },
                   candidateBadges: badgesFromChapter(chapter)
                 });
+
+                try {
+                  const claimUpd = {};
+                  claimUpd['guideQuizXpPaid.' + chapterId] = true;
+                  await claimRef.set(claimUpd, { merge: true });
+                } catch (claimWriteErr) {
+                  console.warn('guide quiz claim stamp failed', claimWriteErr);
+                }
 
                 const parts = [`+${rewards.xpEarned} XP`];
                 if (rewards.streak > 1) parts.push(`🔥 ${rewards.streak}-day streak`);
@@ -226,6 +251,7 @@
                 console.error('RewardEngine failed', e);
                 document.getElementById('quizFeedback').innerHTML +=
                   '<br><em>(Rewards failed to save — your quiz result is still recorded.)</em>';
+              }
               }
             }
           }

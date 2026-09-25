@@ -86,8 +86,9 @@
   // Speed matters more than ceremony here: the theme is the priority, so
   // when resuming we kick off playback IMMEDIATELY at silence (that kick
   // is also what makes iOS start fetching/decoding without delay), then
-  // seek to the saved spot and unmute the instant metadata lands. Never
-  // any audible blip of the track start, never a wait.
+  // seek to the saved spot once the audio is actually buffered (canplay)
+  // and unmute after the seek verifies. Never any audible blip of the
+  // track start, never a wait.
   function start() {
     if (!isOn()) return false;
     try {
@@ -101,32 +102,39 @@
         var p = a.play();
         if (p && typeof p.catch === 'function') p.catch(function () {});
       };
-      var applyResume = function () {
-        // Metadata is in: seek to the saved spot, then come back at full
-        // volume. The loop continues instead of restarting.
-        try {
-          var dur = a.duration || 0;
-          if (dur > 0 && resumePos < dur - 2) a.currentTime = resumePos;
-        } catch (e) {}
-        try { a.volume = TARGET_VOL; } catch (e) {}
-      };
 
       if (resuming) {
-        if (a.readyState >= 1) {
-          applyResume(); // metadata already in: seek, then play — instant
+        // iOS-hardened resume: seek while silent at/after canplay — never at
+        // bare loadedmetadata. iOS can silently drop seeks made before audio
+        // data is buffered, which restarts the track from 0 on every page.
+        // The pipeline still kicks off instantly and silently; we unmute only
+        // after the seek verifies, so the user never hears position 0.
+        var seekDone = false;
+        var doSeekPlay = function () {
+          if (seekDone) return; seekDone = true;
+          try { a.removeEventListener('canplay', doSeekPlay); } catch (e) {}
+          if (!isOn()) return;
+          try {
+            var dur = a.duration || 0;
+            if (dur > 0 && resumePos < dur - 2) a.currentTime = resumePos;
+          } catch (e) {}
           playNow();
+          setTimeout(function () {
+            try {
+              if (isOn() && resumePos > 1 && Math.abs(a.currentTime - resumePos) > 2.5) {
+                a.currentTime = resumePos; // seek didn't take: one retry
+              }
+            } catch (e) {}
+            try { if (isOn()) a.volume = TARGET_VOL; } catch (e) {}
+          }, 350);
+        };
+        try { a.volume = 0; } catch (e) {}
+        if (a.readyState >= 3) {
+          doSeekPlay(); // buffered: seek, then play — instant
         } else {
-          try { a.volume = 0; } catch (e) {}
-          playNow(); // pipeline starts now, silently
-          var metaDone = false;
-          var onMeta = function () {
-            if (metaDone) return; metaDone = true;
-            try { a.removeEventListener('loadedmetadata', onMeta); } catch (e) {}
-            if (!isOn()) return;
-            applyResume();
-          };
-          a.addEventListener('loadedmetadata', onMeta);
-          setTimeout(onMeta, 1500); // backstop: unmute even if metadata stalls
+          playNow(); // silent pipeline warmup; the real seek lands at canplay
+          a.addEventListener('canplay', doSeekPlay);
+          setTimeout(doSeekPlay, 2000); // backstop: never leave it silent
         }
         return true;
       }

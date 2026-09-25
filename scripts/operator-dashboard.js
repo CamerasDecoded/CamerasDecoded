@@ -114,9 +114,18 @@
       avatar: String(display).trim().charAt(0).toUpperCase() || 'O'
     };
 
+    // Today's XP for the goal ring: prefer the xpByDay ledger. It is
+    // increment-only (every XP writer stamps it), so each banked XP counts
+    // exactly once — immune to the absolute-set day-boundary races that can
+    // wipe or strand the xpToday counter. Falls back to xpToday/dailyXp for
+    // docs whose ledger predates the writers' stamps.
+    const ringDayKey = cdTodayKey();
+    const ledgerToday = (u && u.xpByDay && typeof u.xpByDay[ringDayKey] === 'number')
+      ? u.xpByDay[ringDayKey] : null;
+
     vm.stats = {
       streak: toNum(pick(u, ['dailyChallengeStreak','streakDays','streak'], 0)),
-      xpToday: rolledDay ? 0 : toNum(pick(u, ['xpToday','dailyXp'], 0)),
+      xpToday: ledgerToday !== null ? ledgerToday : (rolledDay ? 0 : toNum(pick(u, ['xpToday','dailyXp'], 0))),
       xpGoal: toNum(pick(u, ['xpGoal','dailyXpGoal'], 100), 100),
       rank: pick(u, ['rank','operatorRank','level'], '—')
     };
@@ -399,7 +408,7 @@
     if (!uid || !el || !window.db) return;
     const my = ++sparkReq;
     const days = [];
-    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push(d.toISOString().slice(0, 10)); }
+    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push(cdTodayKey(d)); }
     const perDay = {};
     days.forEach(k => { perDay[k] = 0; });
     const ledger = (vm.raw && vm.raw.xpByDay) || {};
@@ -412,7 +421,7 @@
         const s = doc.data() || {};
         const t = s.createdAt && s.createdAt.toDate ? s.createdAt.toDate() : null;
         if (!t || typeof s.xp !== 'number') return;
-        const k = t.toISOString().slice(0, 10);
+        const k = cdTodayKey(t);
         if (!s.bankedDaily && k in perDay) perDay[k] += s.xp;
         sessions.push({ key: k, xp: s.xp, game: s.game || s.slotId || 'game', score: s.score, ts: t, bankedDaily: !!s.bankedDaily });
       });
@@ -473,7 +482,7 @@
     let html = '';
     for (let i = 6; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i);
-      const k = d.toISOString().slice(0, 10);
+      const k = cdTodayKey(d);
       const active = typeof ledger[k] === 'number' && ledger[k] > 0;
       const idx = 6 - i;
       html += `<span class="dot${active ? ' on' : ''}${idx === 6 ? ' today' : ''}" style="--i:${idx}"></span>`;
@@ -681,7 +690,7 @@
   function openChallengeModal() {
     const u = vm.raw || {};
     const log = u.challengeLog || u.dailyChallengeLog || [];
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = cdTodayKey();
     if (Array.isArray(log) && log.includes(todayKey)) return;
     const name = $('challengeModalName');
     const desc = $('challengeModalDesc');
@@ -716,8 +725,8 @@
 
   function renderCollections() {
     const c = vm.counts;
-    const ids = ['protocolCount','snapshotCount','postCount'];
-    const vals = [c.protocols, c.snapshots, c.posts];
+    const ids = ['protocolCount','snapshotCount'];
+    const vals = [c.protocols, c.snapshots];
     ids.forEach((id, i) => { const el = $(id); if (el) el.textContent = vals[i]; });
   }
 
@@ -749,7 +758,7 @@
   function renderChallenge() {
     const u = vm.raw;
     const log = u.challengeLog || u.dailyChallengeLog || [];
-    const todayKey = new Date().toISOString().slice(0,10);
+    const todayKey = cdTodayKey();
     const done = Array.isArray(log) && log.includes(todayKey);
     const dayIdx = Math.floor(Date.now() / 86400000) % CHALLENGES.length;
     const c = u.dailyChallenge || CHALLENGES[dayIdx];
@@ -770,7 +779,7 @@
       let html = '';
       for (let i = 6; i >= 0; i--) {
         const dt = new Date(); dt.setDate(dt.getDate() - i);
-        const key = dt.toISOString().slice(0,10);
+        const key = cdTodayKey(dt);
         const ok = Array.isArray(log) && log.includes(key);
         html += `<span class="log-day${ok ? ' complete' : ''}">${dayNames[dt.getDay()]}</span>`;
       }
@@ -854,12 +863,12 @@
   // under prefers-reduced-motion.
   const ENTRANCE_ORDER = ['.hero-block','.goal-panel','.stats-strip','.drill-card','.journey-block','.activity-panel','.challenge-grid','.more-toggle','.workspace-heading','.collections-strip','.ai-section','.protocol-section','.referral-card','.quiz-card','.ambassador-card','.dashboard-footer'];
   function prepEntrance() {
-    ENTRANCE_ORDER.forEach(sel => { const el = $(sel); if (el) el.classList.add('rise'); });
+    ENTRANCE_ORDER.forEach(sel => { const el = document.querySelector(sel); if (el) el.classList.add('rise'); });
   }
   function playEntrance() {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     ENTRANCE_ORDER
-      .map(sel => $(sel))
+      .map(sel => document.querySelector(sel))
       .filter(el => el && el.offsetParent !== null)
       .forEach((el, i) => {
         if (reduce || i === 0) { el.classList.add('in'); return; }
@@ -876,6 +885,37 @@
     modal.setAttribute('aria-hidden','false');
     document.body.style.overflow = 'hidden';
     setTimeout(() => modal.querySelector('.close-btn')?.focus(), 20);
+    // Quick drill: if today's +10 is already banked, say so up front — the
+    // finish button must never promise XP it won't pay. The write guard in
+    // the drillFinish handler stays authoritative.
+    if (id === 'drill') primeDrillMode();
+  }
+  // Practice mode for the quick drill. +10 XP banks once per local day;
+  // quickDrillDays on users/{uid} is the anti-farm ledger (same shape as
+  // the Darkroom's drillDays). Repeats are still playable, worth +0.
+  let drillPrimeToken = 0;
+  async function drillBankedToday(uid) {
+    try {
+      const snap = await window.db.collection('users').doc(uid).get();
+      const u = snap.exists ? snap.data() : null;
+      return { banked: ((u && u.quickDrillDays) || []).includes(cdTodayKey()), data: u };
+    } catch (e) { return { banked: false, data: null }; }
+  }
+  async function primeDrillMode() {
+    const my = ++drillPrimeToken;
+    const note = $('drillPracticeNote'), btn = $('drillFinish');
+    if (note) note.hidden = true;
+    if (btn) btn.textContent = 'Finish drill · +10 XP';
+    try {
+      const uid = vm.user && vm.user.uid;
+      if (!uid || !window.db) return;
+      const { banked } = await drillBankedToday(uid);
+      if (my !== drillPrimeToken) return;
+      if (banked) {
+        if (note) note.hidden = false;
+        if (btn) btn.textContent = 'Finish drill · practice';
+      }
+    } catch (e) { /* keep the bankable default on read failure */ }
   }
   function closeModal(modal) {
     modal.classList.remove('open');
@@ -902,7 +942,7 @@
       if (open) {
         const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         ['.protocol-section', '.referral-card', '.quiz-card', '.ambassador-card'].forEach((sel, i) => {
-          const el = $(sel);
+          const el = document.querySelector(sel);
           if (!el) return;
           if (reduce) { el.classList.add('in'); return; }
           setTimeout(() => el.classList.add('in'), 60 + i * 70);
@@ -979,19 +1019,30 @@
       }));
     });
 
+    // Quick drill: +10 XP once per local day. The quickDrillDays ledger is
+    // checked before every write — repeats are playable but bank +0.
+    let drillBusy = false;
     $('drillFinish')?.addEventListener('click', async () => {
       const uid = vm.user.uid;
-      if (!uid) return;
+      if (!uid || drillBusy) return;
+      drillBusy = true;
       try {
         const tk = cdTodayKey();
-        const freshSnap = await window.db.collection('users').doc(uid).get();
-        const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
+        const { banked, data } = await drillBankedToday(uid);
+        if (banked) {
+          showToast('Drill XP already banked today · practice reps are +0');
+          announce('Drill XP already banked today.');
+          closeModal($('drillModal'));
+          return;
+        }
+        const freshDay = cdDayFresh(data);
         await window.db.collection('users').doc(uid).update({
           ...(freshDay
             ? { xpToday: firebase.firestore.FieldValue.increment(10) }
             : { xpToday: 10, dailyXp: 10, xpTodayDate: tk }),
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(10),
+          quickDrillDays: firebase.firestore.FieldValue.arrayUnion(tk),
           lastActivityDate: tk,
           lastActiveDate: tk,
           lastStreakDate: tk,
@@ -1006,36 +1057,56 @@
       } catch (err) {
         console.warn('[Dashboard] Drill write failed:', err);
         showToast('Could not save drill. Check your connection.');
+      } finally {
+        drillBusy = false;
       }
     });
 
+    // Lesson preview: +20 XP once ever — this is a single fixed lesson, so
+    // repeats must not re-bank. lessonPreviewBanked on users/{uid} is the
+    // once-only flag (the journey's completedSteps stays the progress record).
+    let lessonBusy = false;
     $('lessonFinish')?.addEventListener('click', async () => {
       const uid = vm.user.uid;
       const nextId = vm.journey.next && vm.journey.next.id;
-      if (uid && nextId) {
-        try {
-          await window.db.collection('userJourney').doc(uid).set({
-            completedNodes: firebase.firestore.FieldValue.arrayUnion(nextId)
-          }, { merge: true });
-          const tk = cdTodayKey();
-          const freshSnap = await window.db.collection('users').doc(uid).get();
-          const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
-          await window.db.collection('users').doc(uid).update({
-            ...(freshDay
-              ? { xpToday: firebase.firestore.FieldValue.increment(20) }
-              : { xpToday: 20, dailyXp: 20, xpTodayDate: tk }),
-            totalPoints: firebase.firestore.FieldValue.increment(20),
-            ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(20),
-            lastActivityDate: tk,
-            lastActiveDate: tk,
-            lastStreakDate: tk,
-            lastXpDate: tk
-          });
-          showToast('Lesson marked complete · +20 XP');
-        } catch (err) {
-          console.warn('[Dashboard] Lesson write failed:', err);
-          showToast('Could not save lesson progress.');
+      if (!uid || !nextId || lessonBusy) { closeModal($('lessonModal')); return; }
+      lessonBusy = true;
+      try {
+        const lsnap = await window.db.collection('users').doc(uid).get().catch(() => null);
+        const ludata = (lsnap && lsnap.exists) ? lsnap.data() : null;
+        if (ludata && ludata.lessonPreviewBanked) {
+          showToast('Lesson XP already banked');
+          closeModal($('lessonModal'));
+          return;
         }
+        // Canonical journey progress: userJourney/{uid}/levels/{level} →
+        // completedSteps, the same doc the Missions page and this
+        // dashboard's hero read. (A previous write targeted a
+        // `completedNodes` field on the parent doc that nothing reads.)
+        const level = (vm.journey && vm.journey.level) || 'beginner';
+        await window.db.collection('userJourney').doc(uid).collection('levels').doc(level).set({
+          completedSteps: firebase.firestore.FieldValue.arrayUnion(nextId)
+        }, { merge: true });
+        const tk = cdTodayKey();
+        const freshDay = cdDayFresh(ludata);
+        await window.db.collection('users').doc(uid).update({
+          ...(freshDay
+            ? { xpToday: firebase.firestore.FieldValue.increment(20) }
+            : { xpToday: 20, dailyXp: 20, xpTodayDate: tk }),
+          totalPoints: firebase.firestore.FieldValue.increment(20),
+          ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(20),
+          lessonPreviewBanked: true,
+          lastActivityDate: tk,
+          lastActiveDate: tk,
+          lastStreakDate: tk,
+          lastXpDate: tk
+        });
+        showToast('Lesson marked complete · +20 XP');
+      } catch (err) {
+        console.warn('[Dashboard] Lesson write failed:', err);
+        showToast('Could not save lesson progress.');
+      } finally {
+        lessonBusy = false;
       }
       closeModal($('lessonModal'));
     });
@@ -1273,8 +1344,10 @@
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[c]));
   }
-  function utcKey(d) { return d.toISOString().slice(0, 10); }
-  function todayKey() { return utcKey(new Date()); }
+  // Local-day key shared by the calendar, XP breakdown, and rank preview.
+  // The xpByDay ledger and challenge log are stamped with the user's local
+  // calendar day (never UTC) — after 7pm CT a UTC date is tomorrow.
+  function todayKey() { return cdTodayKey(); }
 
   function prettyGameName(g) {
     const s = String(g || '').trim();
@@ -1393,11 +1466,11 @@
   // ---------- XP breakdown ----------
   async function openXpDetail() {
     await refreshStatData();
-    renderXpDetail();
+    await renderXpDetail();
     openModal('xpDetail');
   }
 
-  function renderXpDetail() {
+  async function renderXpDetail() {
     const rowsBox = $('xpDetailRows');
     if (!rowsBox) return;
     const tKey = todayKey();
@@ -1405,6 +1478,19 @@
     const xpGoal = (vm.stats && vm.stats.xpGoal) || 100;
     $('xpDetailTotal').textContent = xpToday;
     $('xpDetailGoal').textContent = `${xpToday} of ${xpGoal}`;
+
+    // Lifetime total: read fresh from the signed-in user's own doc at open
+    // time, so the sheet always shows this uid's number — never a cached,
+    // shared, or another user's value.
+    try {
+      const uid = vm.user && vm.user.uid;
+      let lifetime = 0;
+      if (uid && window.db) {
+        const snap = await window.db.collection('users').doc(uid).get();
+        if (snap.exists) lifetime = toNum(snap.data().totalPoints, 0);
+      }
+      $('xpDetailLifetime').textContent = lifetime.toLocaleString('en-US');
+    } catch (e) { /* keep the 0 fallback */ }
 
     // Only banked sessions itemize here: their XP is inside xpToday, so the
     // rows (game XP) + the grouped rest (xpToday - gameXp) sum to the total.

@@ -67,7 +67,7 @@
     { id: 'home',     label: 'Home',     href: '/operator-dashboard.html', icon: 'home' },
     { id: 'journey',  label: 'Missions',  href: '/missions.html',            icon: 'journey' },
     { id: 'practice', label: 'Practice', sheet: 'practice',                icon: 'practice' },
-    { id: 'library',  label: 'Library',  href: '/protocols.html',          icon: 'library' },
+    { id: 'library',  label: 'Protocols', href: '/protocols.html',         icon: 'library' },
     { id: 'more',     label: 'More',     sheet: 'more',                    icon: 'more' }
   ];
 
@@ -269,6 +269,9 @@
   }
 
   // ---------- active tab from URL ----------
+  // Every page that renders the bottom nav maps to its source tab, so the
+  // right button is always highlighted. Transactional (cart/checkout),
+  // auth, and parked pages intentionally map to nothing.
   function detectActiveTab() {
     var p = (location.pathname || '').toLowerCase();
     var hash = (location.hash || '').toLowerCase();
@@ -278,21 +281,34 @@
       return false;
     }
 
-    if (matches(['/darkroom.html', '/quiz-full.html', '/dailyprotocol.html', '/field-manual.html'], p) ||
+    // Practice sheet: drills, games, manual, challenge, daily protocol.
+    if (matches(['/darkroom.html', '/quiz-full.html', '/dailyprotocol.html', '/field-manual.html',
+                 '/arcade.html', '/challenge.html', '/play.html'], p) ||
         matches(['#skill=', '#branch='], hash)) {
       return 'practice';
     }
-    if (matches(['/missions.html', '/learning-guide.html', '/guide-chapter.html', '/guide-progress.html'], p)) {
+    // Missions tab: the guided journey.
+    if (matches(['/missions.html', '/mission-runner.html', '/learning-guide.html', '/guide-chapter.html',
+                 '/guide-progress.html', '/journey.html', '/learning-journey.html', '/learning-module.html'], p)) {
       return 'journey';
     }
-    if (matches(['/protocols.html', '/snapshot-library.html'], p)) {
+    // Protocols tab: the numbered training archive and its reader pages.
+    if (matches(['/protocols.html', '/protocol-', '/dailyprotocols-op-dashboard.html'], p)) {
       return 'library';
     }
-    if (matches(['/community.html', '/ai-workbench.html', '/profile.html', '/leaderboard.html'], p)) {
+    // More sheet: secondary destinations.
+    if (matches(['/community.html', '/ai-workbench.html', '/profile.html', '/admin-profile.html',
+                 '/instructor-profile.html', '/partner-profile.html', '/leaderboard.html',
+                 '/snapshot-library.html', '/decoders-crew.html', '/blog-updates.html', '/blog-post',
+                 '/cynetis-7.html', '/ugc-creator.html', '/founding-200.html', '/inner-signal.html',
+                 '/partners.html', '/operators.html', '/podcast.html',
+                 '/about.html', '/contact.html', '/faq.html', '/terms.html', '/roadmap.html'], p)) {
       return 'more';
     }
+    // Home tab: dashboards.
     if (matches(['/operator-dashboard.html', '/partner-dashboard.html', '/instructor-dashboard.html',
-        '/admin-dashboard.html', '/index.html'], p) || p === '/' || p === '') {
+                 '/admin-dashboard.html', '/launch-operator.html', '/launch-admin.html',
+                 '/index.html'], p) || p === '/' || p === '') {
       return 'home';
     }
     return null;
