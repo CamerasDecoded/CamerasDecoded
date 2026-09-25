@@ -226,7 +226,7 @@
   function loadSharedCSS() {
     // ✅ All paths are now absolute (start with /)
     const files = [
-      '/styles/design-system.css',
+      '/styles/design-system.css?v=20260924a',
       '/styles/components.css',
       '/bottom-nav.css?v=20260912d',
       '/header.css?v=20260919a'
@@ -325,7 +325,7 @@
     if (document.querySelector('script[src*="sound.js"]')) return;
     if (window.CDSound) { wireSoundToggle(); return; }
     const script = document.createElement('script');
-    script.src = '/scripts/sound.js?v=20260923g';
+    script.src = '/scripts/sound.js?v=20260924b';
     script.onload = () => {
       try {
         if (window.__cdSoundPendingStart && window.CDSound) {
@@ -369,7 +369,7 @@
     if (document.querySelector('script[src*="bottom-nav.js"]')) return;
     const script = document.createElement('script');
     // ✅ absolute path — dashboard nav, site-wide
-    script.src = '/scripts/bottom-nav.js?v=20260919a';
+    script.src = '/scripts/bottom-nav.js?v=20260924c';
     document.body.appendChild(script);
   }
 
@@ -405,10 +405,15 @@
     loadReviews();
     // Ambient sound: (re)start the loop on the first tap of every page.
     // A tap is a gesture, so this is where audio is allowed to begin;
-    // CDSound restores the position the last page left off.
+    // CDSound restores the position the last page left off. The listener
+    // stays armed until CDSound actually exists and start() has run — a
+    // tap that lands before sound.js finishes loading must not disarm it,
+    // or that page would stay silent.
     window.addEventListener('pointerdown', function mlAudioStart() {
+      try { if (window.CDSfx) window.CDSfx.unlock(); } catch (e) {}
+      if (!window.CDSound) return; // still loading: keep listening
       window.removeEventListener('pointerdown', mlAudioStart);
-      try { if (window.CDSound) window.CDSound.start(); if (window.CDSfx) window.CDSfx.unlock(); } catch (e) {}
+      try { window.CDSound.start(); } catch (e) {}
     });
     console.log('✅ Master loader complete.');
   }
