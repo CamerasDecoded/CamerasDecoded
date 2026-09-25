@@ -16,6 +16,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
   <!-- ===== FIREBASE INIT ===== -->
   <script src="/scripts/firebase-init.js"></script>
@@ -30,6 +31,7 @@
   <script src="/scripts/sfx.js?v=20260923d"></script>
   <script src="/scripts/haptics.js"></script>
   <script src="/scripts/final-exams.js?v=20260925a"></script>
+  <script src="/scripts/exam-certificates.js?v=20260925a"></script>
 
   <!-- ===== FIELD MANUAL CONTENT =====
        Firestore (guideContent/curriculum) is the source of truth, with a
@@ -409,6 +411,34 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 .fx-chase:active{transform:scale(.99)}
 .fx-chase.armed span{color:var(--amber);text-shadow:0 0 18px rgba(255,176,0,.45)}
 .fx-inline{width:auto;min-width:170px;margin:0}
+/* exam certificates — dossier seal, quiet until the shimmer */
+.fx-cert{position:relative;overflow:hidden;text-align:center;
+  background-color:var(--panel);
+  border:1px solid rgba(141,235,0,.28);border-radius:16px;
+  padding:28px 22px 24px;margin:0 0 14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.35),0 0 26px rgba(141,235,0,.07),inset 0 1px 0 rgba(255,255,255,.05)}
+.fx-cert-title{margin:8px 0 4px;font-size:23px;line-height:1.3;font-weight:700}
+.fx-cert-photo{width:104px;height:104px;border-radius:50%;object-fit:cover;display:block;margin:14px auto 4px;
+  border:2px solid rgba(141,235,0,.55);box-shadow:0 0 22px rgba(141,235,0,.28)}
+.fx-cert-name{margin:10px 0 0;font-size:25px;font-weight:700;letter-spacing:.01em;color:var(--text)}
+.fx-cert-code{margin:16px 0 0;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--faint);text-transform:uppercase}
+.fx-pill{display:inline-block;margin:12px 0 0;padding:7px 14px;border-radius:999px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  border:1px solid var(--line);color:var(--dim)}
+.fx-pill.ok{border-color:rgba(141,235,0,.5);color:var(--neon);text-shadow:0 0 14px rgba(141,235,0,.4)}
+.fx-pill.bad{border-color:rgba(255,90,90,.4);color:#ff9a9a}
+.fx-field{margin:0 0 6px}
+.fx-field label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 8px}
+.fx-field input{width:100%;box-sizing:border-box;background:var(--panel2,var(--panel));border:1px solid var(--line);border-radius:12px;
+  padding:14px 16px;color:var(--text);font-family:var(--sans);font-size:16px;outline:none}
+.fx-field input:focus{border-color:rgba(141,235,0,.55);box-shadow:0 0 0 3px rgba(141,235,0,.12)}
+.fx-cam{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#05070a;aspect-ratio:1/1;max-height:380px;margin:0 auto}
+.fx-cam-video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.fx-cam-paused{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}
+.fx-cam-paused span{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text)}
+.fx-cam-idle{border:1px dashed var(--line);border-radius:16px;padding:34px 20px;text-align:center}
+.fx-shot{width:100%;border-radius:16px;border:1px solid rgba(141,235,0,.35);display:block}
+.fx-actions{display:flex;flex-direction:column;gap:4px}
 /* meta table */
 .fx-meta{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
   padding:9px 2px;border-bottom:1px solid var(--line);font-size:13.5px}
@@ -976,7 +1006,9 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       sfx("chapter");
       playFmSting({ src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }, null);
     });
-    /* final exam card: only on the last chapter's view — the exam caps the track */
+    /* final exam card: only on the last chapter's view — the exam caps the track.
+       States: locked → exam entry → (cleared: claim certificate) → (certified: view certificate).
+       The cert read is async; the node paints the exam entry first, then upgrades. */
     (function(){
       var exBox = $("fm-ch-exam");
       if(!exBox) return;
@@ -984,14 +1016,65 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       var isLast = !!(chs.length && chapter && chs[chs.length-1].id === chapter.id);
       if(!isLast || !window.CDFinalExams){ exBox.innerHTML = ""; return; }
       var tp = CDFinalExams.trackProgress();
-      if(tp.complete){
+      function openExam(){ tapFx("continue"); CDFinalExams.openExam(); }
+      function openCert(best){
+        if(!window.CDCerts) return;
+        tapFx("continue");
+        CDCerts.open(best ? {
+          trackId: "camera-confidence", examTitle: "Camera Confidence",
+          examVersion: "1", attemptId: null,
+          score: best.score, total: best.total, pct: Math.round(best.pct || 0)
+        } : null);
+      }
+      function paintExamEntry(){
         exBox.innerHTML = '<div class="fx-card fx-weave rise-in" style="margin-top:6px">'
           + '<p class="fm-kicker">Final exam</p>'
           + '<p class="fx-q" style="font-size:16px">Camera Confidence — Final Exam</p>'
           + '<p class="fm-sub" style="margin:8px 0 0">25 questions · three parts · 70% to pass. Prove the signal is yours.</p>'
           + '<button class="fx-chase fx-chase-static" id="fm-exam-open"><span>Enter the exam</span></button></div>';
         var eb = $("fm-exam-open");
-        if(eb) eb.addEventListener("click", function(){ tapFx("continue"); CDFinalExams.openExam(); });
+        if(eb) eb.addEventListener("click", openExam);
+      }
+      function paintCleared(best){
+        exBox.innerHTML = '<div class="fx-card fx-weave rise-in" style="margin-top:6px">'
+          + '<p class="fm-kicker">Final exam · cleared</p>'
+          + '<p class="fx-q" style="font-size:16px">Cleared at ' + Math.round(best.pct || 0) + '%</p>'
+          + '<p class="fm-sub" style="margin:8px 0 0">Seal it with a certificate — your name, your score, on the record.</p>'
+          + '<button class="fx-chase fx-chase-static" id="fm-exam-cert"><span>Claim certificate</span></button>'
+          + '<button class="fm-quiet" id="fm-exam-open" style="background:none;border:0;width:100%;cursor:pointer;margin-top:10px">Retake the exam</button></div>';
+        var cb = $("fm-exam-cert");
+        if(cb) cb.addEventListener("click", function(){ openCert(best); });
+        var rb = $("fm-exam-open");
+        if(rb) rb.addEventListener("click", openExam);
+      }
+      function paintCertified(cert){
+        exBox.innerHTML = '<div class="fx-card fx-weave rise-in" style="margin-top:6px">'
+          + '<p class="fm-kicker">Final exam · certified</p>'
+          + '<p class="fx-q" style="font-size:16px">Certificate claimed</p>'
+          + '<p class="fm-sub" style="margin:8px 0 0">' + esc(cert.name) + ' — cleared at ' + (cert.pct || 0) + '%. The record is sealed.</p>'
+          + '<button class="fx-chase fx-chase-static" id="fm-exam-cert"><span>View certificate</span></button>'
+          + '<button class="fm-quiet" id="fm-exam-open" style="background:none;border:0;width:100%;cursor:pointer;margin-top:10px">Retake the exam</button></div>';
+        var vb = $("fm-exam-cert");
+        if(vb) vb.addEventListener("click", function(){ openCert(null); });
+        var rb = $("fm-exam-open");
+        if(rb) rb.addEventListener("click", openExam);
+      }
+      if(tp.complete){
+        paintExamEntry();
+        try{
+          CDFinalExams.getStatus().then(function(st){
+            var best = (st && st.best && st.best.passed) ? st.best : null;
+            var u = (typeof user !== "undefined") ? user : null;
+            if(!u || !window.db){ if(best) paintCleared(best); return; }
+            window.db.collection("examCertificates").doc(u.uid + "_camera-confidence").get()
+              .then(function(snap){
+                var c = snap.exists ? snap.data() : null;
+                if(c && c.status && c.status !== "revoked") paintCertified(c);
+                else if(best) paintCleared(best);
+              })
+              .catch(function(){ if(best) paintCleared(best); });
+          }).catch(function(){});
+        }catch(e){}
       }else{
         exBox.innerHTML = '<div class="fx-card rise-in" style="margin-top:6px;opacity:.85">'
           + '<p class="fm-kicker">Final exam · locked</p>'
@@ -1776,6 +1859,21 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       sfx: sfx,
       tapFx: tapFx,
       toast: toast,
+      confetti: confettiBurst,
+      sting: function(){ playFmSting({ src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }, null); },
+      onExit: function(){ renderChapter(); }
+    });
+  }
+
+  /* ---------------- exam certificates: wire the claim + live-selfie flow ---------------- */
+  if(window.CDCerts){
+    CDCerts.init({
+      showView: showView,
+      setBody: function(html){ $("fm-lesson-body").innerHTML = html; },
+      getUser: function(){ return user; },
+      toast: toast,
+      tapFx: tapFx,
+      sfx: sfx,
       confetti: confettiBurst,
       sting: function(){ playFmSting({ src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }, null); },
       onExit: function(){ renderChapter(); }
