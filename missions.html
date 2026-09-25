@@ -3340,6 +3340,29 @@ button.phase-head .phase-kicker{display:block}
           totalPoints: firebase.firestore.FieldValue.increment(step.points || 0),
         };
 
+        // --- Daily XP: mission points count toward the daily goal, 1 point = 1 XP.
+        // Day-aware stamp (same pattern as Quiz Arena): xpTodayDate (local) is the
+        // day authority — on a fresh day the stored total already belongs to today
+        // so we increment; on a new day we set the first XP absolutely. The
+        // xpByDay ledger is increment-only, so the dashboard ring counts each
+        // banked step exactly once.
+        const missionXp = step.points || 0;
+        if (missionXp > 0) {
+          try {
+            const md = new Date();
+            const mDayKey = md.getFullYear() + '-' + String(md.getMonth() + 1).padStart(2, '0') + '-' + String(md.getDate()).padStart(2, '0');
+            const musnap = await mainUserRef.get();
+            const mudata = musnap.exists ? musnap.data() : {};
+            const mFreshDay = !!(mudata && mudata.xpTodayDate === mDayKey);
+            if (mFreshDay) { mainUpdate.xpToday = firebase.firestore.FieldValue.increment(missionXp); }
+            else { mainUpdate.xpToday = missionXp; mainUpdate.dailyXp = missionXp; mainUpdate.xpTodayDate = mDayKey; }
+            mainUpdate['xpByDay.' + mDayKey] = firebase.firestore.FieldValue.increment(missionXp);
+            mainUpdate.lastActivityDate = mDayKey;
+            mainUpdate.lastActiveDate = mDayKey;
+            mainUpdate.lastXpDate = mDayKey;
+          } catch (xpErr) { console.warn('[Journey] Daily XP stamp skipped:', xpErr); }
+        }
+
         if (earnedBadges.length > 0) {
           mainUpdate.badgesEarned = firebase.firestore.FieldValue.arrayUnion(...earnedBadges);
         }
