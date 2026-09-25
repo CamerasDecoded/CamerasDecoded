@@ -369,7 +369,7 @@
     if (document.querySelector('script[src*="bottom-nav.js"]')) return;
     const script = document.createElement('script');
     // ✅ absolute path — dashboard nav, site-wide
-    script.src = '/scripts/bottom-nav.js?v=20260924a';
+    script.src = '/scripts/bottom-nav.js?v=20260924b';
     document.body.appendChild(script);
   }
 

@@ -285,10 +285,10 @@
     if (matches(['/missions.html', '/learning-guide.html', '/guide-chapter.html', '/guide-progress.html'], p)) {
       return 'journey';
     }
-    if (matches(['/protocols.html', '/snapshot-library.html'], p)) {
+    if (matches(['/protocols.html'], p)) {
       return 'library';
     }
-    if (matches(['/community.html', '/ai-workbench.html', '/profile.html', '/leaderboard.html'], p)) {
+    if (matches(['/community.html', '/ai-workbench.html', '/profile.html', '/leaderboard.html', '/snapshot-library.html'], p)) {
       return 'more';
     }
     if (matches(['/operator-dashboard.html', '/partner-dashboard.html', '/instructor-dashboard.html',
