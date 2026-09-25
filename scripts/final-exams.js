@@ -12,6 +12,12 @@
        { trackId, examVersion, score, total, pct, passed,
          parts:{1:[got,of],2:[got,of],3:[got,of]},
          answers:[{qi,picked,pickedText,correct}], startedAt, submittedAt }
+   - examCertificates/{uid}_{trackId}  (one per learner/track, written by
+     CDCerts on claim — separate from the attempt ledger)
+       { uid, email, trackId, examTitle, examVersion, attemptId,
+         name, score, total, pct, selfiePath, selfieUrl,
+         certificateCode, status, createdAt, verifiedAt, verifiedBy }
+     Storage: examCertificates/{uid}/selfie.jpg (live camera capture only)
    - retakeRequests/{uid}
        { trackId, status:'pending'|'approved'|'declined',
          createdAt, decidedAt, grantedAt, usedAt }
@@ -358,8 +364,9 @@ window.CDFinalExams = (function () {
     var u = user(), d = db();
     if (u && d) {
       try {
-        await d.collection('finalExamAttempts').doc(u.uid)
+        var aref = await d.collection('finalExamAttempts').doc(u.uid)
           .collection('attempts').add(rec);
+        rec.attemptId = aref.id; /* kept so the certificate can cite the exact passing attempt */
         /* consume an approved early-retake grant, if one opened this attempt */
         if (S.status.grant) {
           await d.collection('retakeRequests').doc(u.uid)
@@ -386,6 +393,15 @@ window.CDFinalExams = (function () {
       + '<div class="fx-score-num">' + rec.score + '<span>/' + rec.total + '</span></div>'
       + '<div class="fx-score-pct">' + rec.pct + '% · pass at ' + (S.exam.passPct || PASS_PCT) + '%</div>'
       + '</div>';
+
+    /* passing unlocks the certificate claim — sealed in CDCerts, separate ledger */
+    if (rec.passed) {
+      h += '<div class="fx-card fx-weave">'
+        + '<p class="fm-kicker">Field certification</p>'
+        + '<p class="fm-sub" style="margin:0 0 4px">Seal it with a certificate — your name, your score, on the record.</p>'
+        + '<button class="fx-chase fx-chase-static" id="fx-cert-open"><span>Claim certificate</span></button>'
+        + '</div>';
+    }
 
     h += '<div class="fx-card fx-weave">'
       + [1, 2, 3].map(function (p) {
@@ -427,6 +443,19 @@ window.CDFinalExams = (function () {
     document.title = (rec.passed ? 'Exam cleared' : 'Exam results') + ' — Field Manual';
     wire('fx-again', C.onExit);
     wire('fx-retake-buy2', buyRetake);
+    wire('fx-cert-open', function () {
+      if (!(window.CDCerts && window.CDCerts.open)) {
+        if (C.toast) C.toast('Certificates are still wiring up — check back shortly.', 'error');
+        return;
+      }
+      window.CDCerts.open({
+        trackId: TRACK,
+        examTitle: (S.exam && S.exam.title) || 'Camera Confidence',
+        examVersion: (S.exam && S.exam.version) || '1',
+        attemptId: rec.attemptId || null,
+        score: rec.score, total: rec.total, pct: rec.pct
+      });
+    });
   }
 
   /* ------------------------------ retakes ------------------------------ */

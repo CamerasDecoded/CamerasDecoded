@@ -443,6 +443,11 @@
       color:#ff4a4a; font-family:'Space Mono',monospace; font-weight:600; font-size:12px; cursor:pointer; }
     .btn-decline:hover { background:rgba(255,74,74,0.08); }
     .btn-decline:disabled { opacity:.5; cursor:wait; }
+    .cert-thumb { width:52px; height:52px; border-radius:50%; object-fit:cover; flex-shrink:0;
+      border:1px solid rgba(141,235,0,.4); }
+    .cert-thumb-none { display:flex; align-items:center; justify-content:center;
+      background:rgba(141,235,0,.08); color:var(--green);
+      font-family:'Space Mono',monospace; font-weight:700; font-size:16px; }
     .bc-item { display:flex; gap:12px; align-items:flex-start; padding:12px;
       background:rgba(255,255,255,0.02); border:1px solid var(--border-dim); border-radius:var(--radius); }
     .bc-item .bc-main { flex:1; min-width:0; }
@@ -657,6 +662,17 @@
       </div>
       <div id="retakeReqList" class="bc-list" aria-live="polite">
         <p class="bc-empty">Loading requests…</p>
+      </div>
+    </div>
+
+    <!-- EXAM CERTIFICATES (verification queue) -->
+    <div class="notif-panel" id="certPanel">
+      <div class="panel-header">
+        <h3><i class="fas fa-award"></i> Exam Certificates <span id="certCount" class="pro-req-count" hidden></span></h3>
+        <span style="font-size:12px; color:var(--text-muted);">Verify the earner's identity, then verify — verified certificates are the public record</span>
+      </div>
+      <div id="certList" class="bc-list" aria-live="polite">
+        <p class="bc-empty">Loading certificates…</p>
       </div>
     </div>
 
@@ -1324,6 +1340,135 @@
       }
     }
 
+    /* ---------------- exam certificates (verification queue) ----------------
+       Learners claim certificates from a passed final exam (CDCerts):
+       examCertificates/{uid}_{trackId} -> the owner verifies identity here.
+       Verify stamps verifiedAt; revoke pulls the certificate from the record. */
+    function loadExamCertificates() {
+      db.collection('examCertificates').orderBy('createdAt', 'desc').limit(50)
+        .onSnapshot(renderExamCertificates, function (err) {
+          console.error('Certificates listener error:', err);
+          var list = document.getElementById('certList');
+          if (list) list.innerHTML = '<p class="bc-empty">Couldn\u2019t load certificates.</p>';
+        });
+    }
+
+    function certInitials(name) {
+      var parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return '?';
+      return (parts[0].charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : '')).toUpperCase();
+    }
+
+    function renderExamCertificates(snap) {
+      var list = document.getElementById('certList');
+      var count = document.getElementById('certCount');
+      if (!list) return;
+      var docs = [];
+      snap.forEach(function (d) { docs.push(d); });
+      var pending = docs.filter(function (d) { return (d.data() || {}).status === 'issued'; }).length;
+      if (count) {
+        count.hidden = pending === 0;
+        count.textContent = pending;
+      }
+      if (!docs.length) {
+        list.innerHTML = '<p class="bc-empty">No certificates yet. They appear here when learners claim them.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      docs.forEach(function (d) {
+        var r = d.data() || {};
+        var status = r.status || 'issued';
+        var item = document.createElement('div');
+        item.className = 'pro-req-item';
+
+        var thumb;
+        if (r.selfieUrl) {
+          thumb = document.createElement('img');
+          thumb.className = 'cert-thumb';
+          thumb.alt = 'Certificate photo';
+          thumb.loading = 'lazy';
+          thumb.src = r.selfieUrl;
+        } else {
+          thumb = document.createElement('div');
+          thumb.className = 'cert-thumb cert-thumb-none';
+          thumb.textContent = certInitials(r.name);
+        }
+        item.appendChild(thumb);
+
+        var when = '';
+        try {
+          if (r.createdAt && r.createdAt.toDate) when = r.createdAt.toDate().toLocaleString();
+        } catch (e) {}
+        var main = document.createElement('div');
+        main.className = 'pro-req-main';
+        main.innerHTML = '<div class="pro-req-email"></div>'
+          + '<div class="pro-req-meta"><span></span><span></span><span></span><span></span></div>';
+        item.appendChild(main);
+        main.querySelector('.pro-req-email').textContent = (r.name || 'Unnamed') + (r.email ? ' · ' + r.email : '');
+        var meta = main.querySelectorAll('.pro-req-meta span');
+        meta[0].textContent = (r.score != null ? r.score + '/' + r.total + ' · ' + r.pct + '%' : '—');
+        meta[1].textContent = r.certificateCode || d.id;
+        meta[2].textContent = when;
+        meta[3].textContent = status === 'verified' ? 'Verified' : status === 'revoked' ? 'Revoked' : 'Pending verification';
+        meta[3].style.color = status === 'verified' ? 'var(--green)' : status === 'revoked' ? '#ff9a9a' : 'var(--amber, #ffb000)';
+
+        var actions = document.createElement('div');
+        actions.className = 'pro-req-actions';
+        var approveBtn = null, declineBtn = null;
+        if (status === 'issued') {
+          approveBtn = document.createElement('button');
+          approveBtn.className = 'btn-approve';
+          approveBtn.textContent = 'Verify';
+          actions.appendChild(approveBtn);
+        }
+        if (status !== 'revoked') {
+          declineBtn = document.createElement('button');
+          declineBtn.className = 'btn-decline';
+          declineBtn.textContent = 'Revoke';
+          actions.appendChild(declineBtn);
+        }
+        item.appendChild(actions);
+        if (approveBtn) approveBtn.addEventListener('click', function () { verifyCertificate(d.id, approveBtn, declineBtn); });
+        if (declineBtn) declineBtn.addEventListener('click', function () { revokeCertificate(d.id, approveBtn, declineBtn); });
+        list.appendChild(item);
+      });
+    }
+
+    async function verifyCertificate(id, approveBtn, declineBtn) {
+      approveBtn.disabled = true; if (declineBtn) declineBtn.disabled = true;
+      approveBtn.textContent = 'Verifying…';
+      try {
+        await db.collection('examCertificates').doc(id).update({
+          status: 'verified',
+          verifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          verifiedBy: currentUser ? currentUser.uid : null
+        });
+        cdToast('Certificate verified', 'success');
+      } catch (e) {
+        approveBtn.disabled = false; if (declineBtn) declineBtn.disabled = false;
+        approveBtn.textContent = 'Verify';
+        cdToast(e.message || 'Verify failed', 'error');
+      }
+    }
+
+    async function revokeCertificate(id, approveBtn, declineBtn) {
+      if (!confirm('Revoke this certificate? It will show as revoked to the learner.')) return;
+      if (approveBtn) approveBtn.disabled = true; declineBtn.disabled = true;
+      declineBtn.textContent = 'Revoking…';
+      try {
+        await db.collection('examCertificates').doc(id).update({
+          status: 'revoked',
+          verifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          verifiedBy: currentUser ? currentUser.uid : null
+        });
+        cdToast('Certificate revoked', 'success');
+      } catch (e) {
+        if (approveBtn) approveBtn.disabled = false; declineBtn.disabled = false;
+        declineBtn.textContent = 'Revoke';
+        cdToast(e.message || 'Revoke failed', 'error');
+      }
+    }
+
     document.getElementById('bcPublish').addEventListener('click', async function () {
       var title = document.getElementById('bcTitle').value.trim();
       var body = document.getElementById('bcBody').value.trim();
@@ -1408,6 +1553,7 @@
         loadBroadcasts();
         loadProRequests();
         loadRetakeRequests();
+        loadExamCertificates();
 
         // Also update the sidebar announcement container directly
         const sidebarAnnouncement = document.getElementById('sidebarAnnouncement');
