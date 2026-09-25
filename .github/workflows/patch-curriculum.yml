@@ -1,0 +1,41 @@
+name: Patch Field Manual curriculum JSON
+
+# Targeted edit inside the stored curriculum JSON at
+# guideContent/curriculum — for copy/title tweaks that don't warrant a
+# full re-upload. The version is left untouched so clients keep their
+# cached bank identity (exam attempt reviews stay valid).
+#
+# Example: PATCH_PATH = finalExams.camera-confidence.title
+#          PATCH_VALUE = The Camera Confidence Guide — Final Exam
+#
+# Safety: the path must already exist (no key creation), the value is a
+# string, and the write is read-back verified before the run succeeds.
+
+on:
+  workflow_dispatch:
+    inputs:
+      path:
+        description: 'Dot path inside the curriculum JSON (e.g. finalExams.camera-confidence.title)'
+        required: true
+      value:
+        description: 'New string value'
+        required: true
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/curriculum-uploader
+      - name: Patch curriculum JSON in Firestore
+        run: node patch.js
+        working-directory: tools/curriculum-uploader
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PATCH_PATH: ${{ inputs.path }}
+          PATCH_VALUE: ${{ inputs.value }}

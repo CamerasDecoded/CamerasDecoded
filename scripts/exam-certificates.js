@@ -26,7 +26,7 @@ window.CDCerts = (function () {
   'use strict';
 
   var TRACK = 'camera-confidence';
-  var EXAM_TITLE = 'Camera Confidence';
+  var EXAM_TITLE = 'The Camera Confidence Guide';
   var SELFIE_SIZE = 768;
 
   var C = null;   /* host context (set by init) */
