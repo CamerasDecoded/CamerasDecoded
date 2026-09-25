@@ -1123,7 +1123,40 @@ body{display:block !important;justify-content:normal !important;align-items:norm
         if(setChapter(el.getAttribute("data-chapter"))) renderChapter();
       });
     });
+    /* glide the newly selected pill to center (first/last rest at the
+       scroll edges via clamping). Guarded on selection change so progress
+       re-renders and manual browsing never yank the scroll. */
+    var curId = chapter && chapter.id;
+    if(curId !== lastCenteredCh){
+      lastCenteredCh = curId;
+      requestAnimationFrame(function(){ centerChapterPill(false); });
+    }
   }
+
+  /* Selected chapter pill glides to the center of the row. First/last
+     pills can't center — clamping rests them at the scroll edges, exactly
+     as specified. Per-pill math: no assumptions about chapter count, so
+     future chapters slot in with zero changes. */
+  var lastCenteredCh = null;
+  var reduceMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  function centerChapterPill(instant){
+    var box = $("fm-chapters");
+    if(!box || box.style.display === "none") return;
+    var on = box.querySelector(".fm-chapter-pill.on");
+    if(!on) return;
+    if(box.scrollWidth <= box.clientWidth + 1) return; /* everything fits: nothing to do */
+    var boxR = box.getBoundingClientRect(), pillR = on.getBoundingClientRect();
+    var target = box.scrollLeft + (pillR.left + pillR.width / 2) - (boxR.left + boxR.width / 2);
+    target = Math.max(0, Math.min(box.scrollWidth - box.clientWidth, target));
+    try{
+      box.scrollTo({ left: target, behavior: (instant || reduceMotion) ? "auto" : "smooth" });
+    }catch(e){ box.scrollLeft = target; }
+  }
+  var pillRszT = null;
+  window.addEventListener("resize", function(){
+    if(pillRszT) clearTimeout(pillRszT);
+    pillRszT = setTimeout(function(){ centerChapterPill(true); }, 160);
+  });
 
   /* ---------------- lesson ---------------- */
   function lessonPages(lesson){
