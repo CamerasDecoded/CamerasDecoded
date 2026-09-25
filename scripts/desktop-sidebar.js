@@ -44,7 +44,7 @@
     { label: 'Navigate', links: [
       { id: 'home',     label: 'Home',          icon: 'fa-grid-2',           href: '/operator-dashboard.html', role: 'dashboard' },
       { id: 'missions', label: 'Missions',      icon: 'fa-route',            href: '/missions.html' },
-      { id: 'library',  label: 'Protocols',     icon: 'fa-book-open',        href: '/protocols.html' }
+      { id: 'library',  label: 'Library',       icon: 'fa-book-open',        href: '/protocols.html' }
     ]},
     { label: 'Practice', links: [
       { id: 'manual',   label: 'Field Manual',    icon: 'fa-book',             href: '/field-manual.html' },

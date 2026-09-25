@@ -6,7 +6,7 @@
   <title>Admin Dashboard — Cameras Decoded</title>
 
   <!-- ===== MASTER LOADER (injects header HTML + bottom nav container, loads shared CSS & bottom-nav.js) ===== -->
-  <script src="/scripts/master-loader.js?v=20260924e"></script>
+  <script src="/scripts/master-loader.js?v=20260923g"></script>
 
   <!-- ===== SHARED COMPONENT CSS ===== -->
   <link rel="stylesheet" href="header.css" />
@@ -650,6 +650,16 @@
       </div>
     </div>
 
+    <div class="notif-panel" id="retakeRequestsPanel">
+      <div class="panel-header">
+        <h3><i class="fas fa-rotate-right"></i> Exam Retake Requests <span id="retakeReqCount" class="pro-req-count" hidden></span></h3>
+        <span style="font-size:12px; color:var(--text-muted);">Verify the $2.99 payment in Stripe, then approve — approval grants one early retake</span>
+      </div>
+      <div id="retakeReqList" class="bc-list" aria-live="polite">
+        <p class="bc-empty">Loading requests…</p>
+      </div>
+    </div>
+
     <!-- USERS TABLE -->
     <div class="users-table-wrap">
       <h3>
@@ -1221,6 +1231,99 @@
       }
     }
 
+    /* ---------------- exam retake requests ($2.99 early retakes) ----------------
+       Same paper-trail pattern as Pro: buyer pays via Stripe Payment Link ->
+       /retake-success.html files retakeRequests/{uid} -> owner verifies the
+       payment in Stripe, then approves here. Approval stamps grantedAt; the
+       exam engine consumes the grant on the next submitted attempt. */
+    function loadRetakeRequests() {
+      db.collection('retakeRequests').where('status', '==', 'pending')
+        .orderBy('createdAt', 'asc').limit(50)
+        .onSnapshot(renderRetakeRequests, function (err) {
+          console.error('Retake requests listener error:', err);
+          var list = document.getElementById('retakeReqList');
+          if (list) list.innerHTML = '<p class="bc-empty">Couldn\u2019t load requests.</p>';
+        });
+    }
+
+    function renderRetakeRequests(snap) {
+      var list = document.getElementById('retakeReqList');
+      var count = document.getElementById('retakeReqCount');
+      if (!list) return;
+      var docs = [];
+      snap.forEach(function (d) { docs.push(d); });
+      if (count) {
+        count.hidden = docs.length === 0;
+        count.textContent = docs.length;
+      }
+      if (!docs.length) {
+        list.innerHTML = '<p class="bc-empty">No pending retake requests. New buyers appear here after paying.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      docs.forEach(function (d) {
+        var r = d.data() || {};
+        var item = document.createElement('div');
+        item.className = 'pro-req-item';
+        var when = '';
+        try {
+          if (r.createdAt && r.createdAt.toDate) when = r.createdAt.toDate().toLocaleString();
+        } catch (e) {}
+        item.innerHTML =
+          '<div class="pro-req-main">' +
+            '<div class="pro-req-email"></div>' +
+            '<div class="pro-req-meta"><span></span><span></span></div>' +
+          '</div>' +
+          '<div class="pro-req-actions">' +
+            '<button class="btn-approve">Approve</button>' +
+            '<button class="btn-decline">Decline</button>' +
+          '</div>';
+        item.querySelector('.pro-req-email').textContent = r.email || d.id;
+        var meta = item.querySelectorAll('.pro-req-meta span');
+        meta[0].textContent = 'Early retake · $' + (r.amountUsd || '2.99');
+        meta[1].textContent = when;
+        var approveBtn = item.querySelector('.btn-approve');
+        var declineBtn = item.querySelector('.btn-decline');
+        approveBtn.addEventListener('click', function () { approveRetakeRequest(d.id, approveBtn, declineBtn); });
+        declineBtn.addEventListener('click', function () { declineRetakeRequest(d.id, approveBtn, declineBtn); });
+        list.appendChild(item);
+      });
+    }
+
+    async function approveRetakeRequest(uid, approveBtn, declineBtn) {
+      approveBtn.disabled = true; declineBtn.disabled = true;
+      approveBtn.textContent = 'Approving…';
+      try {
+        await db.collection('retakeRequests').doc(uid).update({
+          status: 'approved',
+          grantedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          decidedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          decidedBy: currentUser ? currentUser.uid : null
+        });
+        cdToast('Early retake granted', 'success');
+      } catch (e) {
+        approveBtn.disabled = false; declineBtn.disabled = false;
+        approveBtn.textContent = 'Approve';
+        cdToast(e.message || 'Approval failed', 'error');
+      }
+    }
+
+    async function declineRetakeRequest(uid, approveBtn, declineBtn) {
+      if (!confirm('Decline this retake request? The buyer keeps their weekly retake schedule.')) return;
+      approveBtn.disabled = true; declineBtn.disabled = true;
+      try {
+        await db.collection('retakeRequests').doc(uid).update({
+          status: 'declined',
+          decidedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          decidedBy: currentUser ? currentUser.uid : null
+        });
+        cdToast('Request declined', 'success');
+      } catch (e) {
+        approveBtn.disabled = false; declineBtn.disabled = false;
+        cdToast(e.message || 'Decline failed', 'error');
+      }
+    }
+
     document.getElementById('bcPublish').addEventListener('click', async function () {
       var title = document.getElementById('bcTitle').value.trim();
       var body = document.getElementById('bcBody').value.trim();
@@ -1304,6 +1407,7 @@
         loadAndListenAnnouncement();
         loadBroadcasts();
         loadProRequests();
+        loadRetakeRequests();
 
         // Also update the sidebar announcement container directly
         const sidebarAnnouncement = document.getElementById('sidebarAnnouncement');
