@@ -159,6 +159,24 @@ window.CDFinalExams = (function () {
     return m + 'm';
   }
 
+  /* Attempt timestamps arrive as Firestore Timestamps (or plain Dates for
+     same-session records). Rendered once, in the learner's locale. */
+  function fmtDate(ts) {
+    var d = null;
+    try {
+      if (ts && typeof ts.toDate === 'function') d = ts.toDate();
+      else if (ts) d = new Date(ts);
+    } catch (e) { d = null; }
+    if (!d || isNaN(d.getTime())) return '';
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var hr = d.getHours(), ap = hr >= 12 ? 'PM' : 'AM';
+    hr = hr % 12 || 12;
+    var min = d.getMinutes();
+    return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear()
+      + ' · ' + hr + ':' + (min < 10 ? '0' + min : min) + ' ' + ap;
+  }
+
   /* ------------------------------ views ------------------------------ */
 
   function shell(inner) {
@@ -191,6 +209,20 @@ window.CDFinalExams = (function () {
         + ' · ' + Math.round(st.best.pct) + '%</p></div>';
     }
 
+    /* Every attempt is kept in the ledger — tap one to reopen its full
+       review: score, per-part splits, and every miss with its reveal. */
+    if (st.attempts && st.attempts.length) {
+      h += '<p class="fm-kicker" style="margin-top:22px">Past attempts</p>';
+      h += '<div class="fx-alist">' + st.attempts.map(function (a, i) {
+        return '<button class="fx-arow" data-ai="' + i + '">'
+          + '<span class="fx-arow-score">' + a.score + '<b>/' + a.total + '</b></span>'
+          + '<span class="fx-arow-meta"><b class="' + (a.passed ? 'pass' : '') + '">'
+          + Math.round(a.pct || 0) + '% · ' + (a.passed ? 'Cleared' : 'Not cleared') + '</b>'
+          + '<span>' + esc(fmtDate(a.submittedAt)) + '</span></span>'
+          + '<span class="fx-chev">›</span></button>';
+      }).join('') + '</div>';
+    }
+
     if (st.state === 'cooldown') {
       h += '<div class="fx-card fx-weave"><p class="fm-kicker">Next free attempt</p>'
         + '<p class="fx-bigscore" style="font-size:24px">' + fmtCountdown(st.cooldownUntil - Date.now()) + '</p>'
@@ -210,9 +242,17 @@ window.CDFinalExams = (function () {
 
     C.setBody(shell(h));
     C.setDots('');
+    document.title = 'Final Exam — Field Manual';
     wire('fx-begin', beginExam.bind(null, st));
     wire('fx-back', C.onExit);
     wire('fx-retake-buy', buyRetake);
+    Array.prototype.forEach.call(document.querySelectorAll('.fx-arow'), function (el) {
+      el.addEventListener('click', function () {
+        if (C.tapFx) C.tapFx('continue');
+        var i = parseInt(el.getAttribute('data-ai'), 10);
+        if (st.attempts[i]) renderAttemptDetail(st.attempts[i], st);
+      });
+    });
   }
 
   function wire(id, fn) {
@@ -456,6 +496,72 @@ window.CDFinalExams = (function () {
         score: rec.score, total: rec.total, pct: rec.pct
       });
     });
+  }
+
+  /* ------------------------------ attempt history ------------------------------ */
+
+  /* Reopen a past attempt's full review. The ledger stores score, per-part
+     splits, and every answer's picked text — but not the question copy.
+     Question order is fixed (only choices shuffle), so the stored qi index
+     maps straight back onto the current bank, and pickedText is
+     shuffle-proof. If the bank version moved on since, show the summary
+     without per-question review rather than a wrong one. */
+  function renderAttemptDetail(rec, st) {
+    var bank = (st.exam && st.exam.questions) || [];
+    var bankVersion = String((st.exam && st.exam.version) || '1');
+    var sameBank = String(rec.examVersion || '1') === bankVersion;
+    var passPct = (st.exam && st.exam.passPct) || PASS_PCT;
+
+    var h = '';
+    h += '<p class="fm-kicker">Final exam · attempt</p>';
+    h += '<h1 class="fm-title" style="font-size:24px">' + esc(fmtDate(rec.submittedAt) || 'Past attempt') + '</h1>';
+    h += '<p class="fm-sub">' + esc(st.exam.title) + '</p>';
+
+    h += '<div class="fx-score-ring' + (rec.passed ? ' pass' : '') + '">'
+      + '<div class="fx-score-num">' + rec.score + '<span>/' + rec.total + '</span></div>'
+      + '<div class="fx-score-pct">' + Math.round(rec.pct || 0) + '% · pass at ' + passPct + '%</div></div>';
+
+    var parts = rec.parts || {};
+    h += '<div class="fx-card fx-weave">' + [1, 2, 3].map(function (p) {
+      var cell = parts[p] || parts[String(p)] || [0, 0];
+      var got = cell[0] || 0, of = cell[1] || 0;
+      var wpct = of ? Math.round(got / of * 100) : 0;
+      return '<div class="fx-prow"><span>' + esc(partName(p)) + '</span>'
+        + '<div class="fm-bar" style="margin:6px 0"><i style="width:' + wpct + '%"></i></div>'
+        + '<b>' + got + '/' + of + '</b></div>';
+    }).join('') + '</div>';
+
+    var answers = rec.answers || [];
+    var missed = answers.filter(function (a) { return !a.correct; });
+    if (missed.length && sameBank) {
+      h += '<p class="fm-kicker" style="margin-top:20px">Where this attempt slipped</p>';
+      h += missed.map(function (a) {
+        var q = bank[a.qi];
+        if (!q) return '';
+        var yourAns = (a.pickedText != null && a.pickedText !== '') ? a.pickedText : 'unanswered';
+        var rightAns = (q.choices && typeof q.answer === 'number' && q.choices[q.answer] != null)
+          ? q.choices[q.answer] : '';
+        return '<div class="fx-card fx-miss">'
+          + '<p class="fx-q" style="font-size:15px">' + esc(q.q) + '</p>'
+          + '<p class="fx-miss-line">Your answer: <b>' + esc(yourAns) + '</b></p>'
+          + '<p class="fx-miss-line ok">Correct: <b>' + esc(rightAns) + '</b></p>'
+          + (q.reveal ? '<p class="fx-reveal"><b>The reveal — </b>' + esc(q.reveal) + '</p>' : '')
+          + '</div>';
+      }).join('');
+    } else if (missed.length) {
+      h += '<div class="fx-card" style="margin-top:20px"><p class="fm-sub" style="margin:0">'
+        + 'This attempt ran on an earlier exam version — per-question review is not available for it.</p></div>';
+    } else {
+      h += '<div class="fx-card" style="text-align:center;margin-top:20px"><p class="fm-shimmer" style="margin:0;font-family:var(--mono);letter-spacing:.1em">FLAWLESS — '
+        + rec.total + '/' + rec.total + '</p></div>';
+    }
+
+    h += '<button class="fm-quiet" id="fx-back-attempts" style="background:none;border:0;width:100%;cursor:pointer;margin-top:14px">← Past attempts</button>';
+
+    C.setBody(shell(h));
+    C.setDots('');
+    document.title = 'Exam attempt — Field Manual';
+    wire('fx-back-attempts', function () { renderIntro(st); });
   }
 
   /* ------------------------------ retakes ------------------------------ */
