@@ -11,7 +11,7 @@
    - finalExamAttempts/{uid}/attempts/{autoId}  (immutable records)
        { trackId, examVersion, score, total, pct, passed,
          parts:{1:[got,of],2:[got,of],3:[got,of]},
-         answers:[{qi,picked,correct}], startedAt, submittedAt }
+         answers:[{qi,picked,pickedText,correct}], startedAt, submittedAt }
    - retakeRequests/{uid}
        { trackId, status:'pending'|'approved'|'declined',
          createdAt, decidedAt, grantedAt, usedAt }
@@ -213,9 +213,38 @@ window.CDFinalExams = (function () {
     return p === 1 ? 'Part 1 — Foundations' : p === 2 ? 'Part 2 — Core Craft' : 'Part 3 — Field Challenges';
   }
 
+  /* Shuffle answer choices at session start (Fisher-Yates) so the correct
+     answer isn't always in the same slot. Each question is copied and its
+     `answer` index is remapped to the shuffled position — scoring, review,
+     and explanations all keep working unchanged. Question order is kept:
+     the exam is deliberately progressive (Foundations -> Core Craft ->
+     Field Challenges). */
+  function shuffleChoices(qs) {
+    return (qs || []).map(function (q) {
+      var nq = {}, k;
+      for (k in q) if (Object.prototype.hasOwnProperty.call(q, k)) nq[k] = q[k];
+      var choices = q.choices || [], n = choices.length, ans = q.answer;
+      if (n < 2 || typeof ans !== 'number' || ans < 0 || ans >= n) {
+        nq.choices = choices.slice();
+        return nq;
+      }
+      var order = [], i, j, t;
+      for (i = 0; i < n; i++) order.push(i);
+      for (i = n - 1; i > 0; i--) {
+        j = Math.floor(Math.random() * (i + 1));
+        t = order[i]; order[i] = order[j]; order[j] = t;
+      }
+      nq.choices = order.map(function (oi) { return choices[oi]; });
+      nq.answer = order.indexOf(ans);
+      return nq;
+    });
+  }
+
   function beginExam(st) {
-    var qs = st.exam.questions;
-    S = { exam: st.exam, status: st, qi: 0, picks: new Array(qs.length).fill(null),
+    var exam = {}, k;
+    for (k in st.exam) if (Object.prototype.hasOwnProperty.call(st.exam, k)) exam[k] = st.exam[k];
+    exam.questions = shuffleChoices(st.exam.questions);
+    S = { exam: exam, status: st, qi: 0, picks: new Array(exam.questions.length).fill(null),
           startedAt: new Date() };
     renderQuestion();
   }
@@ -307,7 +336,7 @@ window.CDFinalExams = (function () {
       if (correct) score++;
       parts[q.part][1]++;
       if (correct) parts[q.part][0]++;
-      return { qi: i, picked: picked, correct: correct };
+      return { qi: i, picked: picked, pickedText: picked === null ? null : q.choices[picked], correct: correct };
     });
     var total = qs.length;
     var pct = Math.round(score / total * 100);
