@@ -6,7 +6,7 @@
   <title>Today's Challenge — Cameras Decoded</title>
 
   <!-- ===== MASTER LOADER (injects header, bottom nav container, shared CSS) ===== -->
-  <script src="/scripts/master-loader.js?v=20260924e"></script>
+  <script src="/scripts/master-loader.js?v=20260923g"></script>
 
   <!-- ===== SHARED COMPONENT CSS ===== -->
   <link rel="stylesheet" href="header.css" />
@@ -127,41 +127,14 @@
 
     /* ===== CTA ===== */
     .cta-wrap { text-align:center; margin-bottom:16px; }
-    /* Signature chase CTA — the dashboard hero button recipe, under a page-unique
-       class. (Generic .btn-primary collides with the shared components.css that
-       master-loader injects after page styles, which would flatten it back to
-       solid green. Unique class = nothing can override it.) */
-    @property --cbtn-angle{syntax:'<angle>';initial-value:0deg;inherits:false}
-    @keyframes cbtnSpinBorder{to{--cbtn-angle:360deg}}
-    .cbtn-chase{
-      position:relative;
-      display:inline-flex;align-items:center;justify-content:center;gap:9px;
-      width:100%;min-height:46px;border-radius:10px;padding:0 17px;border:1px solid transparent;
-      background:
-        linear-gradient(120deg,rgba(255,255,255,.10),rgba(255,255,255,0) 42%),
-        linear-gradient(165deg,rgba(141,235,0,.20) 0%,rgba(141,235,0,.07) 60%,rgba(141,235,0,.13) 100%);
-      color:var(--green);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 6px 22px rgba(141,235,0,.10);
-      font-family:'Montserrat',sans-serif;font-weight:800;font-size:12px;letter-spacing:.02em;
-      cursor:pointer;text-decoration:none;
-      transition:transform .18s ease,filter .18s ease;
+    .btn-complete {
+      width:100%; max-width:420px; padding:16px; border:none; border-radius:12px;
+      background:var(--green); color:#000;
+      font-family:'Space Mono',monospace; font-size:15px; font-weight:700; letter-spacing:1px;
+      cursor:pointer; transition:transform .2s, box-shadow .2s;
     }
-    .cbtn-chase::before{
-      content:'';position:absolute;inset:-0.5px;border-radius:inherit;padding:0.5px;
-      background:conic-gradient(from var(--cbtn-angle),transparent 20%,var(--green) 40%,transparent 60%,var(--green) 80%,transparent 100%);
-      -webkit-mask:linear-gradient(#000,#000) content-box,linear-gradient(#000,#000);
-      -webkit-mask-composite:xor;mask:linear-gradient(#000,#000) content-box,linear-gradient(#000,#000);
-      mask-composite:exclude;pointer-events:none;opacity:.35;
-    }
-    @media (prefers-reduced-motion:no-preference){
-    .cbtn-chase::before{animation:cbtnSpinBorder 6s linear infinite}
-    }
-    .cbtn-chase:hover{filter:brightness(1.12)}
-    .cbtn-chase:active{transform:scale(.97)}
-    .cbtn-chase:disabled{opacity:.45;cursor:default;filter:none;transform:none}
-    /* Page hook: the challenge CTA stays full-width. */
-    .btn-complete{width:100%;max-width:420px}
-    .btn-complete:disabled{opacity:.45;cursor:default}
+    .btn-complete:hover:not(:disabled) { transform:scale(1.02); box-shadow:0 0 40px rgba(141,235,0,.35); }
+    .btn-complete:disabled { opacity:.45; cursor:default; }
     .cta-note {
       margin-top:12px; font-family:'Space Mono',monospace; font-size:11px;
       letter-spacing:1px; color:var(--text-muted); text-transform:uppercase;
@@ -173,14 +146,6 @@
     .done-state i { font-size:28px; color:var(--green); margin-bottom:8px; display:block; }
     .done-state strong { display:block; margin-bottom:4px; }
     .done-state span { color:var(--text-muted); font-size:13px; }
-    .replay-sting {
-      background:none; border:1px solid rgba(255,255,255,.16); color:var(--text-muted);
-      font-size:13px; padding:9px 18px; border-radius:999px; cursor:pointer;
-      margin-top:12px; display:inline-flex; align-items:center; gap:8px;
-      transition:border-color .2s, color .2s, transform .2s;
-    }
-    .replay-sting:hover { color:#fff; border-color:var(--green); transform:scale(1.03); }
-    .replay-sting:active { transform:scale(.98); }
 
     /* ===== SIGN-IN BANNER ===== */
     .signin-banner {
@@ -253,7 +218,6 @@
 
     @media (prefers-reduced-motion: reduce) {
       .btn-complete, .celebrate-cta, .celebrate-overlay, .toast { transition:none; }
-      .cbtn-chase::before { animation:none; }
     }
   </style>
 </head>
@@ -290,15 +254,13 @@
 
     <!-- ===== CTA ===== -->
     <div class="cta-wrap" id="ctaWrap" style="display:none;">
-      <button class="cbtn-chase btn-complete" id="completeBtn" type="button"><i class="fas fa-check" aria-hidden="true"></i> Mark complete · +10 XP</button>
+      <button class="btn-complete" id="completeBtn" type="button">Mark complete · +10 XP</button>
       <div class="cta-note">One completion per day · honest work only</div>
     </div>
     <div class="done-state" id="doneState" style="display:none;">
       <i class="fas fa-check-circle"></i>
       <strong>Challenge complete</strong>
       <span>Come back tomorrow to keep the streak alive.</span>
-      <br />
-      <button type="button" class="replay-sting" id="replayStingBtn"><i class="fas fa-rotate-right"></i> Replay sting</button>
     </div>
 
     <div class="ch-footer">© 2026 Cameras Decoded · All signals locked</div>
@@ -446,14 +408,15 @@
     }
 
     // ---- Celebration ----
-    // celebrate() = the real one after a completion (writes nothing itself —
-    // XP/gear were already written by completeChallenge). replaySting() re-plays
-    // the sting without touching XP and without nudging a review prompt.
-    function showCelebration() {
+    function celebrate(newStreak) {
       haptic('bigSuccess');
       playChime();
+      $('doneSub').textContent = newStreak > 1
+        ? `${newStreak}-day streak. See you tomorrow.`
+        : 'Streak started. See you tomorrow.';
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         cdToast('Challenge complete · +10 XP');
+        if (window.CDReviews) window.CDReviews.maybePrompt('challenge');
         return;
       }
       const overlay = $('doneOverlay'), video = $('doneVideo');
@@ -463,18 +426,6 @@
       clearTimeout(celebrate._t);
       celebrate._t = setTimeout(dismissCelebration, 6000);
     }
-    function celebrate(newStreak) {
-      celebrate._replay = false;
-      $('doneSub').textContent = newStreak > 1
-        ? `${newStreak}-day streak. See you tomorrow.`
-        : 'Streak started. See you tomorrow.';
-      showCelebration();
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches && window.CDReviews) window.CDReviews.maybePrompt('challenge');
-    }
-    function replaySting() {
-      celebrate._replay = true;
-      showCelebration();
-    }
     function dismissCelebration() {
       const overlay = $('doneOverlay');
       if (!overlay || overlay.hidden) return;
@@ -482,10 +433,8 @@
       try { $('doneVideo').pause(); } catch (e) {}
       overlay.classList.remove('show');
       setTimeout(() => { overlay.hidden = true; }, 300);
-      const wasReplay = celebrate._replay; celebrate._replay = false;
-      if (window.CDReviews && !wasReplay) window.CDReviews.maybePrompt('challenge');
+      if (window.CDReviews) window.CDReviews.maybePrompt('challenge');
     }
-    $('replayStingBtn').addEventListener('click', replaySting);
     $('doneCta').addEventListener('click', () => {
       dismissCelebration();
       window.location.href = '/operator-dashboard.html';

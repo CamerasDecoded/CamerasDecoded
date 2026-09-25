@@ -219,7 +219,7 @@ function renderAll(){
       '<div class="upnext-top"><div class="upnext-ic">'+(ICONS[skill.icon]||ICONS.camera)+'</div>' +
       '<div><h2>'+skill.name+'</h2><p>'+skill.desc+'</p></div></div></div>' +
       '<div class="upnext-meta">'+pipsHTML(lvl)+'<span>'+(nt ? (nt.xp-xp)+' XP to level '+nt.level : 'Max level')+'</span></div>' +
-      '<div><button class="dr-chase" id="upNextBtn" style="min-width:200px">Continue skill</button></div>';
+      '<div><button class="btn btn-primary" id="upNextBtn" style="min-width:200px">Continue skill</button></div>';
     document.getElementById('upNextBtn').addEventListener('click', () => openSheet(skill.id));
   } else {
     upEl.innerHTML = '<div><p class="eyebrow" style="margin:0 0 8px">Up next</p><h2 style="margin:0">Tree complete — legendary.</h2></div>';

@@ -60,12 +60,6 @@
     const xpGoal   = toNum(pick(data, XP_GOAL_KEYS, 100), 100);
     const xpPatch  = { xpTodayDate: today };
     XP_KEYS.forEach(k => { xpPatch[k] = newXp; });
-    // Per-day ledger: increment-only, so the dashboard ring can count each
-    // banked XP exactly once without the absolute-set races of xpToday.
-    try {
-      const FV = window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue;
-      if (FV && toNum(xp, 0) !== 0) xpPatch['xpByDay.' + today] = FV.increment(toNum(xp, 0));
-    } catch (e) { /* ledger is best-effort; xpToday still authoritative for legacy readers */ }
     if (!XP_GOAL_KEYS.some(k => data[k] !== undefined)) xpPatch.xpGoal = xpGoal;
 
     // --- Streak ---
