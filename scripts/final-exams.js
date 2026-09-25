@@ -490,7 +490,7 @@ window.CDFinalExams = (function () {
       }
       window.CDCerts.open({
         trackId: TRACK,
-        examTitle: (S.exam && S.exam.title) || 'Camera Confidence',
+        examTitle: (S.exam && S.exam.title) || 'The Camera Confidence Guide',
         examVersion: (S.exam && S.exam.version) || '1',
         attemptId: rec.attemptId || null,
         score: rec.score, total: rec.total, pct: rec.pct
