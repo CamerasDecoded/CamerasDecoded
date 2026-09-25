@@ -1466,11 +1466,11 @@
   // ---------- XP breakdown ----------
   async function openXpDetail() {
     await refreshStatData();
-    renderXpDetail();
+    await renderXpDetail();
     openModal('xpDetail');
   }
 
-  function renderXpDetail() {
+  async function renderXpDetail() {
     const rowsBox = $('xpDetailRows');
     if (!rowsBox) return;
     const tKey = todayKey();
@@ -1478,6 +1478,19 @@
     const xpGoal = (vm.stats && vm.stats.xpGoal) || 100;
     $('xpDetailTotal').textContent = xpToday;
     $('xpDetailGoal').textContent = `${xpToday} of ${xpGoal}`;
+
+    // Lifetime total: read fresh from the signed-in user's own doc at open
+    // time, so the sheet always shows this uid's number — never a cached,
+    // shared, or another user's value.
+    try {
+      const uid = vm.user && vm.user.uid;
+      let lifetime = 0;
+      if (uid && window.db) {
+        const snap = await window.db.collection('users').doc(uid).get();
+        if (snap.exists) lifetime = toNum(snap.data().totalPoints, 0);
+      }
+      $('xpDetailLifetime').textContent = lifetime.toLocaleString('en-US');
+    } catch (e) { /* keep the 0 fallback */ }
 
     // Only banked sessions itemize here: their XP is inside xpToday, so the
     // rows (game XP) + the grouped rest (xpToday - gameXp) sum to the total.
