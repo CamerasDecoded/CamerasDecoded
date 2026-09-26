@@ -153,6 +153,9 @@
     '.pw-foot a{color:rgba(255,255,255,.5);text-decoration:none;padding:6px 4px;}',
     '.pw-foot a:active{color:#8deb00;}',
     '.pw-foot i{font-style:normal;color:rgba(255,255,255,.22);align-self:center;}',
+    '.pw-foot button.pw-share{background:none;border:0;font:inherit;cursor:pointer;',
+    'color:rgba(255,255,255,.5);padding:6px 4px;}',
+    '.pw-foot button.pw-share:active{color:#8deb00;}',
 
     /* full-bleed mobile: the PNG IS the screen, transactional bottom overlays it */
     '@media(max-width:639px){',
@@ -177,6 +180,7 @@
     '.pw-sheet.pw-bleed .pw-go::before{opacity:.65;}',
     '.pw-sheet.pw-bleed .pw-foot{margin-top:8px;padding-top:8px;font-size:12px;}',
     '.pw-sheet.pw-bleed .pw-foot a{color:rgba(255,255,255,.78);}',
+    '.pw-sheet.pw-bleed .pw-foot button.pw-share{color:rgba(255,255,255,.78);}',
     '.pw-sheet.pw-bleed .pw-x{top:calc(12px + env(safe-area-inset-top,0px));}',
     '}',
     '/* Short phones (SE): compact further so the overlay stays inside the image green zone. */',
@@ -254,7 +258,7 @@
       '<div class="pw-plans" role="radiogroup" aria-label="Choose a plan">' + plans + '</div>' +
       '<button class="pw-go"><span>Continue</span></button>' +
       '<p class="pw-cancel">Cancel anytime. Streaks, leaderboard and daily drill stay free forever.</p>' +
-      '<div class="pw-foot"><a href="/protocols.html">Protocols</a><i>|</i><a href="/blog-updates.html">Blog</a><i>|</i><a href="/faq.html">FAQ</a></div>' +
+      '<div class="pw-foot"><a href="/protocols.html">Protocols</a><i>|</i><a href="/blog-updates.html">Blog</a><i>|</i><a href="/faq.html">FAQ</a><i>|</i><button type="button" class="pw-share">Share</button></div>' +
       '</div></div>';
 
     document.body.appendChild(scrim);
@@ -263,6 +267,13 @@
     scrim.querySelector('.pw-x').addEventListener('click', hide);
     scrim.addEventListener('click', function (e) { if (e.target === scrim) hide(); });
     scrim.querySelector('.pw-go').addEventListener('click', function () { go(selectedPlan); });
+
+    var shareBtn = scrim.querySelector('.pw-share');
+    if (shareBtn) shareBtn.addEventListener('click', function () {
+      ensureTransmit(function () {
+        if (window.CDTransmit && window.CDTransmit.openSite) window.CDTransmit.openSite();
+      });
+    });
 
     var planEls = scrim.querySelectorAll('.pw-plan');
     function pick(id) {
@@ -311,6 +322,28 @@
       } catch (e) { /* fall through */ }
       done(null);
     });
+  }
+
+  /* Share sheet (transmit.js) loads on demand — the paywall stays light
+     until the user actually taps Share. A stale pre-site-share copy is
+     dropped so the fresh script installs cleanly. */
+  var TRANSMIT_URL = '/scripts/transmit.js?v=20260926a';
+  function ensureTransmit(cb) {
+    try {
+      if (window.CDTransmit && window.CDTransmit.openSite) { cb(); return; }
+      if (window.CDTransmit) {
+        try { delete window.CDTransmit; } catch (e) { window.CDTransmit = undefined; }
+        var stale = document.querySelector('.cdt-backdrop');
+        if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
+        var staleCss = document.getElementById('cdt-css');
+        if (staleCss && staleCss.parentNode) staleCss.parentNode.removeChild(staleCss);
+      }
+      var s = document.createElement('script');
+      s.src = TRANSMIT_URL;
+      s.onload = function () { cb(); };
+      s.onerror = function () { cb(); };
+      document.head.appendChild(s);
+    } catch (e) { cb(); }
   }
 
   function go(plan) {
