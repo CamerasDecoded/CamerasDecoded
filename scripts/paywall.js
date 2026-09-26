@@ -379,10 +379,20 @@
     return DEFAULT_CTX;
   }
 
-  function show(ctx) {
+  function show(ctx, plan) {
     if (isPro()) { window.location.href = '/pro-checkout.html'; return; }
     if (!scrim) build();
     ctx = ctx || DEFAULT_CTX;
+    /* ?plan= on the door link preselects that plan in the sheet. */
+    if (plan && /^(weekly|monthly|annual)$/.test(plan)) {
+      selectedPlan = plan;
+      var els = scrim.querySelectorAll('.pw-plan');
+      for (var k = 0; k < els.length; k++) {
+        var on = els[k].dataset.plan === plan;
+        els[k].classList.toggle('pw-sel', on);
+        els[k].setAttribute('aria-checked', on ? 'true' : 'false');
+      }
+    }
     scrim.querySelector('.pw-h').textContent = ctx.headline || DEFAULT_CTX.headline;
     scrim.querySelector('.pw-sub').textContent = ctx.sub || DEFAULT_CTX.sub;
     /* restart row stagger */
@@ -413,7 +423,9 @@
     var t = e.target && e.target.closest ? e.target.closest('a[href*="pro-checkout"]') : null;
     if (!t || t.dataset.pw === 'off') return;
     e.preventDefault();
-    show(contextFor(t));
+    var plan = null;
+    try { var m = /[?&]plan=(weekly|monthly|annual)/.exec(t.getAttribute('href') || ''); if (m) plan = m[1]; } catch (err) {}
+    show(contextFor(t), plan);
   });
 
   window.CDPaywall = {
