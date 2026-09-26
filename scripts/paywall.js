@@ -341,5 +341,13 @@
     show(contextFor(t));
   });
 
-  window.CDPaywall = { show: show, hide: hide };
+  window.CDPaywall = {
+    show: show,
+    hide: hide,
+    /* Named contexts for direct opens — the paywall IS the locked state. */
+    ctx: {
+      darkroom: { headline: 'Unlock the full Darkroom', sub: 'Composition, Color & Field Mastery — 14 Pro skills.' },
+      ceiling:  { headline: 'You\u2019ve decoded everything free', sub: 'All 9 free lessons are done. 14 Pro skills are behind this door.' }
+    }
+  };
 })();

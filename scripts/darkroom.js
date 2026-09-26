@@ -121,6 +121,12 @@ function maybeWallNudge(){
       kind: 'wall-nudge'
     });
   }
+  // Proactive wall, once ever: the sheet itself opens at the free ceiling.
+  // Delayed so the lesson celebration breathes first. Same once-ever guards
+  // as the nudge above (localStorage + Firestore wallNudgeSent).
+  if (window.CDPaywall && CDPaywall.ctx) {
+    setTimeout(function(){ CDPaywall.show(CDPaywall.ctx.ceiling); }, 2000);
+  }
 }
 
 /* ---------- fatal ---------- */
@@ -276,6 +282,15 @@ let lastFocus = null;
 function openSheet(skillId){
   const s = skillMap[skillId];
   if (!s) return;
+  // The paywall IS the locked state: a free user tapping a Pro-branch node
+  // meets the wall on the first tap — no intermediate sheet. Tier must be
+  // known ('free'); Pro users and the tier-loading window keep the old path
+  // (gated() in darkroom-learn.js resolves their tier before deciding).
+  if (window.CDLearn && !CDLearn.isFreeSkill(skillId) && myTier === 'free' &&
+      window.CDPaywall && CDPaywall.ctx) {
+    CDPaywall.show(CDPaywall.ctx.darkroom);
+    return;
+  }
   // Always reopen on the sheet home — never a stale lesson/drill screen from
   // a previous visit (X-out mid-lesson then tapping another node).
   const sl = document.getElementById('sheetLearn'), sh = document.getElementById('sheetHome');
