@@ -369,7 +369,7 @@
     if (document.querySelector('script[src*="paywall.js"]')) return;
     if (window.CDPaywall) return;
     const script = document.createElement('script');
-    script.src = '/scripts/paywall.js?v=20260925a';
+    script.src = '/scripts/paywall.js?v=20260925b';
     document.body.appendChild(script);
   }
 

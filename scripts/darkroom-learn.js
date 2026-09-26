@@ -92,6 +92,10 @@ window.CDLearn = (() => {
       });
       return false;
     }
+    // The paywall IS the locked state: open the sheet directly on the first
+    // tap instead of an intermediate stage. The old stage below stays as a
+    // fallback for the (rare) case paywall.js failed to load.
+    if (window.CDPaywall && CDPaywall.ctx) { CDPaywall.show(CDPaywall.ctx.darkroom); return false; }
     stage().innerHTML = `
       <div class="dl-stage">
         <button class="dl-back" data-dl="home">‹ Skill</button>
