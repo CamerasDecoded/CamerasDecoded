@@ -106,7 +106,10 @@
         const isFree = tierLabel === 'Free';
         badge.style.cursor = isFree ? 'pointer' : '';
         badge.title = isFree ? 'Go Pro' : '';
-        badge.onclick = isFree ? function () { window.location.href = '/pro-checkout.html'; } : null;
+        badge.onclick = isFree ? function () {
+          if (window.CDPaywall) window.CDPaywall.show();
+          else window.location.href = '/pro-checkout.html';
+        } : null;
       }
 
       console.log('[Header] Logged in:', name, '| tier:', tierLabel);
