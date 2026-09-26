@@ -6,13 +6,16 @@
 (function () {
   'use strict';
 
+  // New-enough copy already on the page (global + per-page tags coexist).
+  if (window.CDTransmit && window.CDTransmit.openSite) return;
+
   var NEON = '#8deb00';
   var _refCode = null;      // cached referral code
   var _refTried = false;
   var _sheet = null, _backdrop = null, _toast = null, _cur = null;
 
   var CSS =
-    '.cdt-backdrop{position:fixed;inset:0;z-index:12000;background:rgba(0,0,0,.72);' +
+    '.cdt-backdrop{position:fixed;inset:0;z-index:21000;background:rgba(0,0,0,.72);' +
     'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;' +
     'align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .22s ease}' +
     '.cdt-backdrop.cdt-open{opacity:1;pointer-events:auto}' +
@@ -55,7 +58,7 @@
     '.cdt-toast{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));' +
     'transform:translateX(-50%) translateY(8px);background:#101010;color:#fff;' +
     'border:1px solid rgba(141,235,0,.4);border-radius:10px;padding:11px 18px;' +
-    'font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.05em;z-index:12001;' +
+    'font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.05em;z-index:21001;' +
     'opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;white-space:nowrap}' +
     '.cdt-toast.cdt-show{opacity:1;transform:translateX(-50%) translateY(0)}' +
     '@media (prefers-reduced-motion:reduce){.cdt-backdrop,.cdt-sheet,.cdt-toast{transition:none}' +
@@ -104,13 +107,16 @@
 
   function link() {
     return referralCode().then(function (code) {
-      var url = 'https://camerasdecoded.com/protocol-' + _cur.n + '.html';
+      var url = (_cur.site)
+        ? 'https://camerasdecoded.com/'
+        : 'https://camerasdecoded.com/protocol-' + _cur.n + '.html';
       if (code) url += '?ref=' + encodeURIComponent(code);
       return url;
     });
   }
 
   function shareText() {
+    if (_cur.site) return 'Cameras Decoded — sharpen the eye, one frame at a time.';
     var hook = (_cur.hook || '').trim();
     if (hook.length > 140) hook = hook.slice(0, 137).trim() + '…';
     return 'Protocol ' + _cur.n + ': ' + _cur.title + (hook ? ' — ' + hook : '');
@@ -155,6 +161,23 @@
     });
   }
 
+  function shareSite() {
+    var urlP = link();
+    var text = shareText();
+    urlP.then(function (url) {
+      function fallback() { copyText(url, 'Link copied — pass the signal'); }
+      if (navigator.share) {
+        try {
+          var r = navigator.share({ title: 'Cameras Decoded', text: text, url: url });
+          if (r && r.catch) r.catch(function (e) {
+            if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) return; // user dismissed
+            fallback();
+          });
+        } catch (e) { fallback(); }
+      } else fallback();
+    });
+  }
+
   function saveImage() {
     var img = '/media/protocol-cards/protocol-' + _cur.n + '.png';
     fetch(img).then(function (r) { return r.blob(); }).then(function (blob) {
@@ -191,14 +214,32 @@
       if (e.target === _backdrop) close();
     });
     _sheet.querySelector('.cdt-close').addEventListener('click', close);
-    _sheet.querySelector('[data-act="share"]').addEventListener('click', shareCard);
+    _sheet.querySelector('[data-act="share"]').addEventListener('click', function () {
+      if (_cur && _cur.site) shareSite(); else shareCard();
+    });
     _sheet.querySelector('[data-act="save"]').addEventListener('click', saveImage);
     _sheet.querySelector('[data-act="copy"]').addEventListener('click', function () {
-      link().then(function (url) { copyText(url, 'Link copied — transmit away'); });
+      link().then(function (url) {
+        copyText(url, _cur && _cur.site ? 'Link copied — pass the signal' : 'Link copied — transmit away');
+      });
     });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && _backdrop.classList.contains('cdt-open')) close();
     });
+  }
+
+  // One shared sheet for both modes; each open() call configures it fully
+  // so no state leaks between protocol and site shares.
+  function showSheet() {
+    _backdrop.classList.add('cdt-open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function referralNote() {
+    var u = user();
+    return (u && u.isLoggedIn)
+      ? 'Your link carries your referral code.'
+      : 'Tip: sign in and your link will carry your referral code.';
   }
 
   function open(opts) {
@@ -206,18 +247,32 @@
     ensureCSS();
     if (!_backdrop) build();
     _cur = { n: opts.n, title: opts.title || '', hook: opts.hook || '' };
+    _sheet.querySelector('.cdt-eyebrow').textContent = 'Transmit protocol';
+    _sheet.querySelector('[data-act="share"]').innerHTML = '⇪&nbsp; Share card';
+    _sheet.querySelector('[data-act="save"]').style.display = '';
     var img = _sheet.querySelector('.cdt-card');
+    img.style.display = '';
     img.src = '/media/protocol-cards/protocol-' + _cur.n + '.png';
     img.alt = 'Protocol ' + _cur.n + ' share card';
     _sheet.querySelector('.cdt-title').innerHTML =
       'N° <b>' + _cur.n + '</b> · ' + escapeHtml(_cur.title);
-    var u = user();
-    _sheet.querySelector('.cdt-note').textContent =
-      (u && u.isLoggedIn)
-        ? 'Your link carries your referral code.'
-        : 'Tip: sign in and your link will carry your referral code.';
-    _backdrop.classList.add('cdt-open');
-    document.body.style.overflow = 'hidden';
+    _sheet.querySelector('.cdt-note').textContent = referralNote();
+    showSheet();
+  }
+
+  function openSite() {
+    ensureCSS();
+    if (!_backdrop) build();
+    _cur = { site: true };
+    _sheet.querySelector('.cdt-eyebrow').textContent = 'Share Cameras Decoded';
+    _sheet.querySelector('[data-act="share"]').innerHTML = '⇪&nbsp; Share';
+    _sheet.querySelector('[data-act="save"]').style.display = 'none';
+    var img = _sheet.querySelector('.cdt-card');
+    img.style.display = 'none';
+    img.removeAttribute('src');
+    _sheet.querySelector('.cdt-title').textContent = 'Know a photographer? Pass the signal.';
+    _sheet.querySelector('.cdt-note').textContent = referralNote();
+    showSheet();
   }
 
   function close() {
@@ -234,12 +289,16 @@
 
   // Auto-bind: any [data-transmit] element opens the sheet.
   // data-n="007" data-title="..." data-hook="..."
-  document.addEventListener('click', function (e) {
-    var el = e.target && e.target.closest ? e.target.closest('[data-transmit]') : null;
-    if (!el) return;
-    e.preventDefault();
-    open({ n: el.getAttribute('data-n'), title: el.getAttribute('data-title'), hook: el.getAttribute('data-hook') });
-  });
+  // Bound once per page even if a fresher copy of this file loads later.
+  if (!window.__cdtBound) {
+    window.__cdtBound = true;
+    document.addEventListener('click', function (e) {
+      var el = e.target && e.target.closest ? e.target.closest('[data-transmit]') : null;
+      if (!el) return;
+      e.preventDefault();
+      open({ n: el.getAttribute('data-n'), title: el.getAttribute('data-title'), hook: el.getAttribute('data-hook') });
+    });
+  }
 
-  window.CDTransmit = { open: open, close: close };
+  window.CDTransmit = { open: open, close: close, openSite: openSite };
 })();
