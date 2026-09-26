@@ -122,6 +122,8 @@
     '.pw-plan .pw-pper{display:block;font-size:11px;color:rgba(255,255,255,.5);}',
     '.pw-plan.pw-sel{border:2px solid #fff;background:rgba(141,235,0,.10);padding:13px 7px 11px;',
     'box-shadow:0 0 24px rgba(141,235,0,.18);}',
+    '@keyframes pwSelPulse{0%,100%{box-shadow:0 0 24px rgba(141,235,0,.18);}50%{box-shadow:0 0 34px rgba(141,235,0,.34);}}',
+    '.pw-plan.pw-sel{animation:pwSelPulse 3s ease-in-out infinite;}',
     '.pw-plan.pw-sel .pw-pprice{color:#b6ff4d;}',
     '.pw-save{position:absolute;top:-11px;left:50%;transform:translateX(-50%);white-space:nowrap;',
     'background:#fff;color:#0a7a3d;font-size:10.5px;font-weight:900;letter-spacing:.04em;',
@@ -193,7 +195,7 @@
     '@media(prefers-reduced-motion:reduce){',
     '.pw-scrim,.pw-sheet{transition:none;}',
     '.pw-feat{opacity:1;transform:none;animation:none;}',
-    '.pw-ambient::before,.pw-pro::after,.pw-go::before{animation:none;}',
+    '.pw-ambient::before,.pw-pro::after,.pw-go::before,.pw-plan.pw-sel{animation:none;}',
     '}'
   ].join('\n');
 
