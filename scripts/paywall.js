@@ -10,6 +10,8 @@
   if (window.CDPaywall) return;
 
   var TITLE_IMG = '/custom-site-titles/pro-paywall.png?v=20260926b';
+  /* Founding-rate door (Field Manual) gets its own title art. */
+  var TITLE_IMG_FOUNDING = '/custom-site-titles/pro-paywall-founding.png?v=20260926a';
   var WEAVE = '/media/dossier-weave.jpg';
 
   var FEATURES = [
@@ -28,12 +30,12 @@
   ];
 
   var CONTEXTS = [
-    [/darkroom/,      'Unlock the full Darkroom',   'Composition, Color & Field Mastery — 14 Pro skills.'],
-    [/field-manual/,  'Unlock the Field Manual',    'Chapter 4 and beyond — every lesson, every quiz.'],
-    [/mission/,       'Unlock the mission library', 'Every track, every phase.'],
-    [/arcade/,        'Unlock the full arcade',     'Every game, no rotation.'],
-    [/exam/,          'Never wait to retake',       'Pro members retake the final exam any time.'],
-    [/founding/,      'Claim a Founding Decoder slot', 'Locked pricing for the first 200 decoders.']
+    { re: /darkroom/,     headline: 'Unlock the full Darkroom',      sub: 'Composition, Color & Field Mastery — 14 Pro skills.' },
+    { re: /field-manual/, headline: 'Unlock the Field Manual',       sub: 'Chapter 4 and beyond — every lesson, every quiz.', founding: true },
+    { re: /mission/,      headline: 'Unlock the mission library',    sub: 'Every track, every phase.' },
+    { re: /arcade/,       headline: 'Unlock the full arcade',        sub: 'Every game, no rotation.' },
+    { re: /exam/,         headline: 'Never wait to retake',          sub: 'Pro members retake the final exam any time.' },
+    { re: /founding/,     headline: 'Claim a Founding Decoder slot', sub: 'Locked pricing for the first 200 decoders.' }
   ];
   var DEFAULT_CTX = { headline: 'Go Pro', sub: 'Everything unlocked. Cancel anytime.' };
 
@@ -222,7 +224,7 @@
 
   var scrim = null, sheet = null, selectedPlan = 'annual', busy = false;
 
-  function build() {
+  function build(titleImg) {
     ensureCSS();
     scrim = document.createElement('div');
     scrim.className = 'pw-scrim';
@@ -250,7 +252,7 @@
       '<div class="pw-sheet"><div class="pw-ambient"></div><div class="pw-weave"></div>' +
       '<button class="pw-x" aria-label="Close">\u2715</button>' +
       '<div class="pw-title">' +
-      '<img src="' + TITLE_IMG + '" alt="Cameras Decoded Pro" onload="var s=this.closest(\'.pw-sheet\');if(s){s.classList.add(\'pw-bleed\');var f=s.querySelector(\'.pw-feats\');if(f)f.style.display=\'none\';var c=s.querySelector(\'.pw-ctx\');if(c)c.style.display=\'none\';}" onerror="this.style.display=\'none\';var f=this.parentNode.querySelector(\'.pw-title-fallback\');if(f)f.style.display=\'block\';">' +
+      '<img src="' + titleImg + '" alt="Cameras Decoded Pro" onload="var s=this.closest(\'.pw-sheet\');if(s){s.classList.add(\'pw-bleed\');var f=s.querySelector(\'.pw-feats\');if(f)f.style.display=\'none\';var c=s.querySelector(\'.pw-ctx\');if(c)c.style.display=\'none\';}" onerror="this.style.display=\'none\';var f=this.parentNode.querySelector(\'.pw-title-fallback\');if(f)f.style.display=\'block\';">' +
       '<div class="pw-title-fallback"><div class="pw-brand">CAMERAS<br>DECODED</div><span class="pw-pro">Pro</span></div>' +
       '</div>' +
       '<div class="pw-body">' +
@@ -370,19 +372,33 @@
 
   function contextFor(anchor) {
     var d = (anchor && anchor.dataset) || {};
-    if (d.pwHeadline) return { headline: d.pwHeadline, sub: d.pwSub || '' };
     var path = '';
     try { path = window.location.pathname + ' ' + (anchor.getAttribute('href') || ''); } catch (e) {}
+    var founding = /field-manual/.test(path);
+    if (d.pwHeadline) return { headline: d.pwHeadline, sub: d.pwSub || '', founding: founding };
     for (var i = 0; i < CONTEXTS.length; i++) {
-      if (CONTEXTS[i][0].test(path)) return { headline: CONTEXTS[i][1], sub: CONTEXTS[i][2] };
+      if (CONTEXTS[i].re.test(path)) return { headline: CONTEXTS[i].headline, sub: CONTEXTS[i].sub, founding: founding };
     }
-    return DEFAULT_CTX;
+    return { headline: DEFAULT_CTX.headline, sub: DEFAULT_CTX.sub, founding: founding };
   }
 
   function show(ctx, plan) {
     if (isPro()) { window.location.href = '/pro-checkout.html'; return; }
-    if (!scrim) build();
-    ctx = ctx || DEFAULT_CTX;
+    ctx = ctx || {};
+    /* The Field Manual door gets the founding-rate title art; every other
+       door keeps the standard art. The page-path backstop covers bare
+       show() calls made from field-manual.html. */
+    var founding = false;
+    try { founding = !!ctx.founding || /field-manual/.test(window.location.pathname || ''); } catch (e) {}
+    var wantImg = founding ? TITLE_IMG_FOUNDING : TITLE_IMG;
+    if (!scrim) build(wantImg);
+    else {
+      var tImg = scrim.querySelector('.pw-title img');
+      if (tImg && tImg.getAttribute('src') !== wantImg) {
+        sheet.classList.remove('pw-bleed');
+        tImg.src = wantImg; /* inline onload re-arms pw-bleed */
+      }
+    }
     /* ?plan= on the door link preselects that plan in the sheet. */
     if (plan && /^(weekly|monthly|annual)$/.test(plan)) {
       selectedPlan = plan;
