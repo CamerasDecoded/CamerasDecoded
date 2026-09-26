@@ -506,6 +506,22 @@ details.beat-details .beat-body li{margin-bottom:6px}
 }
 .locked-note{display:flex;align-items:center;gap:9px;color:var(--muted-2);font-size:12.5px;margin-top:12px;line-height:1.5}
 .locked-note i{color:var(--amber);font-size:12px;flex:0 0 auto}
+/* Pro door: the paywall IS the locked state — unmistakable, never a small text link. */
+.pro-door{margin-top:12px;padding:18px 16px;border:1px solid rgba(141,235,0,.30);border-radius:12px;
+  background:linear-gradient(165deg,rgba(141,235,0,.08),rgba(141,235,0,.02) 60%),#0d0d0d;
+  box-shadow:0 8px 30px rgba(0,0,0,.5),0 0 24px rgba(141,235,0,.08);text-align:center}
+.pro-door-kicker{font:700 10px var(--font-d);letter-spacing:.22em;color:var(--green);text-transform:uppercase;margin:0 0 8px}
+.pro-door-kicker i{margin-right:6px}
+.pro-door-title{font:800 16px/1.4 var(--font-b);color:#fff;margin:0 0 4px}
+.pro-door-sub{font-size:12.5px;color:var(--muted-2);margin:0 0 14px;line-height:1.55}
+.pro-door-cta{display:flex;align-items:center;justify-content:center;width:100%;min-height:50px;padding:0 17px;
+  border:1px solid transparent;border-radius:10px;text-decoration:none;
+  background:
+    linear-gradient(120deg,rgba(255,255,255,.10),rgba(255,255,255,0) 42%),
+    linear-gradient(165deg,rgba(141,235,0,.20) 0%,rgba(141,235,0,.07) 60%,rgba(141,235,0,.13) 100%);
+  color:var(--green);font:700 13px var(--font-d);letter-spacing:.14em;text-transform:uppercase;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 6px 22px rgba(141,235,0,.10)}
+.pro-door-cta:active{transform:translateY(1px)}
 .dossier-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 .btn-step{
   display:inline-flex;align-items:center;gap:8px;
@@ -2735,8 +2751,10 @@ button.phase-head .phase-kicker{display:block}
     function findNextMission() {
       if (!journeyData || !journeyData.modules) return null;
       const completed = (userProgress && userProgress.completedSteps) || [];
+      const proUser = String((typeof userData !== 'undefined' && userData && userData.tier) || 'free').toLowerCase() === 'pro';
       let firstIncomplete = null;
       for (let mi = 0; mi < journeyData.modules.length; mi++) {
+        if (mi > 0 && !proUser) continue; // Pro operations are never "next" for free users
         const mod = journeyData.modules[mi];
         for (const s of (mod.steps || [])) {
           if (completed.includes(s.id)) continue;
@@ -2773,6 +2791,32 @@ button.phase-head .phase-kicker{display:block}
       heroSec.classList.add('dossier-slot');
       const target = findNextMission();
       if (!target) {
+        const proUser = String((typeof userData !== 'undefined' && userData && userData.tier) || 'free').toLowerCase() === 'pro';
+        if (!proUser && journeyData.modules.length > 1) {
+          // Free operator cleared everything available: the money moment.
+          heroSec.innerHTML = `
+          <div class="dossier-wrap">
+            <div class="stamp">New orders · Pro</div>
+            <div class="case-id">File / Pro</div>
+            <article class="dossier file beat-scope">
+              <header class="dossier-heading">
+                <p class="micro">Field assignment</p>
+                <h2 class="mission-title"><span class="number">Unlock —</span>the full mission library.</h2>
+                <div class="redaction" aria-hidden="true"></div>
+              </header>
+              <div class="sheet-stage">
+                <section class="sheet active" data-panel="brief" role="tabpanel">
+                  <p class="sheet-kicker">New orders</p>
+                  <p class="objective">Operation 1 cleared, Operator. Every remaining track and phase — plus the Darkroom, Field Manuals and arcade — is Pro.</p>
+                </section>
+              </div>
+              <div class="dossier-action">
+                <a class="dossier-cta" style="text-decoration:none" href="/pro-checkout.html">Unlock with Pro</a>
+              </div>
+            </article>
+          </div>`;
+          return;
+        }
         const done = ((userProgress && userProgress.completedSteps) || []).length;
         const pts = (userProgress && userProgress.totalPoints) || 0;
         heroSec.innerHTML = `
@@ -2873,6 +2917,9 @@ button.phase-head .phase-kicker{display:block}
     }
     function renderPath() {
       if (!journeyData || !journeyData.modules) return;
+      // Pro gate: Operation 1 is free for everyone; Operations 2+ are Pro.
+      // Earned progress is never hidden — completed operations stay visible.
+      const isProUser = String((typeof userData !== 'undefined' && userData && userData.tier) || 'free').toLowerCase() === 'pro';
       const completed = (userProgress && userProgress.completedSteps) || [];
       const completedModules = (userProgress && userProgress.completedModules) || [];
       const next = findNextMission();
@@ -2901,7 +2948,9 @@ button.phase-head .phase-kicker{display:block}
         const doneCount = steps.filter(s => completed.includes(s.id)).length;
         const pct = steps.length > 0 ? Math.round((doneCount / steps.length) * 100) : 0;
         const isDone = steps.length > 0 && doneCount === steps.length;
-        const isLocked = mi > 0 && !completedModules.includes(journeyData.modules[mi - 1].id);
+        const progLocked = mi > 0 && !completedModules.includes(journeyData.modules[mi - 1].id);
+        const proLocked = mi > 0 && !isProUser && !isDone;
+        const isLocked = progLocked || proLocked;
         const isCurrent = next ? next.modIndex === mi : (!isDone && !isLocked);
         const num = String(mi + 1).padStart(2, '0');
         const groupClass = isDone ? 'done' : (isLocked ? 'locked' : (isCurrent ? 'current' : ''));
@@ -2910,14 +2959,23 @@ button.phase-head .phase-kicker{display:block}
         const savedFold = readFoldState();
         const defaultOpen = isCurrent || isLocked;
         const folderOpen = savedFold[mod.id] !== undefined ? !!savedFold[mod.id] : defaultOpen;
-        // Instructor deep link (?m=<stepId>) opens one dossier inside a locked
-        // operation - the lock guides browsing, it never blocks a direct link.
-        const deepStep = (isLocked && deepLinkStepId)
+        // Instructor deep link (?m=<stepId>) opens one dossier inside a
+        // progression-locked operation - the lock guides browsing, it never
+        // blocks a direct link. Pro locks are absolute: no deep-link bypass.
+        const deepStep = (!proLocked && isLocked && deepLinkStepId)
           ? steps.find(s => s.id === deepLinkStepId) : null;
         const prevMod = mi > 0 ? journeyData.modules[mi - 1] : null;
         const prevSteps = prevMod ? (prevMod.steps || []) : [];
         const prevLeft = prevSteps.filter(s => !completed.includes(s.id)).length;
-        const lockedNote = (isLocked && !deepStep)
+        const proDoor = proLocked
+          ? `<div class="pro-door">
+               <p class="pro-door-kicker"><i class="fas fa-lock" aria-hidden="true"></i> Operation ${mi + 1} · Pro</p>
+               <p class="pro-door-title">The full mission library is Pro.</p>
+               <p class="pro-door-sub">Every track, every phase — plus the Darkroom, Field Manuals and arcade.</p>
+               <a class="pro-door-cta" href="/pro-checkout.html">Unlock with Pro</a>
+             </div>`
+          : '';
+        const lockedNote = (!proLocked && isLocked && !deepStep)
           ? `<p class="locked-note"><i class="fas fa-lock" aria-hidden="true"></i> Complete ${prevLeft} more mission${prevLeft === 1 ? '' : 's'} in Operation ${mi} to unlock.</p>`
           : '';
         html += `
@@ -2925,7 +2983,7 @@ button.phase-head .phase-kicker{display:block}
             <button type="button" class="phase-head folder-toggle" aria-expanded="${folderOpen ? 'true' : 'false'}" aria-controls="phase-contents-${mod.id}">
               <span class="phase-badge" aria-hidden="true">${isDone ? '✓' : num}</span>
               <span class="phase-head-text">
-                <span class="phase-kicker">Operation ${mi + 1}${isDone ? ' · Complete' : ''}${isLocked ? ' · Locked' : ''}</span>
+                <span class="phase-kicker">Operation ${mi + 1}${isDone ? ' · Complete' : (proLocked ? ' · Pro' : (isLocked ? ' · Locked' : ''))}</span>
                                 ${phaseTitle(mod)}
               </span>
               <span class="phase-pct mono">${pct}%</span>
@@ -2938,7 +2996,7 @@ button.phase-head .phase-kicker{display:block}
                 </div>
                 ${mod.description ? `<p class="phase-desc">${mod.description}</p>` : ''}
                 <div class="phase-steps">
-                  ${lockedNote}
+                  ${proDoor}${lockedNote}
                   ${deepStep
                     ? renderDossier(deepStep, steps.indexOf(deepStep), nextId, numOf[deepStep.id])
                     : (!isLocked ? steps.map((s, i) => renderDossier(s, i, nextId, numOf[s.id])).join('') : '')}
