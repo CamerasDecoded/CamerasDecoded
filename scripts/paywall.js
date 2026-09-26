@@ -366,6 +366,18 @@
       busy = false;
       btn.disabled = false;
       btn.querySelector('span').textContent = 'Continue';
+      /* Stash the pending upgrade BEFORE leaving for Stripe: if the buyer
+         pays but the redirect back never lands, the recovery nudge in
+         notifications.js can still route them to finish activation. */
+      try {
+        var u = currentUser();
+        localStorage.setItem('pending_pro_upgrade', JSON.stringify({
+          uid: u && u.uid ? u.uid : null,
+          tier: 'pro',
+          billingInterval: plan,
+          createdAt: Date.now()
+        }));
+      } catch (e) {}
       window.location.href = link || ('/pro-checkout.html?plan=' + plan);
     });
   }
