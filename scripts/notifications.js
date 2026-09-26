@@ -169,6 +169,27 @@
         }
       }
     } catch (e) {}
+    /* Pro recovery: a pending_pro_upgrade older than 15 minutes while the
+       user is still free-tier means checkout never completed its redirect
+       back (paid, tab closed, whatever). Nudge once a day; the href
+       re-files the upgrade request, and the owner still verifies payment
+       in Stripe before approving — so a tap from someone who never paid
+       just produces a declinable request, never a double charge. */
+    try {
+      var LS_PRO_NUDGED = 'cd_pro_recovery_nudged';
+      var pend = JSON.parse(localStorage.getItem('pending_pro_upgrade') || 'null');
+      var nudgedDay = null;
+      try { nudgedDay = localStorage.getItem(LS_PRO_NUDGED); } catch (e4) {}
+      if (pend && pend.createdAt && String(tier).toLowerCase() !== 'pro' &&
+          (nowMs() - pend.createdAt) > 15 * 60 * 1000 && nudgedDay !== dayKey()) {
+        out.push({
+          id: 'pro-recovery', title: 'Finish your Pro upgrade',
+          body: 'Your checkout didn\u2019t finish \u2014 tap to complete activation.',
+          href: '/pro-success.html?paid=1', at: nowMs(), kind: 'smart'
+        });
+        try { localStorage.setItem(LS_PRO_NUDGED, dayKey()); } catch (e5) {}
+      }
+    } catch (e) {}
     return out;
   }
 

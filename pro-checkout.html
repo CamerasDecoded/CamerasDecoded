@@ -17,7 +17,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="/scripts/firebase-init.js?v=20260912a"></script>
   <script src="/scripts/pro-checkout.js?v=20260918a"></script>
-  <script src="/scripts/master-loader.js?v=20260926e"></script>
+  <script src="/scripts/master-loader.js?v=20260926f"></script>
 
   <style>
     body {
@@ -360,6 +360,18 @@
         var email = (window.auth && window.auth.currentUser && window.auth.currentUser.email) || '';
         var url = link + (link.indexOf('?') === -1 ? '?' : '&') +
                   'prefilled_email=' + encodeURIComponent(email);
+        // Stash the pending upgrade BEFORE leaving for Stripe (see paywall.js):
+        // if the redirect back never lands, the recovery nudge can still
+        // route the buyer to finish activation.
+        try {
+          var u2 = (window.auth && window.auth.currentUser) || null;
+          localStorage.setItem('pending_pro_upgrade', JSON.stringify({
+            uid: u2 && u2.uid ? u2.uid : null,
+            tier: 'pro',
+            billingInterval: selected,
+            createdAt: Date.now()
+          }));
+        } catch (e) {}
         window.location.href = url;
       });
 
