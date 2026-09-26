@@ -9,7 +9,7 @@
   'use strict';
   if (window.CDPaywall) return;
 
-  var TITLE_IMG = '/custom-site-titles/pro-paywall.png?v=20260925a';
+  var TITLE_IMG = '/custom-site-titles/pro-paywall.png?v=20260926b';
   var WEAVE = '/media/dossier-weave.jpg';
 
   var FEATURES = [
