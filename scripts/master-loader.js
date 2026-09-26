@@ -307,7 +307,7 @@
   function loadHeaderBehavior() {
     if (document.querySelector('script[src*="header.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/header.js?v=20260918b';
+    script.src = '/header.js?v=20260925a';
     document.body.appendChild(script);
   }
 
@@ -365,6 +365,14 @@
     document.body.appendChild(script);
   }
 
+  function loadPaywall() {
+    if (document.querySelector('script[src*="paywall.js"]')) return;
+    if (window.CDPaywall) return;
+    const script = document.createElement('script');
+    script.src = '/scripts/paywall.js?v=20260925a';
+    document.body.appendChild(script);
+  }
+
   function loadBottomNav() {
     if (document.querySelector('script[src*="bottom-nav.js"]')) return;
     const script = document.createElement('script');
@@ -397,6 +405,7 @@
     injectFloatingHeader();
     loadHeaderBehavior();
     loadProCheckout();
+    loadPaywall();
     loadNotifications();
     loadSound();
     injectBottomNavContainer();
