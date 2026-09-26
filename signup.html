@@ -235,6 +235,14 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <script>
+    // Referral capture: stash ?ref=CODE (in case this page is the landing).
+    (function () {
+      try {
+        var m = new URLSearchParams(window.location.search).get('ref');
+        if (m && /^[A-Za-z0-9_-]{1,64}$/.test(m)) localStorage.setItem('signup_referral', m);
+      } catch (e) {}
+    })();
+
     const firebaseConfig = {
       apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
       authDomain: "cameras-decoded.firebaseapp.com",
@@ -269,6 +277,7 @@
         savedCards: [], savedBlogs: [], savedPodcasts: [], savedCommunityPosts: [],
         referralCode: o.referralCode || '', totalReferrals: 0, totalCommissionEarned: 0,
         ambassadorTier: 'signal',
+        referredBy: null, referredByCode: null,
         aiUsage: { total: 0, prompt: 0, snapshot: 0, ideas: 0, critique: 0 },
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -295,6 +304,33 @@
           uid, createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
       } catch (e) { /* rules reject on collision; user doc keeps the intended code */ }
+    }
+
+    // Referral attribution: resolve the stashed ?ref= code to the referring user.
+    // The stash is written at landing (index.html) from a share link (?ref=CODE).
+    async function resolveReferrer(uid) {
+      try {
+        var code = localStorage.getItem('signup_referral');
+        if (!code) return null;
+        var snap = await db.collection('referralCodes').doc(code).get();
+        if (snap.exists && snap.data() && snap.data().uid && snap.data().uid !== uid) {
+          return { code: code, uid: snap.data().uid };
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    // Credit the referrer once per completed signup; always clear the stash.
+    async function creditReferrer(ref) {
+      try {
+        if (ref) {
+          await db.collection('users').doc(ref.uid).update({
+            totalReferrals: firebase.firestore.FieldValue.increment(1),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+      } catch (e) {}
+      try { localStorage.removeItem('signup_referral'); } catch (e) {}
     }
 
     function showSignupError(msg) {
@@ -394,8 +430,11 @@
         await user.updateProfile({ displayName });
         const referralCode = await getUniqueReferralCode(username, user.uid);
         const data = buildNewUserDoc({ displayName, email, username, referralCode, photoURL: null });
+        const referrer = await resolveReferrer(user.uid);
+        if (referrer) { data.referredBy = referrer.uid; data.referredByCode = referrer.code; }
         await db.collection('users').doc(user.uid).set(data, { merge: true });
         await claimReferralCode(referralCode, user.uid);
+        await creditReferrer(referrer);
         resetCreateBtn(btn, spinner);
         if (selectedTier === 'pro') {
           handleProSelection(user.uid);
@@ -437,8 +476,11 @@
             displayName: user.displayName || '', email: user.email || '',
             username, referralCode, photoURL: user.photoURL || null
           });
+          const referrer = await resolveReferrer(user.uid);
+          if (referrer) { data.referredBy = referrer.uid; data.referredByCode = referrer.code; }
           await db.collection('users').doc(user.uid).set(data, { merge: true });
           await claimReferralCode(referralCode, user.uid);
+          await creditReferrer(referrer);
         }
         cdToast('Welcome in! Redirecting...');
         setTimeout(() => { window.location.href = 'profile.html?welcome=onboarding'; }, 900);
