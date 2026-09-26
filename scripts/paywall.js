@@ -165,7 +165,9 @@
     '.pw-sheet.pw-bleed .pw-title img{width:100%;height:100%;object-fit:cover;object-position:center bottom;margin:0;filter:none;}',
     '.pw-sheet.pw-bleed .pw-body{position:absolute;left:0;right:0;bottom:0;z-index:2;',
     'padding:0 18px calc(12px + env(safe-area-inset-bottom,0px));}',
-    '.pw-sheet.pw-bleed .pw-founding,.pw-sheet.pw-bleed .pw-cancel,.pw-sheet.pw-bleed .pw-pnote{display:none;}',
+    '.pw-sheet.pw-bleed .pw-founding{display:none;}', /* founding stays desktop-only, per owner */
+    '.pw-sheet.pw-bleed .pw-pnote{display:block;text-align:center;font-size:10.5px;margin:7px 2px 0;color:rgba(255,255,255,.55);font-weight:400;}',
+    '.pw-sheet.pw-bleed .pw-cancel{display:block;text-align:center;font-size:10.5px;margin:7px 0 0;color:rgba(255,255,255,.42);}',
     '.pw-sheet.pw-bleed .pw-plans{margin:0 0 5px;gap:8px;}',
     '.pw-sheet.pw-bleed .pw-plan{padding:8px 6px 7px;background:rgba(0,0,0,.55);}',
     '.pw-sheet.pw-bleed .pw-plan.pw-sel{padding:7px 5px 6px;}',
