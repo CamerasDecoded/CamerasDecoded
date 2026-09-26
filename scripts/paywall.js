@@ -64,7 +64,7 @@
     '@keyframes pwDrift{from{transform:translate3d(-3%,-2%,0) scale(1);}to{transform:translate3d(3%,2%,0) scale(1.06);}}',
     '.pw-weave{position:absolute;inset:0;pointer-events:none;opacity:.5;mix-blend-mode:soft-light;border-radius:inherit;',
     'background-image:url("' + WEAVE + '");background-size:640px;}',
-    '.pw-inner{position:relative;padding:20px 20px 26px;}',
+    '.pw-body{position:relative;padding:20px 20px 26px;}',
 
     '.pw-x{position:absolute;top:14px;right:14px;z-index:3;width:38px;height:38px;border-radius:50%;',
     'border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.45);color:#fff;font-size:17px;line-height:1;',
@@ -152,6 +152,23 @@
     '.pw-foot a:active{color:#8deb00;}',
     '.pw-foot i{font-style:normal;color:rgba(255,255,255,.22);align-self:center;}',
 
+    /* full-bleed mobile: the PNG IS the screen, transactional bottom overlays it */
+    '@media(max-width:639px){',
+    '.pw-sheet.pw-bleed{max-width:none;max-height:none;height:100svh;height:100dvh;border-radius:0;border:0;overflow:hidden;}',
+    '.pw-sheet.pw-bleed .pw-ambient,.pw-sheet.pw-bleed .pw-weave{display:none;}',
+    '.pw-sheet.pw-bleed .pw-title{position:absolute;inset:0;margin:0;z-index:0;}',
+    '.pw-sheet.pw-bleed .pw-title img{width:100%;height:100%;object-fit:cover;margin:0;filter:none;}',
+    '.pw-sheet.pw-bleed .pw-body{position:absolute;left:0;right:0;bottom:0;z-index:2;',
+    'padding:0 18px calc(18px + env(safe-area-inset-bottom,0px));}',
+    '.pw-sheet.pw-bleed .pw-founding{margin:0 0 10px;padding:8px 12px;font-size:11.5px;}',
+    '.pw-sheet.pw-bleed .pw-plans{margin:0 0 4px;}',
+    '.pw-sheet.pw-bleed .pw-plan{background:rgba(0,0,0,.55);}',
+    '.pw-sheet.pw-bleed .pw-go{margin-top:10px;}',
+    '.pw-sheet.pw-bleed .pw-cancel{color:rgba(255,255,255,.6);}',
+    '.pw-sheet.pw-bleed .pw-foot{margin-top:10px;padding-top:10px;}',
+    '.pw-sheet.pw-bleed .pw-foot a{color:rgba(255,255,255,.78);}',
+    '}',
+
     '@media(prefers-reduced-motion:reduce){',
     '.pw-scrim,.pw-sheet{transition:none;}',
     '.pw-feat{opacity:1;transform:none;animation:none;}',
@@ -202,12 +219,12 @@
 
     scrim.innerHTML =
       '<div class="pw-sheet"><div class="pw-ambient"></div><div class="pw-weave"></div>' +
-      '<div class="pw-inner">' +
       '<button class="pw-x" aria-label="Close">\u2715</button>' +
       '<div class="pw-title">' +
-      '<img src="' + TITLE_IMG + '" alt="Cameras Decoded Pro" onerror="this.style.display=\'none\';var f=this.parentNode.querySelector(\'.pw-title-fallback\');if(f)f.style.display=\'block\';">' +
+      '<img src="' + TITLE_IMG + '" alt="Cameras Decoded Pro" onload="var s=this.closest(\'.pw-sheet\');if(s){s.classList.add(\'pw-bleed\');var f=s.querySelector(\'.pw-feats\');if(f)f.style.display=\'none\';var c=s.querySelector(\'.pw-ctx\');if(c)c.style.display=\'none\';}" onerror="this.style.display=\'none\';var f=this.parentNode.querySelector(\'.pw-title-fallback\');if(f)f.style.display=\'block\';">' +
       '<div class="pw-title-fallback"><div class="pw-brand">CAMERAS<br>DECODED</div><span class="pw-pro">Pro</span></div>' +
       '</div>' +
+      '<div class="pw-body">' +
       '<div class="pw-ctx"><h2 class="pw-h"></h2><p class="pw-sub"></p></div>' +
       '<div class="pw-feats">' + feats + '</div>' +
       '<div class="pw-founding"><b>Founding Decoder</b> — locked pricing for the first 200. When they\u2019re gone, they\u2019re gone.</div>' +
