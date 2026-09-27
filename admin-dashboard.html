@@ -51,6 +51,9 @@
       font-family: 'Montserrat', sans-serif;
       min-height: 100vh;
       overflow-x: hidden;
+      /* Body-layout guard: design-system.css (via master-loader) forces flex
+         centering on body, which clips this page's sidebar-offset layout. */
+      display:block !important; justify-content:normal !important; align-items:normal !important; padding:0 !important;
     }
 
     a { text-decoration: none; color: inherit; }
@@ -440,6 +443,20 @@
       color:#ff4a4a; font-family:'Space Mono',monospace; font-weight:600; font-size:12px; cursor:pointer; }
     .btn-decline:hover { background:rgba(255,74,74,0.08); }
     .btn-decline:disabled { opacity:.5; cursor:wait; }
+
+    /* ============================================================
+       USER REVIEWS (win-moment review bank)
+       ============================================================ */
+    .review-filters { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .review-chip { padding:6px 14px; background:transparent; border:1px solid var(--border-dim); border-radius:20px;
+      color:var(--text-muted); font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; transition:all 0.2s ease; }
+    .review-chip:hover { border-color:var(--green); color:var(--green); }
+    .review-chip.active { background:rgba(141,235,0,.12); border-color:var(--green); color:var(--green); font-weight:700; }
+    .review-stars { font-size:15px; letter-spacing:2px; margin-bottom:6px; }
+    .review-stars span { color:#333; }
+    .review-stars span.on { color:var(--green); text-shadow:0 0 10px rgba(141,235,0,.5); }
+    .review-text { font-size:13px; color:#fff; line-height:1.55; margin-bottom:8px; word-break:break-word; white-space:pre-wrap; }
+    .review-text.empty-note { color:var(--text-muted); font-style:italic; }
     .cert-thumb { width:52px; height:52px; border-radius:50%; object-fit:cover; flex-shrink:0;
       border:1px solid rgba(141,235,0,.4); }
     .cert-thumb-none { display:flex; align-items:center; justify-content:center;
@@ -659,6 +676,24 @@
       </div>
       <div id="retakeReqList" class="bc-list" aria-live="polite">
         <p class="bc-empty">Loading requests…</p>
+      </div>
+    </div>
+
+    <!-- USER REVIEWS (win-moment review bank) -->
+    <div class="notif-panel" id="reviewsPanel">
+      <div class="panel-header">
+        <h3><i class="fas fa-star"></i> User Reviews <span id="reviewCount" class="pro-req-count" hidden></span></h3>
+        <span style="font-size:12px; color:var(--text-muted);">Win-moment review bank — newest first</span>
+      </div>
+      <div class="review-filters" id="reviewFilters" role="group" aria-label="Filter reviews by rating">
+        <button type="button" class="review-chip active" data-filter="all">All</button>
+        <button type="button" class="review-chip" data-filter="5">5★</button>
+        <button type="button" class="review-chip" data-filter="4">4★</button>
+        <button type="button" class="review-chip" data-filter="3">3★</button>
+        <button type="button" class="review-chip" data-filter="low">≤2★</button>
+      </div>
+      <div id="reviewList" class="bc-list" aria-live="polite">
+        <p class="bc-empty">Loading reviews…</p>
       </div>
     </div>
 
@@ -1337,6 +1372,121 @@
       }
     }
 
+    /* ---------------- user reviews (win-moment review bank) ----------------
+       scripts/reviews.js writes reviews/{uid} = {uid, displayName, rating 1-5,
+       text, context, createdAt, updatedAt}. Newest first; single-field
+       orderBy needs no composite index. Filters are client-side. */
+    var reviewFilter = 'all';
+    var reviewDocs = [];
+
+    function formatReviewTime(at) {
+      if (!at) return '';
+      var diff = Date.now() - at;
+      if (diff < 0) diff = 0;
+      var m = Math.floor(diff / 60000);
+      if (m < 1) return 'just now';
+      if (m < 60) return m + 'm ago';
+      var h = Math.floor(m / 60);
+      if (h < 24) return h + 'h ago';
+      var d = Math.floor(h / 24);
+      if (d < 2) return 'Yesterday';
+      if (d < 7) return d + 'd ago';
+      return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function loadReviews() {
+      db.collection('reviews').orderBy('createdAt', 'desc').limit(50)
+        .onSnapshot(function (snap) {
+          reviewDocs = [];
+          snap.forEach(function (d) { reviewDocs.push(d); });
+          renderReviews();
+        }, function (err) {
+          console.error('Reviews listener error:', err);
+          var list = document.getElementById('reviewList');
+          if (!list) return;
+          if (err && err.code === 'permission-denied') {
+            list.innerHTML = '<p class="bc-empty">Couldn\u2019t load reviews: Firestore rules block admin reads on <b>reviews</b>. ' +
+              'In the console Rules tab, change the reviews rule to:<br>' +
+              '<span style="font-family:\'Space Mono\',monospace; font-size:11px;">match /reviews/{uid} {<br>' +
+              '&nbsp;&nbsp;allow read: if isAdmin() || (request.auth != null &amp;&amp; request.auth.uid == uid);<br>' +
+              '&nbsp;&nbsp;allow write: if request.auth != null &amp;&amp; request.auth.uid == uid;<br>}</span></p>';
+          } else {
+            list.innerHTML = '<p class="bc-empty">Couldn\u2019t load reviews.</p>';
+          }
+        });
+    }
+
+    function renderReviews() {
+      var list = document.getElementById('reviewList');
+      var count = document.getElementById('reviewCount');
+      if (!list) return;
+      var docs = reviewDocs.filter(function (d) {
+        if (reviewFilter === 'all') return true;
+        var r = Number((d.data() || {}).rating) || 0;
+        if (reviewFilter === 'low') return r <= 2 && r > 0;
+        return r === Number(reviewFilter);
+      });
+      if (count) {
+        count.hidden = reviewDocs.length === 0;
+        count.textContent = reviewDocs.length;
+      }
+      if (!docs.length) {
+        list.innerHTML = '<p class="bc-empty">' +
+          (reviewDocs.length ? 'No reviews match this filter.' : 'No reviews yet. They land here after win moments.') + '</p>';
+        return;
+      }
+      list.innerHTML = '';
+      docs.forEach(function (d) {
+        var r = d.data() || {};
+        var rating = Math.max(0, Math.min(5, Number(r.rating) || 0));
+        var when = '';
+        try {
+          if (r.createdAt && r.createdAt.toDate) when = formatReviewTime(r.createdAt.toDate().getTime());
+        } catch (e) {}
+        var item = document.createElement('div');
+        item.className = 'pro-req-item';
+        var starsHtml = '';
+        for (var i = 1; i <= 5; i++) {
+          starsHtml += '<span class="' + (i <= rating ? 'on' : '') + '">★</span>';
+        }
+        var main = document.createElement('div');
+        main.className = 'pro-req-main';
+        var stars = document.createElement('div');
+        stars.className = 'review-stars';
+        stars.innerHTML = starsHtml;
+        var text = document.createElement('div');
+        text.className = 'review-text' + (r.text ? '' : ' empty-note');
+        text.textContent = r.text || '(no note left)';
+        var meta = document.createElement('div');
+        meta.className = 'pro-req-meta';
+        var who = document.createElement('span');
+        who.textContent = (r.displayName ? r.displayName + ' · ' : '') + d.id;
+        var ctx = document.createElement('span');
+        ctx.textContent = r.context || 'general';
+        var time = document.createElement('span');
+        time.textContent = when;
+        meta.appendChild(who); meta.appendChild(ctx); meta.appendChild(time);
+        main.appendChild(stars); main.appendChild(text); main.appendChild(meta);
+        item.appendChild(main);
+        list.appendChild(item);
+      });
+    }
+
+    (function initReviewFilters() {
+      var wrap = document.getElementById('reviewFilters');
+      if (!wrap) return;
+      wrap.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('.review-chip') : null;
+        if (!btn) return;
+        reviewFilter = btn.getAttribute('data-filter');
+        var chips = wrap.querySelectorAll('.review-chip');
+        for (var i = 0; i < chips.length; i++) {
+          chips[i].classList.toggle('active', chips[i] === btn);
+        }
+        renderReviews();
+      });
+    })();
+
     /* ---------------- exam certificates (verification queue) ----------------
        Learners claim certificates from a passed final exam (CDCerts):
        examCertificates/{uid}_{trackId} -> the owner verifies identity here.
@@ -1550,6 +1700,7 @@
         loadBroadcasts();
         loadProRequests();
         loadRetakeRequests();
+        loadReviews();
         loadExamCertificates();
 
         // Also update the sidebar announcement container directly
@@ -1591,5 +1742,6 @@
     window.addEventListener('storage', updateCartUI);
     document.addEventListener('DOMContentLoaded', updateCartUI);
   </script>
+    <script src="/scripts/ptr.js"></script>
 </body>
 </html>
