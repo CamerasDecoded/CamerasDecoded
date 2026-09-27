@@ -173,7 +173,7 @@
     + '.cd-bn-scrim.cd-open{display:flex}'
     + '.cd-bn-sheet{position:relative;width:min(560px,100%);max-height:88vh;'
     +   'overflow-y:auto;background:#0e0f11;border:1px solid var(--cd-bn-border);'
-    +   'border-bottom:none;border-radius:22px 22px 0 0;padding:24px 20px 28px;'
+    +   'border-bottom:none;border-radius:22px 22px 0 0;padding:24px 20px calc(28px + env(safe-area-inset-bottom));'
     +   'font-family:"Montserrat",system-ui,sans-serif;color:var(--cd-bn-text);'
     +   'animation:cdBnUp .24s ease}'
     + '@keyframes cdBnUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}'
