@@ -19,7 +19,7 @@
 (function () {
   'use strict';
 
-  var SRC = '/media/fire-fall.gif';
+  var SRC = '/media/free-fall.gif';
   var MAX_WAIT_MS = 8000;
   var SHOW_MS = 3200;
 
