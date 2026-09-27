@@ -82,7 +82,7 @@
     .page-head p { margin: 0; color: var(--text-muted); font-size: 14px; }
 
     .lb-tabs {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
       background: var(--card-bg); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 6px; margin-bottom: 14px;
     }
@@ -155,6 +155,7 @@
     <div class="lb-tabs" role="tablist" aria-label="Leaderboard period">
       <button class="lb-tab on" id="tabWeek" role="tab" aria-selected="true">This week</button>
       <button class="lb-tab" id="tabAll" role="tab" aria-selected="false">All time</button>
+      <button class="lb-tab" id="tabDaily" role="tab" aria-selected="false">Daily Brief</button>
     </div>
 
     <div class="lb-you" id="lbYou" hidden>
@@ -167,7 +168,7 @@
       <div class="lb-empty">Loading the board…</div>
     </div>
 
-    <p class="lb-note">Weekly board resets every Monday. Play drills and finish missions to climb.</p>
+    <p class="lb-note" id="lbNote">Weekly board resets every Monday. Play drills and finish missions to climb.</p>
   </main>
 
   <script>
@@ -242,6 +243,7 @@
 
       async function loadBoard() {
         if (!db) return;
+        if (lbMode === 'daily') return loadDailyBoard();
         var wk = lbWeekKey();
         var field = lbMode === 'week' ? 'weeks.' + wk : 'xp';
         var meUid = firebase.auth().currentUser ? firebase.auth().currentUser.uid : null;
@@ -256,17 +258,108 @@
         }
       }
 
+      function startOfToday() {
+        var d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+
+      async function loadDailyBoard() {
+        var meUid = (window.firebase && firebase.auth().currentUser) ? firebase.auth().currentUser.uid : null;
+        try {
+          var snap = await db.collection('game_sessions')
+            .where('slotId', '==', 'lab-daily')
+            .where('createdAt', '>=', firebase.firestore.Timestamp.fromDate(startOfToday()))
+            .get();
+          var best = {};
+          snap.forEach(function (doc) {
+            var d = doc.data() || {};
+            if (!d.uid) return;
+            var sc = Math.round(d.score || 0);
+            if (!best[d.uid]) best[d.uid] = { score: 0, plays: 0 };
+            if (sc > best[d.uid].score) best[d.uid].score = sc;
+            best[d.uid].plays++;
+          });
+          var rows = Object.keys(best).map(function (uid) {
+            return { id: uid, displayName: 'Operator', score: best[uid].score, plays: best[uid].plays };
+          });
+          rows.sort(function (a, b) { return b.score - a.score; });
+          var top = rows.slice(0, 50);
+          var uids = top.map(function (r) { return r.id; });
+          for (var i = 0; i < uids.length; i += 10) {
+            var chunk = uids.slice(i, i + 10);
+            var nsnap = await db.collection('leaderboard')
+              .where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
+            nsnap.forEach(function (nd) {
+              var nm = (nd.data() || {}).displayName;
+              if (!nm) return;
+              for (var j = 0; j < top.length; j++) {
+                if (top[j].id === nd.id) top[j].displayName = nm;
+              }
+            });
+          }
+          renderDailyBoard(top, meUid, best[meUid] || null);
+        } catch (e) {
+          listEl.innerHTML = '<div class="lb-empty">Could not load today\u2019s board.<br>Check your connection and reload.</div>';
+          youEl.hidden = true;
+        }
+      }
+
+      function renderDailyBoard(rows, meUid, mine) {
+        var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+        if (!rows.length) {
+          listEl.innerHTML = '<div class="lb-empty">No scores on today\u2019s brief yet.<br>Be the first to shoot it.</div>';
+        } else {
+          listEl.innerHTML = rows.map(function (r, i) {
+            var isMe = meUid && r.id === meUid;
+            var cls = 'lb-row' + (isMe ? ' me' : '') + (i < 3 ? ' r' + (i + 1) : '');
+            var pos = i < 3 ? medals[i] : '#' + (i + 1);
+            var plays = r.plays ? '<span>' + r.plays + (r.plays === 1 ? ' attempt' : ' attempts') + '</span>' : '<span>&nbsp;</span>';
+            return '<div class="' + cls + '">' +
+              '<div class="pos">' + pos + '</div>' +
+              '<div class="who"><b>' + esc(r.displayName || 'Operator') + (isMe ? ' (you)' : '') + '</b>' + plays + '</div>' +
+              '<div class="xp">' + r.score + ' <small>PTS</small></div>' +
+              '</div>';
+          }).join('');
+        }
+        if (!meUid) { youEl.hidden = true; return; }
+        youEl.hidden = false;
+        var idx = -1;
+        rows.forEach(function (r, i) { if (r.id === meUid) idx = i; });
+        if (idx >= 0) {
+          document.getElementById('lbYouRank').textContent = '#' + (idx + 1);
+          document.getElementById('lbYouName').textContent = (rows[idx].displayName || 'Operator') + ' (you)';
+          document.getElementById('lbYouXp').textContent = rows[idx].score;
+          document.getElementById('lbYouSub').textContent =
+            rows[idx].plays + (rows[idx].plays === 1 ? ' attempt' : ' attempts') + ' \u00b7 today\u2019s brief';
+        } else {
+          document.getElementById('lbYouRank').textContent = '50+';
+          document.getElementById('lbYouName').textContent = 'You';
+          document.getElementById('lbYouXp').textContent = mine ? mine.score : 0;
+          document.getElementById('lbYouSub').textContent = 'today\u2019s brief';
+        }
+      }
+
+      var LB_NOTES = {
+        week: 'Weekly board resets every Monday. Play drills and finish missions to climb.',
+        all: 'Every point ever earned, all in one place.',
+        daily: 'One brief per day. Unlimited attempts \u2014 your best score counts.'
+      };
       function setMode(mode) {
         lbMode = mode;
-        document.getElementById('tabWeek').classList.toggle('on', mode === 'week');
-        document.getElementById('tabAll').classList.toggle('on', mode === 'all');
-        document.getElementById('tabWeek').setAttribute('aria-selected', mode === 'week');
-        document.getElementById('tabAll').setAttribute('aria-selected', mode === 'all');
+        var tabs = { week: 'tabWeek', all: 'tabAll', daily: 'tabDaily' };
+        Object.keys(tabs).forEach(function (m) {
+          var tab = document.getElementById(tabs[m]);
+          tab.classList.toggle('on', mode === m);
+          tab.setAttribute('aria-selected', mode === m);
+        });
+        document.getElementById('lbNote').textContent = LB_NOTES[mode] || LB_NOTES.week;
         listEl.innerHTML = '<div class="lb-empty">Loading the board…</div>';
         loadBoard();
       }
       document.getElementById('tabWeek').addEventListener('click', function () { setMode('week'); });
       document.getElementById('tabAll').addEventListener('click', function () { setMode('all'); });
+      document.getElementById('tabDaily').addEventListener('click', function () { setMode('daily'); });
 
       function boot() {
         if (!window.firebase || !firebase.auth || !firebase.firestore) {

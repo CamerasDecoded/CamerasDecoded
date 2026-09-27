@@ -20,8 +20,13 @@
      - rAF loop is pausable/resumable; destroy() tears everything down.
      - Shutter uses CDGames.shutterClick(); haptics use CDGames.fx.tap().
      - Scoring: getSnapshot() returns the player's BEST brief result (0-100).
-       Solving a brief advances api.hud(); solving all 18 briefs ends the
+       Solving a brief advances api.hud(); solving all 12 briefs ends the
        session via api.finish(). Pocketbook stays in-memory (session-only).
+     - Daily mode: init(stage, {daily:true}, api) locks the lab to a single
+       brief picked deterministically from the 12-brief pool by local
+       day-of-year (same convention as the daily drill), hides the scenario
+       and tier pickers behind a "Today's brief" banner, and finishes after
+       that one brief is solved. All physics, grading, and scoring unchanged.
    ========================================================================== */
 (function () {
   'use strict';
@@ -151,6 +156,9 @@
     stage.appendChild(root);
     function $(id) { return root.querySelector('#cl-' + id); }
     var apiState = { best: 0, solved: {}, solvedCount: 0, total: 0, finished: false, dead: false, finishT: 0 };
+    var dailyLock = null; // {scene, tier} — set when config.daily is true; locks pickers to today's brief
+    function dayOfYear(d){d=d||new Date();return Math.floor((d-new Date(d.getFullYear(),0,0))/864e5);}
+    function briefPool(){var pool=[];Object.keys(scenes).forEach(function(key){var s=scenes[key];if(s.tiers){Object.keys(s.tiers).forEach(function(t){pool.push({scene:key,tier:t})})}else{pool.push({scene:key,tier:null})}});return pool;}
 
   'use strict';
   var apertureVals=[1.4,1.8,2,2.8,4,5.6,8,11,16];
@@ -235,11 +243,11 @@
     var _bk=state.scene+':'+state.tier;
     if(pts>=solveAt&&!apiState.solved[_bk]){apiState.solved[_bk]=1;apiState.solvedCount++;
       api.hud({progress:apiState.solvedCount/apiState.total,label:apiState.solvedCount+'/'+apiState.total+' briefs solved'});
-      if(apiState.solvedCount>=apiState.total&&!apiState.finished){apiState.finished=true;api.toast('Lab complete — all briefs solved.');apiState.finishT=setTimeout(function(){if(!apiState.dead)api.finish();},900);}}$('scoreLabel').textContent=label;$('scoreHint').textContent=pts>=solveAt?'Focus and camera settings meet the brief. Save this recipe for the field.':(!focusOk?'Tap the main subject to lock focus.':scene.tip);renderDiagnostics(pts,focusOk,signedEx)}
+      if(apiState.solvedCount>=apiState.total&&!apiState.finished){apiState.finished=true;api.toast(dailyLock?'Daily brief solved — nice shooting.':'Lab complete — all briefs solved.');apiState.finishT=setTimeout(function(){if(!apiState.dead)api.finish();},900);}}$('scoreLabel').textContent=label;$('scoreHint').textContent=pts>=solveAt?'Focus and camera settings meet the brief. Save this recipe for the field.':(!focusOk?'Tap the main subject to lock focus.':scene.tip);renderDiagnostics(pts,focusOk,signedEx)}
   function renderDiagnostics(pts,focusOk,signedEx){var scene=scenes[state.scene],brief=activeBrief(),v=values(),t=brief.target,issues=[],evTolerance=t.evTolerance||.7,wbTolerance=t.wbTolerance||900;function add(severity,text,fix){issues.push({severity:severity,text:text,fix:fix})}if(signedEx<-evTolerance){var underFix=state.aperture>0?'open the aperture one stop.':state.iso<isoVals.length-1?'raise ISO one stop.':'slow the shutter one stop.';add((-signedEx-evTolerance)*3,'Underexposed — not enough light reached the sensor.',underFix)}if(signedEx>evTolerance){var overText=signedEx>1.65?'Highlights are clipped — blown detail cannot be recovered.':'Overexposed — too much light reached the sensor.';var overFix=state.iso>0?'lower ISO one stop.':state.aperture<apertureVals.length-1?'close the aperture one stop.':'use a faster shutter one stop.';add((signedEx-evTolerance)*3,overText,overFix)}var motionFloor=scene.motionFloor||(state.scene==='wildlife'?1000:state.scene==='wedding'?125:0);if(motionFloor&&v.sh<motionFloor)add(2+Math.log2(motionFloor/v.sh),'That blur is motion, not missed focus — the shutter was too slow for the moving subject.','1/'+motionFloor+'s or faster.');if(!focusOk&&v.ap<=2)add(3.1,'At f/'+fmt(v.ap)+' the focus plane is paper-thin — the subject drifted out of it.','tap the main subject again.');else if(!focusOk)add(2.2,'The focus point missed the main subject, so the sharpest plane landed elsewhere.','tap the main subject.');if(v.iso>=6400)add(1.8+Math.log2(v.iso/3200),'That grain is digital noise from high ISO.','lower ISO one stop.');if(state.wb!==0){var wbDiff=selectedWB()-scene.correctWB;if(Math.abs(wbDiff)>=wbTolerance)add(1.6+Math.abs(wbDiff)/2500,'Colors are running '+(wbDiff<0?'cool':'warm')+' — '+scene.correctWB+'K suits '+scene.wbScene+'.',scene.correctWB+'K.')}if(!inRange(state.aperture,t.ap)&&state.aperture>t.ap[1])add(1.25,'The smaller aperture keeps too much of the scene sharp and also cuts light.','f/'+fmt(apertureVals[t.ap[1]])+'.');if(!inRange(state.iso,t.iso)&&state.iso>t.iso[1]&&v.iso<6400)add(1.15,'Extra ISO brightens the signal, but it also adds avoidable noise.','ISO '+isoVals[t.iso[1]]+' or lower.');if(!inRange(state.focal,t.focal)){var targetFocal=focalVals[Math.round((t.focal[0]+t.focal[1])/2)];add(.9,'This focal length changes the framing away from the brief.','move toward '+targetFocal+'mm.')}issues.sort(function(a,b){return b.severity-a.severity});var box=$('diagnostics');if(!issues.length){box.innerHTML='<div class="why-line confirm"><b>Locked</b>'+(pts>=88?'Exposure, focus, motion, noise, and color all support the brief.':'The camera physics are sound; fine-tune the brief-specific framing to finish.')+'</div>';return}box.innerHTML=issues.slice(0,2).map(function(issue){return'<div class="why-line"><b>Why</b>'+issue.text+' <b>Try</b>'+issue.fix+'</div>'}).join('')}
   function inRange(v,r){return v>=r[0]&&v<=r[1]}
-  function renderBrief(){var s=scenes[state.scene],brief=activeBrief(),tiers=$('tierSelect');tiers.hidden=!s.tiers;tiers.querySelectorAll('.tier-btn').forEach(function(btn){btn.classList.toggle('cl-active',btn.dataset.tier===state.tier);btn.setAttribute('aria-pressed',btn.dataset.tier===state.tier?'true':'false')});$('briefTitle').textContent=brief.title;$('briefText').textContent=brief.text;$('constraints').innerHTML=brief.constraints.map(function(x){return'<span>'+x+'</span>'}).join('')}
-  function selectScene(key){state.scene=key;state.tier='bronze';var d=defaults[key],s=scenes[key];state.aperture=d[0];state.shutter=d[1];state.iso=d[2];state.focal=d[3];state.wb=0;closeWBStrip();state.focusX=.5;state.focusY=.72;root.querySelectorAll('.cl-scene-card').forEach(function(b){b.classList.toggle('cl-active',b.dataset.scene===key)});$('sceneChip').textContent=s.label;$('difficulty').textContent=s.difficulty;renderBrief();$('presetName').value=s.presetName||(key==='studio'?'Studio portrait':key==='wildlife'?'Wildlife action':'Dim wedding');placeFocus();updateUI()}
+  function renderBrief(){var s=scenes[state.scene],brief=activeBrief(),tiers=$('tierSelect');tiers.hidden=!s.tiers||!!dailyLock;tiers.querySelectorAll('.tier-btn').forEach(function(btn){btn.classList.toggle('cl-active',btn.dataset.tier===state.tier);btn.setAttribute('aria-pressed',btn.dataset.tier===state.tier?'true':'false')});$('briefTitle').textContent=brief.title;$('briefText').textContent=brief.text;$('constraints').innerHTML=brief.constraints.map(function(x){return'<span>'+x+'</span>'}).join('')}
+  function selectScene(key){state.scene=key;state.tier=dailyLock?dailyLock.tier:'bronze';var d=defaults[key],s=scenes[key];state.aperture=d[0];state.shutter=d[1];state.iso=d[2];state.focal=d[3];state.wb=0;closeWBStrip();state.focusX=.5;state.focusY=.72;root.querySelectorAll('.cl-scene-card').forEach(function(b){b.classList.toggle('cl-active',b.dataset.scene===key)});$('sceneChip').textContent=s.label;$('difficulty').textContent=s.difficulty;renderBrief();$('presetName').value=s.presetName||(key==='studio'?'Studio portrait':key==='wildlife'?'Wildlife action':'Dim wedding');placeFocus();updateUI()}
   function placeFocus(){focus.style.left=(state.focusX*100)+'%';focus.style.top=(state.focusY*100)+'%'}
   function closeWBStrip(){$('wbStrip').classList.remove('cl-open');$('wbStatus').setAttribute('aria-expanded','false')}
   root.querySelectorAll('.cl-param').forEach(function(btn){btn.addEventListener('click',function(){state.active=btn.dataset.param;if(state.active==='wb'){$('wbStrip').classList.add('cl-open');$('wbStatus').setAttribute('aria-expanded','true')}else closeWBStrip();root.querySelectorAll('.cl-param').forEach(function(b){var on=b===btn;b.classList.toggle('cl-active',on);b.setAttribute('aria-selected',on)});updateUI()})});
@@ -273,10 +281,32 @@
   var toastTimer;function showToast(msg){var t=$('toast');t.textContent=msg;t.classList.add('cl-show');clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.classList.remove('cl-show')},2200)}
   var reduceMotion=CDGames.env.reducedMotion,lastMotionFrame=0,running=true,motionRaf=0,renderRaf=0,bokehCv=null,bokehKey='',grainTick=0;function motionLoop(now){if(!running)return;if(!reduceMotion&&scenes[state.scene].animate&&now-lastMotionFrame>66){lastMotionFrame=now;requestRender()}motionRaf=requestAnimationFrame(motionLoop)}
   window.addEventListener('resize',requestRender);var keyHandler=function(e){if(e.key==='Escape')sheet.classList.remove('cl-open')};document.addEventListener('keydown',keyHandler);motionRaf=requestAnimationFrame(motionLoop);
-  selectScene('studio');
-    apiState.total = Object.keys(scenes).reduce(function (n, k) {
+  function lockDailyUI(pick){
+    var s=scenes[pick.scene],brief=pick.tier?s.tiers[pick.tier]:s,tierName=pick.tier?pick.tier.toUpperCase()+' \u00b7 ':'';
+    var now=new Date(),dateStr=now.toLocaleDateString(undefined,{month:'short',day:'numeric'}).toUpperCase();
+    var panel=root.querySelector('.cl-scene-panel');
+    if(panel){panel.innerHTML='<div class="cl-panel-head"><h2>Today\u2019s brief</h2><span>'+escapeHtml(dateStr)+'</span></div>'+
+      '<div class="cl-brief-body"><div class="cl-brief-label">'+escapeHtml(tierName+s.difficulty)+'</div>'+
+      '<h3>'+escapeHtml(brief.title)+'</h3>'+
+      '<p>One brief, one day. Unlimited attempts \u2014 your best score counts on the Daily Brief board.</p></div>';}
+    var h1=root.querySelector('.cl-lab-top h1');
+    if(h1)h1.textContent='Today\u2019s brief: '+brief.title;
+    var sub=root.querySelector('.cl-lab-top p');
+    if(sub)sub.textContent='Solve today\u2019s assignment. The board ranks your best score of the day.';
+  }
+  var dailyMode=!!(config&&config.daily===true),_pick=null;
+  if(dailyMode){
+    var _pool=briefPool();
+    _pick=_pool[dayOfYear()%_pool.length];
+    dailyLock={scene:_pick.scene,tier:_pick.tier||'bronze'};
+    selectScene(_pick.scene);
+  }else{
+    selectScene('studio');
+  }
+    apiState.total = dailyMode?1:Object.keys(scenes).reduce(function (n, k) {
       return n + (scenes[k].tiers ? Object.keys(scenes[k].tiers).length : 1);
     }, 0);
+  if(dailyMode)lockDailyUI(_pick);
     function pause() {
       running = false;
       if (motionRaf) { cancelAnimationFrame(motionRaf); motionRaf = 0; }
@@ -294,7 +324,8 @@
       getSnapshot: function () {
         return { score: Math.round(apiState.best),
                  detail: { best: Math.round(apiState.best), solved: apiState.solvedCount,
-                           of: apiState.total, scene: state.scene, tier: state.tier } };
+                           of: apiState.total, scene: state.scene, tier: state.tier,
+                           daily: !!dailyLock } };
     M._render = requestRender;
     M._key = (typeof keyHandler !== 'undefined') ? keyHandler : null;
     M._api = apiState;
