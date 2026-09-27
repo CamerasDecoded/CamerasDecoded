@@ -831,16 +831,159 @@
     }
   }
 
+  /* ---- Protocol library: real titles, cards link to readers, mid-screen modal ---- */
+  const PROTOCOL_TITLES = {
+    "protocol-001": "The 3-Second Reset",
+    "protocol-002": "Protect the Shot",
+    "protocol-003": "The Invisible Director",
+    "protocol-004": "I Belong Here",
+    "protocol-005": "The One Setting That Saves Indoor Birthday Parties",
+    "protocol-006": "Why Your Camera Keeps Focusing on the Wrong Thing",
+    "protocol-007": "The Metering Mistake",
+    "protocol-008": "The 3-Quote Rule",
+    "protocol-009": "Manual Mode Isn't a Test \u2014 It's a Tool",
+    "protocol-010": "The One Lens That Makes You a Better Photographer",
+    "protocol-011": "The White Balance Lie",
+    "protocol-012": "The Confidence Pause",
+    "protocol-013": "How to Price Your First 10 Clients",
+    "protocol-014": "What to Buy First (When You Have $500)",
+    "protocol-015": "Using AI for Culling: What Actually Works",
+    "protocol-016": "The Post-Shoot Email That Books the Next Gig",
+    "protocol-017": "When the Upgrade Is Actually Worth It",
+    "protocol-018": "The Editing Automation Stack",
+    "protocol-019": "Real Estate Protocols: The First 5 Shots",
+    "protocol-020": "Wedding Day: The 30-Second Venue Read",
+    "protocol-021": "Sports: The Autofocus That Actually Follows"
+  };
+
+  function plEsc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* Normalize a saved entry to {id,title,url}; null for anything unexpected. */
+  function protocolEntry(p) {
+    const id = typeof p === 'string' ? p : (p && (p.id || p.slug));
+    if (typeof id !== 'string' || !/^protocol-\d{3}$/.test(id)) return null;
+    return { id, title: PROTOCOL_TITLES[id] || id, url: '/' + id + '.html' };
+  }
+
+  function savedProtocolEntries() {
+    return (vm.raw.savedProtocols || []).map(protocolEntry).filter(Boolean);
+  }
+
+  function ensureProtocolChip(count) {
+    const title = $('protocolTitle');
+    const header = title && title.closest('.panel-top');
+    if (!header) return;
+    let chip = $('protocolLibraryBtn');
+    if (!count) { if (chip) chip.remove(); return; }
+    if (!chip) {
+      chip = document.createElement('button');
+      chip.type = 'button';
+      chip.id = 'protocolLibraryBtn';
+      chip.className = 'pl-count';
+      chip.addEventListener('click', openProtocolLibrary);
+      const viewAll = header.querySelector('a.text-btn');
+      header.insertBefore(chip, viewAll);
+    }
+    chip.innerHTML = '<i class="fas fa-bookmark" aria-hidden="true"></i>&nbsp;' + count + ' saved';
+  }
+
   function renderProtocols() {
     const grid = $('protocolGrid');
     if (!grid) return;
-    const saved = vm.raw.savedProtocols || [];
+    const saved = savedProtocolEntries();
+    ensureProtocolChip(saved.length);
     if (!saved.length) { grid.innerHTML = '<p class="empty-state">No saved protocols yet.</p>'; return; }
-    grid.innerHTML = saved.slice(0,4).map(p => {
-      const title = typeof p === 'string' ? p : (p.title || p.name || 'Protocol');
-      const desc = typeof p === 'string' ? '' : (p.description || '');
-      return `<article class="protocol-card"><h3>${title}</h3>${desc ? `<p>${desc}</p>` : ''}</article>`;
-    }).join('');
+    grid.innerHTML = saved.slice(0, 4).map(e =>
+      `<a class="protocol-card" href="${e.url}"><h3>${plEsc(e.title)}</h3>` +
+      `<span class="protocol-num">${e.id.replace('protocol-', 'No.&nbsp;')}</span></a>`
+    ).join('');
+  }
+
+  /* ---- Mid-screen "My protocol library" modal ---- */
+  let plModal = null;
+
+  function ensureProtocolCss() {
+    if (document.getElementById('pl-css')) return;
+    const st = document.createElement('style');
+    st.id = 'pl-css';
+    st.textContent =
+      '.cpl-backdrop{position:fixed;inset:0;z-index:21500;background:rgba(0,0,0,.72);' +
+      'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;' +
+      'justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .2s ease}' +
+      '.cpl-backdrop.cpl-open{opacity:1;pointer-events:auto}' +
+      '.cpl-modal{position:relative;width:100%;max-width:440px;max-height:82dvh;max-height:82vh;overflow-y:auto;' +
+      'background:#0b0b0b;border:1px solid rgba(141,235,0,.3);border-radius:16px;' +
+      'padding:22px 20px calc(20px + env(safe-area-inset-bottom));' +
+      'box-shadow:0 18px 70px rgba(0,0,0,.7),0 0 44px rgba(141,235,0,.08);' +
+      'transform:translateY(14px) scale(.98);transition:transform .24s cubic-bezier(.2,.9,.25,1)}' +
+      '.cpl-backdrop.cpl-open .cpl-modal{transform:none}' +
+      '@media (prefers-reduced-motion:reduce){.cpl-backdrop,.cpl-modal{transition:none;transform:none}}' +
+      '.cpl-close{position:absolute;top:8px;right:12px;background:none;border:0;color:#777;' +
+      'font-size:24px;cursor:pointer;line-height:1;padding:8px}' +
+      '.cpl-eyebrow{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:3px;' +
+      'color:#8deb00;text-transform:uppercase;margin:0 0 6px}' +
+      '.cpl-title{font-size:19px;color:#fff;margin:0 0 14px;font-weight:800}' +
+      '.cpl-list{display:flex;flex-direction:column;gap:8px}' +
+      '.cpl-row{display:flex;align-items:center;gap:12px;padding:13px 14px;' +
+      'border:1px solid rgba(141,235,0,.18);border-radius:12px;background:rgba(255,255,255,.02);' +
+      'text-decoration:none;color:#fff}' +
+      '.cpl-row:active{background:rgba(141,235,0,.07)}' +
+      '.cpl-num{font-family:"Space Mono",monospace;font-size:11px;color:#8deb00;letter-spacing:1px;min-width:30px}' +
+      '.cpl-name{flex:1;font-size:14px;font-weight:600;line-height:1.35}' +
+      '.cpl-go{color:#8deb00;font-size:16px}' +
+      '.cpl-empty{font-family:"Space Mono",monospace;font-size:12px;color:#888;line-height:1.7;margin:4px 2px 0}' +
+      '.cpl-empty b{color:#8deb00}' +
+      '#protocolGrid a.protocol-card{display:block;text-decoration:none;color:inherit;cursor:pointer}' +
+      '.pl-count{display:inline-flex;align-items:center;background:rgba(141,235,0,.08);' +
+      'border:1px solid rgba(141,235,0,.35);color:#8deb00;border-radius:999px;padding:7px 13px;' +
+      'font-family:"Space Mono",monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer}' +
+      '.pl-count:active{background:rgba(141,235,0,.16)}';
+    document.head.appendChild(st);
+  }
+
+  function cplEscKey(ev) { if (ev.key === 'Escape') closeProtocolLibrary(); }
+
+  function closeProtocolLibrary() {
+    if (!plModal) return;
+    const m = plModal; plModal = null;
+    m.classList.remove('cpl-open');
+    document.removeEventListener('keydown', cplEscKey);
+    document.body.style.overflow = '';
+    setTimeout(function () { if (m.parentNode) m.parentNode.removeChild(m); }, 220);
+  }
+
+  function openProtocolLibrary() {
+    ensureProtocolCss();
+    const saved = savedProtocolEntries();
+    closeProtocolLibrary();
+    const bd = document.createElement('div');
+    bd.className = 'cpl-backdrop';
+    bd.innerHTML =
+      '<div class="cpl-modal" role="dialog" aria-modal="true" aria-label="My protocol library">' +
+        '<button type="button" class="cpl-close" aria-label="Close">&times;</button>' +
+        '<p class="cpl-eyebrow">My protocol library</p>' +
+        '<h3 class="cpl-title">' + saved.length + (saved.length === 1 ? ' saved protocol' : ' saved protocols') + '</h3>' +
+        (saved.length
+          ? '<div class="cpl-list">' + saved.map(e =>
+              '<a class="cpl-row" href="' + e.url + '">' +
+              '<span class="cpl-num">' + e.id.replace('protocol-', '') + '</span>' +
+              '<span class="cpl-name">' + plEsc(e.title) + '</span>' +
+              '<span class="cpl-go" aria-hidden="true">&rarr;</span></a>'
+            ).join('') + '</div>'
+          : '<p class="cpl-empty">Nothing saved yet. Tap <b>Save protocol</b> on any protocol page and it will land here.</p>') +
+      '</div>';
+    document.body.appendChild(bd);
+    plModal = bd;
+    document.body.style.overflow = 'hidden';
+    bd.addEventListener('click', function (ev) { if (ev.target === bd) closeProtocolLibrary(); });
+    const closeBtn = bd.querySelector('.cpl-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeProtocolLibrary);
+    document.addEventListener('keydown', cplEscKey);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { bd.classList.add('cpl-open'); });
+    });
   }
 
   function renderReferral() {
