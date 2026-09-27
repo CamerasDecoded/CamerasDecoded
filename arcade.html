@@ -107,6 +107,24 @@
       display: flex; flex-direction: column; gap: 12px;
       box-shadow: var(--shadow);
       transition: border-color 0.2s, transform 0.2s;
+      overflow: hidden;
+    }
+    /* photographic card art banner — full-bleed, melts into the card body */
+    .game-art {
+      height: 150px;
+      margin: -18px -18px 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      border-bottom: 1px solid var(--border);
+    }
+    .game-art::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(180deg,
+        rgba(5, 7, 5, 0.22) 0%,
+        rgba(5, 7, 5, 0) 38%,
+        rgba(16, 19, 16, 0.88) 100%);
     }
     .game-card:hover { border-color: rgba(141, 235, 0, 0.35); }
     .game-card:active { transform: scale(0.99); }
@@ -212,6 +230,20 @@
         'camera-lab': 'Run the full camera: six real scenarios, graded briefs.',
         'lab-daily': 'One brief. One day. Best score counts.'
       };
+      /* photographic card art — media/arcade/<game>.jpg, 800x450 (16:9).
+         Keyed by slot id, falling back to the game id. New lesson_slots docs
+         pick up art automatically once their id/game is listed here. */
+      var ART_V = '20260927a';
+      var GAME_ART = {
+        'exposure-lab': 'exposure-lab',
+        'ar-viewfinder': 'ar-viewfinder',
+        'golden-hour-rush': 'golden-hour-rush',
+        'blue-hour-sprint': 'blue-hour-sprint',
+        'focal-length-sniper': 'focal-length-sniper',
+        'camera-lab': 'camera-lab',
+        'lab-01': 'camera-lab',
+        'lab-daily': 'lab-daily'
+      };
 
       function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -227,11 +259,16 @@
         gridEl.innerHTML = slots.map(function (s) {
           var icon = GAME_ICONS[s.id] || GAME_ICONS[s.game] || 'fa-gamepad';
           var blurb = GAME_BLURBS[s.id] || GAME_BLURBS[s.game] || '';
+          var artKey = GAME_ART[s.id] || GAME_ART[s.game] || '';
+          var art = artKey ? '<div class="game-art" role="img" aria-label="' +
+            esc(s.title || s.game) + ' artwork" style="background-image:url(\'/media/arcade/' +
+            artKey + '.jpg?v=' + ART_V + '\')"></div>' : '';
           var best = bestBySlot[s.id];
           var bestHtml = best != null
             ? 'Best: ' + best + '%'
             : 'No signal yet';
           return '<article class="game-card">' +
+            art +
             '<div class="game-top">' +
               '<div class="game-icon"><i class="fas ' + icon + '" aria-hidden="true"></i></div>' +
               '<div class="game-meta"><b>' + esc(s.title || s.game) + '</b>' +
