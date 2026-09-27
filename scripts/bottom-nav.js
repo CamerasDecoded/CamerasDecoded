@@ -88,12 +88,12 @@
       sub: 'Secondary destinations.',
       rows: [
         { href: '/snapshot-library.html', icon: 'camera', title: 'Snapshots',    sub: 'Your saved cards' },
+        { href: '/ai-workbench.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
         // Community cut for launch — returns as a post-launch web-app update.
-        { href: '/ai-workbench.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
+        { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { href: '/decoders-crew.html',        icon: 'users',  title: 'Decoders Crew', sub: 'Meet your mentors' },
         { action: 'install',              icon: 'download', title: 'Install app', sub: 'Add Cameras Decoded to your Home Screen' },
-        { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { action: 'logout',               icon: 'exit',   title: 'Log out',      sub: 'End this session' }
       ]
     }
