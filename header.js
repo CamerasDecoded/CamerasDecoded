@@ -118,6 +118,8 @@
       if (badge) badge.hidden = true;
       console.log('[Header] Logged out: auth buttons shown.');
     }
+
+    updateHeaderHero(isLoggedIn, pick(user, ['uid'], pick(userData, ['uid'], null)));
   }
 
   // ================================================================
@@ -294,6 +296,168 @@
     } else if (window.USER) {
       updateAuthUI(window.USER, window.USER);
       updateCartUI();
+    }
+  }
+
+  // ================================================================
+  // XP PILL + DASHBOARD-ONLY GREETING TRANSITION
+  // The greeting lives on the dashboard only: the first dashboard visit
+  // per tab session animates it in, holds ~3s, then cross-fades to the
+  // persistent XP/streak pill. Everywhere else (and every repeat visit)
+  // shows the pill directly. Signed-out: neither — the header stays clean.
+  // ================================================================
+  const HDR_GREET_KEY = 'cd_header_greeted';
+  const HDR_GREET_HOLD_MS = 3000;
+  const HDR_DASH_URL = '/operator-dashboard.html';
+  let hdrPillVisible = false;
+  let hdrXpUnsub = null;
+
+  function hdrIsDashboard() {
+    try {
+      if (window.__CDHeaderDebug && typeof window.__CDHeaderDebug.isDashboard === 'boolean')
+        return window.__CDHeaderDebug.isDashboard;
+    } catch (e) {}
+    return /(^|\/)operator-dashboard(\.html)?([?#]|$)/.test(location.pathname);
+  }
+
+  function hdrReducedMotion() {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (e) { return false; }
+  }
+
+  function hdrSessionGreeted() {
+    try { return sessionStorage.getItem(HDR_GREET_KEY) === '1'; }
+    catch (e) { return true; } // fail closed: never greet when storage is unavailable
+  }
+
+  function hdrMarkGreeted() {
+    try { sessionStorage.setItem(HDR_GREET_KEY, '1'); } catch (e) {}
+  }
+
+  function hdrTodayKey(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function ensureXpPill() {
+    let pill = document.getElementById('headerXpPill');
+    if (pill) return pill;
+    const identity = document.querySelector('#master-floating-header .header-identity');
+    if (!identity) return null;
+    pill = document.createElement('a');
+    pill.id = 'headerXpPill';
+    pill.className = 'header-xp-pill';
+    pill.href = HDR_DASH_URL;
+    pill.setAttribute('aria-label', "Today's XP — open dashboard");
+    pill.hidden = true;
+    pill.innerHTML =
+      '<span class="hxp-bolt" aria-hidden="true">⚡</span>' +
+      '<span class="hxp-text" id="headerXpText">0/100</span>' +
+      '<span class="hxp-bar" aria-hidden="true"><span class="hxp-fill" id="headerXpFill"></span></span>' +
+      '<span class="hxp-streak" id="headerXpStreak" hidden>' +
+        '<span aria-hidden="true">🔥</span><span id="headerXpStreakN">0</span>' +
+      '</span>';
+    identity.appendChild(pill);
+    return pill;
+  }
+
+  function renderXpPill(u) {
+    const pill = document.getElementById('headerXpPill');
+    if (!pill || !u) return;
+    // Same day authority as the dashboard: xpTodayDate (local) must match today.
+    const fresh = u.xpTodayDate === hdrTodayKey();
+    const xpToday = fresh ? toNum(pick(u, ['xpToday', 'dailyXp'], 0), 0) : 0;
+    const xpGoal = toNum(pick(u, ['xpGoal', 'dailyXpGoal'], 100), 100) || 100;
+    const ds = u.dailyStreak || {};
+    const streakN = toNum(pick(ds, ['count'], pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0)), 0);
+    const txt = document.getElementById('headerXpText');
+    const fill = document.getElementById('headerXpFill');
+    const streakEl = document.getElementById('headerXpStreak');
+    const streakNEl = document.getElementById('headerXpStreakN');
+    if (txt) txt.textContent = xpToday + '/' + xpGoal;
+    if (fill) fill.style.width = Math.min(100, xpGoal > 0 ? (xpToday / xpGoal) * 100 : 0) + '%';
+    if (streakEl) streakEl.hidden = !(streakN > 0);
+    if (streakNEl) streakNEl.textContent = streakN;
+    pill.setAttribute('aria-label',
+      `Today's XP: ${xpToday} of ${xpGoal}` + (streakN > 0 ? `, ${streakN} day streak` : '') + ' — open dashboard');
+    if (hdrPillVisible) pill.hidden = false;
+  }
+
+  function subscribeXp(uid) {
+    if (!uid || !ensureXpPill()) return;
+    let attempts = 0;
+    (function sub() {
+      const db = window.db;
+      if (!db || typeof db.collection !== 'function') {
+        attempts++;
+        if (attempts < 20) setTimeout(sub, 500);
+        return; // Firestore never arrived: pill stays hidden, never a dead readout
+      }
+      try {
+        if (hdrXpUnsub) { try { hdrXpUnsub(); } catch (e) {} hdrXpUnsub = null; }
+        hdrXpUnsub = db.collection('users').doc(uid).onSnapshot(
+          (doc) => { if (doc && doc.exists) renderXpPill(doc.data()); },
+          () => { /* read error: stay hidden */ }
+        );
+      } catch (e) { /* stay hidden */ }
+    })();
+  }
+
+  function hdrShowGreeting() {
+    const g = document.getElementById('headerGreeting');
+    hdrPillVisible = false;
+    if (!g) return;
+    g.classList.add('hdr-on');
+    void g.offsetWidth; // restart the entrance animation
+    g.classList.add('hdr-greet-in');
+  }
+
+  function hdrSwapToPill() {
+    const g = document.getElementById('headerGreeting');
+    const pill = document.getElementById('headerXpPill');
+    hdrPillVisible = true;
+    if (g) {
+      g.classList.remove('hdr-greet-in');
+      g.classList.add('hdr-greet-out');
+      setTimeout(() => { g.classList.remove('hdr-on', 'hdr-greet-out'); }, 450);
+    }
+    if (pill) {
+      pill.hidden = false;
+      void pill.offsetWidth;
+      pill.classList.add('hdr-pill-in');
+    }
+  }
+
+  function hdrShowPillNow() {
+    const g = document.getElementById('headerGreeting');
+    const pill = document.getElementById('headerXpPill');
+    hdrPillVisible = true;
+    if (g) g.classList.remove('hdr-on', 'hdr-greet-in', 'hdr-greet-out');
+    if (pill) {
+      pill.hidden = false;
+      pill.classList.add('hdr-pill-in');
+    }
+  }
+
+  function hdrHideHero() {
+    const g = document.getElementById('headerGreeting');
+    const pill = document.getElementById('headerXpPill');
+    hdrPillVisible = false;
+    if (g) g.classList.remove('hdr-on', 'hdr-greet-in', 'hdr-greet-out');
+    if (pill) { pill.hidden = true; pill.classList.remove('hdr-pill-in'); }
+  }
+
+  // Called from updateAuthUI once auth state resolves.
+  function updateHeaderHero(isLoggedIn, uid) {
+    ensureXpPill();
+    if (!isLoggedIn) { hdrHideHero(); return; }
+    subscribeXp(uid);
+    if (hdrIsDashboard() && !hdrSessionGreeted() && !hdrReducedMotion()) {
+      hdrMarkGreeted();
+      hdrShowGreeting();
+      setTimeout(hdrSwapToPill, HDR_GREET_HOLD_MS);
+    } else {
+      hdrShowPillNow();
     }
   }
 
