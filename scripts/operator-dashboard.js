@@ -57,6 +57,41 @@
   };
   const toNum = (v, fb=0) => typeof v === 'number' && isFinite(v) ? v : (parseInt(v,10) || fb);
 
+  // ---- Recent-signals activity helpers ----
+  // Entries carry a real epoch-ms timestamp (never a display string) so the
+  // feed can show relative times. Legacy entries written with a hardcoded
+  // `time: 'Just now'` string have no `at` and render with no time label.
+  const activityAt = (a) => {
+    const t = a && a.at;
+    if (typeof t === 'number' && isFinite(t)) return t;
+    if (t && typeof t.toMillis === 'function') return t.toMillis();
+    return 0;
+  };
+  // Relative time for the activity feed: just now → 12m ago → 3h ago →
+  // Yesterday → 5d ago → Mar 4. Returns '' for entries with no timestamp.
+  function formatActivityTime(at) {
+    if (!at) return '';
+    let diff = Date.now() - at;
+    if (diff < 0) diff = 0;
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + 'm ago';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ago';
+    const d = Math.floor(h / 24);
+    if (d < 2) return 'Yesterday';
+    if (d < 7) return d + 'd ago';
+    return new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  // Append a new entry and keep only the newest 12. Real timestamps make every
+  // entry unique, which also fixes arrayUnion silently deduping repeats.
+  function pushRecentActivity(existing, label, xp) {
+    const list = Array.isArray(existing) ? existing.slice() : [];
+    list.push({ label: label, at: Date.now(), xp: xp });
+    list.sort((a, b) => activityAt(b) - activityAt(a));
+    return list.slice(0, 12);
+  }
+
   // ---- Local-day helpers: "today" is the user's calendar day, not UTC.
   // xpToday is day-bound. The single authority is xpTodayDate (a local
   // YYYY-MM-DD stamped by every xpToday writer). Legacy UTC-stamped day keys
@@ -137,11 +172,14 @@
     };
 
     vm.activity = Array.isArray(u.recentActivity)
-      ? u.recentActivity.slice(0,4).map(a => ({
-          text: pick(a, ['label','text','title'], 'Activity'),
-          time: pick(a, ['time','date'], ''),
-          xp: a.xp || null
-        }))
+      ? u.recentActivity.slice()
+          .sort((a, b) => activityAt(b) - activityAt(a))
+          .slice(0, 4)
+          .map(a => ({
+            text: pick(a, ['label','text','title'], 'Activity'),
+            time: formatActivityTime(activityAt(a)),
+            xp: a.xp || null
+          }))
       : [];
 
     vm.notifications = Array.isArray(u.notifications) ? u.notifications.slice(0,6) : [];
@@ -969,7 +1007,8 @@
       // is yesterday's stale value — set the day's first XP absolutely.
       // Re-read the doc: vm.raw can predate XP banked on another page.
       const freshSnap = await window.db.collection('users').doc(uid).get();
-      const freshDay = cdDayFresh(freshSnap.exists ? freshSnap.data() : null);
+      const freshData = freshSnap.exists ? freshSnap.data() : null;
+      const freshDay = cdDayFresh(freshData);
       try {
         await window.db.collection('users').doc(uid).update({
           challengeLog: firebase.firestore.FieldValue.arrayUnion(todayKey),
@@ -981,7 +1020,7 @@
           ['xpByDay.' + todayKey]: firebase.firestore.FieldValue.increment(10),
           lastActivityDate: todayKey, lastActiveDate: todayKey,
           lastStreakDate: todayKey, lastXpDate: todayKey,
-          recentActivity: firebase.firestore.FieldValue.arrayUnion({ label: 'Daily challenge complete', time: 'Just now', xp: 10 })
+          recentActivity: pushRecentActivity(freshData && freshData.recentActivity, 'Daily challenge complete', 10)
         });
         showToast('Challenge complete · +10 XP');
         announce('Daily challenge complete. Plus 10 XP.');
@@ -1047,9 +1086,7 @@
           lastActiveDate: tk,
           lastStreakDate: tk,
           lastXpDate: tk,
-          recentActivity: firebase.firestore.FieldValue.arrayUnion({
-            label: 'Quick drill complete', time: 'Just now', xp: 10
-          })
+          recentActivity: pushRecentActivity(data && data.recentActivity, 'Quick drill complete', 10)
         });
         showToast('+10 XP · Quick drill complete');
         announce('Quick drill complete. Plus 10 XP.');
