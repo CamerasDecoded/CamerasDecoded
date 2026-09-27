@@ -89,12 +89,19 @@
 }
 
 .header-identity {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  align-items: center;
   min-width: 0;
+  flex: 1 1 auto;
 }
+/* Greeting and XP pill share one grid cell: they cross-fade in the same
+   slot with zero layout shift. Only one is ever visible at a time. */
+.header-identity > * { grid-area: 1 / 1; justify-self: start; }
 
+/* The greeting is dashboard-only and JS-revealed: hidden by default so it
+   never flashes on non-dashboard pages. */
 #headerGreeting {
+  display: none;
   font: 700 14px var(--hdr-sans);
   color: var(--hdr-text);
   white-space: nowrap;
@@ -102,6 +109,59 @@
   text-overflow: ellipsis;
   max-width: 34vw;
 }
+#headerGreeting.hdr-on { display: block; }
+#headerGreeting.hdr-greet-in { animation: hdrGreetIn .55s cubic-bezier(.2,.7,.3,1) both; }
+#headerGreeting.hdr-greet-out { animation: hdrGreetOut .4s ease both; }
+@keyframes hdrGreetIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes hdrGreetOut {
+  from { opacity: 1; }
+  to { opacity: 0; transform: translateX(8px); }
+}
+
+/* Persistent XP pill — the element that travels with the user. Taps through
+   to the dashboard. Compact: bolt + today/goal + hairline bar + streak. */
+.header-xp-pill[hidden] { display: none !important; }
+.header-xp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 11px;
+  border: 1px solid rgba(141,235,0,.28);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(141,235,0,.14), rgba(141,235,0,.05));
+  color: var(--hdr-text);
+  font: 700 11px var(--hdr-mono);
+  letter-spacing: .02em;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 0 10px rgba(141,235,0,.10), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.header-xp-pill:active { transform: scale(.97); }
+.header-xp-pill.hdr-pill-in { animation: hdrPillIn .45s cubic-bezier(.2,.7,.3,1) both; }
+@keyframes hdrPillIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.hxp-bolt { color: var(--green); font-size: 11px; line-height: 1; filter: drop-shadow(0 0 4px rgba(141,235,0,.7)); }
+.hxp-text { color: var(--hdr-text); }
+.hxp-bar {
+  width: 34px; height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,.14);
+  overflow: hidden;
+}
+.hxp-fill {
+  display: block; height: 100%; width: 0;
+  border-radius: 2px;
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(141,235,0,.9);
+  transition: width .6s ease;
+}
+.hxp-streak { display: inline-flex; align-items: center; gap: 2px; color: #ffb020; }
+.hxp-streak[hidden] { display: none !important; }
 
 /* ---------- Right group: streak / badge / bell / cart / auth / menu ---------- */
 .floating-right-group {
@@ -387,4 +447,6 @@ body.cd-ds-on { --hdr-left: 268px; }
 @media (prefers-reduced-motion: reduce) {
   .alert-dot:not([hidden]) { animation: none; }
   .announce-popover { transition: none; }
+  #headerGreeting.hdr-greet-in, #headerGreeting.hdr-greet-out,
+  .header-xp-pill.hdr-pill-in, .hxp-fill { animation: none !important; transition: none !important; }
 }
