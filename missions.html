@@ -1117,6 +1117,7 @@ button.phase-head .phase-kicker{display:block}
   </div>
 
   <script src="/scripts/streak.js"></script>
+  <script src="/scripts/streak-flames.js"></script>
   <script src="/scripts/haptics.js"></script>
   <script>
     // ================================================================
@@ -1447,6 +1448,15 @@ button.phase-head .phase-kicker{display:block}
           try {
             const r = await CD.touch(db, currentUser.uid);
             count = r.count; securedToday = true;
+            // Self-heal secured the streak: celebrate the earn.
+            if (r.secured) {
+              if (r.count === 7 && window.CDStreakFlames) {
+                window.CDStreakFlames.afterTransient(function () {
+                  try { if (window.CDHaptics) window.CDHaptics.bigSuccess(); } catch (e) {}
+                  playMissionSting({ src: '/media/streak-secured-success.mp4', kick: 'STREAK SECURED' });
+                });
+              } else if (window.CDStreakFlames) window.CDStreakFlames.play();
+            }
           } catch (e) { /* display keeps the read value */ }
         }
         const returningFromDrill = !!sessionStorage.getItem('cd_drill_return');
@@ -1465,12 +1475,9 @@ button.phase-head .phase-kicker{display:block}
             else window.CDNotifs.clearSmart('drill-live');
           }
         } catch (e) {}
-        // Streak-secured sting: once per fresh return from today's drill,
-        // while the streak is alive for today.
-        if (playedToday && returningFromDrill && securedToday) {
-          try { if (window.CDHaptics) window.CDHaptics.bigSuccess(); } catch (e) {}
-          playMissionSting({ src: '/media/streak-secured-success.mp4', kick: 'STREAK SECURED' });
-        }
+        // (Streak earn moments are celebrated at the touch() call sites via
+        // CDStreakFlames — flame overlay on every earn, STREAK SECURED video
+        // on the day-7 milestone.)
       } catch (e) { renderDailyStreak(0, false); /* offline — card still playable */ }
     }
 
@@ -3427,7 +3434,18 @@ button.phase-head .phase-kicker{display:block}
         updateLeaderboard(currentUser.uid, step.points || 0, 0); // best-effort
 
         // True day streak: completing a mission step counts as activity.
-        if (window.CDStreak) window.CDStreak.touch(db, currentUser.uid).catch(function () {});
+        // Flame sting on every earn; the STREAK SECURED video is the day-7 milestone.
+        if (window.CDStreak) {
+          window.CDStreak.touch(db, currentUser.uid).then(function (sr) {
+            if (!sr || !sr.secured || !window.CDStreakFlames) return;
+            if (sr.count === 7) {
+              window.CDStreakFlames.afterTransient(function () {
+                try { if (window.CDHaptics) window.CDHaptics.bigSuccess(); } catch (e) {}
+                playMissionSting({ src: '/media/streak-secured-success.mp4', kick: 'STREAK SECURED' });
+              });
+            } else window.CDStreakFlames.play();
+          }).catch(function () {});
+        }
         if (newCompleted.length === 1 && window.CDGear) { try { window.CDGear.award(currentUser.uid, 'gear-flatline', db); } catch (e) {} }
         // Glass: first fully-completed mission (module) — award once per new mission.
         if (window.CDGear && journeyData && journeyData.modules) {
