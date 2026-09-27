@@ -13,7 +13,7 @@
   const styleTag = document.createElement('style');
   styleTag.id = 'cd-ui-styles';
   styleTag.textContent = `
-    #cd-toast-container { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; flex-direction: column; gap: 10px; align-items: center; pointer-events: none; }
+    #cd-toast-container { position: fixed; top: 24px; top: calc(24px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; flex-direction: column; gap: 10px; align-items: center; pointer-events: none; }
     .cd-toast { background: #0A0A0A; border: 1px solid #8deb00; color: #ffffff; font-family: 'Space Mono', monospace; font-size: 13px; padding: 12px 22px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.6), 0 0 15px rgba(141, 235, 0, 0.15); opacity: 0; transform: translateY(-10px); transition: all 0.3s ease; pointer-events: auto; max-width: 90vw; text-align: center; }
     .cd-toast.show { opacity: 1; transform: translateY(0); }
     .cd-toast.error { border-color: #ff4a4a; box-shadow: 0 4px 20px rgba(0,0,0,0.6), 0 0 15px rgba(255, 74, 74, 0.15); }

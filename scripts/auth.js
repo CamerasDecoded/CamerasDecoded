@@ -31,6 +31,7 @@ function cdToast(message, type = 'success') {
     container.style.cssText = `
       position: fixed;
       top: 24px;
+      top: calc(24px + env(safe-area-inset-top));
       left: 50%;
       transform: translateX(-50%);
       z-index: 10000;
