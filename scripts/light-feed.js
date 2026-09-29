@@ -90,6 +90,16 @@
     'HIGH NOON': '#8deb00'
   };
 
+  var PHASE_BG = {
+    'MORNING': 'morning',
+    'AFTERNOON': 'afternoon',
+    'HIGH NOON': 'afternoon',
+    'GOLDEN HOUR': 'golden',
+    'BLUE HOUR': 'blue',
+    'NIGHT': 'night',
+    'ASTRONOMICAL TWILIGHT': 'night'
+  };
+
   /* ---------------- Formatting ---------------- */
   function pad(n) { return (n < 10 ? '0' : '') + n; }
 
@@ -166,8 +176,15 @@
 
   /* ---------------- Scoped CSS (drop-in pattern) ---------------- */
   var CSS = [
-    '.lf-strip{margin:0;border:1px solid rgba(141,235,0,.14);border-radius:10px;',
-    'background:rgba(10,10,10,.55);overflow:hidden}',
+    '.lf-strip{margin:0;border:1px solid rgba(141,235,0,.14);border-radius:10px;overflow:hidden;',
+    'background-color:rgba(10,10,10,.55);',
+    'background-image:linear-gradient(180deg,rgba(6,8,6,.8),rgba(6,8,6,.84)),var(--lf-gif,none);',
+    'background-size:auto,cover;background-position:center;background-repeat:no-repeat}',
+    '.lf-strip[data-lf-bg="morning"]{--lf-gif:url("/media/light-feed/morning.gif")}',
+    '.lf-strip[data-lf-bg="afternoon"]{--lf-gif:url("/media/light-feed/afternoon.gif")}',
+    '.lf-strip[data-lf-bg="golden"]{--lf-gif:url("/media/light-feed/golden.gif")}',
+    '.lf-strip[data-lf-bg="blue"]{--lf-gif:url("/media/light-feed/blue.gif")}',
+    '.lf-strip[data-lf-bg="night"]{--lf-gif:url("/media/light-feed/night.gif")}',
     '.lf-strip[hidden],.lf-detail[hidden],[data-lf-context][hidden]{display:none!important}',
     '.lf-strip-main{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;',
     'background:none;border:0;color:inherit;font:inherit;cursor:pointer;text-align:left}',
@@ -197,7 +214,7 @@
     'letter-spacing:.5px;color:#b4b4b4;text-align:center}',
     '.lf-context .lf-dot{animation:none}',
     '.lf-context strong{color:#fff;font-weight:700}',
-    '@media (prefers-reduced-motion:reduce){.lf-dot{animation:none}.lf-bar-fill{transition:none}.lf-caret{transition:none}}',
+    '@media (prefers-reduced-motion:reduce){.lf-dot{animation:none}.lf-bar-fill{transition:none}.lf-caret{transition:none}.lf-strip{--lf-gif:none!important}}',
     '@media (max-width:380px){.lf-phase{font-size:12px;letter-spacing:1px}.lf-count{font-size:11px}}'
   ].join('\n');
 
@@ -269,6 +286,9 @@
 
         var color = DOT_COLORS[phase] || '#8deb00';
         root.style.setProperty('--lf-dot', color);
+
+        var bg = PHASE_BG[phase] || 'night';
+        if (root.getAttribute('data-lf-bg') !== bg) root.setAttribute('data-lf-bg', bg);
 
         phaseEl.textContent = phase;
 
