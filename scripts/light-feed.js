@@ -166,19 +166,17 @@
 
   /* ---------------- Scoped CSS (drop-in pattern) ---------------- */
   var CSS = [
-    '.lf-strip{margin:14px 0;border:1px solid rgba(141,235,0,.14);border-radius:12px;',
+    '.lf-strip{margin:0;border:1px solid rgba(141,235,0,.14);border-radius:10px;',
     'background:rgba(10,10,10,.55);overflow:hidden}',
     '.lf-strip[hidden],.lf-detail[hidden],[data-lf-context][hidden]{display:none!important}',
     '.lf-strip-main{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;',
     'background:none;border:0;color:inherit;font:inherit;cursor:pointer;text-align:left}',
-    '.lf-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--lf-dot,#8deb00);',
+    '.lf-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--lf-dot,#8deb00);',
     'box-shadow:0 0 10px var(--lf-dot,#8deb00);animation:lfPulse 3.2s ease-in-out infinite}',
     '@keyframes lfPulse{0%,100%{opacity:1}50%{opacity:.45}}',
-    '.lf-text{display:flex;flex-direction:column;gap:1px;min-width:0}',
-    '.lf-eyebrow{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:3px;color:#666}',
-    '.lf-phase{font-family:"Space Mono",monospace;font-size:13px;font-weight:700;letter-spacing:2px;color:#fff;white-space:nowrap}',
+    '.lf-phase{font-family:"Space Mono",monospace;font-size:12px;font-weight:600;letter-spacing:1.5px;color:#fff;white-space:nowrap}',
     '.lf-count{margin-left:auto;font-family:"Space Mono",monospace;font-size:12px;color:#b4b4b4;white-space:nowrap}',
-    '.lf-caret{color:#666;font-size:11px;transition:transform .25s ease}',
+    '.lf-caret{color:#666;font-size:10px;transition:transform .25s ease}',
     '.lf-strip[data-open="1"] .lf-caret{transform:rotate(180deg)}',
     '.lf-bar{height:2px;background:rgba(255,255,255,.06)}',
     '.lf-bar-fill{height:100%;width:0;background:linear-gradient(90deg,#1db31b,#8deb00);transition:width 1s linear}',
