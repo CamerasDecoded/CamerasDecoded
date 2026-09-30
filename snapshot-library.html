@@ -303,6 +303,7 @@
         <i class="fas fa-search"></i>
         <input type="search" id="libSearch" placeholder="Search camera, scenario, lighting…" aria-label="Search snapshot cards" />
       </div>
+      <div class="filter-row" id="cameraFilters" aria-label="Filter by camera"></div>
       <div class="filter-row" id="scenarioFilters" aria-label="Filter by scenario"></div>
       <div class="filter-row" id="lightingFilters" aria-label="Filter by lighting"></div>
     </div>
@@ -577,8 +578,15 @@
 
     const SCENARIOS = ['Event', 'Portrait', 'Real Estate', 'Sports', 'Street'];
     const LIGHTINGS = ['Bright Natural', 'Golden Hour', 'Indoor Artificial', 'Low Light', 'Overcast'];
+    const CAMERAS = [...new Set(articles.map(a => a.camera))].sort();
 
-    const filters = { q: '', scenario: '', lighting: '' };
+    const filters = { q: '', camera: '', scenario: '', lighting: '' };
+    // "Your camera" — the pick persists, so the library re-centers on the
+    // user's body every visit. Card pages read the same key to stamp it.
+    try {
+      const savedCam = localStorage.getItem('cd_camera') || '';
+      if (savedCam && CAMERAS.includes(savedCam)) filters.camera = savedCam;
+    } catch (e) {}
     let currentUser = null;
     let savedSlugs = new Set();
     let unsubSaved = null;
@@ -591,7 +599,9 @@
 
     // ---- Filter chips ----
     function buildFilterChips() {
-      const sWrap = $('scenarioFilters'), lWrap = $('lightingFilters');
+      const cWrap = $('cameraFilters'), sWrap = $('scenarioFilters'), lWrap = $('lightingFilters');
+      cWrap.innerHTML = `<span class="filter-label">Your camera</span>` + chipHtml('', 'All', filters.camera === '');
+      CAMERAS.forEach(c => { cWrap.innerHTML += chipHtml(c, c, filters.camera === c, 'camera'); });
       sWrap.innerHTML = `<span class="filter-label">Scenario</span>` + chipHtml('', 'All', filters.scenario === '');
       SCENARIOS.forEach(s => { sWrap.innerHTML += chipHtml(s, s, filters.scenario === s, 'scenario'); });
       lWrap.innerHTML = `<span class="filter-label">Lighting</span>` + chipHtml('', 'All', filters.lighting === '');
@@ -605,6 +615,12 @@
       if (!chip || !chip.dataset.kind) return;
       const kind = chip.dataset.kind, val = chip.dataset.val;
       filters[kind] = (filters[kind] === val) ? '' : val;
+      try {
+        if (kind === 'camera') {
+          if (filters.camera) localStorage.setItem('cd_camera', filters.camera);
+          else localStorage.removeItem('cd_camera');
+        }
+      } catch (e) {}
       buildFilterChips();
       renderAtlas();
     });
@@ -615,6 +631,7 @@
 
     function filteredArticles() {
       return articles.filter(a => {
+        if (filters.camera && a.camera !== filters.camera) return false;
         if (filters.scenario && a.scenario !== filters.scenario) return false;
         if (filters.lighting && a.lighting !== filters.lighting) return false;
         if (filters.q) {
