@@ -101,6 +101,20 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   };
   const cdDayFresh = (u) => !!u && u.xpTodayDate === cdTodayKey();
+  // Streak advance shared by the drill + lesson preview writes. Same day
+  // authority as reward-engine: activity today keeps the count, yesterday
+  // continues the chain, anything older restarts at 1. Reads the pre-write
+  // doc — callers spread the result into their update only when it exists.
+  const advanceStreak = (u) => {
+    const tk = cdTodayKey();
+    const yd = new Date(); yd.setDate(yd.getDate() - 1);
+    const yk = cdTodayKey(yd);
+    const lastSeen = pick(u, ['lastActivityDate', 'lastActiveDate', 'lastStreakDate', 'lastXpDate'], null);
+    const cur = toNum(pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0), 0);
+    if (lastSeen === tk) return cur || 1;
+    if (lastSeen === yk) return cur + 1;
+    return 1;
+  };
   let dayRolloverFired = false;
 
   // ---- Shared header bell: announcements are owned by header.js now.
@@ -1261,6 +1275,10 @@
           return;
         }
         const freshDay = cdDayFresh(data);
+        // The drill keeps the streak alive: same day authority as
+        // reward-engine. Skip when the pre-write doc is missing — a failed
+        // read must never clobber the stored count.
+        const drillStreak = data ? advanceStreak(data) : 0;
         await window.db.collection('users').doc(uid).update({
           ...(freshDay
             ? { xpToday: firebase.firestore.FieldValue.increment(10) }
@@ -1268,6 +1286,7 @@
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(10),
           quickDrillDays: firebase.firestore.FieldValue.arrayUnion(tk),
+          ...(drillStreak ? { dailyChallengeStreak: drillStreak, streakDays: drillStreak, streak: drillStreak } : {}),
           lastActivityDate: tk,
           lastActiveDate: tk,
           lastStreakDate: tk,
@@ -1312,6 +1331,9 @@
         }, { merge: true });
         const tk = cdTodayKey();
         const freshDay = cdDayFresh(ludata);
+        // The lesson preview keeps the streak alive too — same guard as the
+        // drill: never write a streak off a failed read.
+        const lessonStreak = ludata ? advanceStreak(ludata) : 0;
         await window.db.collection('users').doc(uid).update({
           ...(freshDay
             ? { xpToday: firebase.firestore.FieldValue.increment(20) }
@@ -1319,6 +1341,7 @@
           totalPoints: firebase.firestore.FieldValue.increment(20),
           ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(20),
           lessonPreviewBanked: true,
+          ...(lessonStreak ? { dailyChallengeStreak: lessonStreak, streakDays: lessonStreak, streak: lessonStreak } : {}),
           lastActivityDate: tk,
           lastActiveDate: tk,
           lastStreakDate: tk,

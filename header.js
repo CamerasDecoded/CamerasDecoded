@@ -368,8 +368,11 @@
     const fresh = u.xpTodayDate === hdrTodayKey();
     const xpToday = fresh ? toNum(pick(u, ['xpToday', 'dailyXp'], 0), 0) : 0;
     const xpGoal = toNum(pick(u, ['xpGoal', 'dailyXpGoal'], 100), 100) || 100;
-    const ds = u.dailyStreak || {};
-    const streakN = toNum(pick(ds, ['count'], pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0)), 0);
+    // Streak: read the SAME fields the dashboard reads (dailyChallengeStreak /
+    // streakDays / streak). dailyStreak.count is a separate counter fed only
+    // by games + missions — reading it raw here left the pill stuck on a
+    // stale number the dashboard had already moved past.
+    const streakN = toNum(pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0), 0);
     const txt = document.getElementById('headerXpText');
     const fill = document.getElementById('headerXpFill');
     const streakEl = document.getElementById('headerXpStreak');
