@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hire a Vetted Photographer — Cameras Decoded</title>
+  <meta name="description" content="Hire a photographer who's proven, not just portfolio-polished. Every Cameras Decoded photographer clears a published skill bar before taking a single booking. Hand-matched within 48 hours.">
+
+  <link rel="stylesheet" href="/styles/design-system.css" />
+  <link rel="stylesheet" href="/styles/components.css" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/scripts/firebase-init.js?v=20260912a"></script>
+  <script src="/scripts/master-loader.js?v=20260930d"></script>
+
+  <style>
+    .hr-page {
+      background: #050705;
+      background-image: radial-gradient(circle at 20% 18%, rgba(141,235,0,0.10) 0%, transparent 50%),
+                        radial-gradient(circle at 85% 72%, rgba(141,235,0,0.07) 0%, transparent 45%);
+      background-attachment: fixed;
+      color: var(--text-primary, #fff);
+      font-family: 'Montserrat', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex; flex-direction: column;
+    }
+    .hr-main { flex: 1; width: 100%; max-width: 1060px; margin: 0 auto; padding: 96px 18px 90px; }
+
+    /* ---------- hero ---------- */
+    .hr-hero { text-align: center; padding: 34px 6px 10px; }
+    .hr-eyebrow {
+      font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .28em;
+      color: #8deb00; text-transform: uppercase; opacity: .85;
+    }
+    .hr-title img { width: min(460px, 88%); height: auto; display: block; margin: 14px auto 4px; }
+    .hr-title-fallback {
+      font-size: clamp(32px, 7.5vw, 52px); font-weight: 800; letter-spacing: -.01em;
+      margin: 14px 0 4px; color: #fff;
+      text-shadow: 0 0 34px rgba(141,235,0,.35);
+    }
+    .hr-title-fallback em { font-style: normal; color: #8deb00; }
+    .hr-sub { color: rgba(255,255,255,.72); font-size: 16px; line-height: 1.65; max-width: 600px; margin: 10px auto 0; }
+    .hr-hero-cta { margin: 26px 0 8px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+    .hr-micro { font-family: 'Space Mono', monospace; font-size: 11px; color: rgba(255,255,255,.45); letter-spacing: .08em; }
+
+    /* signature chase button, page-unique */
+    @property --hr-angle { syntax:'<angle>'; initial-value:120deg; inherits:false; }
+    @keyframes hrSpin { to { --hr-angle:360deg; } }
+    .hr-btn {
+      position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      min-width: 250px; padding: 18px 34px; border-radius: 20px; border: 1px solid transparent;
+      text-decoration: none; cursor: pointer;
+      font-weight: 800; font-size: 16px; letter-spacing: .12em; text-transform: uppercase;
+      color: #8deb00; text-shadow: 0 0 18px rgba(141,235,0,.45);
+      background:
+        linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,0) 42%),
+        linear-gradient(165deg, rgba(141,235,0,.20) 0%, rgba(141,235,0,.07) 60%, rgba(141,235,0,.13) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 6px 22px rgba(141,235,0,.10);
+    }
+    .hr-btn::before {
+      content:''; position:absolute; inset:-0.5px; border-radius:inherit; padding:1.5px; opacity:.45; pointer-events:none;
+      background: conic-gradient(from var(--hr-angle), transparent 20%, #8deb00 40%, transparent 60%, #8deb00 80%, transparent 100%);
+      -webkit-mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+      -webkit-mask-composite: xor; mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+      mask-composite: exclude;
+      animation: hrSpin 6s linear infinite;
+    }
+    .hr-btn-ghost {
+      min-width: 0; padding: 17px 26px; font-size: 14px;
+      color: rgba(255,255,255,.8); text-shadow: none;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.16);
+      box-shadow: none;
+    }
+    .hr-btn-ghost::before { display: none; }
+    @media (prefers-reduced-motion: reduce) { .hr-btn::before { animation: none; } }
+
+    /* ---------- section scaffolding ---------- */
+    .hr-sec { margin-top: 56px; }
+    .hr-sec-tag {
+      font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .26em;
+      color: rgba(141,235,0,.75); text-transform: uppercase; margin-bottom: 14px;
+    }
+    .hr-sec-title { font-size: clamp(22px, 5vw, 30px); font-weight: 800; margin: 0 0 6px; }
+    .hr-sec-sub { color: rgba(255,255,255,.6); font-size: 14.5px; line-height: 1.6; margin: 0 0 20px; max-width: 640px; }
+
+    /* ---------- steps ---------- */
+    .hr-steps { display: grid; grid-template-columns: 1fr; gap: 14px; counter-reset: hrstep; }
+    @media (min-width: 760px) { .hr-steps { grid-template-columns: 1fr 1fr 1fr; } }
+    .hr-step {
+      position: relative; border-radius: 20px; padding: 22px 20px 22px 20px;
+      border: 1px solid rgba(141,235,0,.16);
+      background: linear-gradient(175deg, rgba(13,20,12,.92), rgba(7,12,7,.94));
+      box-shadow: 0 10px 34px rgba(0,0,0,.5);
+    }
+    .hr-step-num {
+      font-family: 'Space Mono', monospace; font-size: 12px; color: #8deb00;
+      letter-spacing: .2em; margin-bottom: 10px; display: block;
+    }
+    .hr-step h3 { margin: 0 0 8px; font-size: 17px; font-weight: 800; }
+    .hr-step p { margin: 0; color: rgba(255,255,255,.66); font-size: 14px; line-height: 1.6; }
+
+    /* ---------- vetted grid ---------- */
+    .hr-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 700px) { .hr-grid { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 1000px) { .hr-grid { grid-template-columns: 1fr 1fr 1fr; } .hr-card-wide { grid-column: span 2; } }
+    .hr-card {
+      position: relative; border-radius: 20px; padding: 22px 20px;
+      border: 1px solid rgba(141,235,0,.16);
+      background:
+        linear-gradient(175deg, rgba(13,20,12,.92) 0%, rgba(7,12,7,.94) 100%),
+        url('/media/dossier-weave.jpg');
+      background-blend-mode: soft-light;
+      background-size: cover;
+      box-shadow: 0 10px 34px rgba(0,0,0,.5);
+      overflow: hidden;
+    }
+    .hr-card::after {
+      content:''; position: absolute; top: 0; right: 0; width: 44px; height: 44px;
+      background: linear-gradient(225deg, rgba(141,235,0,.22) 0 12px, transparent 12px);
+      pointer-events: none;
+    }
+    .hr-card i.fa-solid {
+      font-size: 22px; color: #8deb00; text-shadow: 0 0 16px rgba(141,235,0,.5);
+      display: inline-flex; width: 46px; height: 46px; align-items: center; justify-content: center;
+      border: 1px solid rgba(141,235,0,.28); border-radius: 14px;
+      background: rgba(141,235,0,.07); margin-bottom: 14px;
+    }
+    .hr-card h3 { margin: 0 0 8px; font-size: 17px; font-weight: 800; }
+    .hr-card p { margin: 0; color: rgba(255,255,255,.66); font-size: 14px; line-height: 1.6; }
+
+    /* ---------- roster slots ---------- */
+    .hr-roster { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 760px) { .hr-roster { grid-template-columns: 1fr 1fr 1fr; } }
+    .hr-slot {
+      border-radius: 20px; padding: 26px 20px; text-align: center;
+      border: 1px dashed rgba(141,235,0,.35); background: rgba(141,235,0,.03);
+    }
+    .hr-slot i { font-size: 26px; color: rgba(141,235,0,.5); margin-bottom: 12px; }
+    .hr-slot h3 { margin: 0 0 6px; font-size: 15px; font-weight: 800; font-family: 'Space Mono', monospace; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.75); }
+    .hr-slot p { margin: 0 0 14px; color: rgba(255,255,255,.5); font-size: 13.5px; line-height: 1.6; }
+    .hr-slot a { color: #8deb00; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-decoration: none; }
+
+    /* ---------- pricing ---------- */
+    .hr-price-card {
+      border-radius: 22px; padding: 26px 24px;
+      border: 1px solid rgba(141,235,0,.2);
+      background: linear-gradient(175deg, rgba(13,20,12,.94), rgba(7,12,7,.96));
+      box-shadow: 0 10px 34px rgba(0,0,0,.5);
+    }
+    .hr-price-line {
+      display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
+      padding: 13px 2px; border-bottom: 1px solid rgba(255,255,255,.08);
+      font-size: 14.5px;
+    }
+    .hr-price-line:last-child { border-bottom: none; }
+    .hr-price-line .k { color: rgba(255,255,255,.72); font-weight: 600; }
+    .hr-price-line .v { font-family: 'Space Mono', monospace; font-size: 13px; color: #8deb00; text-align: right; }
+    .hr-price-note { margin: 16px 0 0; color: rgba(255,255,255,.55); font-size: 13.5px; line-height: 1.65; }
+
+    /* ---------- trust strip ---------- */
+    .hr-trust {
+      border-radius: 20px; padding: 24px 22px;
+      border: 1px solid rgba(141,235,0,.25); background: rgba(141,235,0,.05);
+      display: grid; gap: 16px;
+    }
+    @media (min-width: 760px) { .hr-trust { grid-template-columns: 1fr 1fr 1fr; } }
+    .hr-trust div i { color: #8deb00; margin-right: 8px; }
+    .hr-trust h4 { margin: 0 0 6px; font-size: 14.5px; font-weight: 800; }
+    .hr-trust p { margin: 0; color: rgba(255,255,255,.6); font-size: 13.5px; line-height: 1.6; }
+
+    /* ---------- forms ---------- */
+    .hr-form-card {
+      border-radius: 22px; padding: 28px 24px;
+      border: 1px solid rgba(141,235,0,.2);
+      background: linear-gradient(175deg, rgba(13,20,12,.94), rgba(7,12,7,.96));
+      box-shadow: 0 10px 34px rgba(0,0,0,.5);
+    }
+    .hr-form-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 700px) { .hr-form-grid { grid-template-columns: 1fr 1fr; } .hr-span2 { grid-column: span 2; } }
+    .hr-field label {
+      display: block; font-family: 'Space Mono', monospace; font-size: 10.5px;
+      letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.55);
+      margin-bottom: 7px;
+    }
+    .hr-field input, .hr-field select, .hr-field textarea {
+      width: 100%; box-sizing: border-box;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14);
+      border-radius: 12px; color: #fff; font-family: 'Montserrat', sans-serif;
+      font-size: 15px; padding: 13px 14px; outline: none;
+      transition: border-color .15s ease;
+    }
+    .hr-field textarea { min-height: 96px; resize: vertical; }
+    .hr-field input:focus, .hr-field select:focus, .hr-field textarea:focus { border-color: rgba(141,235,0,.55); }
+    .hr-field select option { background: #0b110b; }
+    .hr-check { display: flex; align-items: center; gap: 10px; font-size: 14px; color: rgba(255,255,255,.7); }
+    .hr-check input { width: 18px; height: 18px; accent-color: #8deb00; }
+    .hr-radio-row { display: flex; gap: 18px; }
+    .hr-form-cta { margin-top: 20px; text-align: center; }
+    .hr-form-note { margin-top: 12px; text-align: center; font-family: 'Space Mono', monospace; font-size: 11px; color: rgba(255,255,255,.4); letter-spacing: .06em; }
+    .hr-form-ok {
+      display: none; text-align: center; padding: 34px 18px;
+      border: 1px solid rgba(141,235,0,.4); border-radius: 18px; background: rgba(141,235,0,.06);
+    }
+    .hr-form-ok.show { display: block; }
+    .hr-form-ok i { font-size: 34px; color: #8deb00; margin-bottom: 12px; }
+    .hr-form-ok h3 { margin: 0 0 8px; font-size: 20px; }
+    .hr-form-ok p { margin: 0 auto; max-width: 480px; color: rgba(255,255,255,.65); font-size: 14.5px; line-height: 1.65; }
+    .hr-form-err {
+      display: none; margin-top: 14px; text-align: center;
+      color: #ffb3ab; font-size: 13.5px; line-height: 1.6;
+    }
+    .hr-form-err.show { display: block; }
+    .hr-form-err a { color: #8deb00; }
+
+    /* ---------- faq ---------- */
+    .hr-faq { display: grid; gap: 10px; }
+    .hr-faq details {
+      border: 1px solid rgba(141,235,0,.14); border-radius: 16px; padding: 16px 18px;
+      background: rgba(10,16,10,.7);
+    }
+    .hr-faq summary { cursor: pointer; font-weight: 700; font-size: 15px; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .hr-faq summary::-webkit-details-marker { display: none; }
+    .hr-faq summary i { color: #8deb00; font-size: 12px; transition: transform .2s ease; }
+    .hr-faq details[open] summary i { transform: rotate(180deg); }
+    .hr-faq details p { margin: 12px 0 2px; color: rgba(255,255,255,.66); font-size: 14px; line-height: 1.65; }
+
+    /* ---------- final ---------- */
+    .hr-final { text-align: center; margin-top: 64px; padding: 30px 10px 10px; }
+    .hr-final h2 { font-size: clamp(24px, 6vw, 34px); font-weight: 800; margin: 0 0 8px; }
+    .hr-final p { color: rgba(255,255,255,.6); margin: 0 0 24px; }
+  </style>
+</head>
+<body class="hr-page">
+  <main class="hr-main">
+
+    <!-- HERO -->
+    <section class="hr-hero">
+      <div class="hr-eyebrow">Concierge pilot · Limited photographers</div>
+      <div class="hr-title">
+        <img src="/custom-site-titles/hire.png" alt="Hire a vetted photographer"
+             onerror="this.style.display='none';document.getElementById('hrTitleFb').hidden=false;">
+        <h1 class="hr-title-fallback" id="hrTitleFb" hidden>Hire a <em>vetted</em> photographer.</h1>
+      </div>
+      <p class="hr-sub">Every photographer here cleared the Cameras Decoded skill bar — tested shooting, client scenarios, a portfolio review, and a trial gig — before taking a single booking. Tell us the job. We hand-match you within 48 hours.</p>
+      <div class="hr-hero-cta">
+        <a class="hr-btn" href="#hrRequest">Request a photographer</a>
+        <a class="hr-btn hr-btn-ghost" href="#hrApply">Shoot with us</a>
+      </div>
+      <div class="hr-micro">HAND-MATCHED · 48-HOUR MATCH · DEPOSIT HELD UNTIL DELIVERY</div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="hr-sec">
+      <div class="hr-sec-tag">File // HIRE-01 — How it works</div>
+      <h2 class="hr-sec-title">Three steps. One human doing the matching.</h2>
+      <p class="hr-sec-sub">No lead firehose, no bidding wars. You describe the job, a person matches you to a photographer who's proven they can do it, and your money is protected until the work lands.</p>
+      <div class="hr-steps">
+        <div class="hr-step">
+          <span class="hr-step-num">STEP / 01</span>
+          <h3>Tell us the job</h3>
+          <p>Event, date, location, what you need delivered. Two minutes on the form below — or a 15-minute call if the job is unusual.</p>
+        </div>
+        <div class="hr-step">
+          <span class="hr-step-num">STEP / 02</span>
+          <h3>We hand-match you</h3>
+          <p>Within 48 hours you meet one or two vetted photographers fit for the job, with transparent all-in pricing. Matched by a human who read your brief.</p>
+        </div>
+        <div class="hr-step">
+          <span class="hr-step-num">STEP / 03</span>
+          <h3>Book with confidence</h3>
+          <p>Your 50% deposit is held by us until your photos are delivered. Don't love the match? We rematch you, or refund the deposit in full.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHAT VETTED MEANS -->
+    <section class="hr-sec">
+      <div class="hr-sec-tag">File // HIRE-02 — The bar</div>
+      <h2 class="hr-sec-title">What "vetted" actually means.</h2>
+      <p class="hr-sec-sub">The word is worthless without a checkable bar. Here's ours — published, enforced, no exceptions.</p>
+      <div class="hr-grid">
+        <div class="hr-card">
+          <i class="fa-solid fa-crosshairs"></i>
+          <h3>Tested skill, not self-reported</h3>
+          <p>Passed our proctored shooting exam and client-scenario assessments — pricing, rights, and the difficult-client conversation — before touching a booking.</p>
+        </div>
+        <div class="hr-card">
+          <i class="fa-solid fa-images"></i>
+          <h3>Portfolio reviewed</h3>
+          <p>Twenty images scored against a rubric: exposure control, composition, consistency across a set, editing restraint. Reviewed by a working professional.</p>
+        </div>
+        <div class="hr-card">
+          <i class="fa-solid fa-clipboard-check"></i>
+          <h3>Trial gig completed</h3>
+          <p>Every photographer shoots a supervised trial before any solo booking. Nobody's first real gig is your wedding.</p>
+        </div>
+        <div class="hr-card">
+          <i class="fa-solid fa-star-half-stroke"></i>
+          <h3>Rated after every job</h3>
+          <p>Clients rate every shoot. Fall below 4.5 stars and the badge comes down. One no-show and they're out — no second chances on reliability.</p>
+        </div>
+        <div class="hr-card hr-card-wide">
+          <i class="fa-solid fa-id-card"></i>
+          <h3>ID-verified and contracted</h3>
+          <p>Government ID on file, signed contractor agreement, real accountability. And on your side: every client is verified too — ID and card on file before we dispatch anyone. Our photographers never chase payment.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROSTER -->
+    <section class="hr-sec">
+      <div class="hr-sec-tag">File // HIRE-03 — The roster</div>
+      <h2 class="hr-sec-title">Three photographers. That's the pilot.</h2>
+      <p class="hr-sec-sub">Scarcity is the point. Each slot below is currently working through the vetting bar. When a photographer clears it, their card goes live here.</p>
+      <div class="hr-roster">
+        <div class="hr-slot">
+          <i class="fa-solid fa-hourglass-half"></i>
+          <h3>Slot 01</h3>
+          <p>Now vetting. Specialty and portfolio publish the moment the bar is cleared.</p>
+          <a href="#hrApply">Get vetted for this slot</a>
+        </div>
+        <div class="hr-slot">
+          <i class="fa-solid fa-hourglass-half"></i>
+          <h3>Slot 02</h3>
+          <p>Now vetting. Specialty and portfolio publish the moment the bar is cleared.</p>
+          <a href="#hrApply">Get vetted for this slot</a>
+        </div>
+        <div class="hr-slot">
+          <i class="fa-solid fa-hourglass-half"></i>
+          <h3>Slot 03</h3>
+          <p>Now vetting. Specialty and portfolio publish the moment the bar is cleared.</p>
+          <a href="#hrApply">Get vetted for this slot</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRICING -->
+    <section class="hr-sec">
+      <div class="hr-sec-tag">File // HIRE-04 — Pricing</div>
+      <h2 class="hr-sec-title">Priced in the open.</h2>
+      <p class="hr-sec-sub">Pilot pricing is confirmed in your match email — exact numbers depend on the job. The structure never changes:</p>
+      <div class="hr-price-card">
+        <div class="hr-price-line"><span class="k">Photographer's rate</span><span class="v">SET BY THE PHOTOGRAPHER</span></div>
+        <div class="hr-price-line"><span class="k">Placement fee</span><span class="v">20% · SHOWN SEPARATELY</span></div>
+        <div class="hr-price-line"><span class="k">Deposit to lock your date</span><span class="v">50% · HELD UNTIL DELIVERY</span></div>
+        <div class="hr-price-line"><span class="k">Balance</span><span class="v">DUE ON GALLERY APPROVAL</span></div>
+        <p class="hr-price-note">No hidden cuts, ever. The fee is one line on your invoice, not buried in the rate. Reschedules 14+ days out are free; inside 7 days the deposit is forfeit — the photographer held your date.</p>
+      </div>
+    </section>
+
+    <!-- TRUST -->
+    <section class="hr-sec">
+      <div class="hr-sec-tag">File // HIRE-05 — Trust</div>
+      <h2 class="hr-sec-title">Protected on both sides.</h2>
+      <div class="hr-trust" style="margin-top:18px;">
+        <div>
+          <h4><i class="fa-solid fa-shield-halved"></i>Verified clients only</h4>
+          <p>Every client is verified — ID and card on file — before dispatch. No card, no photographer.</p>
+        </div>
+        <div>
+          <h4><i class="fa-solid fa-file-signature"></i>The brief is the contract</h4>
+          <p>Scope, deliverables, usage rights, and cancellation terms agreed in writing before money moves.</p>
+        </div>
+        <div>
+          <h4><i class="fa-solid fa-scale-balanced"></i>Usage rights, stated plainly</h4>
+          <p>You get the license you booked — personal or commercial. The photographer retains copyright unless you buy it out. It's in the brief, not the fine print.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- REQUEST FORM -->
+    <section class="hr-sec" id="hrRequest">
+      <div class="hr-sec-tag">File // HIRE-06 — Request a photographer</div>
+      <h2 class="hr-sec-title">Tell us the job.</h2>
+      <p class="hr-sec-sub">Two minutes. A human reads every request and matches you within 48 hours.</p>
+      <div class="hr-form-card">
+        <form id="hrRequestForm" novalidate>
+          <div class="hr-form-grid">
+            <div class="hr-field"><label for="hrqName">Name</label><input id="hrqName" name="name" type="text" autocomplete="name" required></div>
+            <div class="hr-field"><label for="hrqEmail">Email</label><input id="hrqEmail" name="email" type="email" autocomplete="email" required></div>
+            <div class="hr-field"><label for="hrqPhone">Phone</label><input id="hrqPhone" name="phone" type="tel" autocomplete="tel"></div>
+            <div class="hr-field"><label for="hrqType">Shoot type</label>
+              <select id="hrqType" name="shootType" required>
+                <option value="">Select…</option>
+                <option>Wedding</option><option>Event</option><option>Portrait</option>
+                <option>Real estate</option><option>Product</option><option>Video</option><option>Other</option>
+              </select>
+            </div>
+            <div class="hr-field"><label for="hrqDate">Date</label><input id="hrqDate" name="date" type="date"></div>
+            <div class="hr-field"><label for="hrqLoc">Location</label><input id="hrqLoc" name="location" type="text" placeholder="City, venue, or address" required></div>
+            <div class="hr-field"><label for="hrqHours">Hours needed</label>
+              <select id="hrqHours" name="hours"><option value="">Select…</option><option>1–2</option><option>Half day (4h)</option><option>Full day (8h)</option><option>Multi-day</option></select>
+            </div>
+            <div class="hr-field"><label for="hrqBudget">Budget range</label>
+              <select id="hrqBudget" name="budget"><option value="">Select…</option><option>Under $500</option><option>$500 – $1,500</option><option>$1,500 – $3,000</option><option>$3,000+</option></select>
+            </div>
+            <div class="hr-field hr-span2"><label>Usage</label>
+              <div class="hr-radio-row">
+                <label class="hr-check"><input type="radio" name="usage" value="personal" checked> Personal</label>
+                <label class="hr-check"><input type="radio" name="usage" value="commercial"> Commercial</label>
+              </div>
+            </div>
+            <div class="hr-field hr-span2"><label for="hrqDeliver">Deliverables expected</label><input id="hrqDeliver" name="deliverables" type="text" placeholder="e.g. 50 edited photos, 7-day turnaround"></div>
+            <div class="hr-field hr-span2"><label for="hrqNotes">Must-have shots / notes</label><textarea id="hrqNotes" name="notes" placeholder="Anything the photographer must know."></textarea></div>
+            <div class="hr-field hr-span2"><label class="hr-check"><input type="checkbox" name="flexible" value="yes"> My date is flexible</label></div>
+          </div>
+          <div class="hr-form-cta"><button class="hr-btn" type="submit" id="hrqSubmit">Request my match</button></div>
+          <div class="hr-form-note">NO ACCOUNT NEEDED · WE REPLY WITHIN 48 HOURS</div>
+          <div class="hr-form-err" id="hrqErr"></div>
+        </form>
+        <div class="hr-form-ok" id="hrqOk">
+          <i class="fa-solid fa-circle-check"></i>
+          <h3>Request received.</h3>
+          <p>Your brief is in the queue. A human is reading it now — expect your match within 48 hours at the email you gave us.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- APPLY FORM -->
+    <section class="hr-sec" id="hrApply">
+      <div class="hr-sec-tag">File // HIRE-07 — For photographers</div>
+      <h2 class="hr-sec-title">Shoot with us.</h2>
+      <p class="hr-sec-sub">Pilot terms, stated honestly: hand-matched gigs, low volume at first, a 20% placement fee, and a real bar to clear. If you want a lead firehose, this isn't it. If you want clients who are verified and briefs that are real, apply.</p>
+      <div class="hr-form-card">
+        <form id="hrApplyForm" novalidate>
+          <div class="hr-form-grid">
+            <div class="hr-field"><label for="hraName">Name</label><input id="hraName" name="name" type="text" autocomplete="name" required></div>
+            <div class="hr-field"><label for="hraEmail">Email</label><input id="hraEmail" name="email" type="email" autocomplete="email" required></div>
+            <div class="hr-field"><label for="hraCity">City</label><input id="hraCity" name="city" type="text" required></div>
+            <div class="hr-field"><label for="hraSpec">Specialty</label>
+              <select id="hraSpec" name="specialty" required>
+                <option value="">Select…</option>
+                <option>Wedding</option><option>Event</option><option>Portrait</option>
+                <option>Real estate</option><option>Product</option><option>Video</option>
+              </select>
+            </div>
+            <div class="hr-field"><label for="hraYears">Years shooting</label>
+              <select id="hraYears" name="years"><option value="">Select…</option><option>0–1</option><option>2–4</option><option>5–9</option><option>10+</option></select>
+            </div>
+            <div class="hr-field"><label for="hraPort">Portfolio URL</label><input id="hraPort" name="portfolio" type="url" placeholder="https://…" required></div>
+            <div class="hr-field hr-span2"><label for="hraGear">Gear list</label><input id="hraGear" name="gear" type="text" placeholder="Bodies, lenses — short version"></div>
+            <div class="hr-field hr-span2"><label for="hraWhy">Why do you want in? (two sentences)</label><textarea id="hraWhy" name="why" required></textarea></div>
+          </div>
+          <div class="hr-form-cta"><button class="hr-btn" type="submit" id="hraSubmit">Apply to get vetted</button></div>
+          <div class="hr-form-note">APPLICATIONS REVIEWED BY A HUMAN · PORTFOLIO REVIEW INCLUDED</div>
+          <div class="hr-form-err" id="hraErr"></div>
+        </form>
+        <div class="hr-form-ok" id="hraOk">
+          <i class="fa-solid fa-circle-check"></i>
+          <h3>Application received.</h3>
+          <p>Your portfolio goes into the review queue. If the work clears the rubric, you'll hear about the skill exam and trial gig next.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="hr-sec">
+      <div class="hr-sec-tag">File // HIRE-08 — Straight answers</div>
+      <h2 class="hr-sec-title">Asked, answered.</h2>
+      <div class="hr-faq" style="margin-top:18px;">
+        <details>
+          <summary>What if my photographer cancels?<i class="fa-solid fa-chevron-down"></i></summary>
+          <p>We rematch you free, or refund your deposit in full. Your date is covered one way or another.</p>
+        </details>
+        <details>
+          <summary>Do I get the RAW files?<i class="fa-solid fa-chevron-down"></i></summary>
+          <p>Only if it's in the brief. Standard delivery is a finished, edited gallery — the photographer’s craft is part of what you’re buying.</p>
+        </details>
+        <details>
+          <summary>How fast do I get my photos?<i class="fa-solid fa-chevron-down"></i></summary>
+          <p>Turnaround is set in the brief before booking. Typical: 7 days for portraits, 14–21 for events, quoted for weddings.</p>
+        </details>
+        <details>
+          <summary>Can I book for commercial use?<i class="fa-solid fa-chevron-down"></i></summary>
+          <p>Yes — select Commercial in the request form and it’s priced into your match. The license is written into the brief so there’s no ambiguity later.</p>
+        </details>
+        <details>
+          <summary>Why only three photographers?<i class="fa-solid fa-chevron-down"></i></summary>
+          <p>This is a pilot. We’d rather match you well three times than match you badly three hundred times. The roster grows as photographers clear the bar.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="hr-final">
+      <h2>Your date deserves a sure thing.</h2>
+      <p>Tell us the job. We’ll handle the rest.</p>
+      <a class="hr-btn" href="#hrRequest">Request a photographer</a>
+    </section>
+
+  </main>
+
+  <script src="/scripts/ptr.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      function db() {
+        try { return (typeof window.db !== 'undefined' && window.db) ? window.db : null; }
+        catch (e) { return null; }
+      }
+      function ts() {
+        try {
+          if (window.firebase && firebase.firestore && firebase.firestore.FieldValue) {
+            return firebase.firestore.FieldValue.serverTimestamp();
+          }
+        } catch (e) {}
+        return new Date();
+      }
+      function val(id) {
+        var el = document.getElementById(id);
+        return el ? String(el.value || '').trim() : '';
+      }
+      function checkedRadio(name) {
+        var el = document.querySelector('input[name="' + name + '"]:checked');
+        return el ? el.value : '';
+      }
+      function checkedBox(form, name) {
+        var el = form.querySelector('input[name="' + name + '"]');
+        return !!(el && el.checked);
+      }
+      function validEmail(s) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s); }
+
+      function mailtoFallback(kind, data) {
+        var subject = encodeURIComponent(kind === 'request'
+          ? 'Hire request (form fallback)'
+          : 'Vetting application (form fallback)');
+        var body = encodeURIComponent(Object.keys(data).map(function (k) {
+          return k + ': ' + data[k];
+        }).join('\n'));
+        return 'mailto:hello@camerasdecoded.com?subject=' + subject + '&body=' + body;
+      }
+
+      function wireForm(formId, okId, errId, submitId, collection, kind, buildPayload, validate) {
+        var form = document.getElementById(formId);
+        if (!form) return;
+        var okBox = document.getElementById(okId);
+        var errBox = document.getElementById(errId);
+        var btn = document.getElementById(submitId);
+        form.addEventListener('submit', function (ev) {
+          ev.preventDefault();
+          if (errBox) { errBox.classList.remove('show'); errBox.innerHTML = ''; }
+          var data = buildPayload();
+          var problem = validate(data);
+          if (problem) {
+            if (errBox) {
+              errBox.textContent = problem;
+              errBox.classList.add('show');
+            }
+            return;
+          }
+          data.createdAt = ts();
+          data.source = 'hire.html pilot';
+          if (btn) { btn.disabled = true; btn.style.opacity = '.55'; }
+          var d = db();
+          function done() {
+            form.style.display = 'none';
+            if (okBox) okBox.classList.add('show');
+            if (okBox && okBox.scrollIntoView) {
+              try { okBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e2) {}
+            }
+          }
+          function fail() {
+            if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+            if (errBox) {
+              var link = mailtoFallback(kind, data);
+              errBox.innerHTML = 'Couldn\u2019t reach the server. ' +
+                '<a href="' + link + '">Send it by email instead</a> — nothing is lost.';
+              errBox.classList.add('show');
+            }
+          }
+          if (!d) { fail(); return; }
+          try {
+            d.collection(collection).add(data).then(done).catch(fail);
+          } catch (e) { fail(); }
+        });
+      }
+
+      /* ---- client hire request ---- */
+      wireForm('hrRequestForm', 'hrqOk', 'hrqErr', 'hrqSubmit', 'hireRequests', 'request',
+        function () {
+          var form = document.getElementById('hrRequestForm');
+          return {
+            name: val('hrqName'), email: val('hrqEmail'), phone: val('hrqPhone'),
+            shootType: val('hrqType'), date: val('hrqDate'), location: val('hrqLoc'),
+            hours: val('hrqHours'), budget: val('hrqBudget'),
+            usage: checkedRadio('usage'), deliverables: val('hrqDeliver'),
+            notes: val('hrqNotes'), flexible: checkedBox(form, 'flexible'),
+            status: 'new'
+          };
+        },
+        function (data) {
+          if (!data.name) return 'Please add your name.';
+          if (!validEmail(data.email)) return 'That email doesn\u2019t look right.';
+          if (!data.shootType) return 'Pick a shoot type.';
+          if (!data.location) return 'Add a location — city or venue.';
+          return null;
+        });
+
+      /* ---- photographer application ---- */
+      wireForm('hrApplyForm', 'hraOk', 'hraErr', 'hraSubmit', 'vettingApplications', 'apply',
+        function () {
+          return {
+            name: val('hraName'), email: val('hraEmail'), city: val('hraCity'),
+            specialty: val('hraSpec'), years: val('hraYears'),
+            portfolio: val('hraPort'), gear: val('hraGear'), why: val('hraWhy'),
+            status: 'new'
+          };
+        },
+        function (data) {
+          if (!data.name) return 'Please add your name.';
+          if (!validEmail(data.email)) return 'That email doesn\u2019t look right.';
+          if (!data.city) return 'Add your city.';
+          if (!data.specialty) return 'Pick a specialty.';
+          if (!data.portfolio) return 'Add a portfolio URL.';
+          if (!data.why) return 'Two sentences on why you want in.';
+          return null;
+        });
+    })();
+  </script>
+</body>
+</html>
