@@ -1069,7 +1069,7 @@
     // Quick drill: if today's +10 is already banked, say so up front — the
     // finish button must never promise XP it won't pay. The write guard in
     // the drillFinish handler stays authoritative.
-    if (id === 'drill') primeDrillMode();
+    if (id === 'drill') { resetDrillState(); primeDrillMode(); }
   }
   // Practice mode for the quick drill. +10 XP banks once per local day;
   // quickDrillDays on users/{uid} is the anti-farm ledger (same shape as
@@ -1103,6 +1103,44 @@
     modal.setAttribute('aria-hidden','true');
     document.body.style.overflow = '';
     lastFocus?.focus();
+  }
+  // Daily drill rotation: one drill per local day from the CDDrills pool
+  // (scripts/drills.js). Rendered once per page load — today's drill is
+  // fixed for the day, and the hardcoded HTML stays as the fallback if
+  // drills.js fails to load.
+  let currentDrill = null;
+  function cdDayIndex(d) {
+    d = d || new Date();
+    return Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 864e5);
+  }
+  function renderTodaysDrill() {
+    const pool = window.CDDrills;
+    if (!Array.isArray(pool) || !pool.length) return;
+    const idx = cdDayIndex() % pool.length;
+    const d = pool[idx];
+    currentDrill = d;
+    const st = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+    st('drill-title', d.t);
+    st('drill-heading', d.t);
+    st('drillEyebrow', 'Quick drill · ' + (idx + 1) + ' of ' + pool.length);
+    st('drillQuestion', d.q);
+    const group = document.querySelector('#drillModal [data-quiz="drill"]');
+    if (group) {
+      group.innerHTML = d.c.map((c, i) =>
+        '<button class="choice"' + (i === d.a ? ' data-correct="true"' : '') + '>' + c + '</button>').join('');
+    }
+  }
+  // Fresh attempt on every open: practice reps re-answer instead of staring
+  // at an already-answered state. XP stays guarded by the finish handler.
+  function resetDrillState() {
+    const group = document.querySelector('#drillModal [data-quiz="drill"]');
+    if (group) {
+      group.querySelectorAll('.choice').forEach(c => { c.disabled = false; c.classList.remove('correct', 'wrong'); });
+      const fb = group.parentElement.querySelector('.feedback');
+      if (fb) { fb.textContent = ''; fb.classList.remove('show'); }
+    }
+    const fin = $('drillFinish');
+    if (fin) fin.disabled = true;
   }
   function logout() {
     window.auth.signOut().then(() => { window.location.href = '/login.html'; })
@@ -1183,6 +1221,7 @@
 
     $('moreLogout')?.addEventListener('click', logout);
 
+    renderTodaysDrill();
     $$('[data-quiz]').forEach(group => {
       const feedback = group.parentElement.querySelector('.feedback');
       const finish = group.dataset.quiz === 'lesson' ? $('lessonFinish') : $('drillFinish');
@@ -1192,9 +1231,13 @@
         ch.classList.add(correct ? 'correct' : 'wrong');
         group.querySelector('[data-correct]')?.classList.add('correct');
         if (feedback) {
-          feedback.textContent = group.dataset.quiz === 'drill'
-            ? (correct ? 'Correct. A slower shutter leaves the sensor exposed longer, so movement records as blur.' : 'Not quite. Aperture and ISO change exposure, but shutter speed controls how motion is rendered.')
-            : (correct ? 'Correct. Positive compensation lifts the room while keeping your camera settings deliberate.' : 'Not quite. A faster shutter or negative compensation would make the room darker.');
+          if (group.dataset.quiz === 'drill' && currentDrill) {
+            feedback.textContent = correct ? currentDrill.ok : currentDrill.no;
+          } else {
+            feedback.textContent = group.dataset.quiz === 'drill'
+              ? (correct ? 'Correct. Well decided.' : 'Not quite. Think about which control actually changes that.')
+              : (correct ? 'Correct. Positive compensation lifts the room while keeping your camera settings deliberate.' : 'Not quite. A faster shutter or negative compensation would make the room darker.');
+          }
           feedback.classList.add('show');
         }
         if (finish) finish.disabled = false;
