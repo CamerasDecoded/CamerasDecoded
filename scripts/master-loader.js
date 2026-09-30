@@ -307,14 +307,14 @@
   function loadHeaderBehavior() {
     if (document.querySelector('script[src*="header.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/header.js?v=20260930a';
+    script.src = '/header.js?v=20260930b';
     document.body.appendChild(script);
   }
 
   function loadNotifications() {
     if (document.querySelector('script[src*="notifications.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/scripts/notifications.js?v=20260926b';
+    script.src = '/scripts/notifications.js?v=20260930b';
     script.onload = () => {
       try { if (window.CDNotifs) window.CDNotifs.init(); } catch (e) {}
     };

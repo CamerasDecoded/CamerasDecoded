@@ -240,6 +240,23 @@
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#headerAnnouncePanel') && !e.target.closest('#headerNoticeButton')) closePanel();
     });
+    // Weekly Pro nudge: a bell item linking to #pro-pitch opens the paywall
+    // sheet as a modal instead of navigating. Falls back to the Why Pro
+    // page if the paywall script isn't available.
+    document.addEventListener('click', (e) => {
+      const t = e.target && e.target.closest ? e.target.closest('a[href="#pro-pitch"]') : null;
+      if (!t) return;
+      e.preventDefault();
+      closePanel();
+      if (window.CDPaywall && typeof window.CDPaywall.show === 'function') {
+        window.CDPaywall.show({
+          headline: 'Why go Pro?',
+          sub: 'Everything behind the Pro door \u2014 from $4.99/week, cancel anytime.'
+        });
+      } else {
+        window.location.href = '/why-pro.html';
+      }
+    });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
 
     // Live Firestore listener (same doc the Missions page uses).
