@@ -9,12 +9,15 @@
 //
 // Usage: add <script src="/scripts/desktop-sidebar.js"></script> to the page.
 // Optional: window.DesktopSidebar.setRole('Admin') to switch role-aware links.
+// Visitor mode: set window.CD_DS_MODE = 'visitor' BEFORE this script loads to
+// render marketing navigation + a pinned "Get the app" CTA (for index.html).
 
 (function () {
   'use strict';
 
   var SIDEBAR_WIDTH = 256;
   var DESKTOP_MIN = 821; // matches bottom-nav's mobile breakpoint (max-width:820px)
+  var VISITOR_MODE = (window.CD_DS_MODE === 'visitor');
 
   // ---------- role-aware routes (mirrors scripts/bottom-nav.js) ----------
   var ROLE_MAP = {
@@ -62,6 +65,24 @@
     ]}
   ];
 
+  // ---------- visitor mode: marketing navigation for the landing page ----------
+  var VISITOR_GROUPS = [
+    { label: 'Explore', links: [
+      { id: 'product',    label: 'The Product',    icon: 'fa-bolt',                href: '/index.html#insideSignal' },
+      { id: 'pathways',   label: 'Three Pathways', icon: 'fa-route',               href: '/index.html#pathways' },
+      { id: 'operators',  label: 'Operators',      icon: 'fa-user-astronaut',      href: '/operators.html' },
+      { id: 'partners',   label: 'Partners',       icon: 'fa-handshake',           href: '/partners.html' },
+      { id: 'instructors',label: 'Instructors',    icon: 'fa-chalkboard-teacher',  href: '/educators-pdf-viewer.html' }
+    ]}
+  ];
+
+  function isStandalone() {
+    try {
+      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+             window.navigator.standalone === true;
+    } catch (e) { return false; }
+  }
+
   // ---------- self-contained styles (cd-ds-* prefix; no page CSS needed) ----------
   var CSS = ''
     + '.cd-ds-sidebar{display:none}'
@@ -95,6 +116,17 @@
     +   '.cd-ds-foot{margin-top:auto;padding:14px 8px 0;border-top:1px solid rgba(255,255,255,.07);'
     +     'font-family:"Space Mono",ui-monospace,monospace;font-size:9px;letter-spacing:1.5px;'
     +     'text-transform:uppercase;color:rgba(255,255,255,.3)}'
+    +   '.cd-ds-install{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;'
+    +     'padding:12px 14px;border:none;border-radius:12px;cursor:pointer;margin:0 0 10px;'
+    +     'background:linear-gradient(180deg,#a4f71f,#7fd000);color:#0a0c05;'
+    +     'font-family:"Montserrat",system-ui,-apple-system,sans-serif;font-size:13px;font-weight:800;'
+    +     'letter-spacing:.02em;box-shadow:0 4px 18px rgba(141,235,0,.28);'
+    +     'transition:filter .15s ease,transform .15s ease}'
+    +   '.cd-ds-install:hover{filter:brightness(1.07)}'
+    +   '.cd-ds-install:active{transform:scale(.98)}'
+    +   '.cd-ds-install i{font-size:15px}'
+    +   '.cd-ds-foot-note{font-family:"Space Mono",ui-monospace,monospace;font-size:9px;'
+    +     'letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.3);text-align:center}'
     + '}'
     + '@media (prefers-reduced-motion:reduce){.cd-ds-link{transition:none}}';
 
@@ -118,14 +150,18 @@
 
   function buildSidebar() {
     var page = currentPage();
+    var groups = VISITOR_MODE ? VISITOR_GROUPS : GROUPS;
+    var brand = VISITOR_MODE
+      ? '<a class="cd-ds-brand" href="/index.html" style="text-decoration:none"><img src="/cameras-decoded-logo.png" alt="Cameras Decoded" /><span>Cameras<br/>Decoded</span></a>'
+      : '<div class="cd-ds-brand"><img src="/cameras-decoded-logo.png" alt="" aria-hidden="true" /><span>Cameras<br/>Decoded</span></div>';
     var html = '<aside class="cd-ds-sidebar" aria-label="Primary navigation">';
-    html += '<div class="cd-ds-brand"><img src="/cameras-decoded-logo.png" alt="" aria-hidden="true" /><span>Cameras<br/>Decoded</span></div>';
+    html += brand;
     html += '<nav>';
-    GROUPS.forEach(function (g) {
+    groups.forEach(function (g) {
       html += '<div class="cd-ds-label">' + g.label + '</div>';
       g.links.forEach(function (l) {
         var href = resolveHref(l);
-        var active = page === href.split('/').pop().toLowerCase();
+        var active = page === href.split('/').pop().toLowerCase().split('#')[0] && href.indexOf('#') === -1;
         html += '<a class="cd-ds-link" data-cd-ds="' + l.id + '" href="' + href + '"'
           + (active ? ' aria-current="page"' : '')
           + (l.role ? ' data-cd-ds-role="' + l.role + '"' : '')
@@ -133,9 +169,20 @@
       });
     });
     html += '</nav>';
-    html += '<div class="cd-ds-foot">Operator workspace</div>';
+    html += footHTML();
     html += '</aside>';
     return html;
+  }
+
+  function footHTML() {
+    var note = VISITOR_MODE
+      ? '<div class="cd-ds-foot-note">Free · 10 seconds · No App Store needed</div>'
+      : '<div class="cd-ds-foot-note">Operator workspace</div>';
+    // Installed users don't need the pitch; the sheet itself confirms install state.
+    if (!VISITOR_MODE && isStandalone()) return '<div class="cd-ds-foot">' + note + '</div>';
+    var btn = '<button type="button" class="cd-ds-install" data-cd-install>'
+      + '<i class="fas fa-mobile-screen-button" aria-hidden="true"></i><span>Get the app</span></button>';
+    return '<div class="cd-ds-foot">' + btn + note + '</div>';
   }
 
   function setRole(role) {
