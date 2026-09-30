@@ -190,11 +190,6 @@
       margin: 16px 0 24px;
       line-height: 1.5;
       min-height: 60px;
-      animation: slideUp 0.4s ease;
-    }
-    @keyframes slideUp {
-      0% { opacity: 0; transform: translateY(20px); }
-      100% { opacity: 1; transform: translateY(0); }
     }
 
     .answers-grid {
@@ -235,25 +230,80 @@
       color: var(--text-muted);
       flex-shrink: 0;
     }
-    .answer-btn.correct { border-color: var(--green) !important; background: rgba(141,235,0,0.12) !important; }
-    .answer-btn.correct .letter { background: var(--green); color: #000; }
-    .answer-btn.wrong { border-color: #ff4a4a !important; background: rgba(255,74,74,0.12) !important; }
-    .answer-btn.wrong .letter { background: #ff4a4a; color: #000; }
     .answer-btn:disabled { opacity: 0.6; cursor: default; transform: none !important; }
 
-    /* ----- FEEDBACK BOX ----- */
-    .feedback-box {
-      margin-top: 20px;
-      padding: 16px 20px;
-      border-radius: 8px;
-      background: rgba(255,255,255,0.02);
-      border-left: 4px solid var(--green);
-      display: none;
-      animation: fadeIn 0.3s ease;
+    /* ----- FLASHCARD ----- */
+    .fc-scene { perspective: 1400px; }
+    .fc-card {
+      display: grid;
+      transform-style: preserve-3d;
+      -webkit-transform-style: preserve-3d;
+      transition: transform 0.65s cubic-bezier(0.25, 0.8, 0.25, 1);
+      position: relative;
     }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .feedback-box .fb-title { font-weight: 700; font-size: 15px; }
-    .feedback-box .fb-explain { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
+    .fc-card.fc-flipped { transform: rotateY(180deg); }
+    .fc-face {
+      grid-area: 1 / 1;
+      min-width: 0;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+    .fc-back {
+      transform: rotateY(180deg);
+      border: 1px solid var(--border-dim);
+      border-radius: 14px;
+      padding: 28px 26px;
+      background: rgba(255,255,255,0.02);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 300px;
+      transition: border-color 0.4s ease, box-shadow 0.4s ease;
+    }
+    .fc-card.fc-good .fc-back {
+      border-color: rgba(141,235,0,0.45);
+      box-shadow: 0 0 36px rgba(141,235,0,0.10), inset 0 0 60px rgba(141,235,0,0.03);
+    }
+    .fc-card.fc-bad .fc-back {
+      border-color: rgba(255,74,74,0.45);
+      box-shadow: 0 0 36px rgba(255,74,74,0.10), inset 0 0 60px rgba(255,74,74,0.03);
+    }
+    .fc-result-kicker {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .fc-result-title { font-size: 26px; font-weight: 700; margin-bottom: 10px; }
+    .fc-correct-answer {
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+    .fc-correct-answer span { color: #fff; }
+    .fc-explain { font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+    .fc-back .next-btn { margin-top: 22px; }
+
+    /* answer press + staggered entrance */
+    .answer-btn:active:not(:disabled) { transform: scale(0.985); }
+    .answer-btn { animation: fcAnswerIn 0.38s cubic-bezier(0.25, 0.8, 0.25, 1) backwards; }
+    @keyframes fcAnswerIn {
+      from { opacity: 0; transform: translateX(16px); }
+      to { opacity: 1; transform: none; }
+    }
+    .question-text { animation: fcFadeUp 0.4s ease backwards; }
+    @keyframes fcFadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .fc-card { transition: none; }
+      .answer-btn, .question-text { animation: none; }
+    }
 
     .next-btn {
       margin-top: 24px;
@@ -373,19 +423,27 @@
       <button class="diff-btn" data-level="advanced">🚀 Advanced</button>
     </div>
 
-    <!-- QUIZ UI -->
+    <!-- QUIZ UI : flashcard -->
     <div id="quizUI">
-      <div id="questionArea">
-        <div class="question-text" id="qText">Select a difficulty to begin.</div>
-        <div class="answers-grid" id="answersContainer"></div>
+      <div class="fc-scene" id="fcScene">
+        <div class="fc-card" id="fcCard">
+          <!-- FRONT : the question -->
+          <div class="fc-face fc-front">
+            <div id="questionArea">
+              <div class="question-text" id="qText">Select a difficulty to begin.</div>
+              <div class="answers-grid" id="answersContainer"></div>
+            </div>
+          </div>
+          <!-- BACK : the reveal -->
+          <div class="fc-face fc-back">
+            <div class="fc-result-kicker">Signal check</div>
+            <div class="fc-result-title" id="fbTitle">Correct</div>
+            <div class="fc-correct-answer" id="fcCorrectAnswer"></div>
+            <div class="fc-explain" id="fbExplain"></div>
+            <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
+          </div>
+        </div>
       </div>
-
-      <div class="feedback-box" id="feedbackBox">
-        <div class="fb-title" id="fbTitle">✅ Correct!</div>
-        <div class="fb-explain" id="fbExplain">Explanation goes here.</div>
-      </div>
-
-      <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
 
       <div class="results-box" id="resultsBox">
         <span class="emoji" id="resultEmoji">🎉</span>
@@ -619,7 +677,7 @@
     // DOM refs
     const qText = document.getElementById('qText');
     const answersContainer = document.getElementById('answersContainer');
-    const feedbackBox = document.getElementById('feedbackBox');
+    const fcCard = document.getElementById('fcCard');
     const fbTitle = document.getElementById('fbTitle');
     const fbExplain = document.getElementById('fbExplain');
     const nextBtn = document.getElementById('nextBtn');
@@ -813,8 +871,8 @@
       score = 0;
       answered = false;
       resultsBox.style.display = 'none';
+      document.getElementById('fcScene').style.display = 'block';
       document.getElementById('questionArea').style.display = 'block';
-      feedbackBox.style.display = 'none';
       nextBtn.style.display = 'none';
       updateWaveAndMeter(0);
       stepLabel.textContent = `⚡ ${level.charAt(0).toUpperCase()+level.slice(1)} · Question 1 of ${questions.length}`;
@@ -839,14 +897,17 @@
       order.forEach((ansIdx, pos) => {
         const btn = document.createElement('button');
         btn.className = 'answer-btn';
+        btn.style.animationDelay = (pos * 45) + 'ms';
         btn.innerHTML = `<span class="letter">${letters[pos]}</span> ${q.a[ansIdx]}`;
         btn.dataset.idx = pos;
         btn.addEventListener('click', () => handleAnswer(pos));
         answersContainer.appendChild(btn);
       });
-      feedbackBox.style.display = 'none';
+      // Fresh card on the front face, then flip back to reveal it.
+      fcCard.classList.remove('fc-good', 'fc-bad');
       nextBtn.style.display = 'none';
       answered = false;
+      requestAnimationFrame(() => fcCard.classList.remove('fc-flipped'));
       stepLabel.textContent = `⚡ ${currentLevel.charAt(0).toUpperCase()+currentLevel.slice(1)} · Question ${currentQ+1} of ${questions.length}`;
       updateWaveAndMeter(currentQ);
     }
@@ -863,24 +924,24 @@
       localStorage.setItem('quizStreak', streak.toString());
 
       const btns = document.querySelectorAll('.answer-btn');
-      btns.forEach((btn, idx) => {
-        btn.disabled = true;
-        if (idx === correctPos) btn.classList.add('correct');
-        if (idx === selected && !isCorrect) btn.classList.add('wrong');
-      });
+      btns.forEach((btn) => { btn.disabled = true; });
 
       const progress = (score / questions.length) * 100;
       signalFill.style.width = progress + '%';
       signalPercent.textContent = Math.round(progress) + '%';
 
-      feedbackBox.style.display = 'block';
-      feedbackBox.style.borderLeftColor = isCorrect ? 'var(--green)' : '#ff4a4a';
-      fbTitle.innerHTML = isCorrect ? '✅ Correct!' : '❌ Not quite.';
+      // Build the card back, then flip to reveal it.
+      fbTitle.textContent = isCorrect ? 'Correct' : 'Not quite';
       fbTitle.style.color = isCorrect ? 'var(--green)' : '#ff4a4a';
+      document.getElementById('fcCorrectAnswer').innerHTML =
+        'Answer &nbsp;<span>' + letters[correctPos] + ' — ' + q.a[q.c] + '</span>';
       fbExplain.textContent = q.e;
+      fcCard.classList.toggle('fc-good', isCorrect);
+      fcCard.classList.toggle('fc-bad', !isCorrect);
 
       nextBtn.style.display = 'block';
-      nextBtn.textContent = (currentQ === questions.length - 1) ? 'See Results 🏆' : 'Next Question →';
+      nextBtn.textContent = (currentQ === questions.length - 1) ? 'See Results' : 'Next Question →';
+      setTimeout(() => fcCard.classList.add('fc-flipped'), 160);
       waveDots.forEach((dot, i) => {
         if (i <= currentQ) dot.classList.add('completed');
         else dot.classList.remove('completed');
@@ -913,8 +974,7 @@
     }
 
     function renderQuizResults() {
-      document.getElementById('questionArea').style.display = 'none';
-      feedbackBox.style.display = 'none';
+      document.getElementById('fcScene').style.display = 'none';
       nextBtn.style.display = 'none';
       resultsBox.style.display = 'block';
       finalScore.textContent = score;
@@ -995,10 +1055,11 @@
 
     function resetDifficulty() {
       resultsBox.style.display = 'none';
+      document.getElementById('fcScene').style.display = 'block';
+      fcCard.classList.remove('fc-flipped', 'fc-good', 'fc-bad');
       document.getElementById('questionArea').style.display = 'block';
       qText.textContent = 'Select a difficulty to begin.';
       answersContainer.innerHTML = '';
-      feedbackBox.style.display = 'none';
       nextBtn.style.display = 'none';
       signalFill.style.width = '0%';
       signalPercent.textContent = '0%';
