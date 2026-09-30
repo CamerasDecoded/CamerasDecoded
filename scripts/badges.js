@@ -45,7 +45,9 @@
     'glass-body':      { name: 'Full Frame',   icon: 'fa-camera',    emoji: '📸', desc: 'Completed your first mission',            art: '/media/badges/glass/glass-body.png',      rarity: 'common' },
     'glass-overhead':  { name: 'Overhead',     icon: 'fa-paper-plane', emoji: '🚁', desc: 'Earned 1,000 lifetime XP',              art: '/media/badges/glass/glass-overhead.png',  rarity: 'rare' },
     'glass-prism':     { name: 'Prism',        icon: 'fa-gem',       emoji: '💎', desc: 'Earned 5,000 lifetime XP',                art: '/media/badges/glass/glass-prism.png',     rarity: 'legendary' },
-    'glass-signalday': { name: 'Signal Day',   icon: 'fa-cake-candles', emoji: '🎂', desc: 'One year on the signal',              art: '/media/badges/glass/glass-signalday.png', rarity: 'legendary' }
+    'glass-signalday': { name: 'Signal Day',   icon: 'fa-cake-candles', emoji: '🎂', desc: 'One year on the signal',              art: '/media/badges/glass/glass-signalday.png', rarity: 'legendary' },
+    /* ---- Pro Protocols · Night Ops ---- */
+    'blue-hour-operator': { name: 'Blue Hour Operator', icon: 'fa-moon', emoji: '🌃', desc: 'Completed Protocol 022: The Blue Hour Contract', rarity: 'rare' }
   };
 
   function getDb(explicitDb) {
