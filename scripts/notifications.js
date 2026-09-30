@@ -190,6 +190,42 @@
         try { localStorage.setItem(LS_PRO_NUDGED, dayKey()); } catch (e5) {}
       }
     } catch (e) {}
+    /* Weekly Pro invitation: free-tier members past their first week get a
+       gentle once-per-7-days modal reminder of why to go Pro. Tapping it
+       opens the paywall sheet directly (header.js intercepts #pro-pitch).
+       Skips Pro members, brand-new accounts (let the free value land
+       first), and anyone who visited the Why Pro page in the last 7 days
+       (why-pro.html stamps cd_whypro_seen on every visit). */
+    try {
+      var LS_PRO_WEEKLY = 'cd_pro_weekly_nudged';
+      var LS_WHYPRO_SEEN = 'cd_whypro_seen';
+      var WEEK_MS = 7 * 864e5;
+      var isPro = String(tier).toLowerCase() === 'pro';
+      var lastNudge = 0, lastSeen = 0;
+      try { lastNudge = parseInt(localStorage.getItem(LS_PRO_WEEKLY) || '0', 10) || 0; } catch (e6) {}
+      try { lastSeen = parseInt(localStorage.getItem(LS_WHYPRO_SEEN) || '0', 10) || 0; } catch (e7) {}
+      var acctAgeMs = -1;
+      try {
+        var u0 = window.USER || {};
+        var ca = u0.createdAt;
+        var caMs = (ca && typeof ca.toMillis === 'function') ? ca.toMillis() : Date.parse(ca);
+        if (caMs) acctAgeMs = nowMs() - caMs;
+        else if (window.firebase && firebase.auth && firebase.auth().currentUser &&
+                 firebase.auth().currentUser.metadata) {
+          var ct = Date.parse(firebase.auth().currentUser.metadata.creationTime);
+          if (ct) acctAgeMs = nowMs() - ct;
+        }
+      } catch (e8) {}
+      if (!isPro && acctAgeMs > WEEK_MS &&
+          (nowMs() - lastNudge) > WEEK_MS && (nowMs() - lastSeen) > WEEK_MS) {
+        out.push({
+          id: 'pro-weekly', title: 'Why go Pro?',
+          body: 'Field Manuals, the full Darkroom, every mission \u2014 see what unlocks.',
+          href: '#pro-pitch', at: nowMs(), kind: 'smart'
+        });
+        try { localStorage.setItem(LS_PRO_WEEKLY, String(nowMs())); } catch (e9) {}
+      }
+    } catch (e) {}
     return out;
   }
 
