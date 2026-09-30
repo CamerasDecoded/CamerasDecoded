@@ -307,7 +307,7 @@
   function loadHeaderBehavior() {
     if (document.querySelector('script[src*="header.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/header.js?v=20260927a';
+    script.src = '/header.js?v=20260930a';
     document.body.appendChild(script);
   }
 
