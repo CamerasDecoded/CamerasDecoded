@@ -289,19 +289,83 @@
     }
     return signalQueue.pop();
   }
+  /* Live signal: fresh lines via a free keyless text API. Any failure falls
+     back silently to the built-in phrase deck below. */
   var inspireBtn = $('inspireBtn'), innerEl = $('f_inner'), inspiring = false;
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  inspireBtn.addEventListener('click', function () {
-    if (inspiring) return;
-    inspiring = true;
-    var phrase = nextSignal();
-    var label = inspireBtn.querySelector('.ib-label');
+
+  function streamPhrase(phrase, done) {
+    var i = 0, max = LIMITS.f_inner;
+    innerEl.value = '';
+    innerEl.dispatchEvent(new Event('input'));
+    var typeTimer = setInterval(function () {
+      i++;
+      innerEl.value = phrase.slice(0, i);
+      innerEl.dispatchEvent(new Event('input'));
+      if (i >= phrase.length || i >= max) { clearInterval(typeTimer); (done || function () {})(); }
+    }, 18);
+  }
+
+  function deliverPhrase(phrase, live) {
+    var done = function () {
+      inspiring = false;
+      if (live) {
+        var label = inspireBtn.querySelector('.ib-label');
+        label.textContent = 'live from the signal';
+        setTimeout(function () { label.textContent = 'channel an inner signal'; }, 2200);
+      }
+    };
     if (reduceMotion) {
       innerEl.value = phrase.slice(0, LIMITS.f_inner);
       innerEl.dispatchEvent(new Event('input'));
-      inspiring = false;
-      return;
+      done();
+    } else {
+      streamPhrase(phrase, done);
     }
+  }
+
+  // Ask the live API for a fresh line. Any failure rejects -> caller falls back to the deck.
+  function fetchLiveSignal() {
+    var ctx = [];
+    var cam = $('f_camera').value.trim(), scn = $('f_scenario').value.trim(), lit = $('f_lighting').value.trim();
+    if (cam) ctx.push('shooting with ' + cam);
+    if (scn) ctx.push('the scenario is ' + scn);
+    if (lit) ctx.push('the light is ' + lit);
+    var prompt = 'You are Cynetis-7, the Signal Keeper, a calm mentor for photographers. ' +
+      'Write ONE short mindset line for a photographer about to shoot' +
+      (ctx.length ? ' (' + ctx.join(', ') + ')' : '') + '. ' +
+      'One sentence only, under 120 characters, no quotation marks, no emojis, ' +
+      'no hashtags. Calm and direct, about seeing, patience, light, or intention. ' +
+      'Never mention camera settings or gear.';
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 8000);
+    return fetch('https://text.pollinations.ai/' + encodeURIComponent(prompt) + '?private=true', { signal: ctrl.signal })
+      .then(function (r) {
+        clearTimeout(timer);
+        if (!r.ok) throw new Error('signal ' + r.status);
+        return r.text();
+      })
+      .then(function (t) {
+        t = ((t || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean)[0]) || '';
+        t = t.replace(/^["'\u201c\u201d]+|["'\u201c\u201d]+$/g, '');
+        if (t.length < 8) throw new Error('too short');
+        return t.slice(0, LIMITS.f_inner);
+      })
+      .catch(function (err) { clearTimeout(timer); throw err; });
+  }
+
+  inspireBtn.addEventListener('click', function () {
+    if (inspiring) return;
+    inspiring = true;
+    var label = inspireBtn.querySelector('.ib-label');
+    // Resolve the phrase: live from the signal when reachable, else the deck.
+    var resolve = function () {
+      fetchLiveSignal().then(
+        function (p) { deliverPhrase(p, true); },
+        function () { deliverPhrase(nextSignal(), false); }
+      );
+    };
+    if (reduceMotion) { resolve(); return; }
     // processing beat, AI-style
     inspireBtn.classList.add('working');
     var dots = 0;
@@ -314,16 +378,7 @@
       clearInterval(dotTimer);
       inspireBtn.classList.remove('working');
       label.textContent = 'channel an inner signal';
-      // stream it in, character by character
-      var i = 0, max = LIMITS.f_inner;
-      innerEl.value = '';
-      innerEl.dispatchEvent(new Event('input'));
-      var typeTimer = setInterval(function () {
-        i++;
-        innerEl.value = phrase.slice(0, i);
-        innerEl.dispatchEvent(new Event('input'));
-        if (i >= phrase.length || i >= max) { clearInterval(typeTimer); inspiring = false; }
-      }, 18);
+      resolve();
     }, 950);
   });
 
