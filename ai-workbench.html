@@ -507,6 +507,56 @@
         .modal-panel .status-msg.error {
             color: #ff4a4a;
         }
+        .modal-panel .img-result {
+            display: none;
+            margin-top: 16px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-dim);
+        }
+        .modal-panel .img-result img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .modal-panel textarea.img-prompt {
+            width: 100%;
+            min-height: 84px;
+            resize: vertical;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-dim);
+            border-radius: 10px;
+            padding: 12px 14px;
+            color: #fff;
+            font-size: 16px;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+        .modal-panel textarea.img-prompt:focus {
+            outline: none;
+            border-color: var(--green);
+        }
+        .img-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .img-actions .btn-neon-block {
+            margin-top: 0;
+            flex: 1;
+        }
+        .img-actions .ghost-btn {
+            flex: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            border: 1px solid var(--green);
+            color: var(--green);
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 15px;
+        }
         .input-group {
             margin-bottom: 18px;
         }
@@ -723,7 +773,7 @@
         <header class="page-header">
             <div class="page-header-left">
                 <h1><img src="/custom-site-titles/ai-workbench.png" alt="AI Workbench" style="max-width:260px;width:100%;height:auto;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display=''"><span style="display:none">AI Workbench</span></h1>
-                <div class="subtitle">4 tools live – more coming soon.</div>
+                <div class="subtitle">5 tools live – more coming soon.</div>
             </div>
             <div class="page-header-actions">
                 <a href="operator-dashboard.html" class="btn-outline"><i class="fas fa-arrow-left"></i> Dashboard</a>
@@ -850,17 +900,16 @@
             </div>
 
             <!-- 6. Image Generator – COMING SOON -->
-            <div class="tool-card coming-soon" style="background-image: url('images/tools/image-generator.jpg');" data-tool="image" data-live="false">
+            <div class="tool-card" style="background-image: url('images/tools/image-generator.jpg');" data-tool="image" data-live="true">
                 <div class="card-overlay"></div>
-                <div class="coming-badge">Coming Soon</div>
                 <div class="card-content">
                     <div class="card-top">
                         <span class="tool-icon"><i class="fas fa-palette"></i></span>
-                        <span class="badge coming">● Coming</span>
+                        <span class="badge live">● Live</span>
                     </div>
                     <h3>Image Generator</h3>
                     <p>Generate custom images from text prompts.</p>
-                    <button class="btn-launch coming-soon" data-tool="image" disabled>Coming Soon</button>
+                    <button class="btn-launch" data-tool="image">Launch</button>
                 </div>
             </div>
 
@@ -1066,7 +1115,7 @@
         // ============================================================
         let currentUser = null;
         let userPlan = 'free';
-        let usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0 };
+        let usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0, image: 0 };
         const DAILY_LIMIT_FREE = 5;
 
         async function loadUsage() {
@@ -1081,7 +1130,8 @@
                         total: ai.total || 0,
                         prompt: ai.prompt || 0,
                         snapshot: ai.snapshot || 0,
-                        ideas: ai.ideas || 0
+                        ideas: ai.ideas || 0,
+                        image: ai.image || 0
                     };
                     // Check if we need to reset daily
                     const lastReset = data.aiLastReset ? data.aiLastReset.toDate() : null;
@@ -1090,7 +1140,7 @@
                         lastReset.getMonth() !== today.getMonth() ||
                         lastReset.getFullYear() !== today.getFullYear()) {
                         // Reset daily usage
-                        usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0 };
+                        usage = { total: 0, prompt: 0, snapshot: 0, ideas: 0, image: 0 };
                         await db.collection('users').doc(currentUser.uid).update({
                             aiUsage: usage,
                             aiLastReset: firebase.firestore.FieldValue.serverTimestamp()
@@ -1199,6 +1249,9 @@
                     break;
                 case 'ideas':
                     renderIdeas();
+                    break;
+                case 'image':
+                    renderImage();
                     break;
                 default:
                     modal.classList.remove('active');
@@ -1342,6 +1395,125 @@
             });
         }
 
+        // ---- Image Generator ----
+        const IMG_STYLES = {
+            none: '',
+            cinematic: ', cinematic lighting, dramatic tones, film still quality',
+            golden: ', golden hour light, warm glow, long soft shadows',
+            studio: ', professional studio portrait, softbox lighting, clean backdrop',
+            mono: ', black and white, high contrast monochrome, fine art photography',
+            macro: ', extreme macro detail, shallow depth of field',
+            bluehour: ', blue hour glow, moody twilight tones',
+            vintage: ', vintage film photograph, subtle grain, faded colors'
+        };
+        const IMG_SIZES = {
+            square: [1024, 1024],
+            portrait: [768, 1152],
+            landscape: [1152, 768]
+        };
+        const IMG_PHOTO_LOCK = ', ultra photorealistic photograph, shot on a mirrorless camera, natural realistic detail';
+        const IMG_NEGATIVE = 'illustration, cartoon, anime, 3d render, painting, drawing, watermark, text, logo';
+        function buildImageUrl(prompt, w, h, seed) {
+            return 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) +
+                '?width=' + w + '&height=' + h + '&seed=' + seed + '&nologo=true' +
+                '&negative_prompt=' + encodeURIComponent(IMG_NEGATIVE);
+        }
+        function preloadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(url);
+                img.onerror = () => reject(new Error('image failed to load'));
+                img.src = url;
+            });
+        }
+        function renderImage() {
+            modalTitle.innerHTML = '<i class="fas fa-palette"></i> Image Generator';
+            modalSub.textContent = 'Describe the image — visualize a shot before you take it.';
+            modalBody.innerHTML = `
+                <div class="input-group"><label>Describe your image</label>
+                    <textarea class="img-prompt" id="imgPrompt" placeholder="A lone photographer at blue hour on a misty lake&hellip;" maxlength="500"></textarea></div>
+                <div class="input-group"><label>Style</label><select id="imgStyle">
+                    <option value="none">No preset</option>
+                    <option value="cinematic">Cinematic</option>
+                    <option value="golden">Golden hour</option>
+                    <option value="studio">Studio portrait</option>
+                    <option value="mono">Black &amp; white</option>
+                    <option value="macro">Macro detail</option>
+                    <option value="bluehour">Blue hour</option>
+                    <option value="vintage">Vintage film</option>
+                </select></div>
+                <div class="input-group"><label>Size</label><select id="imgSize">
+                    <option value="square">Square</option>
+                    <option value="portrait">Portrait</option>
+                    <option value="landscape">Landscape</option>
+                </select></div>
+                <button class="btn-neon-block" id="generateImage">Generate image</button>
+                <div id="imgStatus" class="status-msg"></div>
+                <div class="img-result" id="imgResultBox"><img id="imgResult" alt="Generated image"></div>
+                <div class="img-actions">
+                    <button class="btn-neon-block" id="regenImage" style="display:none">Regenerate</button>
+                    <a class="ghost-btn" id="openFullImage" href="#" target="_blank" rel="noopener">Open full size</a>
+                </div>
+                <div id="imgError" class="error-msg"></div>
+            `;
+            const statusEl = document.getElementById('imgStatus');
+            const errorEl = document.getElementById('imgError');
+            const genBtn = document.getElementById('generateImage');
+            const regenBtn = document.getElementById('regenImage');
+            const boxEl = document.getElementById('imgResultBox');
+            const imgEl = document.getElementById('imgResult');
+            const fullEl = document.getElementById('openFullImage');
+            let busy = false;
+
+            async function generate() {
+                if (busy) return;
+                const raw = document.getElementById('imgPrompt').value.trim();
+                if (!raw) {
+                    errorEl.textContent = 'Describe the image first.';
+                    return;
+                }
+                const style = document.getElementById('imgStyle').value;
+                const size = document.getElementById('imgSize').value;
+                const [w, h] = IMG_SIZES[size];
+                const prompt = raw + (IMG_STYLES[style] || '') + IMG_PHOTO_LOCK;
+                busy = true;
+                genBtn.disabled = true;
+                regenBtn.style.display = 'none';
+                errorEl.textContent = '';
+                boxEl.style.display = 'none';
+                statusEl.textContent = 'Dreaming up your image\u2026';
+                statusEl.className = 'status-msg';
+                let url = null;
+                for (let attempt = 0; attempt < 2 && !url; attempt++) {
+                    const seed = Math.floor(Math.random() * 1000000);
+                    try {
+                        url = await preloadImage(buildImageUrl(prompt, w, h, seed));
+                    } catch (e) {
+                        if (attempt === 0) statusEl.textContent = 'The engine hiccuped — trying again\u2026';
+                    }
+                }
+                busy = false;
+                genBtn.disabled = false;
+                if (url) {
+                    imgEl.src = url;
+                    imgEl.alt = raw;
+                    fullEl.href = url;
+                    boxEl.style.display = 'block';
+                    regenBtn.style.display = 'inline-block';
+                    fullEl.style.display = 'inline-flex';
+                    statusEl.textContent = '';
+                    const ok = await recordUsage('image');
+                    if (!ok) errorEl.textContent = 'Usage limit reached.';
+                } else {
+                    statusEl.textContent = '';
+                    statusEl.className = 'status-msg error';
+                    statusEl.textContent = 'Could not generate right now — please try again.';
+                }
+            }
+            genBtn.addEventListener('click', generate);
+            regenBtn.addEventListener('click', generate);
+        }
+
         // ---- Ideas ----
         function renderIdeas() {
             modalTitle.innerHTML = '<i class="fas fa-lightbulb"></i> Content Idea Engine';
@@ -1431,7 +1603,7 @@
         // ============================================================
         
 
-        console.log('AI Workbench – 4 live tools, 10 coming soon.');
+        console.log('AI Workbench – 5 live tools, 9 coming soon.');
     </script>
 
     <!-- Pull-to-refresh (touch + narrow screens only; never on game pages) -->
