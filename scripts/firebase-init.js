@@ -17,9 +17,11 @@ if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 
-// Force long-polling to avoid CORS issues on static hosts
+// Auto-detect long-polling: use the fast WebChannel transport when it works,
+// fall back to long-polling only when the network needs it. (Forced
+// long-polling made Firestore writes crawl — votes took seconds to land.)
 firebase.firestore().settings({
-  experimentalForceLongPolling: true
+  experimentalAutoDetectLongPolling: true
 });
 
 // Expose auth and db globally
