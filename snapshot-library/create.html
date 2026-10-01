@@ -47,6 +47,25 @@
       font-size: 10px; letter-spacing: .08em; color: #4c5a45; margin-top: 5px;
     }
     .count.near { color: #e0a352; }
+    .inspire-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin: 2px 0 8px; padding: 9px 16px;
+      border: 1px dashed rgba(141,235,0,.45); border-radius: 999px;
+      background: rgba(141,235,0,.05); color: #d8f5b8;
+      font-family: "Space Mono", monospace; font-size: 11.5px; letter-spacing: .14em;
+      text-transform: uppercase; cursor: pointer;
+      transition: border-color .15s, background .15s, transform .12s;
+    }
+    .inspire-btn:hover { border-color: #9fe870; background: rgba(141,235,0,.09); }
+    .inspire-btn:active { transform: scale(.95); }
+    .inspire-btn .ib-glyph { color: #9fe870; display: inline-block; }
+    .inspire-btn.working { pointer-events: none; border-style: solid; }
+    .inspire-btn.working .ib-glyph { animation: ibpulse .7s ease-in-out infinite; }
+    @keyframes ibpulse { 50% { opacity: .25; transform: scale(.8); } }
+    @media (prefers-reduced-motion: reduce) {
+      .inspire-btn.working .ib-glyph { animation: none; }
+      .inspire-btn:active { transform: none; }
+    }
     .chips {
       display: flex; gap: 8px; overflow-x: auto;
       padding: 10px 2px 12px; margin: 0;
@@ -126,6 +145,7 @@
   <label class="f" for="f_key">Key setting note</label>
   <textarea id="f_key" placeholder="The one thing that makes this setup work&hellip;"></textarea>
   <label class="f" for="f_inner">Inner signal note</label>
+  <button id="inspireBtn" type="button" class="inspire-btn"><span class="ib-glyph">✦</span><span class="ib-label">channel an inner signal</span></button>
   <textarea id="f_inner" placeholder="The mindset line you'll read before you shoot&hellip;"></textarea>
   <div class="hint">Leave anything blank and the card shows a &mdash; in its place.</div>
 
@@ -230,6 +250,82 @@
   function slugify(s) {
     return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'custom';
   }
+
+  /* ---- inner signal inspiration: tap to channel a phrase ---- */
+  var INNER_SIGNALS = [
+    'The camera records light. You record meaning.',
+    'Slow down. The frame you rush is the frame you lose.',
+    'Shoot the feeling first; the settings will follow.',
+    'Light is the subject. Everything else is just standing in it.',
+    'The best setting is the one you stop thinking about.',
+    'Wait one breath longer than feels necessary.',
+    'You don\u2019t take the photo. You receive it.',
+    'Blur is only a mistake if you didn\u2019t mean it.',
+    'Expose for the story, not the histogram.',
+    'The decisive moment is usually the quiet one.',
+    'Your eye is the lens that matters.',
+    'Chase the light, not the gear.',
+    'A sharp image of a boring moment is still boring.',
+    'Be the calmest thing in the frame.',
+    'The street gives; you receive.',
+    'Shoot like nobody will ever see it \u2014 then share it anyway.',
+    'Doubt is just the signal, tuning.',
+    'Fewer frames, more intention.',
+    'The light you have is the light you were meant to shoot.',
+    'Compose with your feet before your fingers.',
+    'Patience is a camera setting.',
+    'Trust the meter. Trust yourself more.',
+    'Every master was once afraid to press the shutter.',
+    'The inner signal is quiet. Get quiet enough to hear it.'
+  ];
+  var signalQueue = [];
+  function nextSignal() {
+    if (!signalQueue.length) {
+      signalQueue = INNER_SIGNALS.slice();
+      for (var i = signalQueue.length - 1; i > 0; i--) {
+        var j = (Math.random() * (i + 1)) | 0;
+        var tmp = signalQueue[i]; signalQueue[i] = signalQueue[j]; signalQueue[j] = tmp;
+      }
+    }
+    return signalQueue.pop();
+  }
+  var inspireBtn = $('inspireBtn'), innerEl = $('f_inner'), inspiring = false;
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  inspireBtn.addEventListener('click', function () {
+    if (inspiring) return;
+    inspiring = true;
+    var phrase = nextSignal();
+    var label = inspireBtn.querySelector('.ib-label');
+    if (reduceMotion) {
+      innerEl.value = phrase.slice(0, LIMITS.f_inner);
+      innerEl.dispatchEvent(new Event('input'));
+      inspiring = false;
+      return;
+    }
+    // processing beat, AI-style
+    inspireBtn.classList.add('working');
+    var dots = 0;
+    label.textContent = 'tuning the signal';
+    var dotTimer = setInterval(function () {
+      dots = (dots + 1) % 4;
+      label.textContent = 'tuning the signal' + '.'.repeat(dots);
+    }, 220);
+    setTimeout(function () {
+      clearInterval(dotTimer);
+      inspireBtn.classList.remove('working');
+      label.textContent = 'channel an inner signal';
+      // stream it in, character by character
+      var i = 0, max = LIMITS.f_inner;
+      innerEl.value = '';
+      innerEl.dispatchEvent(new Event('input'));
+      var typeTimer = setInterval(function () {
+        i++;
+        innerEl.value = phrase.slice(0, i);
+        innerEl.dispatchEvent(new Event('input'));
+        if (i >= phrase.length || i >= max) { clearInterval(typeTimer); inspiring = false; }
+      }, 18);
+    }, 950);
+  });
 
   $('genBtn').addEventListener('click', function () {
     var required = ['f_camera', 'f_scenario', 'f_lighting'];
