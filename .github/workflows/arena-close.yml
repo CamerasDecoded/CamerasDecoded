@@ -1,0 +1,42 @@
+name: Arena closer
+
+# Missions Arena scheduled job: advances round phases, closes rounds,
+# tallies weighted votes, updates Signal Scores, writes the hall of fame,
+# opens next rounds, and sweeps expired images.
+#
+# Service-account pattern mirrors upload-curriculum.yml exactly:
+#   1. Firebase console → Project settings → Service accounts →
+#      "Generate new private key" (JSON).
+#   2. GitHub repo → Settings → Secrets and variables → Actions →
+#      repo secret named FIREBASE_SERVICE_ACCOUNT, whole JSON pasted.
+# No secrets in chat, no secrets committed.
+#
+# Cadence: twice daily UTC.
+#   00:05 — close yesterday's challenge, open today's challenge;
+#            close mission voting -> results + open next mission (Mondays).
+#   18:05 — advance today's challenge open -> voting.
+# The closer is the SINGLE WRITER for rounds, scores, hall of fame, sweeps.
+
+on:
+  schedule:
+    - cron: '5 0,18 * * *'
+  workflow_dispatch:
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/arena-closer
+      - name: Run the arena closer
+        run: node closer.js
+        working-directory: tools/arena-closer
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # HOF_RETENTION_DAYS: mission-winner image retention; default 365.
+          # HOF_RETENTION_DAYS: '365'
