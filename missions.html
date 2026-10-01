@@ -157,6 +157,9 @@ button{font-family:inherit;cursor:pointer}
   transition:transform .3s var(--ease);z-index:0;
 }
 @media (prefers-reduced-motion:reduce){.am-tab-ind{transition:none}}
+.am-tabs{touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab}
+.am-tabs.am-grabbing{cursor:grabbing}
+.am-tab-ind.no-anim{transition:none}
 
 /* ---------- round card ---------- */
 .am-round{
@@ -836,10 +839,52 @@ button{font-family:inherit;cursor:pointer}
       if (name === 'trophy') loadTrophy();
     }
     function initTabs() {
-      ['mission', 'daily', 'trophy'].forEach(function (n) {
+      var order = ['mission', 'daily', 'trophy'];
+      var suppressClick = false;
+      order.forEach(function (n) {
         var tab = el('amTab' + cap(n));
-        if (tab) tab.addEventListener('click', function () { setTab(n); });
+        if (tab) tab.addEventListener('click', function () { if (!suppressClick) setTab(n); });
       });
+      /* slide-to-switch: drag the pill across the bar, release to switch (tap still works) */
+      var nav = document.querySelector('.am-tabs');
+      var ind = el('amTabInd');
+      if (!nav || !ind || typeof window.PointerEvent === 'undefined') return;
+      var dragging = false, moved = false, pid = null, startX = 0, baseX = 0, segW = 0;
+      nav.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        if (dragging) return;
+        dragging = true; moved = false; pid = e.pointerId; startX = e.clientX;
+        segW = (nav.getBoundingClientRect().width - 10) / 3;
+        baseX = order.indexOf(activeTab) * segW;
+        ind.classList.add('no-anim');
+        nav.classList.add('am-grabbing');
+      });
+      nav.addEventListener('pointermove', function (e) {
+        if (!dragging || e.pointerId !== pid) return;
+        var dx = e.clientX - startX;
+        if (!moved && Math.abs(dx) < 8) return;
+        moved = true;
+        var x = Math.max(0, Math.min(segW * 2, baseX + dx));
+        ind.style.transform = 'translateX(' + x + 'px)';
+      });
+      function endDrag(e) {
+        if (!dragging || (e && e.pointerId !== pid)) return;
+        dragging = false; pid = null;
+        ind.classList.remove('no-anim');
+        nav.classList.remove('am-grabbing');
+        if (!moved) return; /* plain tap — the click handler switches */
+        moved = false;
+        var m = /translateX\((-?[\d.]+)px\)/.exec(ind.style.transform || '');
+        var x = m ? parseFloat(m[1]) : baseX;
+        var idx = Math.max(0, Math.min(2, Math.round(x / segW)));
+        suppressClick = true;
+        setTab(order[idx]);
+        setTimeout(function () { suppressClick = false; }, 60);
+      }
+      nav.addEventListener('pointerup', endDrag);
+      nav.addEventListener('pointercancel', endDrag);
+      window.addEventListener('pointerup', endDrag);
+      window.addEventListener('pointercancel', endDrag);
     }
 
     /* ---------- sheets ---------- */
