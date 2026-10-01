@@ -781,23 +781,6 @@
     const vals = [c.protocols, c.snapshots];
     ids.forEach((id, i) => { const el = $(id); if (el) el.textContent = vals[i]; });
   }
-
-  function renderAI() {
-    const u = vm.raw;
-    const isPro = vm.user.tier === 'pro';
-    const usage = u.aiUsage || {};
-    const total = toNum(pick(usage, ['total','today'], toNum(u.aiUsageToday, 0)));
-    const limit = toNum(u.aiDailyLimit, isPro ? 50 : 5);
-    const pct = limit > 0 ? Math.min(100, (total / limit) * 100) : 0;
-    const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-    set('aiBadge', isPro ? 'Pro' : 'Free');
-    set('aiUsed', total);
-    set('aiLimit', isPro ? '∞' : limit);
-    set('aiPercent', isPro ? '∞' : Math.round(pct) + '%');
-    const bar = $('aiProgress'); if (bar) bar.setAttribute('aria-valuenow', Math.round(pct));
-    const fill = $('aiFill'); if (fill) fill.style.width = pct + '%';
-  }
-
   // Shared pool: /scripts/challenges-data.js (window.CD_CHALLENGES). Fallback below only if it fails to load.
   const CHALLENGES = window.CD_CHALLENGES || [
     { title:'Golden Hour Portrait', desc:'Capture a portrait during golden hour. Focus on warm tones and backlighting.' },
@@ -1033,7 +1016,6 @@
     renderJourneyList();
     renderActivity();
     renderCollections();
-    renderAI();
     renderChallenge();
     renderProtocols();
     renderReferral();
@@ -1056,7 +1038,7 @@
   // Entrance choreography: panels rise in a staggered visual sequence once
   // the dashboard content is revealed. Uses the house ease; skipped entirely
   // under prefers-reduced-motion.
-  const ENTRANCE_ORDER = ['.hero-block','.goal-panel','.stats-strip','.drill-card','.journey-block','.activity-panel','.challenge-grid','.more-toggle','.workspace-heading','.collections-strip','.ai-section','.protocol-section','.referral-card','.quiz-card','.ambassador-card','.dashboard-footer'];
+  const ENTRANCE_ORDER = ['.hero-block','.goal-panel','.stats-strip','.drill-card','.journey-block','.activity-panel','.challenge-grid','.more-toggle','.workspace-heading','.collections-strip','.protocol-section','.referral-card','.quiz-card','.ambassador-card','.dashboard-footer'];
   function prepEntrance() {
     ENTRANCE_ORDER.forEach(sel => { const el = document.querySelector(sel); if (el) el.classList.add('rise'); });
   }
