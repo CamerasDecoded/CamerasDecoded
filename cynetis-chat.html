@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Talk to Cynetis-7 – Cameras Decoded</title>
+    <meta name="description" content="Live conversation with Cynetis-7, the Signal Keeper — photography answers, straight talk." />
+
+    <!-- ===== MASTER LOADER (shared slim header + mobile bottom nav) ===== -->
+    <script src="/scripts/master-loader.js?v=20260930d"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <style>
+        :root {
+            --green: #8deb00;
+            --green-dim: rgba(141, 235, 0, 0.12);
+            --green-glow: rgba(141, 235, 0, 0.25);
+            --text-muted: #b4b4b4;
+            --border-dim: #1A1A1A;
+            --card-bg: rgba(10, 10, 10, 0.6);
+            --radius: 12px;
+            --transition-smooth: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            background: #050705;
+            background-image: radial-gradient(circle at 20% 30%, rgba(141, 235, 0, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(141, 235, 0, 0.08) 0%, transparent 45%),
+                linear-gradient(rgba(141, 235, 0, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(141, 235, 0, 0.04) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+            color: #ffffff;
+            font-family: 'Montserrat', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            height: 100dvh;
+        }
+
+        /* ===== APP SHELL ===== */
+        .c7p-wrap {
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            padding: calc(96px + env(safe-area-inset-top)) 0 calc(84px + env(safe-area-inset-bottom)) 0;
+        }
+
+        /* ===== CHAT HEADER ===== */
+        .c7p-top {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-dim);
+            background: rgba(5, 7, 5, 0.88);
+            backdrop-filter: blur(8px);
+        }
+        .c7p-back {
+            color: var(--text-muted);
+            font-size: 18px;
+            padding: 8px 10px 8px 2px;
+            transition: color 0.2s;
+        }
+        .c7p-back:hover { color: var(--green); }
+        .c7p-top > img {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 2px solid rgba(141, 235, 0, 0.5);
+            box-shadow: 0 0 14px var(--green-glow);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .c7p-who { flex: 1; min-width: 0; }
+        .c7p-who strong {
+            font-family: 'Space Mono', monospace;
+            font-size: 14px;
+            letter-spacing: 1px;
+            display: block;
+            color: #fff;
+        }
+        .c7p-status {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--green);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 3px;
+        }
+        .c7p-status i {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: c7p-pulse 2s infinite;
+        }
+        @keyframes c7p-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+        .c7p-new {
+            background: transparent;
+            border: 1px solid rgba(141, 235, 0, 0.3);
+            color: var(--green);
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: 0.25s;
+            flex-shrink: 0;
+        }
+        .c7p-new:hover { background: rgba(141, 235, 0, 0.08); border-color: var(--green); }
+
+        /* ===== THREAD ===== */
+        .c7p-thread {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 20px 16px;
+        }
+        .c7p-thread::-webkit-scrollbar { width: 6px; }
+        .c7p-thread::-webkit-scrollbar-thumb { background: rgba(141, 235, 0, 0.25); border-radius: 3px; }
+        .c7p-col {
+            max-width: 760px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .c7p-row { display: flex; gap: 12px; }
+        .c7p-row.user { justify-content: flex-end; }
+        .c7p-row.c7 > img {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 1px solid rgba(141, 235, 0, 0.4);
+            flex-shrink: 0;
+            margin-top: 3px;
+            object-fit: cover;
+        }
+        .c7p-ai {
+            flex: 1;
+            min-width: 0;
+            font-size: 15px;
+            line-height: 1.7;
+            color: #e8e8e8;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding-top: 3px;
+        }
+        .c7p-user {
+            max-width: 85%;
+            background: var(--green-dim);
+            border: 1px solid rgba(141, 235, 0, 0.28);
+            border-radius: 18px;
+            border-bottom-right-radius: 4px;
+            padding: 10px 16px;
+            font-size: 15px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .c7p-typing { display: inline-flex; gap: 5px; padding: 8px 2px; }
+        .c7p-typing span {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            opacity: 0.4;
+            animation: c7p-bounce 1.2s infinite;
+        }
+        .c7p-typing span:nth-child(2) { animation-delay: 0.15s; }
+        .c7p-typing span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes c7p-bounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        /* ===== EMPTY STATE ===== */
+        .c7p-empty {
+            text-align: center;
+            padding: 6vh 4px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .c7p-empty > img {
+            width: 88px;
+            height: 88px;
+            border-radius: 50%;
+            border: 2px solid rgba(141, 235, 0, 0.55);
+            box-shadow: 0 0 34px var(--green-glow);
+            object-fit: cover;
+        }
+        .c7p-empty h1 {
+            font-family: 'Space Mono', monospace;
+            font-size: 27px;
+            font-weight: 700;
+            margin: 22px 0 8px;
+        }
+        .c7p-empty h1 span { color: var(--green); }
+        .c7p-empty > p {
+            color: var(--text-muted);
+            font-size: 14px;
+            max-width: 430px;
+            line-height: 1.6;
+        }
+        .c7p-suggest {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 28px;
+            width: 100%;
+            max-width: 600px;
+            text-align: left;
+        }
+        .c7p-sug {
+            background: var(--card-bg);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-dim);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            font-size: 13.5px;
+            line-height: 1.5;
+            color: #d8d8d8;
+            cursor: pointer;
+            transition: 0.25s;
+            font-family: 'Montserrat', sans-serif;
+            text-align: left;
+        }
+        .c7p-sug:hover {
+            border-color: rgba(141, 235, 0, 0.4);
+            box-shadow: 0 0 18px rgba(141, 235, 0, 0.08);
+            transform: translateY(-2px);
+            color: #fff;
+        }
+
+        /* ===== INPUT ===== */
+        .c7p-inputbar {
+            flex-shrink: 0;
+            padding: 12px 16px 0;
+        }
+        .c7p-field {
+            max-width: 760px;
+            margin: 0 auto;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            background: #0d0f0d;
+            border: 1px solid var(--border-dim);
+            border-radius: 26px;
+            padding: 7px 7px 7px 20px;
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+        .c7p-field:focus-within {
+            border-color: rgba(141, 235, 0, 0.5);
+            box-shadow: 0 0 0 3px rgba(141, 235, 0, 0.08);
+        }
+        .c7p-field textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            resize: none;
+            color: #fff;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 16px; /* 16px+ stops iOS auto-zoom on focus */
+            line-height: 1.5;
+            max-height: 140px;
+            padding: 11px 0;
+        }
+        .c7p-field textarea::placeholder { color: #6a6a6a; }
+        .c7p-send {
+            width: 46px;
+            height: 46px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            background: var(--green);
+            color: #06110a;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.25s var(--transition-smooth), box-shadow 0.25s, opacity 0.25s;
+            box-shadow: 0 0 20px var(--green-glow);
+        }
+        .c7p-send:hover:not(:disabled) { transform: scale(1.06); }
+        .c7p-send:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+        .c7p-fine {
+            text-align: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            color: #5a5a5a;
+            margin-top: 9px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .c7p-status i, .c7p-typing span { animation: none; }
+            .c7p-sug:hover { transform: none; }
+            .c7p-send:hover:not(:disabled) { transform: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="c7p-wrap">
+        <header class="c7p-top">
+            <a class="c7p-back" href="ai-workbench.html" aria-label="Back to AI Workbench"><i class="fas fa-arrow-left"></i></a>
+            <img src="cynetis-avatar.png" alt="Cynetis-7" onerror="this.style.display='none'" />
+            <div class="c7p-who">
+                <strong>CYNETIS-7</strong>
+                <span class="c7p-status"><i></i>signal live</span>
+            </div>
+            <button class="c7p-new" id="c7p-new" type="button">New chat</button>
+        </header>
+
+        <main class="c7p-thread" id="c7p-thread">
+            <div class="c7p-col" id="c7p-col">
+                <div class="c7p-empty" id="c7p-empty">
+                    <img src="cynetis-avatar.png" alt="Cynetis-7" onerror="this.style.display='none'" />
+                    <h1>Signal <span>acquired.</span></h1>
+                    <p>I'm Cynetis-7 — the Signal Keeper. Ask me anything about photography: light, settings, composition, gear, editing.</p>
+                    <div class="c7p-suggest" id="c7p-suggest">
+                        <button class="c7p-sug" type="button">Why do my indoor photos look yellow?</button>
+                        <button class="c7p-sug" type="button">Explain aperture in one minute</button>
+                        <button class="c7p-sug" type="button">Settings for golden hour portraits?</button>
+                        <button class="c7p-sug" type="button">How do I get sharper handheld shots?</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="c7p-inputbar">
+            <div class="c7p-field">
+                <textarea id="c7p-input" rows="1" maxlength="1000" placeholder="Ask about light, settings, composition…" enterkeyhint="send"></textarea>
+                <button class="c7p-send" id="c7p-send" type="button" aria-label="Send"><i class="fas fa-paper-plane"></i></button>
+            </div>
+            <div class="c7p-fine">live ai · free while in beta · the signal keeper only speaks photography</div>
+        </footer>
+    </div>
+
+    <script>
+        // ============================================================
+        // TALK TO CYNETIS-7 — dedicated chat page, keyless text API
+        // ============================================================
+        (function () {
+            var threadEl = document.getElementById('c7p-thread');
+            var colEl = document.getElementById('c7p-col');
+            var emptyEl = document.getElementById('c7p-empty');
+            var inputEl = document.getElementById('c7p-input');
+            var sendBtn = document.getElementById('c7p-send');
+            var newBtn = document.getElementById('c7p-new');
+            var sugEl = document.getElementById('c7p-suggest');
+            if (!threadEl || !inputEl || !sendBtn) return;
+            var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var SYSTEM = 'You are Cynetis-7, the Signal Keeper — a calm, precise mentor for photographers inside the Cameras Decoded app. ' +
+                'Your domain is photography: exposure, light, composition, lenses and gear, editing, and the mindset of seeing. ' +
+                'Speak directly and calmly. Never hype-y, never childish, never condescending. ' +
+                'Keep answers tight and readable on a phone: short paragraphs, no walls of text, minimal formatting. ' +
+                'If a question falls outside photography, say so plainly in one line and guide the conversation back to the craft. ' +
+                'Never claim to see or analyze images. ' +
+                'Never invent Cameras Decoded features, prices, links, or URLs.';
+            var history = [];
+            var busy = false;
+
+            function scrollDown() {
+                threadEl.scrollTop = threadEl.scrollHeight;
+            }
+
+            function hideEmpty() {
+                if (emptyEl && emptyEl.parentNode) emptyEl.parentNode.removeChild(emptyEl);
+                emptyEl = null;
+            }
+
+            function addUser(text) {
+                var row = document.createElement('div');
+                row.className = 'c7p-row user';
+                var b = document.createElement('div');
+                b.className = 'c7p-user';
+                b.textContent = text;
+                row.appendChild(b);
+                colEl.appendChild(row);
+                scrollDown();
+            }
+
+            function addAi() {
+                var row = document.createElement('div');
+                row.className = 'c7p-row c7';
+                var av = document.createElement('img');
+                av.src = 'cynetis-avatar.png';
+                av.alt = 'Cynetis-7';
+                av.onerror = function () { av.style.display = 'none'; };
+                row.appendChild(av);
+                var t = document.createElement('div');
+                t.className = 'c7p-ai';
+                row.appendChild(t);
+                colEl.appendChild(row);
+                scrollDown();
+                return t;
+            }
+
+            function setTyping(on) {
+                var old = document.getElementById('c7p-typing');
+                if (old) old.remove();
+                if (!on) return;
+                var row = document.createElement('div');
+                row.className = 'c7p-row c7';
+                row.id = 'c7p-typing';
+                var av = document.createElement('img');
+                av.src = 'cynetis-avatar.png';
+                av.alt = 'Cynetis-7';
+                av.onerror = function () { av.style.display = 'none'; };
+                row.appendChild(av);
+                var t = document.createElement('div');
+                t.className = 'c7p-ai';
+                t.innerHTML = '<span class="c7p-typing"><span></span><span></span><span></span></span>';
+                row.appendChild(t);
+                colEl.appendChild(row);
+                scrollDown();
+            }
+
+            function streamInto(el, text) {
+                if (reduceMotion) {
+                    el.textContent = text;
+                    scrollDown();
+                    return;
+                }
+                var i = 0;
+                var timer = setInterval(function () {
+                    i += 3;
+                    el.textContent = text.slice(0, i);
+                    scrollDown();
+                    if (i >= text.length) clearInterval(timer);
+                }, 12);
+            }
+
+            function ask(raw) {
+                if (busy) return;
+                var q = (raw || '').trim().slice(0, 1000);
+                if (!q) return;
+                busy = true;
+                sendBtn.disabled = true;
+                hideEmpty();
+                addUser(q);
+                history.push({ role: 'user', content: q });
+                inputEl.value = '';
+                autogrow();
+                setTyping(true);
+                var ctrl = new AbortController();
+                var timer = setTimeout(function () { ctrl.abort(); }, 25000);
+                fetch('https://text.pollinations.ai/openai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: 'openai',
+                        private: true,
+                        messages: [{ role: 'system', content: SYSTEM }].concat(history.slice(-8))
+                    }),
+                    signal: ctrl.signal
+                }).then(function (r) {
+                    clearTimeout(timer);
+                    if (!r.ok) throw new Error('http ' + r.status);
+                    return r.json();
+                }).then(function (j) {
+                    var t = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+                    t = (t || '').trim();
+                    if (!t) throw new Error('empty');
+                    setTyping(false);
+                    history.push({ role: 'assistant', content: t.slice(0, 2000) });
+                    streamInto(addAi(), t.slice(0, 1500));
+                }).catch(function () {
+                    clearTimeout(timer);
+                    setTyping(false);
+                    var el = addAi();
+                    el.textContent = 'The signal is weak right now — that transmission didn\'t come through. Give it a moment, then try again.';
+                }).then(function () {
+                    busy = false;
+                    sendBtn.disabled = false;
+                });
+            }
+
+            function autogrow() {
+                inputEl.style.height = 'auto';
+                inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + 'px';
+            }
+
+            sendBtn.addEventListener('click', function () { ask(inputEl.value); });
+            inputEl.addEventListener('input', autogrow);
+            inputEl.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(inputEl.value); }
+            });
+            if (sugEl) {
+                sugEl.addEventListener('click', function (e) {
+                    var b = e.target.closest('.c7p-sug');
+                    if (b) ask(b.textContent);
+                });
+            }
+            if (newBtn) {
+                newBtn.addEventListener('click', function () {
+                    if (busy) return;
+                    history = [];
+                    colEl.innerHTML = '';
+                    if (!document.getElementById('c7p-empty')) {
+                        // rebuild the empty state
+                        var d = document.createElement('div');
+                        d.className = 'c7p-empty';
+                        d.id = 'c7p-empty';
+                        d.innerHTML = '<img src="cynetis-avatar.png" alt="Cynetis-7" onerror="this.style.display=\'none\'" />' +
+                            '<h1>Signal <span>acquired.</span></h1>' +
+                            '<p>I\'m Cynetis-7 — the Signal Keeper. Ask me anything about photography: light, settings, composition, gear, editing.</p>' +
+                            '<div class="c7p-suggest" id="c7p-suggest">' +
+                            '<button class="c7p-sug" type="button">Why do my indoor photos look yellow?</button>' +
+                            '<button class="c7p-sug" type="button">Explain aperture in one minute</button>' +
+                            '<button class="c7p-sug" type="button">Settings for golden hour portraits?</button>' +
+                            '<button class="c7p-sug" type="button">How do I get sharper handheld shots?</button></div>';
+                        colEl.appendChild(d);
+                        emptyEl = d;
+                        sugEl = document.getElementById('c7p-suggest');
+                        sugEl.addEventListener('click', function (e) {
+                            var b = e.target.closest('.c7p-sug');
+                            if (b) ask(b.textContent);
+                        });
+                    }
+                    scrollDown();
+                });
+            }
+        })();
+    </script>
+
+    <!-- No ptr.js on this page: pull-to-refresh would wipe the in-memory
+         conversation. Same state-loss reason it stays off game pages. -->
+
+</body>
+</html>
