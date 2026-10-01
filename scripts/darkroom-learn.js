@@ -250,6 +250,9 @@ window.CDLearn = (() => {
     if (award && award.banked && window.CDGear) {
       try { window.CDGear.trackLesson(fdb(), me() && me().uid, isFreeSkill(st.skillId)); } catch (e) { /* best-effort */ }
     }
+    if (award && award.banked && window.CDBadges) {
+      try { window.CDBadges.award(me() && me().uid, 'darkroom-skill', fdb()); } catch (e) { /* best-effort */ }
+    }
     sfxLessonDone(); bigH();
     renderResult(st, {
       headline: 'Lesson complete.',
