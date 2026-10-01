@@ -2,6 +2,10 @@
    CAMERAS DECODED — Badges (shared)
    Single source of truth for badge definitions and awarding.
    Badges live on users/{uid} as badges: { <id>: <timestamp> }.
+   On every NEW earn, the badge sting fires: a bottom sheet with the
+   badge art/name/rarity, the 'perfect' SFX (when CDSfx is present)
+   and a haptic (when CDHaptics is present). Earns queue so
+   back-to-back badges celebrate in sequence.
    Usage:
      <script src="/scripts/badges.js"></script>
      CDBadges.award(uid, 'quiz-perfect');          // needs firebase + db ready
@@ -60,6 +64,7 @@
   }
 
   // Award a badge once. Never overwrites an existing award (keeps first date).
+  // On a NEW earn, fires the badge sting (visual + sound + haptics).
   function award(uid, badgeId, explicitDb) {
     if (!uid || !DEFS[badgeId]) return Promise.resolve(false);
     var db = getDb(explicitDb);
@@ -73,8 +78,136 @@
         ? firebase.firestore.FieldValue.serverTimestamp()
         : new Date();
       upd.badges[badgeId] = ts;
-      return ref.set(upd, { merge: true }).then(function () { return true; });
+      return ref.set(upd, { merge: true }).then(function () {
+        queueSting(badgeId);
+        return true;
+      });
     }).catch(function () { return false; });
+  }
+
+  /* ================================================================
+     BADGE STING — one celebratory moment per new earn.
+     Bottom sheet with the badge art, name and rarity; plays the
+     sting sound (CDSfx 'perfect') and a haptic (CDHaptics), both
+     guarded — pages without sfx.js/haptics.js get the visual only.
+     Earns are queued so back-to-back badges celebrate in sequence.
+     Never throws; never blocks the awarding flow.
+     ================================================================ */
+  var stingQueue = [];
+
+  function stingDefs() { return DEFS; }
+
+  function playStingFeedback(rarity) {
+    try {
+      if (window.CDSfx && typeof window.CDSfx.play === 'function') {
+        window.CDSfx.play('perfect');
+      }
+    } catch (e) {}
+    try {
+      if (window.CDHaptics) {
+        if ((rarity === 'rare' || rarity === 'legendary') && typeof window.CDHaptics.bigSuccess === 'function') {
+          window.CDHaptics.bigSuccess();
+        } else if (typeof window.CDHaptics.success === 'function') {
+          window.CDHaptics.success();
+        }
+      }
+    } catch (e) {}
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function queueSting(badgeId) {
+    if (typeof document === 'undefined') return;
+    try {
+      if (document.getElementById('cd-badge-sting') || stingQueue.length) {
+        if (stingQueue.indexOf(badgeId) === -1) stingQueue.push(badgeId);
+        return;
+      }
+      showSting(badgeId);
+    } catch (e) { /* celebration never breaks the earn */ }
+  }
+
+  function nextSting() {
+    try {
+      if (stingQueue.length) showSting(stingQueue.shift());
+    } catch (e) {}
+  }
+
+  function showSting(badgeId) {
+    var d = stingDefs()[badgeId];
+    if (!d) { nextSting(); return; }
+    try {
+      if (document.getElementById('cd-badge-sting')) { queueSting(badgeId); return; }
+      var reduceMotion = false;
+      try {
+        reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      } catch (e) {}
+
+      var GREEN = '#8DEB00';
+      var GREEN_SOFT = '#B6FF45';
+      var rarity = d.rarity || 'common';
+      var accent = rarity === 'legendary' ? GREEN_SOFT : (rarity === 'rare' ? GREEN : '#999');
+      var isGear = badgeId.indexOf('gear-') === 0 || badgeId.indexOf('glass-') === 0;
+      var kicker = isGear ? 'GEAR ACQUIRED' : 'BADGE EARNED';
+      var shareable = !!(d.art && window.CDGearShare && typeof window.CDGearShare.card === 'function');
+
+      var artHtml = d.art
+        ? '<img src="' + d.art + '" alt="" style="width:96px;height:96px;object-fit:contain;">'
+        : '<div style="font-size:52px;line-height:96px;">' + (d.emoji || '🏅') + '</div>';
+
+      var rarityHtml = d.rarity
+        ? '<div style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:2px;color:' + accent +
+          ';border:1px solid ' + accent + ';border-radius:20px;padding:5px 14px;margin-bottom:16px;">' +
+          escapeHtml(rarity.toUpperCase()) + '</div>'
+        : '<div style="margin-bottom:16px;"></div>';
+
+      var buttonsHtml = shareable
+        ? '<div style="display:flex;gap:10px;">' +
+          '<button type="button" id="cdStingShareBtn" style="flex:1;padding:14px;border:none;border-radius:12px;background:' + GREEN + ';color:#000;font-weight:800;font-size:15px;cursor:pointer;">Share</button>' +
+          '<button type="button" id="cdStingDismissBtn" style="flex:1;padding:14px;border:1px solid #2a2a2a;border-radius:12px;background:transparent;color:#bbb;font-weight:700;font-size:15px;cursor:pointer;">Not now</button>' +
+          '</div>'
+        : '<button type="button" id="cdStingDismissBtn" style="width:100%;padding:14px;border:none;border-radius:12px;background:' + GREEN + ';color:#000;font-weight:800;font-size:15px;cursor:pointer;">Keep going</button>';
+
+      var wrap = document.createElement('div');
+      wrap.id = 'cd-badge-sting';
+      wrap.setAttribute('role', 'dialog');
+      wrap.setAttribute('aria-label', kicker);
+      wrap.style.cssText = 'position:fixed;inset:0;z-index:99990;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.6);' +
+        (reduceMotion ? '' : 'animation:cdStingFade .25s ease;');
+
+      wrap.innerHTML =
+        '<div style="width:100%;max-width:520px;background:#0c0c0c;border:1px solid #1e1e1e;border-bottom:none;border-radius:20px 20px 0 0;padding:24px 24px calc(24px + env(safe-area-inset-bottom));text-align:center;' +
+        (reduceMotion ? '' : 'animation:cdStingUp .3s ease;') + '">' +
+          '<div style="font-size:11px;letter-spacing:3px;color:' + GREEN + ';font-weight:700;margin-bottom:12px;">' + kicker + '</div>' +
+          '<div style="margin-bottom:12px;">' + artHtml + '</div>' +
+          '<div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;">' + escapeHtml(d.name || badgeId) + '</div>' +
+          '<div style="font-size:13px;color:#888;margin-bottom:12px;">' + escapeHtml(d.desc || '') + '</div>' +
+          rarityHtml +
+          buttonsHtml +
+        '</div>' +
+        '<style>@keyframes cdStingFade{from{opacity:0}}@keyframes cdStingUp{from{transform:translateY(40px);opacity:0}}</style>';
+
+      function close() {
+        try { wrap.remove(); } catch (e) {}
+        nextSting();
+      }
+      wrap.addEventListener('click', function (ev) { if (ev.target === wrap) close(); });
+      var dismissBtn = wrap.querySelector('#cdStingDismissBtn');
+      if (dismissBtn) dismissBtn.addEventListener('click', close);
+      var shareBtn = wrap.querySelector('#cdStingShareBtn');
+      if (shareBtn) shareBtn.addEventListener('click', function () {
+        close();
+        try { window.CDGearShare.card(badgeId); } catch (e) {}
+      });
+      document.body.appendChild(wrap);
+      playStingFeedback(rarity);
+    } catch (e) {
+      nextSting();
+    }
   }
 
   function defs() { return DEFS; }
