@@ -1,16 +1,21 @@
-/* Cameras Decoded — "Render my card" for snapshot-library card pages.
- * Scrapes the card's values from the DOM, draws the approved Canva-template
- * card on canvas, plays the 3-second render animation, offers Save PNG.
+/* Cameras Decoded — snapshot card renderer.
+ *
+ * Two entry points:
+ *  1. Card pages (snapshot-library/*.html): auto-injects a "RENDER MY CARD"
+ *     button that scrapes the page's values and renders the personalized card.
+ *  2. Builder (snapshot-library/create.html): calls window.SnapshotCard.render(data)
+ *     with user-supplied values for a from-scratch card.
+ *
+ * Draws the approved Canva-template card on canvas, plays the 3-second render
+ * animation (tap to skip, reduced-motion safe), offers Replay + Save PNG.
  * Self-contained: injects its own CSS + the repo's Open Sans (same file the
- * build-time compositor uses, so canvas metrics match exactly). No-ops off
- * card pages.
+ * build-time compositor uses, so canvas metrics match exactly).
  *
  * Card copy is condensed for the small template slots (the full prose stays
  * on the page): shutter keeps the speed token, ISO keeps the Auto ceiling,
  * white balance keeps the Kelvin number. Long values shrink/wrap to fit. */
 (function () {
   'use strict';
-  if (!document.querySelector('.settings-grid')) return;
 
   var FONT_FAM = '"Open Sans"';
   var FONT_URL = '/media/fonts/opensans.ttf';
@@ -18,7 +23,7 @@
   var FW = 1206, FH = 2144;          // template size (approved formula coords)
   var WHITE = '#f5f5f5', GREEN = '#9fe870';
 
-  /* ---------------- value scraping ---------------- */
+  /* ---------------- value scraping (card pages) ---------------- */
   var LABEL_MAP = {
     'Recommended Mode': 'mode', 'Shutter Speed': 'shutter', 'Aperture': 'aperture',
     'ISO': 'iso', 'Focus Mode': 'focus', 'Drive Mode': 'drive', 'White Balance': 'wb'
@@ -74,7 +79,7 @@
     var v = {
       camera: meta.camera, scenario: meta.scenario, lighting: meta.lighting,
       mode: '', shutter: '', aperture: '', iso: '', focus: '', drive: '', wb: '',
-      key_note: '', inner_note: ''
+      key_note: '', inner_note: '', slug: ''
     };
     Array.prototype.forEach.call(labels, function (l, i) {
       var key = LABEL_MAP[l.textContent.trim()];
@@ -98,7 +103,22 @@
       var cam = localStorage.getItem('cd_camera');
       if (cam) v.camera = cam;   // stamp the user's own body
     } catch (e) {}
+    v.slug = (location.pathname.split('/').pop() || 'card').replace(/\.html$/, '');
     return v;
+  }
+
+  // Normalize builder-supplied data into the card value shape.
+  function normalizeData(d) {
+    d = d || {};
+    function s(k) { return (d[k] == null ? '' : String(d[k])).trim(); }
+    function setting(k) { var x = s(k); return x || '\u2014'; }
+    return {
+      camera: s('camera'), scenario: s('scenario'), lighting: s('lighting'),
+      mode: setting('mode'), shutter: setting('shutter'), aperture: setting('aperture'),
+      iso: setting('iso'), focus: setting('focus'), drive: setting('drive'), wb: setting('wb'),
+      key_note: s('key_note'), inner_note: s('inner_note'),
+      slug: s('slug') || 'custom'
+    };
   }
 
   /* ---------------- card drawing (mirrors render.py) ---------------- */
@@ -240,11 +260,12 @@
     ' padding:12px 14px;min-height:118px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.7}',
     '.snr-hud .ln{white-space:pre-wrap;color:#9fe870}',
     '.snr-hud .ln.ok{color:#e8f5e0}',
-    '.snr-row{width:min(74vw,330px);display:flex;gap:10px;margin-top:14px}',
+    '.snr-row{width:min(74vw,330px);display:flex;gap:8px;margin-top:14px}',
     '.snr-row button{flex:1;background:transparent;border:1px solid #2c3f1c;color:#9fe870;border-radius:999px;',
-    ' padding:13px;font-family:ui-monospace,Menlo,monospace;font-size:13px;letter-spacing:.08em;cursor:pointer}',
+    ' padding:13px 6px;font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.06em;cursor:pointer}',
     '.snr-row button.primary{background:#9fe870;color:#061206;border:none;font-weight:700}',
     '.snr-row button:active{transform:scale(.97)}',
+    '.snr-row button[disabled]{opacity:.25;pointer-events:none}',
     '.snr-pulse{animation:snredgepulse 1.1s ease-in-out 2}',
     '@keyframes snredgepulse{0%,100%{box-shadow:0 0 60px rgba(141,235,0,.07)}50%{box-shadow:0 0 90px rgba(141,235,0,.35)}}'
   ].join('\n');
@@ -269,24 +290,26 @@
   tplImg.src = TEMPLATE_URL;
   var tplReady = new Promise(function (res, rej) { tplImg.onload = res; tplImg.onerror = rej; });
 
-  function openOverlay() {
-    var v = scrape();
+  function openOverlay(v) {
     var ov = document.createElement('div');
     ov.className = 'snr-overlay';
     ov.innerHTML =
       '<div class="snr-stage"><canvas width="603" height="1072"></canvas></div>' +
       '<div class="snr-hud"></div>' +
       '<div class="snr-row"><button type="button" data-snr="close">CLOSE</button>' +
-      '<button type="button" class="primary" data-snr="save" style="opacity:.25;pointer-events:none">SAVE CARD</button></div>';
+      '<button type="button" data-snr="replay">REPLAY</button>' +
+      '<button type="button" class="primary" data-snr="save" disabled>SAVE CARD</button></div>';
     document.body.appendChild(ov);
     document.body.style.overflow = 'hidden';
 
     var cv = ov.querySelector('canvas'), ctx = cv.getContext('2d');
     var hud = ov.querySelector('.snr-hud'), stage = ov.querySelector('.snr-stage');
     var saveBtn = ov.querySelector('[data-snr="save"]');
+    var replayBtn = ov.querySelector('[data-snr="replay"]');
     var S = 603 / FW, W = 603, H = 1072;
-    var shown = LOG.map(function () { return false; });
-    var rects, done = false, raf = null, t0 = null;
+    var finalCv = null, rects = null;
+    var shown = [], done = false, raf = null, t0 = 0;
+    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     function addLog(txt, cls) {
       var d = document.createElement('div');
@@ -296,33 +319,49 @@
       while (hud.children.length > 5) hud.removeChild(hud.firstChild);
     }
 
+    function setSave(on) { saveBtn.disabled = !on; }
+
     function finish() {
       cancelAnimationFrame(raf);
       rects.forEach(function (r) { r.born = 0; r.dead = false; });
       ctx.drawImage(finalCv, 0, 0, W, H);
       LOG.forEach(function (l, i) { if (!shown[i]) { shown[i] = true; addLog(l[1], l[2]); } });
       done = true;
+      stage.classList.remove('snr-pulse');
+      void stage.offsetWidth;                 // restart the pulse each run
       stage.classList.add('snr-pulse');
-      saveBtn.style.opacity = 1;
-      saveBtn.style.pointerEvents = 'auto';
+      setSave(true);
     }
 
-    var finalCv = document.createElement('canvas');
-    finalCv.width = W; finalCv.height = H;
+    // Build the finished card once; restartable so REPLAY re-runs the 3s sequence.
+    function startRun() {
+      cancelAnimationFrame(raf);
+      hud.innerHTML = '';
+      shown = LOG.map(function () { return false; });
+      done = false;
+      setSave(false);
+      stage.classList.remove('snr-pulse');
+      rects.forEach(function (r) { r.born = 0; r.dead = false; });
+      if (reduced) { finish(); return; }
+      t0 = performance.now();
+      tick(t0);
+    }
+
+    function build() {
+      finalCv = document.createElement('canvas');
+      finalCv.width = W; finalCv.height = H;
+      var fctx = finalCv.getContext('2d');
+      fctx.drawImage(tplImg, 0, 0, W, H);
+      rects = drawCard(fctx, S, v);
+      startRun();
+    }
 
     Promise.all([
       tplReady,
       document.fonts.load('40px "Open Sans"'),
       document.fonts.load('30px "Open Sans"'),
       document.fonts.load('28px "Open Sans"')
-    ]).then(function () {
-      var fctx = finalCv.getContext('2d');
-      fctx.drawImage(tplImg, 0, 0, W, H);
-      rects = drawCard(fctx, S, v);
-      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { finish(); return; }
-      t0 = performance.now();
-      tick(t0);
-    }).catch(function () {
+    ]).then(build).catch(function () {
       if (window.cdToast) window.cdToast('Could not load the card template.', 'error');
       close();
     });
@@ -375,6 +414,7 @@
 
     cv.addEventListener('click', function () { if (!done && rects) finish(); });
     ov.querySelector('[data-snr="close"]').addEventListener('click', close);
+    replayBtn.addEventListener('click', function () { if (rects) startRun(); });
     saveBtn.addEventListener('click', function () {
       // full-resolution export
       var big = document.createElement('canvas');
@@ -385,8 +425,7 @@
         bctx.drawImage(img, 0, 0, FW, FH);
         drawCard(bctx, 1, v);
         var a = document.createElement('a');
-        var slug = (location.pathname.split('/').pop() || 'card').replace(/\.html$/, '');
-        a.download = 'snapshot-card-' + slug + '.png';
+        a.download = 'snapshot-card-' + v.slug + '.png';
         a.href = big.toDataURL('image/png');
         document.body.appendChild(a); a.click(); a.remove();
         if (window.cdToast) window.cdToast('Card saved.');
@@ -402,7 +441,11 @@
     }
   }
 
-  /* ---------------- inject the button ---------------- */
+  /* ---------------- public API + card-page button ---------------- */
+  window.SnapshotCard = {
+    render: function (data) { openOverlay(normalizeData(data)); }
+  };
+
   function init() {
     var grid = document.querySelector('.settings-grid');
     if (!grid || document.querySelector('.snr-render-btn')) return;
@@ -410,9 +453,11 @@
     btn.type = 'button';
     btn.className = 'snr-render-btn';
     btn.textContent = '\u25b6 RENDER MY CARD';
-    btn.addEventListener('click', openOverlay);
+    btn.addEventListener('click', function () { openOverlay(scrape()); });
     grid.parentNode.insertBefore(btn, grid);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+  if (document.querySelector('.settings-grid')) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  }
 })();
