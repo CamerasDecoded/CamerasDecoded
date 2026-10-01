@@ -2,9 +2,11 @@
 // Loaded ONLY on operator-dashboard.html, synchronously in <head> right after
 // master-loader.js (which has already built #cdBootVeil by this point).
 //
-// What it does: on every cold open, with ~1/3 probability (vs the two veil
-// videos), and never under prefers-reduced-motion, it swaps the veil's <video> for a
-// flip-book with the Cameras Decoded logo locked midscreen over the frames.
+// What it does: the first veil sting a device ever shows is ALWAYS this
+// flip-book (the brand intro); after that it rotates ~1/3 vs the two veil
+// videos. Never under prefers-reduced-motion. It swaps the veil's <video> for a
+// flip-book of real photographers under a dark brand tint, with the Cameras
+// Decoded logo locked midscreen over the frames.
 // fast-paced flip-book of real photographers in the field. The sequence only
 // animates AFTER the tap-to-enter tap (or immediately when no tap gate is
 // shown); it never covers the veil's tap target, never holds the veil, and
@@ -26,6 +28,7 @@
     '/media/sting/fb-10.jpg?v=' + V  // outdoor ceremony, white suit
   ];
   var LOGO = '/cameras-decoded-transparent-logo.png?v=' + V; // midscreen brand mark
+  var INTRO_KEY = 'cdVeilIntroSeen'; // first-run brand intro, once per device
   var FRAME_MS = 170;   // ~1.7s per full pass; loops until the veil releases
 
   function reducedMotion() {
@@ -40,20 +43,26 @@
       '.cd-fb-stack{position:absolute;inset:0;overflow:hidden;background:#070708}',
       '.cd-fb-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.05);transition:opacity 90ms linear,transform 480ms ease-out}',
       '.cd-fb-frame.on{opacity:1;transform:scale(1)}',
-      '.cd-fb-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,.40) 0%,rgba(0,0,0,0) 60%)}',
-      '.cd-fb-logo{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;pointer-events:none}',
+      '.cd-fb-tint{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(2,8,5,.55) 0%,rgba(2,8,5,.30) 42%,rgba(2,8,5,.30) 58%,rgba(2,8,5,.55) 100%)}',
+      '.cd-fb-scrim{position:absolute;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,.45) 0%,rgba(0,0,0,0) 62%)}',
+      '.cd-fb-logo{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none}',
       '.cd-fb-logo img{width:min(64vw,320px);height:auto;filter:drop-shadow(0 6px 28px rgba(0,0,0,.6))}',
       '@media (prefers-reduced-motion:reduce){.cd-fb-frame{transition:none}}'
     ].join('\n');
     (document.head || document.documentElement).appendChild(s);
   }
 
-  // ---- eligibility: true 3-way rotation, motion-safe ----
-  // Every cold open is an independent draw: the flip-book wins ~1/3 of the
-  // time, the two veil videos split the rest. No day cap — it rotates with
-  // the others, exactly like they do.
+  // ---- eligibility: brand intro first, then true 3-way rotation ----
+  // The first veil sting this device ever shows is always the flip-book.
+  // Every cold open after that is an independent draw: the flip-book wins
+  // ~1/3 of the time, the two veil videos split the rest. No day cap.
   if (reducedMotion()) return;
-  if (Math.random() >= 1 / 3) return; // the two videos split the other ~2/3
+  var introForced = false;
+  try {
+    introForced = !localStorage.getItem(INTRO_KEY);
+    if (introForced) localStorage.setItem(INTRO_KEY, '1');
+  } catch (e) { /* storage blocked: fall through to rotation */ }
+  if (!introForced && Math.random() >= 1 / 3) return; // videos take the other ~2/3
 
   var veil = document.getElementById('cdBootVeil');
   if (!veil) return;
@@ -75,6 +84,9 @@
     stack.appendChild(img);
     return img;
   });
+  var tint = document.createElement('div');
+  tint.className = 'cd-fb-tint';
+  stack.appendChild(tint);
   var scrim = document.createElement('div');
   scrim.className = 'cd-fb-scrim';
   stack.appendChild(scrim);
