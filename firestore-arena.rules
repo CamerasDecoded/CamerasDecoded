@@ -1,0 +1,71 @@
+// Missions Arena — Firestore security rules (standalone snippet)
+// Source of truth: ~/workspace/your_files/missions-arena-spec/SPEC.md sections 6 & 7
+// (2026-10-01). Rules live in the Firebase console — see DEPLOY_NOTE.md.
+//
+// Paste the "match" blocks below INSIDE your existing:
+//   match /databases/{database}/documents { ... }
+// Do NOT touch the existing rules. Admin SDK (closer workflow) bypasses
+// rules entirely, so "allow write: if false" still lets the closer write.
+
+match /arenaRounds/{roundId} {
+  allow read: if true;
+  allow write: if false;                      // closer workflow (Admin SDK) only
+
+  match /entries/{uid} {
+    allow read: if true;                      // blind: no author fields on this doc
+    allow create: if request.auth != null
+      && request.auth.uid == uid
+      && get(/databases/$(database)/documents/arenaRounds/$(roundId)).data.state == 'open'
+      && request.resource.data.imgUrl.matches('^https://i\\.ibb\\.co/.*$')
+      && request.resource.data.keys().hasOnly(['imgUrl','submittedAt','roundId','lane','swept']);
+    allow update, delete: if false;
+
+    match /_private/{doc} {
+      // Create-only at submit time: lets the author stash the imgbb delete_url
+      // for the 24h sweep in a single write. No reads, no updates, no deletes.
+      // The closer (Admin SDK) reads/deletes freely. Entries stay blind.
+      allow read: if false;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && exists(/databases/$(database)/documents/arenaRounds/$(roundId)/entries/$(uid))
+        && request.resource.data.keys().hasOnly(['authorUid','authorName','deleteUrl'])
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorName is string
+        && request.resource.data.deleteUrl is string;
+      allow update, delete: if false;
+    }
+    match /votes/{voterUid} {
+      // reads: own votes anytime; all votes after close
+      allow read: if request.auth != null && (
+        request.auth.uid == voterUid ||
+        get(/databases/$(database)/documents/arenaRounds/$(roundId)).data.state == 'closed'
+      );
+      allow create: if request.auth != null
+        && request.auth.uid == voterUid
+        && get(/databases/$(database)/documents/arenaRounds/$(roundId)).data.state == 'voting'
+        && request.resource.data.voterWeight in [1,2,3]
+        && get(/databases/$(database)/documents/arenaRounds/$(roundId)/entries/$(uid)/_private/data).data.authorUid != request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}
+
+match /arenaScores/{uid} {
+  allow read: if request.auth != null && request.auth.uid == uid;  // own score only
+  allow write: if false;                                           // closer workflow only
+}
+
+match /arenaHallOfFame/{roundId} {
+  allow read: if true;
+  allow write: if false;    // closer workflow only; carries hofExpiresAt (see ARENA_DATA_MODEL.md)
+}
+
+match /arenaPrompts/{id} {
+  allow read: if true;
+  allow write: if false;    // seeded weekly by the agent / closer
+}
+
+match /arenaBriefQueue/{id} {
+  allow read: if false;     // agent/closer only
+  allow write: if false;
+}
