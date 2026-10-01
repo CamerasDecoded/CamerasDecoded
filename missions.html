@@ -118,16 +118,18 @@ button{font-family:inherit;cursor:pointer}
 /* ---------- score row ---------- */
 .am-score-row{display:flex;gap:10px;margin:0 0 16px}
 .am-score{
-  flex:1;display:flex;align-items:center;gap:12px;text-align:left;
+  flex:1;display:flex;align-items:center;gap:10px;text-align:left;
   background:linear-gradient(135deg,rgba(141,235,0,.09),rgba(141,235,0,.02)),var(--surface);
-  border:1px solid var(--green-border);border-radius:14px;
-  padding:12px 14px;color:var(--text);min-height:64px;
+  border:1px solid var(--green-border);border-radius:12px;
+  padding:6px 14px;color:var(--text);
 }
 .am-score .n{
-  font:700 26px var(--font-d);color:var(--green);line-height:1;min-width:2ch;
+  font:700 20px var(--font-d);color:var(--green);line-height:1;min-width:2ch;
 }
+.am-score .who{display:flex;align-items:baseline;gap:7px;min-width:0;white-space:nowrap;overflow:hidden}
 .am-score .lbl{font:700 11px var(--font-d);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.am-score .tier{font:600 12px var(--font-b);color:var(--text)}
+.am-score .sep{color:var(--muted-2);font:700 11px var(--font-d)}
+.am-score .tier{font:600 12px var(--font-b);color:var(--text);overflow:hidden;text-overflow:ellipsis}
 .am-score .go{margin-left:auto;color:var(--muted-2);flex:0 0 auto}
 
 /* ---------- tabs ---------- */
@@ -303,10 +305,6 @@ button{font-family:inherit;cursor:pointer}
   background:var(--surface-2);text-align:left;padding:0;color:var(--text);min-height:44px;
 }
 .am-card img{width:100%;height:auto;display:block;background:#0a0b0a}
-/* one-shot scroll reveal: cards rise in once per page load */
-.am-card{transition:opacity .65s cubic-bezier(.22,1,.36,1),transform .65s cubic-bezier(.22,1,.36,1)}
-.am-card.am-pre{opacity:0;transform:translateY(20px)}
-@media (prefers-reduced-motion:reduce){.am-card.am-pre{opacity:1;transform:none;transition:none}}
 .am-card .meta{
   display:flex;align-items:center;justify-content:space-between;gap:6px;
   padding:8px 10px;
@@ -523,8 +521,8 @@ button{font-family:inherit;cursor:pointer}
     <div class="am-score-row rise" style="--d:.06s">
       <button class="am-score" id="amScoreBtn" type="button" aria-haspopup="dialog" aria-label="Your Signal Score — how scoring works">
         <span class="n" id="amScoreNum">–</span>
-        <span>
-          <span class="lbl">Signal Score</span><br />
+        <span class="who">
+          <span class="lbl">Signal Score</span><span class="sep" aria-hidden="true">·</span>
           <span class="tier" id="amScoreTier">Sign in to track</span>
         </span>
         <span class="go" aria-hidden="true">
@@ -1273,60 +1271,11 @@ button{font-family:inherit;cursor:pointer}
       return Promise.all(jobs);
     }
 
-    /* ---------- one-shot scroll reveal (once per page load) ---------- */
-    var revealedOnce = {}, revealObsByGrid = {};
-    function armReveal(card, key, obs) {
-      if (!key || revealedOnce[key]) return; /* already revealed this page load */
-      if (!obs) { revealedOnce[key] = 1; return; } /* reduced motion / no IO */
-      var start = function () {
-        card.classList.add('am-pre');
-        card.setAttribute('data-rv', key);
-        obs.observe(card);
-      };
-      /* wait for the image itself: lazy below-fold shots arm only as they near the viewport */
-      var img = card.querySelector('img');
-      if (img && img.getAttribute('src') && !img.complete) {
-        var armed = false;
-        var go = function () {
-          if (armed) return; armed = true;
-          img.removeEventListener('load', go);
-          img.removeEventListener('error', go);
-          start();
-        };
-        img.addEventListener('load', go);
-        img.addEventListener('error', go);
-      } else {
-        start();
-      }
-    }
-    function makeRevealObs() {
-      var obs = new IntersectionObserver(function (ents) {
-        var batch = [];
-        ents.forEach(function (en) { if (en.isIntersecting) batch.push(en.target); });
-        if (!batch.length) return;
-        batch.sort(function (a, b) { return (a.compareDocumentPosition(b) & 4) ? -1 : 1; });
-        batch.forEach(function (c, k) {
-          obs.unobserve(c);
-          c.style.transitionDelay = Math.min(k * 50, 250) + 'ms';
-          c.classList.remove('am-pre');
-          revealedOnce[c.getAttribute('data-rv')] = 1;
-          c.removeAttribute('data-rv');
-          setTimeout(function () { c.style.transitionDelay = ''; }, 1100);
-        });
-      }, { rootMargin: '0px 0px -6% 0px', threshold: 0.12 });
-      return obs;
-    }
-
     function renderFeed(laneKey) {
       var st = lanes[laneKey];
       var grid = el('amGrid' + cap(laneKey));
       if (!grid) return;
       grid.innerHTML = '';
-      /* one observer per grid; already-revealed cards skip the pre state */
-      var gid = grid.id;
-      if (revealObsByGrid[gid]) revealObsByGrid[gid].disconnect();
-      var obs = (!reduced && typeof IntersectionObserver !== 'undefined') ? makeRevealObs() : null;
-      revealObsByGrid[gid] = obs;
       var list = st.entries.slice();
       if (!list.length) {
         grid.innerHTML = '<div class="am-empty">' +
@@ -1407,7 +1356,6 @@ button{font-family:inherit;cursor:pointer}
         card.appendChild(meta);
         card.addEventListener('click', function () { openLightbox(laneKey, e.uid); });
         cols[i % ncols].appendChild(card);
-        armReveal(card, laneKey + ':' + e.uid, obs);
       });
       var vb = el('amVotebar' + cap(laneKey));
       if (vb) {
