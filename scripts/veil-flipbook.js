@@ -2,8 +2,8 @@
 // Loaded ONLY on operator-dashboard.html, synchronously in <head> right after
 // master-loader.js (which has already built #cdBootVeil by this point).
 //
-// What it does: with ~1/3 probability (vs the two veil videos), once per day,
-// and never under prefers-reduced-motion, it swaps the veil's <video> for a
+// What it does: on every cold open, with ~1/3 probability (vs the two veil
+// videos), and never under prefers-reduced-motion, it swaps the veil's <video> for a
 // fast-paced flip-book of real photographers in the field. The sequence only
 // animates AFTER the tap-to-enter tap (or immediately when no tap gate is
 // shown); it never covers the veil's tap target, never holds the veil, and
@@ -25,23 +25,9 @@
     '/media/sting/fb-10.jpg?v=' + V  // outdoor ceremony, white suit
   ];
   var FRAME_MS = 170;   // ~1.7s per full pass; loops until the veil releases
-  var DAY_PREFIX = 'cd_flipbook_sting_';
-
-  function dayKey() {
-    var d = new Date();
-    return DAY_PREFIX + d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
-  }
 
   function reducedMotion() {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  }
-
-  function shownToday() {
-    try { return localStorage.getItem(dayKey()) === '1'; } catch (e) { return false; }
-  }
-
-  function claimToday() {
-    try { localStorage.setItem(dayKey(), '1'); } catch (e) { /* private mode */ }
   }
 
   function injectCSS() {
@@ -57,9 +43,11 @@
     (document.head || document.documentElement).appendChild(s);
   }
 
-  // ---- eligibility: 3-way rotation, once per day, motion-safe ----
+  // ---- eligibility: true 3-way rotation, motion-safe ----
+  // Every cold open is an independent draw: the flip-book wins ~1/3 of the
+  // time, the two veil videos split the rest. No day cap — it rotates with
+  // the others, exactly like they do.
   if (reducedMotion()) return;
-  if (shownToday()) return;
   if (Math.random() >= 1 / 3) return; // the two videos split the other ~2/3
 
   var veil = document.getElementById('cdBootVeil');
@@ -67,7 +55,6 @@
   var video = veil.querySelector('video');
   if (!video) return; // veil fell back to the pulsing dot; leave it alone
 
-  claimToday();
   injectCSS();
 
   // ---- swap the video for the frame stack (label + scrim stay put) ----
