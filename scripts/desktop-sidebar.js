@@ -46,7 +46,7 @@
   var GROUPS = [
     { label: 'Navigate', links: [
       { id: 'home',     label: 'Home',          icon: 'fa-grid-2',           href: '/operator-dashboard.html', role: 'dashboard' },
-      { id: 'missions', label: 'Missions',      icon: 'fa-route',            href: '/missions.html' },
+      { id: 'missions', label: 'Arena',         icon: 'fa-medal',            href: '/missions.html' },
       { id: 'library',  label: 'Protocols',     icon: 'fa-book-open',        href: '/protocols.html' }
     ]},
     { label: 'Practice', links: [
