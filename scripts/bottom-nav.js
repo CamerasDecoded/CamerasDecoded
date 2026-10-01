@@ -287,9 +287,9 @@
         matches(['#skill=', '#branch='], hash)) {
       return 'practice';
     }
-    // Missions tab: the guided journey.
-    if (matches(['/missions.html', '/mission-runner.html', '/learning-guide.html', '/guide-chapter.html',
-                 '/guide-progress.html', '/journey.html', '/learning-journey.html', '/learning-module.html'], p)) {
+    // Missions tab: the arena.
+    if (matches(['/missions.html', '/learning-guide.html', '/guide-chapter.html',
+                 '/guide-progress.html', '/learning-journey.html', '/learning-module.html'], p)) {
       return 'journey';
     }
     // Protocols tab: the numbered training archive and its reader pages.

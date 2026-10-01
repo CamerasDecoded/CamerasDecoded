@@ -26,7 +26,7 @@
 
         <!-- Group 2: Mixed -->
         <div class="nav-group">
-          <a href="journey.html" class="nav-item" data-page="journey.html"><i class="fas fa-route"></i> Journey</a>
+          <a href="/missions.html" class="nav-item" data-page="/missions.html"><i class="fas fa-route"></i> Missions</a>
           <a href="learning-journey.html" class="nav-item" data-page="learning-journey.html"><i class="fas fa-graduation-cap"></i> Learning Modules</a>
           <a href="products.html" class="nav-item" data-page="products.html"><i class="fas fa-box-open"></i> Products</a>
           <a href="protocols.html" class="nav-item" data-page="protocols.html"><i class="fas fa-code-branch"></i> Protocols</a>
