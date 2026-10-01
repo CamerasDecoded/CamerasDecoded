@@ -127,7 +127,20 @@
 
   function wrapText(ctx, text, px, maxW) {
     ctx.font = px + 'px ' + FONT_FAM;
-    var words = text.split(/\s+/), lines = [], cur = '';
+    // Split first: break unbreakable runs (long words/URLs) so they can wrap
+    // instead of overflowing their slot.
+    var words = [];
+    text.split(/\s+/).forEach(function (w) {
+      if (!w || ctx.measureText(w).width <= maxW) { if (w) words.push(w); return; }
+      var part = '';
+      for (var i = 0; i < w.length; i++) {
+        var t = part + w[i];
+        if (ctx.measureText(t).width > maxW) { words.push(part); part = w[i]; }
+        else part = t;
+      }
+      if (part) words.push(part);
+    });
+    var lines = [], cur = '';
     words.forEach(function (w) {
       var t = (cur + ' ' + w).trim();
       if (ctx.measureText(t).width <= maxW) cur = t;
@@ -192,7 +205,8 @@
         y += lineStep;
       });
     }
-    // Fit a single line, shrinking to minPx.
+    // Fit a single line, shrinking to minPx, then ellipsis-truncating so the
+    // value can never overflow its slot.
     function fitSingle(t, x, yTop, maxW, basePx, minPx, rightEdge) {
       var px = basePx;
       ctx.font = px + 'px ' + FONT_FAM;
@@ -200,18 +214,27 @@
         px -= 2;
         ctx.font = px + 'px ' + FONT_FAM;
       }
+      if (ctx.measureText(t).width > maxW) {
+        while (t.length > 0 && ctx.measureText(t + '\u2026').width > maxW) t = t.slice(0, -1);
+        t = t + '\u2026';
+      }
       var w = ctx.measureText(t).width;
       text(t, rightEdge ? rightEdge - w : x, yTop, px);
     }
 
-    // top fields: baseline-locked to labels, left-aligned x=640
+    // Top fields: baseline-locked to labels, left-aligned x=640. Shrink to
+    // 36/32px, then ellipsis-truncate — values never invade the Cynetis-7 art.
     var tops = [['camera', 145], ['scenario', 295], ['lighting', 433]];
     tops.forEach(function (pair) {
       var t = v[pair[0]] || '', y = pair[1], px = 40;
       ctx.font = px + 'px ' + FONT_FAM;
       var w = ctx.measureText(t).width;
       if (640 + w > 990) { px = 36; ctx.font = px + 'px ' + FONT_FAM; w = ctx.measureText(t).width; }
-      if (640 + w > 990) { px = 32; ctx.font = px + 'px ' + FONT_FAM; }
+      if (640 + w > 990) { px = 32; ctx.font = px + 'px ' + FONT_FAM; w = ctx.measureText(t).width; }
+      if (640 + w > 990) {
+        while (t.length > 0 && 640 + ctx.measureText(t + '\u2026').width > 990) t = t.slice(0, -1);
+        t = t + '\u2026';
+      }
       text(t, 640, y, px);
     });
 

@@ -42,6 +42,36 @@
     input::placeholder, textarea::placeholder { color: #4c5a45; }
     textarea { min-height: 88px; resize: vertical; line-height: 1.5; }
     input.missing, textarea.missing { border-color: #e05252; }
+    .count {
+      text-align: right; font-family: "Space Mono", monospace;
+      font-size: 10px; letter-spacing: .08em; color: #4c5a45; margin-top: 5px;
+    }
+    .count.near { color: #e0a352; }
+    .chips {
+      display: flex; gap: 8px; overflow-x: auto;
+      padding: 10px 2px 12px; margin: 0;
+      scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    }
+    .chips::-webkit-scrollbar { display: none; }
+    .chip {
+      flex: 0 0 auto; padding: 9px 15px;
+      border: 1px solid #2c3f1c; border-radius: 999px;
+      background: #0a0d08; color: #b9c9ae;
+      font-family: "Space Mono", monospace; font-size: 12px; letter-spacing: .04em;
+      cursor: pointer;
+      transition: transform .12s ease, background .15s, color .15s, border-color .15s;
+    }
+    .chip:active { transform: scale(.9); }
+    .chip.sel { background: #9fe870; border-color: #9fe870; color: #061206; font-weight: 700; }
+    @keyframes inputflash {
+      0% { box-shadow: 0 0 0 0 rgba(159,232,112,.55); }
+      100% { box-shadow: 0 0 0 14px rgba(159,232,112,0); }
+    }
+    input.flash { animation: inputflash .45s ease-out; }
+    @media (prefers-reduced-motion: reduce) {
+      .chip:active { transform: none; }
+      input.flash { animation: none; }
+    }
     .hint { font-size: 12px; color: #6c7a63; margin-top: 5px; }
     #genBtn {
       display: block; width: 100%; margin: 34px 0 6px; padding: 18px;
@@ -124,6 +154,76 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
   }
+
+  /* ---- character limits: matched to what the card layout can hold ---- */
+  var LIMITS = {
+    f_camera: 22, f_scenario: 22, f_lighting: 26,
+    f_mode: 24, f_shutter: 16, f_aperture: 24, f_iso: 20,
+    f_focus: 24, f_drive: 24, f_wb: 12,
+    f_key: 220, f_inner: 200
+  };
+  Object.keys(LIMITS).forEach(function (id) {
+    var el = $(id);
+    if (!el) return;
+    el.setAttribute('maxlength', LIMITS[id]);
+    if (el.tagName === 'TEXTAREA') {
+      var counter = document.createElement('div');
+      counter.className = 'count';
+      el.parentNode.insertBefore(counter, el.nextSibling);
+      var update = function () {
+        var n = el.value.length, max = LIMITS[id];
+        counter.textContent = n + '/' + max;
+        counter.classList.toggle('near', n >= max * 0.9);
+      };
+      el.addEventListener('input', update);
+      update();
+    }
+  });
+
+  /* ---- suggestion chips: tap to fill, type to refine ---- */
+  var PRESETS = {
+    f_camera: ['Canon R6 Mark II', 'Fujifilm X-T5', 'Nikon Z6 III', 'Sony A6700', 'Sony A7IV'],
+    f_scenario: ['Event', 'Portrait', 'Real Estate', 'Sports', 'Street', 'Wedding', 'Landscape', 'Concert', 'Wildlife', 'Astro'],
+    f_lighting: ['Bright Natural', 'Golden Hour', 'Blue Hour', 'Overcast', 'Indoor Artificial', 'Low Light', 'Night', 'Harsh Midday'],
+    f_mode: ['Manual', 'Aperture Priority', 'Shutter Priority', 'Program Auto'],
+    f_shutter: ['1/60s', '1/125s', '1/250s', '1/500s', '1/1000s', '1/2000s'],
+    f_aperture: ['f/1.8', 'f/2.8', 'f/4', 'f/5.6', 'f/8', 'f/11'],
+    f_iso: ['100', '400', '800', '1600', '3200', 'Auto \u00b7 6400 max'],
+    f_focus: ['Single AF', 'Continuous AF', 'Face and Eye AF', 'Manual Focus'],
+    f_drive: ['Single shot', 'Continuous Low', 'Continuous High', '2-sec timer', 'Silent shutter'],
+    f_wb: ['Auto', '3200K', '4000K', '5600K', '6500K', 'Cloudy']
+  };
+  function syncChips(id) {
+    var input = $(id), v = input.value.trim().toLowerCase();
+    var row = input.previousElementSibling;
+    if (!row || !row.classList.contains('chips')) return;
+    Array.prototype.forEach.call(row.children, function (c) {
+      c.classList.toggle('sel', v !== '' && c.textContent.trim().toLowerCase() === v);
+    });
+  }
+  Object.keys(PRESETS).forEach(function (id) {
+    var input = $(id);
+    if (!input) return;
+    var row = document.createElement('div');
+    row.className = 'chips';
+    PRESETS[id].forEach(function (opt) {
+      var c = document.createElement('button');
+      c.type = 'button';
+      c.className = 'chip';
+      c.textContent = opt;
+      c.addEventListener('click', function () {
+        input.value = opt;
+        input.classList.remove('flash');
+        void input.offsetWidth;   // restart the flash
+        input.classList.add('flash');
+        syncChips(id);
+      });
+      row.appendChild(c);
+    });
+    input.parentNode.insertBefore(row, input);
+    input.addEventListener('input', function () { syncChips(id); });
+    syncChips(id);
+  });
 
   function val(id) { return $(id).value.trim(); }
 
