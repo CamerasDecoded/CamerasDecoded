@@ -4,6 +4,7 @@
 //
 // What it does: on every cold open, with ~1/3 probability (vs the two veil
 // videos), and never under prefers-reduced-motion, it swaps the veil's <video> for a
+// flip-book with the Cameras Decoded logo locked midscreen over the frames.
 // fast-paced flip-book of real photographers in the field. The sequence only
 // animates AFTER the tap-to-enter tap (or immediately when no tap gate is
 // shown); it never covers the veil's tap target, never holds the veil, and
@@ -24,6 +25,7 @@
     '/media/sting/fb-09.jpg?v=' + V, // indoor event, long lens
     '/media/sting/fb-10.jpg?v=' + V  // outdoor ceremony, white suit
   ];
+  var LOGO = '/cameras-decoded-transparent-logo.png?v=' + V; // midscreen brand mark
   var FRAME_MS = 170;   // ~1.7s per full pass; loops until the veil releases
 
   function reducedMotion() {
@@ -38,6 +40,9 @@
       '.cd-fb-stack{position:absolute;inset:0;overflow:hidden;background:#070708}',
       '.cd-fb-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.05);transition:opacity 90ms linear,transform 480ms ease-out}',
       '.cd-fb-frame.on{opacity:1;transform:scale(1)}',
+      '.cd-fb-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at center,rgba(0,0,0,.40) 0%,rgba(0,0,0,0) 60%)}',
+      '.cd-fb-logo{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;pointer-events:none}',
+      '.cd-fb-logo img{width:min(64vw,320px);height:auto;filter:drop-shadow(0 6px 28px rgba(0,0,0,.6))}',
       '@media (prefers-reduced-motion:reduce){.cd-fb-frame{transition:none}}'
     ].join('\n');
     (document.head || document.documentElement).appendChild(s);
@@ -70,10 +75,22 @@
     stack.appendChild(img);
     return img;
   });
+  var scrim = document.createElement('div');
+  scrim.className = 'cd-fb-scrim';
+  stack.appendChild(scrim);
+  var logoWrap = document.createElement('div');
+  logoWrap.className = 'cd-fb-logo';
+  var logo = document.createElement('img');
+  logo.className = 'cd-fb-logo-img';
+  logo.src = LOGO;
+  logo.alt = '';
+  logo.decoding = 'async';
+  logoWrap.appendChild(logo);
+  stack.appendChild(logoWrap);
   video.replaceWith(stack);
 
-  // Preload every frame up front so the sequence never janks mid-play.
-  FRAMES.forEach(function (src) {
+  // Preload every frame (and the logo) up front so the sequence never janks mid-play.
+  FRAMES.concat([LOGO]).forEach(function (src) {
     var p = new Image();
     p.decoding = 'async';
     p.src = src;
