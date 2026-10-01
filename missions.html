@@ -462,6 +462,13 @@ button{font-family:inherit;cursor:pointer}
 .am-lb-meta .votes{font:700 13px var(--font-d);color:var(--green)}
 .am-lb-meta .who{font:700 13px var(--font-b);color:var(--text)}
 .am-lb-vote{min-height:54px;font-size:15px}
+.am-lb-vote.is-loading{pointer-events:none}
+.am-lb-vote .am-spin{
+  width:16px;height:16px;flex:0 0 auto;border-radius:50%;
+  border:2px solid rgba(217,247,180,.25);border-top-color:#d9f7b4;
+  animation:amSpin .7s linear infinite;
+}
+@keyframes amSpin{to{transform:rotate(360deg)}}
 .am-lb-voted{
   text-align:center;font:700 12px var(--font-d);letter-spacing:.14em;text-transform:uppercase;
   color:var(--green);padding:14px 0;
@@ -1470,7 +1477,13 @@ button{font-family:inherit;cursor:pointer}
     /* ---------- voting (upvote-only, one per entry, no self-votes by rule) ---------- */
     function castVote(st, e, btn) {
       if (!user || !hasFirebase) { toast('Sign in to vote.'); return; }
-      if (btn) btn.disabled = true;
+      var btnOrig = null;
+      if (btn) {
+        btn.disabled = true;
+        btnOrig = btn.innerHTML;
+        btn.classList.add('is-loading');
+        btn.innerHTML = '<span class="am-spin" aria-hidden="true"></span><span>Sealing your vote…</span>';
+      }
       var w = tierOf(myScore.score).weight;
       db.collection('arenaRounds').doc(st.round._id).collection('entries').doc(e.uid)
         .collection('votes').doc(user.uid).create({
@@ -1500,7 +1513,11 @@ button{font-family:inherit;cursor:pointer}
           }
         })
         .catch(function (err) {
-          if (btn) btn.disabled = false;
+          if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('is-loading');
+            if (btnOrig !== null) btn.innerHTML = btnOrig;
+          }
           var msg = (err && err.message) ? err.message : 'Vote failed — try again.';
           if (err && err.code === 'already-exists') { st.myVotes[e.uid] = true; renderLbBody(st, e); msg = 'You already voted for this one.'; }
           toast(msg);
