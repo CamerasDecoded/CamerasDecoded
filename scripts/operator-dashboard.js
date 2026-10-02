@@ -667,9 +667,18 @@
       const wrap = document.createElement('span');
       wrap.className = 'hero-shimmer-line';
       wrap.style.animationDelay = (i * 0.85) + 's';
-      line[0].parentNode.insertBefore(wrap, line[0]);
-      line.forEach(w => wrap.appendChild(w));
+      const first = line[0];
+      const last = line[line.length - 1];
+      first.parentNode.insertBefore(wrap, first);
+      let node = first;
+      while(node){
+        const next = node.nextSibling;
+        wrap.appendChild(node);
+        if(node === last) break;
+        node = next;
+      }
     });
+    return true;
   }
   let heroSplitRsz = null;
   window.addEventListener('resize', () => {
