@@ -389,7 +389,14 @@
     // streakDays / streak). dailyStreak.count is a separate counter fed only
     // by games + missions — reading it raw here left the pill stuck on a
     // stale number the dashboard had already moved past.
-    const streakN = toNum(pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0), 0);
+    // Gap-aware: if last activity was more than 1 day ago, the streak is dead —
+    // show 0, not the stale stored value (prevents misleading fire count).
+    const hdrTk = hdrTodayKey();
+    const hdrYd = new Date(); hdrYd.setDate(hdrYd.getDate() - 1);
+    const hdrYk = hdrTodayKey(hdrYd);
+    const hdrLastSeen = pick(u, ['lastActivityDate', 'lastActiveDate', 'lastStreakDate', 'lastXpDate'], null);
+    const hdrStoredStreak = toNum(pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0), 0);
+    const streakN = (hdrLastSeen === hdrTk || hdrLastSeen === hdrYk) ? hdrStoredStreak : 0;
     const txt = document.getElementById('headerXpText');
     const fill = document.getElementById('headerXpFill');
     const streakEl = document.getElementById('headerXpStreak');

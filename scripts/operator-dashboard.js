@@ -172,8 +172,19 @@
     const ledgerToday = (u && u.xpByDay && typeof u.xpByDay[ringDayKey] === 'number')
       ? u.xpByDay[ringDayKey] : null;
 
+    // Gap-aware streak: if last activity was more than 1 day ago, the streak
+    // is already dead — display 0, not the stale stored value. This prevents
+    // the misleading "Streak at risk. One drill saves it." when there's a
+    // multi-day gap (the drill would just reset to 1, not "save" anything).
+    const tk = cdTodayKey();
+    const ydGap = new Date(); ydGap.setDate(ydGap.getDate() - 1);
+    const ykGap = cdTodayKey(ydGap);
+    const lastSeenGap = pick(u, ['lastActivityDate', 'lastActiveDate', 'lastStreakDate', 'lastXpDate'], null);
+    const storedStreak = toNum(pick(u, ['dailyChallengeStreak','streakDays','streak'], 0), 0);
+    const effectiveStreak = (lastSeenGap === tk || lastSeenGap === ykGap) ? storedStreak : 0;
+
     vm.stats = {
-      streak: toNum(pick(u, ['dailyChallengeStreak','streakDays','streak'], 0)),
+      streak: effectiveStreak,
       xpToday: ledgerToday !== null ? ledgerToday : (rolledDay ? 0 : toNum(pick(u, ['xpToday','dailyXp'], 0))),
       xpGoal: toNum(pick(u, ['xpGoal','dailyXpGoal'], 100), 100),
       rank: pick(u, ['rank','operatorRank','level'], '—')
