@@ -1717,6 +1717,14 @@
   function initStatModals() {
     if (statModalsWired) return;
     statModalsWired = true;
+    // Header XP pill opens the XP detail modal on the dashboard (instead of navigating)
+    const hdrPill = $('headerXpPill');
+    if (hdrPill) {
+      hdrPill.addEventListener('click', (e) => {
+        e.preventDefault();
+        openXpDetail();
+      });
+    }
     $$('.stat[data-stat-modal]').forEach((card) => {
       const kind = card.dataset.statModal;
       const open = () => {
