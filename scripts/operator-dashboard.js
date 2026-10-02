@@ -666,7 +666,7 @@
     lines.forEach((line, i) => {
       const wrap = document.createElement('span');
       wrap.className = 'hero-shimmer-line';
-      wrap.style.animationDelay = (i * 0.85) + 's';
+      wrap.style.animationDelay = (i * 1.125) + 's';
       const first = line[0];
       const last = line[line.length - 1];
       first.parentNode.insertBefore(wrap, first);
