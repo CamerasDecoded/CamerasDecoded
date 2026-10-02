@@ -823,8 +823,10 @@
   function renderJourneyList() {
     const list = $('journeyList');
     const summary = $('journeyProgressText');
+    const hairline = $('journeyHairline');
     const l = vm.journey;
-    if (summary) summary.textContent = `${l.title} · ${l.completedCount} of ${l.total} lessons complete`;
+    if (summary) summary.textContent = `${l.completedCount} of ${l.total}`;
+    if (hairline && l.total) hairline.style.width = ((l.completedCount / l.total) * 100) + '%';
     if (!list) return;
 
     if (!l.nodes.length) {
@@ -832,39 +834,41 @@
       return;
     }
 
-    const firstIncompleteIdx = l.nodes.findIndex(n => !l.completed.includes(n.id));
-    const visible = [];
-    if (firstIncompleteIdx === -1) {
-      // All complete: show the last 3 as done, or the finished message if empty
-      const done = l.nodes.slice(-3).map((n, i) => ({ ...n, _state:'done', _idx: l.nodes.length - 3 + i }));
-      if (!done.length) {
-        list.innerHTML = '<p class="empty-state">You finished this journey. 🎉</p>';
-        return;
-      }
-      done.forEach(n => visible.push(n));
-    } else {
-      if (firstIncompleteIdx > 0) visible.push({ ...l.nodes[firstIncompleteIdx - 1], _state:'done', _idx: firstIncompleteIdx - 1 });
-      visible.push({ ...l.nodes[firstIncompleteIdx], _state:'current', _idx: firstIncompleteIdx });
-      for (let i = firstIncompleteIdx + 1; i < l.nodes.length && visible.length < 3; i++) {
-        visible.push({ ...l.nodes[i], _state:'upcoming', _idx: i });
-      }
-    }
-    if (!visible.length) {
-      list.innerHTML = '<p class="empty-state">You finished this journey. 🎉</p>';
-      return;
-    }
+    // Chapter art: fm-ch1.jpg .. fm-ch4.jpg (fallback: gradient)
+    const artFor = (idx) => `/images/fm-chapters/fm-ch${idx + 1}.jpg?v=20261002a`;
 
-    list.innerHTML = visible.map((n) => {
-      const num = String((typeof n._idx === 'number' ? n._idx : l.nodes.indexOf(n)) + 1).padStart(2,'0');
-      const nodeClass = n._state === 'done' ? 'done' : (n._state === 'current' ? 'current' : '');
-      const nodeIcon = n._state === 'done' ? '<i class="fas fa-check"></i>' : num;
-      const status = n._state === 'done' ? 'Complete' : n._state === 'current' ? 'In progress' : 'Up next';
-      const subtitle = n.description || n.summary || '';
-      return `<article class="journey-item ${nodeClass}">
-        <div class="lesson-node" aria-hidden="true">${nodeIcon}</div>
-        <div class="journey-title"><strong>${n.title || n.name || 'Lesson'}</strong>${subtitle ? `<span>${subtitle}</span>` : ''}</div>
-        <div class="lesson-status">${status}</div>
-      </article>`;
+    // Winding path positions for up to 6 nodes (S-curve)
+    const pos = [
+      { x: 50, y: 8 }, { x: 26, y: 30 }, { x: 74, y: 52 },
+      { x: 26, y: 74 }, { x: 74, y: 92 }, { x: 50, y: 108 },
+    ];
+
+    const R = 30; // ring radius
+    const CIRC = 2 * Math.PI * R;
+
+    const nodes = l.nodes.slice(0, 6);
+    const wirePath = nodes.length > 1
+      ? `<svg class="jm-wire" viewBox="0 0 100 115" preserveAspectRatio="none"><path d="${nodes.map((_, i) => `${i === 0 ? 'M' : 'L'} ${pos[i].x} ${pos[i].y}`).join(' ')}" stroke="rgba(141,235,0,.16)" stroke-width="1.2" fill="none" stroke-dasharray="3 2.5" vector-effect="non-scaling-stroke"/></svg>`
+      : '';
+
+    list.innerHTML = wirePath + nodes.map((n, i) => {
+      const isDone = l.completed.includes(n.id);
+      const isCurrent = !isDone && (i === 0 || l.completed.includes(nodes[i - 1].id));
+      const state = isDone ? 'done' : (isCurrent ? 'current' : 'locked');
+      // Ring fill: done = full, current = 40% (in-progress), locked = empty
+      const fillPct = isDone ? 1 : (isCurrent ? 0.4 : 0);
+      const dashOffset = CIRC * (1 - fillPct);
+      const stateIcon = isDone ? '✓' : (isCurrent ? '' : `<span style="font-size:11px;opacity:.5">${String(i + 1).padStart(2, '0')}</span>`);
+      const cta = isCurrent ? '<span class="jm-cta">CONTINUE</span>' : '';
+      return `<a class="jm-node ${state}" style="left:${pos[i].x}%;top:${pos[i].y}%" role="listitem" href="/field-manual.html" aria-label="${n.title || n.name} — ${state}">
+        <span class="jm-ringwrap">
+          <svg viewBox="0 0 72 72"><circle class="jm-ring-track" cx="36" cy="36" r="${R}"/><circle class="jm-ring-fill" cx="36" cy="36" r="${R}" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${dashOffset.toFixed(1)}"/></svg>
+          <span class="jm-photo" style="background-image:url('${artFor(i)}')"></span>
+          <span class="jm-state">${stateIcon}</span>
+        </span>
+        <span class="jm-title">${n.title || n.name || 'Chapter'}</span>
+        ${cta}
+      </a>`;
     }).join('');
   }
 
