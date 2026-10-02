@@ -275,7 +275,9 @@
   let userScrolled = false;
 
   function paintRing(ring, pct, target) {
-    ring.style.setProperty('--p', pct);
+    if (ring) ring.style.setProperty('--p', pct);
+    const bar = $('goalBarFill');
+    if (bar) bar.style.width = (parseFloat(pct) * 100) + '%';
     const rv = $('ringValue');
     if (rv) {
       const from = parseFloat(rv.dataset.v || '0');
@@ -624,13 +626,15 @@
     const ring = $('xpRing');
     const target = Math.min(xpToday, xpGoal);
     const crushed = xpGoal > 0 && xpToday >= xpGoal;
+    // Compact goal bar: paint immediately (no scroll-reveal gate)
+    paintRing(null, pct / 100, target);
+    setGoalCrushed(crushed);
     if (ring) {
       ring.setAttribute('aria-label', crushed
         ? `Daily goal crushed: ${xpToday} of ${xpGoal} experience points`
         : `${xpToday} of ${xpGoal} daily experience points earned`);
       if (ring.dataset.revealed === '1') {
         paintRing(ring, pct, target);
-        setGoalCrushed(crushed);
       } else {
         ring.dataset.target = pct;
         ring.dataset.vtarget = target;
