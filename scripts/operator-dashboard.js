@@ -823,7 +823,7 @@
     const list = $('journeyList');
     const summary = $('journeyProgressText');
     const l = vm.journey;
-    if (summary) summary.textContent = `${l.title} · ${l.completedCount} of ${l.total} missions complete`;
+    if (summary) summary.textContent = `${l.title} · ${l.completedCount} of ${l.total} lessons complete`;
     if (!list) return;
 
     if (!l.nodes.length) {
@@ -833,10 +833,20 @@
 
     const firstIncompleteIdx = l.nodes.findIndex(n => !l.completed.includes(n.id));
     const visible = [];
-    if (firstIncompleteIdx > 0) visible.push({ ...l.nodes[firstIncompleteIdx - 1], _state:'done', _idx: firstIncompleteIdx - 1 });
-    if (firstIncompleteIdx >= 0) visible.push({ ...l.nodes[firstIncompleteIdx], _state:'current', _idx: firstIncompleteIdx });
-    for (let i = firstIncompleteIdx + 1; i < l.nodes.length && visible.length < 3; i++) {
-      visible.push({ ...l.nodes[i], _state:'upcoming', _idx: i });
+    if (firstIncompleteIdx === -1) {
+      // All complete: show the last 3 as done, or the finished message if empty
+      const done = l.nodes.slice(-3).map((n, i) => ({ ...n, _state:'done', _idx: l.nodes.length - 3 + i }));
+      if (!done.length) {
+        list.innerHTML = '<p class="empty-state">You finished this journey. 🎉</p>';
+        return;
+      }
+      done.forEach(n => visible.push(n));
+    } else {
+      if (firstIncompleteIdx > 0) visible.push({ ...l.nodes[firstIncompleteIdx - 1], _state:'done', _idx: firstIncompleteIdx - 1 });
+      visible.push({ ...l.nodes[firstIncompleteIdx], _state:'current', _idx: firstIncompleteIdx });
+      for (let i = firstIncompleteIdx + 1; i < l.nodes.length && visible.length < 3; i++) {
+        visible.push({ ...l.nodes[i], _state:'upcoming', _idx: i });
+      }
     }
     if (!visible.length) {
       list.innerHTML = '<p class="empty-state">You finished this journey. 🎉</p>';
