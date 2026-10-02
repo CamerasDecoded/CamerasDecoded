@@ -213,49 +213,50 @@
   }
 
   async function loadJourney(uid) {
-    // Mirror the Missions page data model: the user's preferred track level
-    // -> journeys/{level} (modules of steps) -> userJourney/{uid}/levels/{level}
-    // (completedSteps). Flattened into the vm.journey shape the hero expects.
-    const level = (vm.raw && vm.raw.preferredJourneyLevel) || 'beginner';
-    let journeyData = null;
+    // Wired to the Field Manual: chapters from guideContent/curriculum,
+    // completion from guideProgress/{uid}/chapters.
+    let chapters = [];
     try {
-      const jDoc = await window.db.collection('journeys').doc(level).get();
-      if (jDoc && jDoc.exists) journeyData = jDoc.data();
-    } catch (e) { journeyData = null; }
-    let completedSteps = [];
-    try {
-      const pDoc = await window.db.collection('userJourney').doc(uid).collection('levels').doc(level).get();
-      if (pDoc && pDoc.exists) {
-        const p = pDoc.data() || {};
-        if (Array.isArray(p.completedSteps)) completedSteps = p.completedSteps;
+      const snap = await window.db.collection('guideContent').doc('curriculum').get();
+      if (snap && snap.exists) {
+        const data = snap.data() || {};
+        let parsed = null;
+        if (typeof data.json === 'string') {
+          try { parsed = JSON.parse(data.json); } catch (e) { parsed = null; }
+        } else if (data.chapters && data.chapters.length) {
+          parsed = { chapters: data.chapters };
+        }
+        if (parsed && parsed.chapters) chapters = parsed.chapters;
       }
-    } catch (e) { completedSteps = []; }
+    } catch (e) { chapters = []; }
 
-    const modules = (journeyData && Array.isArray(journeyData.modules)) ? journeyData.modules : [];
-    const nodes = [];
-    modules.forEach((m) => {
-      (m.steps || []).forEach((s) => {
-        nodes.push({
-          id: s.id,
-          title: s.title || s.name || 'Mission',
-          name: s.title || s.name || 'Mission',
-          description: s.description || '',
-          moduleId: m.id,
-          moduleTitle: m.title || ''
-        });
+    let completedIds = [];
+    try {
+      const pSnap = await window.db.collection('guideProgress').doc(uid).collection('chapters').get();
+      pSnap.docs.forEach((doc) => {
+        const d = doc.data() || {};
+        if (d.completed) completedIds.push(doc.id);
       });
-    });
-    const completedIds = nodes.filter((n) => completedSteps.includes(n.id)).map((n) => n.id);
-    const next = nodes.find((n) => !completedSteps.includes(n.id)) || null;
+    } catch (e) { completedIds = []; }
+
+    const nodes = chapters.map((c, i) => ({
+      id: c.id || ('ch' + String(i + 1).padStart(2, '0')),
+      title: c.title || c.name || ('Chapter ' + (i + 1)),
+      name: c.title || c.name || ('Chapter ' + (i + 1)),
+      description: c.description || c.subtitle || '',
+    }));
+
+    const completed = nodes.filter((n) => completedIds.includes(n.id)).map((n) => n.id);
 
     vm.journey = {
-      title: (journeyData && (journeyData.title || journeyData.name)) || 'Missions',
-      level,
-      nodes, next,
-      completed: completedIds,
-      completedCount: completedIds.length,
+      title: 'Field Manual',
+      level: 'field-manual',
+      nodes,
+      next: nodes.find((n) => !completed.includes(n.id)) || null,
+      completed,
+      completedCount: completed.length,
       total: nodes.length,
-      pct: nodes.length ? (completedIds.length / nodes.length) * 100 : 0
+      pct: nodes.length ? (completed.length / nodes.length) * 100 : 0
     };
     return vm.journey;
   }
