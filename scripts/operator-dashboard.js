@@ -636,9 +636,9 @@
   // left-to-right across one line at a time (staggered via animation-delay).
   function splitHeroDescLines(){
     const el = $('heroLessonDesc');
-    if(!el) return;
+    if(!el) return false;
     const text = el.textContent;
-    if(el.dataset.splitFor === text && el.querySelector('.hero-shimmer-line')) return;
+    if(el.dataset.splitFor === text && el.querySelector('.hero-shimmer-line')) return true;
     el.innerHTML = '';
     text.split(/(\s+)/).forEach(part => {
       if(!part) return;
@@ -652,7 +652,7 @@
     const words = Array.from(el.children).filter(n => n.tagName === 'SPAN');
     if(!words.length || !words[0].offsetParent){
       el.textContent = text; // not laid out yet; leave plain, retry later
-      return;
+      return false;
     }
     el.dataset.splitFor = text;
     const lines = [];
@@ -681,6 +681,31 @@
     }, 250);
   });
 
+  // Keep the line split fresh independently of renderLearning: the shimmer
+  // must work even when the journey data is missing or the card is static.
+  let heroSplitTries = 0;
+  function ensureHeroSplit(){
+    if(splitHeroDescLines()){ heroSplitTries = 0; return; }
+    if(heroSplitTries++ < 40) setTimeout(ensureHeroSplit, 500); // card hidden until auth; retry ~20s
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ensureHeroSplit);
+  } else {
+    ensureHeroSplit();
+  }
+  const heroDescWatch = $('heroLessonDesc');
+  if(heroDescWatch && window.MutationObserver){
+    let heroLastSeen = heroDescWatch.textContent;
+    new MutationObserver(() => {
+      const t = heroDescWatch.textContent;
+      if(t !== heroLastSeen){
+        heroLastSeen = t;
+        delete heroDescWatch.dataset.splitFor;
+        ensureHeroSplit();
+      }
+    }).observe(heroDescWatch, {characterData:true, childList:true, subtree:true});
+  }
+
   function renderLearning() {
     const l = vm.journey;
     const card = $('continueLearning');
@@ -702,6 +727,7 @@
           empty.innerHTML = '<i class="fas fa-compass" aria-hidden="true"></i><p>Your missions are waiting. <a href="/missions.html">Explore Missions →</a></p>';
         }
       }
+      splitHeroDescLines();
       return;
     }
 
