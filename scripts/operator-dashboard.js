@@ -690,6 +690,46 @@
     }, 250);
   });
 
+  // Hero auto-slide: crossfade through photographer slides every 6s.
+  // Pauses under reduced motion and when the tab is hidden.
+  function initHeroSlides(){
+    const wrap = $('heroSlides');
+    if(!wrap) return;
+    const slides = Array.from(wrap.querySelectorAll('.hero-slide'));
+    if(!slides.length) return;
+    const dotsWrap = $('heroDots');
+    if(dotsWrap){
+      slides.forEach((_, i) => {
+        const d = document.createElement('i');
+        if(i === 0) d.classList.add('on');
+        dotsWrap.appendChild(d);
+      });
+    }
+    const dots = dotsWrap ? Array.from(dotsWrap.children) : [];
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduce || slides.length < 2) return;
+    let idx = 0, timer = null;
+    function go(n){
+      slides[idx].classList.remove('is-active');
+      if(dots[idx]) dots[idx].classList.remove('on');
+      idx = (n + slides.length) % slides.length;
+      slides[idx].classList.add('is-active');
+      if(dots[idx]) dots[idx].classList.add('on');
+    }
+    function start(){
+      stop();
+      timer = setInterval(() => { if(!document.hidden) go(idx + 1); }, 6000);
+    }
+    function stop(){ if(timer){ clearInterval(timer); timer = null; } }
+    document.addEventListener('visibilitychange', () => { if(document.hidden) stop(); else start(); });
+    start();
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initHeroSlides);
+  } else {
+    initHeroSlides();
+  }
+
   // Keep the line split fresh independently of renderLearning: the shimmer
   // must work even when the journey data is missing or the card is static.
   let heroSplitTries = 0;
