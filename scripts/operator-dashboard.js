@@ -1239,7 +1239,7 @@
     const st = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     st('drill-title', d.t);
     st('drill-heading', d.t);
-    st('drillEyebrow', 'Quick drill · ' + (idx + 1) + ' of ' + pool.length);
+    st('drillEyebrow', 'Quick drill');
     st('drillQuestion', d.q);
     const group = document.querySelector('#drillModal [data-quiz="drill"]');
     if (group) {
