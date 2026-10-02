@@ -18,7 +18,7 @@
   var FRAMES = [
     '/media/sting/fb-01.jpg?v=' + V, // sports sideline, long lens
     '/media/sting/fb-02.jpg?v=' + V, // wedding, DSLR close-up
-    '/media/sting/fb-03.jpg?v=' + V, // street, two shooters
+    '/media/sting/street-shooters.jpg?v=' + V, // street, two shooters
     '/media/sting/fb-04.jpg?v=' + V, // studio, directing the model
     '/media/sting/fb-05.jpg?v=' + V, // concert stage lights
     '/media/sting/fb-06.jpg?v=' + V, // studio portrait, female photographer
