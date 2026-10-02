@@ -632,6 +632,55 @@
     setStreakNudge(streak, xpToday);
   }
 
+  // Split #heroLessonDesc into per-line spans so the shimmer sweeps
+  // left-to-right across one line at a time (staggered via animation-delay).
+  function splitHeroDescLines(){
+    const el = $('heroLessonDesc');
+    if(!el) return;
+    const text = el.textContent;
+    if(el.dataset.splitFor === text && el.querySelector('.hero-shimmer-line')) return;
+    el.innerHTML = '';
+    text.split(/(\s+)/).forEach(part => {
+      if(!part) return;
+      if(/^\s+$/.test(part)){ el.appendChild(document.createTextNode(' ')); }
+      else {
+        const s = document.createElement('span');
+        s.textContent = part;
+        el.appendChild(s);
+      }
+    });
+    const words = Array.from(el.children).filter(n => n.tagName === 'SPAN');
+    if(!words.length || !words[0].offsetParent){
+      el.textContent = text; // not laid out yet; leave plain, retry later
+      return;
+    }
+    el.dataset.splitFor = text;
+    const lines = [];
+    let cur = [], top = null;
+    words.forEach(w => {
+      const t = w.offsetTop;
+      if(top === null || Math.abs(t - top) < 4){ cur.push(w); if(top === null) top = t; }
+      else { lines.push(cur); cur = [w]; top = t; }
+    });
+    if(cur.length) lines.push(cur);
+    lines.forEach((line, i) => {
+      const wrap = document.createElement('span');
+      wrap.className = 'hero-shimmer-line';
+      wrap.style.animationDelay = (i * 0.85) + 's';
+      line[0].parentNode.insertBefore(wrap, line[0]);
+      line.forEach(w => wrap.appendChild(w));
+    });
+  }
+  let heroSplitRsz = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(heroSplitRsz);
+    heroSplitRsz = setTimeout(() => {
+      const el = $('heroLessonDesc');
+      if(el) delete el.dataset.splitFor;
+      splitHeroDescLines();
+    }, 250);
+  });
+
   function renderLearning() {
     const l = vm.journey;
     const card = $('continueLearning');
@@ -677,6 +726,7 @@
     const ctaLabel = $('heroCtaLabel');
     if (cta) cta.href = '/missions.html';
     if (ctaLabel) ctaLabel.textContent = 'Continue mission';
+    splitHeroDescLines();
   }
 
   function renderJourneyList() {
