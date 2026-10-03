@@ -822,11 +822,7 @@
 
   function renderJourneyList() {
     const list = $('journeyList');
-    const summary = $('journeyProgressText');
-    const hairline = $('journeyHairline');
     const l = vm.journey;
-    if (summary) summary.textContent = `${l.completedCount} of ${l.total}`;
-    if (hairline && l.total) hairline.style.width = ((l.completedCount / l.total) * 100) + '%';
     if (!list) return;
 
     if (!l.nodes.length) {
@@ -834,42 +830,46 @@
       return;
     }
 
-    // Chapter art: fm-ch1.jpg .. fm-ch4.jpg (fallback: gradient)
+    // Chapter art: fm-ch1.jpg .. fm-ch4.jpg
     const artFor = (idx) => `/images/fm-chapters/fm-ch${idx + 1}.jpg?v=20261002a`;
 
-    // Winding path positions for up to 6 nodes (S-curve)
-    const pos = [
-      { x: 50, y: 8 }, { x: 26, y: 30 }, { x: 74, y: 52 },
-      { x: 26, y: 74 }, { x: 74, y: 92 }, { x: 50, y: 108 },
-    ];
+    const firstIncompleteIdx = l.nodes.findIndex((n) => !l.completed.includes(n.id));
+    const allDone = firstIncompleteIdx === -1;
+    const curIdx = allDone ? l.nodes.length - 1 : firstIncompleteIdx;
+    const cur = l.nodes[curIdx];
 
-    const R = 30; // ring radius
-    const CIRC = 2 * Math.PI * R;
+    let eyebrow, sub, pct;
+    if (allDone) {
+      eyebrow = 'FIELD MANUAL · COMPLETE';
+      sub = 'All chapters complete — review anytime';
+      pct = 100;
+    } else if (firstIncompleteIdx === 0 && (cur.lessonsDone || 0) === 0) {
+      eyebrow = 'FIELD MANUAL · START';
+      sub = `Lesson 1 of ${cur.lessonsTotal || '?'}`;
+      pct = 0;
+    } else {
+      eyebrow = 'FIELD MANUAL · CONTINUE';
+      const done = cur.lessonsDone || 0, total = cur.lessonsTotal || 0;
+      sub = total ? `Lesson ${Math.min(done + 1, total)} of ${total}` : 'In progress';
+      pct = typeof cur.pct === 'number' ? Math.round(cur.pct * 100) : 0;
+    }
 
-    const nodes = l.nodes.slice(0, 6);
-    const wirePath = nodes.length > 1
-      ? `<svg class="jm-wire" viewBox="0 0 100 115" preserveAspectRatio="none"><path d="${nodes.map((_, i) => `${i === 0 ? 'M' : 'L'} ${pos[i].x} ${pos[i].y}`).join(' ')}" stroke="rgba(141,235,0,.16)" stroke-width="1.2" fill="none" stroke-dasharray="3 2.5" vector-effect="non-scaling-stroke"/></svg>`
+    const others = l.nodes.length - 1;
+    const moreHtml = others > 0
+      ? `<a class="np-more" href="/field-manual.html">${others} more chapter${others === 1 ? '' : 's'} →</a>`
       : '';
 
-    list.innerHTML = wirePath + nodes.map((n, i) => {
-      const isDone = l.completed.includes(n.id);
-      const isCurrent = !isDone && (i === 0 || l.completed.includes(nodes[i - 1].id));
-      const state = isDone ? 'done' : (isCurrent ? 'current' : 'locked');
-      // Ring fill: done = full, current = 40% (in-progress), locked = empty
-      const fillPct = isDone ? 1 : (isCurrent ? 0.4 : 0);
-      const dashOffset = CIRC * (1 - fillPct);
-      const stateIcon = isDone ? '✓' : (isCurrent ? '' : `<span style="font-size:11px;opacity:.5">${String(i + 1).padStart(2, '0')}</span>`);
-      const cta = isCurrent ? '<span class="jm-cta">CONTINUE</span>' : '';
-      return `<a class="jm-node ${state}" style="left:${pos[i].x}%;top:${pos[i].y}%" role="listitem" href="/field-manual.html" aria-label="${n.title || n.name} — ${state}">
-        <span class="jm-ringwrap">
-          <svg viewBox="0 0 72 72"><circle class="jm-ring-track" cx="36" cy="36" r="${R}"/><circle class="jm-ring-fill" cx="36" cy="36" r="${R}" stroke-dasharray="${CIRC.toFixed(1)}" stroke-dashoffset="${dashOffset.toFixed(1)}"/></svg>
-          <span class="jm-photo" style="background-image:url('${artFor(i)}')"></span>
-          <span class="jm-state">${stateIcon}</span>
-        </span>
-        <span class="jm-title">${n.title || n.name || 'Chapter'}</span>
-        ${cta}
-      </a>`;
-    }).join('');
+    list.innerHTML =
+      `<a class="np-card" href="/field-manual.html" aria-label="Field Manual: ${cur.title || cur.name} — ${eyebrow}">` +
+        `<img class="np-bg" src="${artFor(curIdx)}" alt="" loading="lazy" onerror="this.style.display='none'">` +
+        `<div class="np-scrim"></div>` +
+        `<div class="np-inner">` +
+          `<div class="np-eyebrow">${eyebrow}</div>` +
+          `<div class="np-title">${cur.title || cur.name || 'Chapter'}</div>` +
+          `<div class="np-sub">${sub}</div>` +
+          `<div class="np-bar"><i style="width:${pct}%"></i></div>` +
+        `</div>` +
+      `</a>` + moreHtml;
   }
 
   // Challenge mark-complete flow: the button opens a modal instead of routing
