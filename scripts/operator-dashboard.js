@@ -1971,8 +1971,9 @@
 /* ONE-TIME STREAK REPAIR (2026-10-03) — remove after the owner's test
  * account is corrected. Usage:
  *   /operator-dashboard.html?repair_streak=3
- * Shows a confirmation, then sets the streak counters and activity dates
- * for the SIGNED-IN user only. Never runs without the URL param. */
+ * Shows a confirmation, then sets the streak counters, activity dates,
+ * and challengeLog day entries for the SIGNED-IN user only. Never runs
+ * without the URL param. */
 (function () {
   var m = /[?&]repair_streak=(\d{1,3})/.exec(location.search);
   if (!m) return;
@@ -1988,9 +1989,15 @@
     if (!user || !db) { setTimeout(attempt, 800); return; }
     if (!window.confirm('Set YOUR streak to ' + target + ' day' + (target === 1 ? '' : 's') + '?\n\nThis repairs only your account.')) return;
     var today = tk();
+    var logKeys = [];
+    for (var i = target - 1; i >= 0; i--) {
+      var d = new Date(); d.setDate(d.getDate() - i);
+      logKeys.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+    }
     db.collection('users').doc(user.uid).set({
       dailyChallengeStreak: target, streakDays: target, streak: target,
       dailyStreak: { last: today, count: target },
+      challengeLog: logKeys,
       lastActivityDate: today, lastActiveDate: today, lastStreakDate: today, lastXpDate: today
     }, { merge: true }).then(function () {
       alert('Streak set to ' + target + ' days. Reloading…');
