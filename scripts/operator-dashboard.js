@@ -213,10 +213,8 @@
   }
 
   async function loadJourney(uid) {
-    // Wired to the Field Manual's real progress model:
-    // - chapters from guideContent/curriculum (each has id, title, lessons[])
-    // - progress from guideProgress/{uid} doc: completedLessons[] (lesson IDs)
-    // A chapter is done when ALL its lessons are in completedLessons.
+    // Wired to the Field Manual: chapters from guideContent/curriculum,
+    // completion from guideProgress/{uid}/chapters.
     let chapters = [];
     try {
       const snap = await window.db.collection('guideContent').doc('curriculum').get();
@@ -232,31 +230,23 @@
       }
     } catch (e) { chapters = []; }
 
-    let completedLessons = [];
+    let completedIds = [];
     try {
-      const pSnap = await window.db.collection('guideProgress').doc(uid).get();
-      if (pSnap && pSnap.exists) {
-        const p = pSnap.data() || {};
-        if (Array.isArray(p.completedLessons)) completedLessons = p.completedLessons;
-      }
-    } catch (e) { completedLessons = []; }
+      const pSnap = await window.db.collection('guideProgress').doc(uid).collection('chapters').get();
+      pSnap.docs.forEach((doc) => {
+        const d = doc.data() || {};
+        if (d.completed) completedIds.push(doc.id);
+      });
+    } catch (e) { completedIds = []; }
 
-    const nodes = chapters.map((c, i) => {
-      const lessons = c.lessons || [];
-      const doneCount = lessons.filter((l) => completedLessons.includes(l.id)).length;
-      return {
-        id: c.id || ('ch' + String(i + 1).padStart(2, '0')),
-        title: c.title || c.name || ('Chapter ' + (i + 1)),
-        name: c.title || c.name || ('Chapter ' + (i + 1)),
-        description: c.description || c.subtitle || '',
-        lessonsTotal: lessons.length,
-        lessonsDone: doneCount,
-        // Ring fill fraction for the UI
-        pct: lessons.length ? doneCount / lessons.length : 0,
-      };
-    });
+    const nodes = chapters.map((c, i) => ({
+      id: c.id || ('ch' + String(i + 1).padStart(2, '0')),
+      title: c.title || c.name || ('Chapter ' + (i + 1)),
+      name: c.title || c.name || ('Chapter ' + (i + 1)),
+      description: c.description || c.subtitle || '',
+    }));
 
-    const completed = nodes.filter((n) => n.lessonsTotal > 0 && n.lessonsDone >= n.lessonsTotal).map((n) => n.id);
+    const completed = nodes.filter((n) => completedIds.includes(n.id)).map((n) => n.id);
 
     vm.journey = {
       title: 'Field Manual',
@@ -865,9 +855,9 @@
       const isDone = l.completed.includes(n.id);
       const isCurrent = !isDone && (i === 0 || l.completed.includes(nodes[i - 1].id));
       const state = isDone ? 'done' : (isCurrent ? 'current' : 'locked');
-      // Ring fill: real per-chapter lesson completion fraction
-      const fillPct = typeof n.pct === 'number' ? n.pct : (isDone ? 1 : 0);
-      const dashOffset = CIRC * (1 - Math.min(1, Math.max(0, fillPct)));
+      // Ring fill: done = full, current = 40% (in-progress), locked = empty
+      const fillPct = isDone ? 1 : (isCurrent ? 0.4 : 0);
+      const dashOffset = CIRC * (1 - fillPct);
       const stateIcon = isDone ? '✓' : (isCurrent ? '' : `<span style="font-size:11px;opacity:.5">${String(i + 1).padStart(2, '0')}</span>`);
       const cta = isCurrent ? '<span class="jm-cta">CONTINUE</span>' : '';
       return `<a class="jm-node ${state}" style="left:${pos[i].x}%;top:${pos[i].y}%" role="listitem" href="/field-manual.html" aria-label="${n.title || n.name} — ${state}">
