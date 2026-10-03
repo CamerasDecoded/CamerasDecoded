@@ -177,6 +177,9 @@
     +   'transform:translateX(0);opacity:0;'
     +   'transition:transform .32s cubic-bezier(.32,.72,.28,1),opacity .2s;will-change:transform}'
     + '.cd-bn-pill.cd-no-anim{transition:none}'
+    + '.cd-bn-nav{cursor:default;touch-action:pan-y}'
+    + '.cd-bn-nav.cd-grabbing{cursor:grabbing}'
+    + '.cd-bn-nav.cd-grabbing .cd-bn-link{pointer-events:none}'
     + '.cd-bn-scrim{position:fixed;inset:0;z-index:120;background:rgba(5,5,6,.72);'
     +   'backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);'
     +   'display:none;align-items:flex-end;justify-content:center}'
@@ -212,7 +215,8 @@
     + '.cd-bn-rc b{display:block;font-size:14px;font-weight:700}'
     + '.cd-bn-rc span{display:block;color:var(--cd-bn-mut);font-size:11px;margin-top:2px}'
     + '@media (prefers-reduced-motion:reduce){'
-    +   '.cd-bn-sheet{animation:none}.cd-bn-link:active,.cd-bn-row:active{transform:none}}';
+    +   '.cd-bn-sheet{animation:none}.cd-bn-link:active,.cd-bn-row:active{transform:none}'
+    +   '.cd-bn-pill{transition:none}}';
 
   // ---------- render ----------
   function injectStyles() {
@@ -475,6 +479,86 @@
     window.addEventListener('hashchange', function () { applyActive(nav); });
   }
 
+  /* ---------- slide-to-switch (Arena pattern) ----------
+     Drag the pill across the bar, release to switch tabs. Tap still works:
+     a sub-8px movement is treated as a plain tap and existing handlers run. */
+  function wireSlide(nav) {
+    var pill = nav.querySelector('.cd-bn-pill');
+    if (!pill || typeof window.PointerEvent === 'undefined') return;
+    var dragging = false, moved = false, pid = null;
+    var startX = 0, baseX = 0, segW = 0, suppressClick = false;
+
+    function curIndex() {
+      var id = detectActiveTab();
+      for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) return i;
+      return 0;
+    }
+    function segWidth() {
+      return (nav.getBoundingClientRect().width - 16) / TABS.length;
+    }
+    function fireTab(idx) {
+      var t = TABS[idx];
+      if (!t) return;
+      var el = nav.querySelector('[data-cd-tab="' + t.id + '"]');
+      if (el) el.click();
+    }
+
+    nav.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (dragging) return;
+      dragging = true; moved = false; pid = e.pointerId; startX = e.clientX;
+      segW = segWidth();
+      baseX = curIndex() * segW;
+      pill.classList.add('cd-no-anim');
+      nav.classList.add('cd-grabbing');
+    });
+    function onMove(e) {
+      if (!dragging || e.pointerId !== pid) return;
+      var dx = e.clientX - startX;
+      if (!moved && Math.abs(dx) < 8) return;
+      moved = true;
+      var max = segW * (TABS.length - 1);
+      var x = Math.max(0, Math.min(max, baseX + dx));
+      pill.style.transform = 'translateX(' + x + 'px)';
+    }
+    function endDrag(e) {
+      if (!dragging || (e && e.pointerId !== pid)) return;
+      dragging = false; pid = null;
+      pill.classList.remove('cd-no-anim');
+      nav.classList.remove('cd-grabbing');
+      if (!moved) return; /* plain tap — existing handlers run untouched */
+      moved = false;
+      var m = /translateX\((-?[\d.]+)px\)/.exec(pill.style.transform || '');
+      var x = m ? parseFloat(m[1]) : baseX;
+      var idx = Math.max(0, Math.min(TABS.length - 1, Math.round(x / segW)));
+      var cur = curIndex();
+      if (idx === cur) {
+        pill.style.transform = 'translateX(' + (cur * 100) + '%)'; /* rubber-band back */
+        return;
+      }
+      suppressClick = true;
+      var el = nav.querySelector('[data-cd-tab="' + TABS[idx].id + '"]');
+      var isSheet = el && el.hasAttribute('data-cd-sheet');
+      if (isSheet) {
+        /* sheets stay on this page: glide the pill home, then open */
+        pill.style.transform = 'translateX(' + (cur * 100) + '%)';
+        setTimeout(function () { fireTab(idx); }, 140);
+      } else {
+        /* page tabs: slide the pill onto the target first, then navigate */
+        pill.style.transform = 'translateX(' + (idx * 100) + '%)';
+        setTimeout(function () { fireTab(idx); }, 130);
+      }
+      setTimeout(function () { suppressClick = false; }, 500);
+    }
+    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+    /* swallow the tap that trails a drag */
+    nav.addEventListener('click', function (e) {
+      if (suppressClick) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
+  }
+
   // ---------- public API ----------
   function updateBadges() { /* reserved for future badge display */ }
 
@@ -499,6 +583,7 @@
 
     applyActive(nav);
     wire(nav);
+    wireSlide(nav);
 
     window.__CDBottomNav = true;
     window.BottomNav = { updateBadges: updateBadges, close: closeAllSheets, setRole: setRole };
