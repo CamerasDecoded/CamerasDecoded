@@ -1968,3 +1968,35 @@
 
   console.log('[Dashboard] Script loaded.');
 })();
+/* ONE-TIME STREAK REPAIR (2026-10-03) — remove after the owner's test
+ * account is corrected. Usage:
+ *   /operator-dashboard.html?repair_streak=3
+ * Shows a confirmation, then sets the streak counters and activity dates
+ * for the SIGNED-IN user only. Never runs without the URL param. */
+(function () {
+  var m = /[?&]repair_streak=(\d{1,3})/.exec(location.search);
+  if (!m) return;
+  var target = Math.max(1, parseInt(m[1], 10));
+  function tk() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function attempt() {
+    var auth = (window.firebase && firebase.auth && firebase.auth()) || null;
+    var db = window.db || null;
+    var user = auth && auth.currentUser;
+    if (!user || !db) { setTimeout(attempt, 800); return; }
+    if (!window.confirm('Set YOUR streak to ' + target + ' day' + (target === 1 ? '' : 's') + '?\n\nThis repairs only your account.')) return;
+    var today = tk();
+    db.collection('users').doc(user.uid).set({
+      dailyChallengeStreak: target, streakDays: target, streak: target,
+      dailyStreak: { last: today, count: target },
+      lastActivityDate: today, lastActiveDate: today, lastStreakDate: today, lastXpDate: today
+    }, { merge: true }).then(function () {
+      alert('Streak set to ' + target + ' days. Reloading…');
+      location.href = location.pathname;
+    }).catch(function (e) { alert('Repair failed: ' + (e && e.message)); });
+  }
+  if (document.readyState === 'complete') attempt();
+  else window.addEventListener('load', attempt);
+})();
