@@ -307,14 +307,14 @@
   function loadHeaderBehavior() {
     if (document.querySelector('script[src*="header.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/header.js?v=20260930b';
+    script.src = '/header.js?v=20260927a';
     document.body.appendChild(script);
   }
 
   function loadNotifications() {
     if (document.querySelector('script[src*="notifications.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/scripts/notifications.js?v=20260930b';
+    script.src = '/scripts/notifications.js?v=20260926b';
     script.onload = () => {
       try { if (window.CDNotifs) window.CDNotifs.init(); } catch (e) {}
     };
@@ -385,7 +385,7 @@
     if (document.querySelector('script[src*="install.js"]')) return;
     if (window.CDInstall) return;
     const script = document.createElement('script');
-    script.src = '/scripts/install.js?v=20260930a';
+    script.src = '/scripts/install.js?v=20260919a';
     document.body.appendChild(script);
   }
 
@@ -397,21 +397,8 @@
     document.body.appendChild(script);
   }
 
-  // Every page must be installable: Chrome's beforeinstallprompt only fires
-  // when a manifest is linked. play.html links its own; this covers the rest.
-  // (Kept separate from injectIconLinks, which early-returns when a page
-  // already has an apple-touch-icon.)
-  function ensureManifest() {
-    if (document.querySelector('link[rel="manifest"]')) return;
-    const l = document.createElement('link');
-    l.setAttribute('rel', 'manifest');
-    l.setAttribute('href', '/site.webmanifest');
-    (document.head || document.documentElement).appendChild(l);
-  }
-
   function init() {
     loadFontAwesome();
-    ensureManifest();
     loadGoogleFonts();
     loadSharedCSS();
     loadParticles();

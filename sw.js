@@ -7,7 +7,7 @@
    - Static assets: stale-while-revalidate — fast repeat loads, fresh in background. */
 'use strict';
 
-const CACHE = 'cd-v2';
+const CACHE = 'cd-v1';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

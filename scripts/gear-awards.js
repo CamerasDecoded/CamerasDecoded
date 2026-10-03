@@ -5,8 +5,8 @@
 
    - CDGear.award(uid, badgeId, db): awards one gear/glass badge
      (once-only, via CDBadges). On a NEW earn it checks the Trinity
-     meta-badge (any 3 gear collectibles, gear family only). The badge
-     sting (sheet + sound + haptics) fires from CDBadges.award.
+     meta-badge (any 3 gear collectibles, gear family only) and fires
+     the share-on-earn prompt.
    - CDGear.trackArcade(db, uid, slotId, score): call on every scored
      arcade play. Maintains gearProgress { arcadeSlots[], arcadePlays,
      bestScore } and awards Overdrive (5 plays) / Arsenal (5 distinct
@@ -60,7 +60,8 @@
     var db = getDb(explicitDb);
     return window.CDBadges.award(uid, badgeId, db).then(function (earned) {
       if (earned) {
-        checkTrinity(uid, db);           // meta-badge (never throws; stings via CDBadges)
+        checkTrinity(uid, db);           // meta-badge (never throws)
+        offerShare(badgeId);             // share-on-earn prompt (never throws)
       }
       return earned;
     }).catch(function () { return false; });
@@ -78,10 +79,19 @@
           return id.indexOf(GEAR_PREFIX) === 0 && id !== TRINITY_ID;
         }).length;
         if (count >= 3 && window.CDBadges) {
-          window.CDBadges.award(uid, TRINITY_ID, db).catch(function () {});
+          window.CDBadges.award(uid, TRINITY_ID, db).then(function (earned) {
+            if (earned) offerShare(TRINITY_ID);
+          }).catch(function () {});
         }
       }).catch(function () {});
     } catch (e) { /* best-effort */ }
+  }
+
+  function offerShare(badgeId) {
+    try {
+      if (window.CDGearShare && typeof window.CDGearShare.offerShare === 'function')
+        window.CDGearShare.offerShare(badgeId);
+    } catch (e) { /* share prompt is optional */ }
   }
 
   // ---- Arcade progress: call on every scored play ----

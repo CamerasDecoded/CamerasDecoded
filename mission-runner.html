@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cameras Decoded — Mission Runner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   1. TOKENS + RESET
+   ============================================================ */
+:root{
+  --green:#8deb00;
+  --green-dim:rgba(141,235,0,.55);
+  --green-glow:rgba(141,235,0,.22);
+  --dark:#08080a;
+  --panel:rgba(14,14,17,.86);
+  --panel-solid:#101014;
+  --line:rgba(255,255,255,.09);
+  --line-strong:rgba(255,255,255,.16);
+  --txt:#f2f4ef;
+  --txt-2:rgba(242,244,239,.62);
+  --txt-3:rgba(242,244,239,.34);
+  --mono:"Space Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"Montserrat",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --r-lg:22px;
+  --r-md:16px;
+  --r-sm:12px;
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--dark);
+  font-family:var(--sans);
+  color:var(--txt);
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  background-image:
+    radial-gradient(circle at 50% -10%,rgba(141,235,0,.10),transparent 55%),
+    radial-gradient(rgba(255,255,255,.055) 1px,transparent 1px);
+  background-size:100% 100%,22px 22px;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+img,canvas,video{display:block;max-width:100%}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:6px}
+
+/* ============================================================
+   2. PHONE FRAME
+   ============================================================ */
+.phone{
+  position:relative;
+  width:min(430px,100vw);
+  height:min(932px,100dvh);
+  background:var(--dark);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+@media(min-width:520px) and (min-height:900px){
+  .phone{
+    border-radius:44px;
+    border:1px solid rgba(255,255,255,.10);
+    box-shadow:
+      0 0 0 10px #131316,
+      0 0 0 11px #26262b,
+      0 40px 90px -20px rgba(0,0,0,.9),
+      0 0 120px -40px var(--green-glow);
+  }
+}
+
+/* ============================================================
+   3. SCREENS
+   ============================================================ */
+.screen{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .28s ease,transform .32s cubic-bezier(.4,0,.2,1);
+  transform:translateY(8px);
+}
+.screen.active{opacity:1;pointer-events:auto;transform:none;z-index:2}
+
+/* ============================================================
+   4. TOP BAR (floating, translucent)
+   ============================================================ */
+.topbar{
+  position:relative;
+  z-index:20;
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:calc(var(--safe-t) + 12px) 14px 0;
+  padding:11px 14px;
+  background:rgba(16,16,20,.72);
+  backdrop-filter:blur(20px) saturate(140%);
+  -webkit-backdrop-filter:blur(20px) saturate(140%);
+  border:1px solid var(--line);
+  border-radius:18px;
+  box-shadow:0 8px 30px -12px rgba(0,0,0,.8);
+}
+.brand{
+  font-family:var(--mono);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.16em;
+  color:var(--txt-2);
+  white-space:nowrap;
+}
+.brand b{color:var(--green)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.icon-btn{
+  width:36px;height:36px;
+  display:grid;place-items:center;
+  border-radius:11px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.03);
+  position:relative;
+  transition:background .18s,border-color .18s;
+}
+.icon-btn:hover{background:rgba(255,255,255,.07);border-color:var(--line-strong)}
+.icon-btn svg{width:17px;height:17px;stroke:var(--txt-2);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.dot{
+  position:absolute;top:7px;right:7px;
+  width:7px;height:7px;border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 0 2px #101014,0 0 8px var(--green);
+}
+.avatar{
+  width:36px;height:36px;border-radius:11px;
+  display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;font-weight:700;
+  color:var(--dark);
+  background:linear-gradient(140deg,var(--green),#5fa800);
+  letter-spacing:.02em;
+}
+
+/* ============================================================
+   5. SCROLL AREA
+   ============================================================ */
+.scroll{
+  flex:1 1 auto;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding:14px 14px calc(112px + var(--safe-b));
+  scrollbar-width:none;
+}
+.scroll::-webkit-scrollbar{display:none}
+
+/* ============================================================
+   6. SECTION LABELS
+   ============================================================ */
+.sec-label{
+  font-family:var(--mono);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.18em;
+  color:var(--txt-3);
+  margin:22px 4px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sec-label span:last-child{color:var(--txt-3);letter-spacing:.08em}
+
+/* ============================================================
+   7. CHASING BORDER PRIMITIVE
+   ============================================================ */
+@property --a{syntax:"<angle>";initial-value:0deg;inherits:false}
+.chase{position:relative;isolation:isolate}
+.chase::before{
+  content:"";
+  position:absolute;inset:0;
+  border-radius:inherit;
+  padding:1.5px;
+  background:conic-gradient(from var(--a),
+    transparent 0deg,transparent 200deg,
+    rgba(141,235,0,.15) 250deg,
+    var(--green) 320deg,
+    rgba(141 *,235,0,.15) 355deg,
+    transparent 360deg);
+{  -webkit-mask:linear-gradient(#000 0 0) contentposition-box,linear-gradient:(#000 0 0);
+ relative -webkit-mask-composite:xor;
+  mask:;linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask-composite:exclude;
+  animation:chase 5s linear infinite;
+  pointer-events:none;
+  z-index:3;
+}
+@keyframes chase{to{--a:360deg}}
+
+/* ============================================================
+   8. NEXT-UP HERO
+   ============================================================ */
+.hero{
+  position:relative;
+  border-radius:var(--r-lg);
+  padding:20px;
+  background:
+    radial-gradient(120% 140% at 100% 0%,rgba(141,235,0,.13),transparent 58%),
+    linear-gradient(160deg,rgba(22,24,20,.96),rgba(12,12,15,.96));
+  border:1px solid var(--line);
+  box-shadow:0 20px 50px -24px rgba(0,0,0,.95),0 0 60px -30px var(--green-glow);
+  overflow:hidden;
+}
+.hero::after{
+  content:"";
+  position:absolute;inset:0;
+  background-image:radial-gradient(rgba(141,235,0,.13) 1px,transparent 1px);
+  background-size:14px 14px;
+  opacity:.5;
+  mask-image:radial-gradient(circle at 85% 15%,#000,transparent 62%);
+  -webkit-mask-image:radial-gradient(circle at 85% 15%,#000,transparent 62%);
+  pointer-events:none;
+}
+.hero >z-index:4}
+.hero-tag{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--mono);font-size:9.5px;font-weight:700;
+  letter-spacing:.16em;color:var(--green);
+  background:rgba(141,235,0,.10);
+  border:1px solid rgba(141,235,0,.26);
+  padding:5px 10px;border-radius:999px;
+  margin-bottom:14px;
+}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.72)}}
+.hero h1{
+  font-size:25px;font-weight:700;line-height:1.1;
+  letter-spacing:-.02em;margin-bottom:6px;
+}
+.hero p{font-size:13px;color:var(--txt-2);line-height:1.5;margin-bottom:16px}
+.hero-meta{
+  display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px;
+}
+.chip{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  letter-spacing:.06em;
+  padding:5px 10px;border-radius:8px;
+  background:rgba(255,255,255,.045);
+  border:1px solid var(--line);
+  color:var(--txt-2);
+  display:inline-flex;align-items:center;gap:5px;
+}
+.chip.g{color:var(--green);border-color:rgba(141,235,0,.24);background:rgba(141,235,0,.08)}
+
+/* ============================================================
+   9. BUTTONS
+   ============================================================ */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  width:100%;min-height:52px;
+  border-radius:14px;
+  font-family:var(--sans);
+  font-size:14px;font-weight:700;
+  letter-spacing:.01em;
+  transition:transform .12s,filter .18s,background .18s;
+}
+.btn:active{transform:scale(.975)}
+.btn-primary{
+  background:linear-gradient(140deg,var(--green),#6fb800);
+  color:#0a0d05;
+  box-shadow:0 10px 30px -12px rgba(141,235,0,.7);
+}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-ghost{
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--line-strong);
+  color:var(--txt);
+}
+.btn-ghost:hover{background:rgba(255,255,255,.09)}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ============================================================
+   10. STAT STRIP
+   ============================================================ */
+.stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:9px;
+  margin-top:14px;
+}
+.stat{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--r-md);
+  padding:13px 12px;
+  text-align:left;
+}
+.stat-k{
+  font-family:var(--mono);font-size:9px;font-weight:700;
+  letter-spacing:.13em;color:var(--txt-3);
+  margin-bottom:6px;display:block;
+}
+.stat-v{
+  font-family:var(--mono);font-size:19px;font-weight:700;
+  color:var(--txt);line-height:1;
+  display:flex;align-items:baseline;gap:3px;
+}
+.stat-v small{font-size:10px;color:var(--txt-3);font-weight:400}
+.stat-v.g{color:var(--green)}
+
+/* ============================================================
+   11. TODAY'S GOAL
+   ============================================================ */
+.goal{
+  margin-top:14px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--r-md);
+  padding:15px;
+}
+.goal-top{
+  display:flex;align-items:baseline;justify-content:space-between;
+  margin-bottom:11px;
+}
+.goal-top b{font-size:13px;font-weight:600}
+.goal-top span{font-family:var(--mono);font-size:11px;color:var(--txt-2)}
+.goal-top span em{color:var(--green);font-style:normal;font-weight:700}
+.bar{height:7px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.bar i{
+  display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,#5fa800,var(--green));
+  box-shadow:0 0 14px rgba(141,235,0,.5);
+  transition:width .8s cubic-bezier(.3,1,.4,1);
+}
+.goal-sub{
+  font-family:var(--mono);font-size:10px;color:var(--txt-3);
+  margin-top:9px;letter-spacing:.03em;
+}
+
+/* ============================================================
+   12. MISSION PATH
+   ============================================================ */
+.unit{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  padding:16px 14px 10px;
+  margin-bottom:11px;
+}
+.unit-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;padding:0 2px;
+}
+.unit-head h2{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.unit-head span{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  color:var(--txt-3);letter-spacing:.06em;
+}
+.node{
+  display:flex;align-items:center;gap:13px;
+  width:100%;
+  padding:11px 10px;
+  border-radius:14px;
+  text-align:left;
+  position:relative;
+  transition:background .18s;
+  border:1px solid transparent;
+}
+.node:hover{background:rgba(255,255,255,.035)}
+.node-rail{
+  position:absolute;left:31px;top:44px;bottom:-8px;
+  width:1.5px;background:rgba(255,255,255,.10);
+}
+.node:last-child .node-rail{display:none}
+.node-rail.done{background:rgba(141,235,0,.32)}
+.node-ico{
+  flex:0 0 auto;
+  width:26px;height:26px;border-radius:50%;
+  display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;font-weight:700;
+  border:1.5px solid var(--line-strong);
+  background:rgba(255,255,255,.04);
+  color:var(--txt-3);
+  z-index:2;
+}
+.node-ico svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.node.done .node-ico{background:rgba(141,235,0,.13);border-color:rgba(141,235,0,.42);color:var(--green)}
+.node.now .node-ico{
+  background:var(--green);border-color:var(--green);color:#0a0d05;
+  box-shadow:0 0 0 4px rgba(141,235,0,.15),0 0 18px rgba(141,235,0,.6);
+}
+.node.lock .node-ico{background:rgba(255,255,255,.02)}
+.node-body{flex:1 1 auto;min-width:0}
+.node-title{
+  font-size:13.5px;font-weight:500;line-height:1.3;
+  color:var(--txt-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.node.done .node-title{color:var(--txt-2)}
+.node.now .node-title{color:var(--txt);font-weight:600}
+.node.lock .node-title{color:var(--txt-3)}
+.node-sub{
+  font-family:var(--mono);font-size:9.5px;
+  color:var(--txt-3);letter-spacing:.05em;margin-top:3px;
+}
+.node.now .node-sub{color:var(--green)}
+.node-cta{
+  flex:0 0 auto;
+  font-family:var(--mono);font-size:9.5px;font-weight:700;
+  letter-spacing:.1em;
+  color:var(--green);
+  padding:6px 11px;
+  border-radius:8px;
+  border:1px solid rgba(141,235,0,.3);
+  background:rgba(141,235,0,.09);
+}
+.node.now{border-color:rgba(141,235,0,.18);background:rgba(141,235,0,.045)}
+
+/* ============================================================
+   13. BOTTOM NAV
+   ============================================================ */
+.nav{
+  position:absolute;left:0;right:0;bottom:0;
+  z-index:30;
+  padding:10px 12px calc(10px + var(--safe-b));
+  background:linear-gradient(to top,rgba(8,8,10,.99) 55%,rgba(8,8,10,.85) 80%,transparent);
+  display:flex;align-items:flex-end;justify-content:space-around;
+}
+.nav-item{
+  flex:1;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:7px 2px;
+  min-height:44px;
+  color:var(--txt-3);
+  font-family:var(--mono);
+  font-size:9px;font-weight:700;letter-spacing:.08em;
+  transition:color .18s;
+  border-radius:10px;
+}
+.nav-item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nav-item:hover{color:var(--txt-2)}
+.nav-item.on{color:var(--green)}
+.nav-shoot{
+  flex:0 0 auto;
+  width:56px;height:56px;
+  margin-top:-20px;
+  border-radius:18px;
+  background:linear-gradient(140deg,var(--green),#5fa800);
+  display:grid;place-items:center;
+  color:#0a0d05;
+  box-shadow:0 10px 28px -8px rgba(141,235,0,.65),0 0 0 5px rgba(8,8,10,.95);
+  transition:transform .15s;
+}
+.nav-shoot:active{transform:scale(.93)}
+.nav-shoot svg{width:24px;height:24px;stroke:#0a0d05;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* ============================================================
+   14. BOTTOM SHEET
+   ============================================================ */
+.backdrop{
+  position:absolute;inset:0;z-index:60;
+  background:rgba(0,0,0,.66);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+  opacity:0;pointer-events:none;
+  transition:opacity .26s;
+}
+.backdrop.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:61;
+  background:linear-gradient(to bottom,#15161a,#0d0d10);
+  border-top:1px solid var(--line-strong);
+  border-radius:26px 26px 0 0;
+  padding:10px 18px calc(20px + var(--safe-b));
+  transform:translateY(102%);
+  transition:transform .34s cubic-bezier(.32,.72,0,1);
+  max-height:88%;
+  overflow-y:auto;
+  scrollbar-width:none;
+}
+.sheet::-webkit-scrollbar{display:none}
+.sheet.on{transform:none}
+.handle{
+  width:38px;height:4px;border-radius:99px;
+  background:rgba(255,255,255,.2);
+  margin:0 auto 18px;
+}
+.sheet h3{font-size:21px;font-weight:700;letter-spacing:-.02em;margin-bottom:5px}
+.sheet .sub{font-size:12.5px;color:var(--txt-2);margin-bottom:16px}
+.sheet-meta{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
+.steps-list{
+  list-style:none;
+  border:1px solid var(--line);
+  border-radius:var(--r-md);
+  overflow:hidden;
+  margin-bottom:18px;
+  background:rgba(255,255,255,.02);
+}
+.steps-list li{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;
+  font-size:12.5px;color:var(--txt-2);
+  border-bottom:1px solid var(--line);
+}
+.steps-list li:last-child{border-bottom:none}
+.steps-list b{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  color:var(--green);
+  width:18px;flex:0 0 auto;
+}
+.sheet-actions{display:flex;flex-direction:column;gap:9px}
+
+/* ============================================================
+   15. SHOOT SCREEN
+   ============================================================ */
+#screenShoot{background:#000;z-index:40}
+.shoot-top{
+  position:relative;z-index:20;
+  flex:0 0 auto;
+  display:flex;align-items:center;gap:11px;
+  padding:calc(var(--safe-t) + 12px) 14px 12px;
+  background:linear-gradient(to bottom,rgba(0,0,0,.85),transparent);
+}
+.shoot-close{
+  width:38px;height:38px;flex:0 0 auto;
+  display:grid;place-items:center;
+  border-radius:12px;
+  background:rgba(255,255,255,.09);
+  border:1px solid rgba(255,255,255,.14);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.shoot-close svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round}
+.shoot-title{flex:1 1 auto;min-width:0}
+.shoot-title b{
+  display:block;font-size:13.5px;font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.shoot-title span{
+  font-family:var(--mono);font-size:9.5px;font-weight:700;
+  letter-spacing:.1em;color:var(--green);
+}
+.shoot-xp{
+  font-family:var(--mono);font-size:11px;font-weight:700;
+  color:var(--green);
+  padding:7px 11px;border-radius:9px;
+  background:rgba(141,235,0,.12);
+  border:1px solid rgba(141,235,0,.28);
+  white-space:nowrap;
+}
+
+/* viewfinder */
+.vf{
+  position:absolute;inset:0;
+  z-index:0;
+  overflow:hidden;
+  background:#050506;
+}
+#feed{width:100%;height:100%;object-fit:cover;display:block}
+.vf-grid{
+  position:absolute;inset:0;z-index:3;pointer-events:none;
+  opacity:0;transition:opacity .3s;
+}
+.vf-grid.on{opacity:1}
+.vf-grid i{
+  position:absolute;background:rgba(255,255,255,.22);
+}
+.vf-grid i:nth-child(1){left:33.33%;top:0;bottom:0;width:1px}
+.vf-grid i:nth-child(2){left:66.66%;top:0;bottom:0;width:1px}
+.vf-grid i:nth-child(3){top:33.33%;left:0;right:0;height:1px}
+.vf-grid i:nth-child(4){top:66.66%;left:0;right:0;height:1px}
+.vf-vig{
+  position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.55) 100%);
+}
+.vf-top-grad,.vf-bot-grad{position:absolute;left:0;right:0;z-index:4;pointer-events:none}
+.vf-top-grad{top:0;height:170px;background:linear-gradient(to bottom,rgba(0,0,0,.72),transparent)}
+.vf-bot-grad{bottom:0;height:340px;background:linear-gradient(to top,rgba(0,0,0,.92),rgba(0,0,0,.55) 45%,transparent)}
+
+.focus-ring{
+  position:absolute;z-index:5;
+  width:76px;height:76px;margin:-38px 0 0 -38px;
+  border:1.5px solid var(--green);
+  border-radius:8px;
+  opacity:0;
+  pointer-events:none;
+  box-shadow:0 0 0 1px rgba(0,0,0,.4),0 0 20px rgba(141,235,0,.35);
+}
+.focus-ring.pop{animation:focusPop .9s ease-out}
+@keyframes focusPop{
+  0%{opacity:0;transform:scale(1.35)}
+  18%{opacity:1;transform:scale(1)}
+  70%{opacity:1;transform:scale(1)}
+  100%{opacity:0;transform:scale(1)}
+}
+
+/* instruction card */
+.instruction{
+  position:absolute;left:14px;right:14px;bottom:196px;z-index:10;
+  background:rgba(13,13,16,.82);
+  backdrop-filter:blur(22px) saturate(150%);
+  -webkit-backdrop-filter:blur(22px) saturate(150%);
+  border:1px solid rgba(255,255,255,.11);
+  border-radius:var(--r-lg);
+  padding:16px 16px 15px;
+  box-shadow:0 20px 50px -20px rgba(0,0,0,.95);
+  transition:opacity .28s,transform .28s;
+}
+.instruction.hide{opacity:0;transform:translateY(12px);pointer-events:none}
+.inst-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:9px;
+}
+.inst-step{
+  font-family:var(--mono);font-size:9.5px;font-weight:700;
+  letter-spacing:.14em;color:var(--green);
+}
+.inst-dots{display:flex;gap:5px}
+.inst-dots i{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(255,255,255,.2);
+  transition:all .3s;
+}
+.inst-dots i.on{background:var(--green);box-shadow:0 0 8px var(--green);width:16px;border-radius:99px}
+.inst-dots i.done{background:rgba(141,235,0,.5)}
+.instruction p{
+  font-size:14px;font-weight:500;line-height:1.45;
+  margin-bottom:9px;
+}
+.inst-tip{
+  display:flex;gap:8px;align-items:flex-start;
+  font-family:var(--mono);
+  font-size:10.5px;line-height:1.55;
+  color:var(--txt-2);
+  padding-top:10px;
+  border-top:1px solid rgba(255,255,255,.08);
+}
+.inst-tip b{color:var(--green);flex:0 0 auto;font-weight:700}
+
+/* bottom controls */
+.shoot-bot{
+  position:absolute;left:0;right:0;bottom:0;z-index:15;
+  padding:0 20px calc(22px + var(--safe-b));
+  display:flex;align-items:center;justify-content:space-between;
+  transition:opacity .28s,transform .28s;
+}
+.shoot-bot.hide{opacity:0;transform:translateY(20px);pointer-events:none}
+.tool{
+  width:48px;height:48px;border-radius:15px;
+  display:grid;place-items:center;
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.14);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  transition:background .18s,transform .12s;
+}
+.tool:active{transform:scale(.9)}
+.tool svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tool.on{background:rgba(141,235,0,.22);border-color:rgba(141,235,0,.5)}
+.tool.on svg{stroke:var(--green)}
+.tool-thumb{
+  width:48px;height:48px;border-radius:15px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.14);
+  overflow:hidden;
+  background-size:cover;background-position:center;
+}
+.shutter{
+  width:80px;height:80px;border-radius:50%;
+  display:grid;place-items:center;
+  background:rgba(255,255,255,.14);
+  border:3px solid rgba(255,255,255,.9);
+  transition:transform .1s,background .18s;
+  position:relative;
+}
+.shutter::after{
+  content:"";width:62px;height:62px;border-radius:50%;
+  background:#fff;
+  transition:transform .1s,background .18s;
+}
+.shutter:active{transform:scale(.93)}
+.shutter:active::after{transform:scale(.88)}
+.shutter.ready{border-color:var(--green);box-shadow:0 0 0 5px rgba(141,235,0,.14),0 0 34px rgba(141,235,0,.45)}
+.shutter.ready::after{background:var(--green)}
+
+/* ============================================================
+   16. OVERLAYS (review / feedback / complete)
+   ============================================================ */
+.overlay{
+  position:absolute;inset:0;z-index:50;
+  display:flex;flex-direction:column;
+  background:rgba(5,5,7,.94);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  opacity:0;pointer-events:none;
+  transition:opacity .28s;
+  padding:calc(var(--safe-t) + 20px) 20px calc(24px + var(--safe-b));
+}
+.overlay.on{opacity:1;pointer-events:auto}
+.ov-head{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  letter-spacing:.18em;color:var(--txt-3);
+  text-align:center;margin-bottom:16px;
+}
+.ov-shot{
+  flex:1 1 auto;
+  border-radius:var(--r-lg);
+  overflow:hidden;
+  border:1px solid var(--line-strong);
+  background:#0b0b0e center/cover no-repeat;
+  box-shadow:0 30px 70px -25px rgba(0,0,0,.95);
+  margin-bottom:18px;
+  min-height:0;
+  position:relative;
+}
+.ov-shot::after{
+  content:"";position:absolute;inset:0;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
+  border-radius:inherit;
+}
+.ov-actions{display:flex;gap:10px;flex:0 0 auto}
+.ov-actions .btn{flex:1}
+
+/* feedback */
+.feedback{
+  position:absolute;left:20px;right:20px;bottom:calc(24px + var(--safe-b));
+  z-index:55;
+  background:rgba(14,16,11,.94);
+  backdrop-filter:blur(22px);
+  -webkit-backdrop-filter:blur(22px);
+  border:1px solid rgba(141,235,0,.3);
+  border-radius:var(--r-lg);
+  padding:18px;
+  transform:translateY(140%);
+  transition:transform .38s cubic-bezier(.32,.72,0,1);
+  box-shadow:0 24px 60px -20px rgba(0,0,0,.95),0 0 60px -30px var(--green-glow);
+}
+.feedback.on{transform:none}
+.fb-head{display:flex;align-items:center;gap:11px;margin-bottom:11px}
+.fb-check{
+  width:34px;height:34px;flex:0 0 auto;border-radius:50%;
+  background:rgba(141,235,0,.15);
+  border:1px solid rgba(141,235,0,.45);
+  display:grid;place-items:center;
+}
+.fb-check svg{width:16px;height:16px;stroke:var(--green);fill:none;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
+.fb-head b{font-size:15px;font-weight:600;display:block;line-height:1.2}
+.fb-head span{font-family:var(--mono);font-size:10px;color:var(--txt-3);letter-spacing:.06em}
+.fb-msg{font-size:12.5px;color:var(--txt-2);line-height:1.5;margin-bottom:14px}
+
+/* complete */
+.complete{
+  align-items:center;justify-content:center;
+  text-align:center;
+}
+.complete .inner{width:100%;max-width:330px}
+.badge-wrap{
+  width:120px;height:120px;margin:0 auto 24px;
+  position:relative;
+  display:grid;place-items:center;
+}
+.badge-hex{
+  position:absolute;inset:0;
+  background:linear-gradient(150deg,rgba(141,235,0,.2),rgba(141,235,0,.05));
+  clip-path:polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);
+  border:1px solid rgba(141,235,0,.4);
+  animation:badgeIn .7s cubic-bezier(.2,1.4,.4,1) both;
+}
+@keyframes badgeIn{
+  0%{transform:scale(.4) rotate(-25deg);opacity:0}
+  100%{transform:scale(1) rotate(0);opacity:1}
+}
+.badge-hex::after{
+  content:"";position:absolute;inset:9px;
+  background:linear-gradient(150deg,rgba(141,235,0,.35),rgba(141,235,0,.08));
+  clip-path:polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);
+}
+.badge-ico{position:relative;z-index:2;width:44px;height:44px}
+.badge-ico svg{width:100%;height:100%;stroke:var(--green);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.complete h2{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+.complete .csub{font-size:13px;color:var(--txt-2);margin-bottom:26px}
+.xp-count{
+  font-family:var(--mono);
+  font-size:52px;font-weight:700;
+  color:var(--green);
+  line-height:1;
+  letter-spacing:-.03em;
+  text-shadow:0 0 40px rgba(141,235,0,.5);
+  margin-bottom:6px;
+}
+.xp-label{
+  font-family:var(--mono);font-size:10px;font-weight:700;
+  letter-spacing:.2em;color:var(--txt-3);
+  margin-bottom:28px;
+}
+.total-xp{
+  font-family:var(--mono);font-size:11px;color:var(--txt-2);
+  margin-bottom:28px;
+  padding:12px;border-radius:12px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--line);
+}
+.total-xp b{color:var(--green)}
+
+/* ============================================================
+   17. TOAST
+   ============================================================ */
+.toast{
+  position:absolute;left:50%;bottom:calc(120px + var(--safe-b));
+  z-index:90;
+  transform:translate(-50%,20px);
+  background:rgba(20,20,24,.96);
+  border:1px solid var(--line-strong);
+  border-radius:12px;
+  padding:11px 16px;
+  font-family:var(--mono);font-size:11px;
+  color:var(--txt);
+  opacity:0;pointer-events:none;
+  transition:all .3s;
+  max-width:82%;
+  text-align:center;
+  box-shadow:0 16px 40px -14px rgba(0,0,0,.9);
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ============================================================
+   18. REDUCED MOTION
+   ============================================================ */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+  }
+  .chase::before{animation:none;background:rgba(141,235,0,.55)}
+}
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- ================= MISSIONS ================= -->
+  <section class="screen active" id="screenMissions">
+    <header class="topbar">
+      <div class="brand">CAMERAS<b>·</b>DECODED</div>
+      <div class="topbar-right">
+        <button class="icon-btn" aria-label="Notifications, 2 unread">
+          <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <i class="dot"></i>
+        </button>
+        <div class="avatar" aria-label="Operator profile">OP</div>
+      </div>
+    </header>
+
+    <div class="scroll">
+      <!-- HERO -->
+      <div class="hero chase">
+        <div class="hero-tag"><i class="pulse"></i>NEXT UP</div>
+        <h1>Exposure Drills</h1>
+        <p>Control light. Learn to read a scene and hold your highlights.</p>
+        <div class="hero-meta">
+          <span class="chip">⏱ 5 MIN</span>
+          <span class="chip g">+50 XP</span>
+          <span class="chip">🏅 EXPOSURE</span>
+          <span class="chip">4 STEPS</span>
+        </div>
+        <button class="btn btn-primary" id="startHero">
+          START MISSION
+          <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+
+      <!-- STATS -->
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-k">STREAK</span>
+          <span class="stat-v">7<small>d</small></span>
+        </div>
+        <div class="stat">
+          <span class="stat-k">XP TODAY</span>
+          <span class="stat-v g">120</span>
+        </div>
+        <div class="stat">
+          <span class="stat-k">LEVEL</span>
+          <span class="stat-v">4</span>
+        </div>
+      </div>
+
+      <!-- GOAL -->
+      <div class="goal">
+        <div class="goal-top">
+          <b>Today's goal</b>
+          <span><em>120</em> / 200 XP</span>
+        </div>
+        <div class="bar"><i style="width:60%"></i></div>
+        <div class="goal-sub">80 XP TO GO · 2 MISSIONS</div>
+      </div>
+
+      <!-- PATH -->
+      <div class="sec-label"><span>YOUR PATH</span><span>2 / 8</span></div>
+
+      <div class="unit">
+        <div class="unit-head">
+          <h2>Unit 1 · Camera Basics</h2>
+          <span>2/5</span>
+        </div>
+
+        <button class="node done" data-node="done">
+          <i class="node-rail done"></i>
+          <span class="node-ico">
+            <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          </span>
+          <span class="node-body">
+            <span class="node-title">Buttons &amp; modes</span>
+            <span class="node-sub">+30 XP · COMPLETE</span>
+          </span>
+        </button>
+
+        <button class="node done" data-node="done">
+          <i class="node-rail done"></i>
+          <span class="node-ico">
+            <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          </span>
+          <span class="node-body">
+            <span class="node-title">Focus basics</span>
+            <span class="node-sub">+40 XP · COMPLETE</span>
+          </span>
+        </button>
+
+        <button class="node now" data-node="current">
+          <i class="node-rail"></i>
+          <span class="node-ico">3</span>
+          <span class="node-body">
+            <span class="node-title">Exposure Drills</span>
+            <span class="node-sub">4 STEPS · +50 XP</span>
+          </span>
+          <span class="node-cta">START</span>
+        </button>
+
+        <button class="node lock" data-node="locked">
+          <i class="node-rail"></i>
+          <span class="node-ico">
+            <svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          </span>
+          <span class="node-body">
+            <span class="node-title">Shutter speed</span>
+            <span class="node-sub">LOCKED</span>
+          </span>
+        </button>
+
+        <button class="node lock" data-node="locked">
+          <span class="node-ico">
+            <svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          </span>
+          <span class="node-body">
+            <span class="node-title">ISO</span>
+            <span class="node-sub">LOCKED</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="unit">
+        <div class="unit-head">
+          <h2>Unit 2 · Seeing Light</h2>
+          <span>0/3</span>
+        </div>
+        <button class="node lock" data-node="locked">
+          <i class="node-rail"></i>
+          <span class="node-ico">
+            <svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          </span>
+          <span class="node-body">
+            <span class="node-title">Read the light</span>
+            <span class="node-sub">LOCKED</span>
+          </span>
+        </button>
+        <button class="node lock" data-node="locked">
+          <i class="node-rail"></i>
+          <span class="node-ico">
+            <svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          </span>
+          <span class="node-body">
+            <span class="node-title">Metering</span>
+            <span class="node-sub">LOCKED</span>
+          </span>
+        </button>
+        <button class="node lock" data-node="locked">
+          <span class="node-ico">
+            <svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          </span>
+          <span class="node-body">
+            <span class="node-title">Golden hour</span>
+            <span class="node-sub">LOCKED</span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item"><svg viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>HOME</button>
+      <button class="nav-item"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg>LEARN</button>
+      <button class="nav-shoot" id="navShoot" aria-label="Shoot">
+        <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
+      <button class="nav-item"><svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>SAVED</button>
+      <button class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>MORE</button>
+    </nav>
+  </section>
+
+  <!-- ================= SHOOT ================= -->
+  <section class="screen" id="screenShoot">
+    <div class="vf">
+      <canvas id="feed"></canvas>
+      <div class="vf-vig"></div>
+      <div class="vf-grid" id="vfGrid"><i></i><i></i><i></i><i></i></div>
+      <div class="vf-top-grad"></div>
+      <div class="vf-bot-grad"></div>
+      <div class="focus-ring" id="focusRing"></div>
+    </div>
+
+    <header class="shoot-top">
+      <button class="shoot-close" id="shootClose" aria-label="Exit mission">
+        <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+      <div class="shoot-title">
+        <b>Exposure Drills</b>
+        <span id="stepLabel">STEP 1 OF 4</span>
+      </div>
+      <div class="shoot-xp">+50 XP</div>
+    </header>
+
+    <div class="instruction" id="instruction">
+      <div class="inst-head">
+        <span class="inst-step" id="instStep">STEP 1 · FRAME</span>
+        <div class="inst-dots" id="instDots"></div>
+      </div>
+      <p id="instText">Tap to focus on your subject.</p>
+      <div class="inst-tip">
+        <b>TIP</b>
+        <span id="instTip">Tap anywhere in the frame. The ring shows what's sharp.</span>
+      </div>
+    </div>
+
+    <div class="shoot-bot" id="shootBot">
+      <button class="tool" id="btnGrid" aria-label="Toggle grid">
+        <svg viewBox="0 0 24 24"><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+      </button>
+      <button class="shutter" id="shutter" aria-label="Capture photo"></button>
+      <div class="tool-thumb" id="lastThumb" aria-hidden="true"></div>
+    </div>
+
+    <!-- REVIEW -->
+    <div class="overlay" id="ovReview">
+      <div class="ov-head">REVIEW FRAME</div>
+      <div class="ov-shot" id="ovShot"></div>
+      <div class="ov-actions">
+        <button class="btn btn-ghost" id="btnRetake">RETAKE</button>
+        <button class="btn btn-primary" id="btnUse">USE PHOTO</button>
+      </div>
+    </div>
+
+    <!-- FEEDBACK -->
+    <div class="feedback" id="feedback">
+      <div class="fb-head">
+        <div class="fb-check">
+          <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <div>
+          <b id="fbTitle">Good exposure.</b>
+          <span id="fbXp">+12 XP</span>
+        </div>
+      </div>
+      <p class="fb-msg" id="fbMsg">Highlights held and the subject reads clean.</p>
+      <button class="btn btn-primary" id="btnNext">NEXT STEP</button>
+    </div>
+
+    <!-- COMPLETE -->
+    <div class="overlay complete" id="ovComplete">
+      <div class="inner">
+        <div class="badge-wrap">
+          <div class="badge-hex"></div>
+          <div class="badge-ico">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          </div>
+        </div>
+        <h2>Mission Complete</h2>
+        <p class="csub">Exposure Drills · Badge unlocked</p>
+        <div class="xp-count" id="xpCount">0</div>
+        <div class="xp-label">XP EARNED</div>
+        <div class="total-xp">TOTAL · <b id="totalXp">1,290</b> XP</div>
+        <button class="btn btn-primary" id="btnBackMissions">BACK TO MISSIONS</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SHEET ================= -->
+  <div class="backdrop" id="backdrop"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="handle"></div>
+    <h3 id="sheetTitle">Exposure Drills</h3>
+    <p class="sub">Control light. Learn to read a scene and hold your highlights.</p>
+    <div class="sheet-meta">
+      <span class="chip">⏱ 5 MIN</span>
+      <span class="chip g">+50 XP</span>
+      <span class="chip">🏅 EXPOSURE</span>
+    </div>
+    <ol class="steps-list">
+      <li><b>01</b> Focus on your subject</li>
+      <li><b>02</b> Adjust exposure for the highlights</li>
+      <li><b>03</b> Place your subject on a third</li>
+      <li><b>04</b> Hold steady and capture</li>
+    </ol>
+    <div class="sheet-actions">
+      <button class="btn btn-primary" id="btnStartSheet">
+        START MISSION
+        <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+      <button class="btn btn-ghost" id="btnCancelSheet">NOT NOW</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ============================================================
+   MISSION DATA
+   ============================================================ */
+const MISSION = {
+  title:'Exposure Drills',
+  xp:50,
+  badge:'Exposure',
+  steps:[
+    {
+      tag:'STEP 1 · FRAME',
+      text:'Tap to focus on your subject.',
+      tip:"Tap anywhere in the frame. The ring shows what's sharp.",
+      ok:'Focus locked.',
+      msg:'Your subject is sharp. Now let\'s control the light.',
+      xp:10
+    },
+    {
+      tag:'STEP 2 · EXPOSE',
+      text:'Drag the sun icon down to darken the scene.',
+      tip:'Lower exposure protects highlights. Aim for a readable sky.',
+      ok:'Highlights held.',
+      msg:'Nice — you kept detail in the bright areas.',
+      xp:15
+    },
+    {
+      tag:'STEP 3 · COMPOSE',
+      text:'Frame your subject on a third line.',
+      tip:'Move until your subject sits on a grid intersection.',
+      ok:'Composition locked.',
+      msg:'Clean placement. The eye knows where to land.',
+      xp:10
+    },
+    {
+      tag:'STEP 4 · CAPTURE',
+      text:'Hold steady and capture the final frame.',
+      tip:'Breathe out, then press. Tuck your elbows to your ribs.',
+      ok:'Sharp and well exposed.',
+      msg:'That\'s a keeper. Mission complete.',
+      xp:15
+    }
+  ]
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const S = {
+  step:0,
+  phase:'ready',       // ready | review | feedback | complete
+  captured:null,
+  sessionXp:0,
+  totalXp:1240,
+  grid:true,
+  focus:{x:0,y:0},
+  running:false
+};
+
+/* ============================================================
+   DOM
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const el = {
+  missions:$('#screenMissions'),
+  shoot:$('#screenShoot'),
+  backdrop:$('#backdrop'),
+  sheet:$('#sheet'),
+  feed:$('#feed'),
+  grid:$('#vfGrid'),
+  focusRing:$('#focusRing'),
+  instruction:$('#instruction'),
+  shootBot:$('#shootBot'),
+  shutter:$('#shutter'),
+  stepLabel:$('#stepLabel'),
+  instStep:$('#instStep'),
+  instText:$('#instText'),
+  instTip:$('#instTip'),
+  instDots:$('#instDots'),
+  lastThumb:$('#lastThumb'),
+  ovReview:$('#ovReview'),
+  ovShot:$('#ovShot'),
+  feedback:$('#feedback'),
+  fbTitle:$('#fbTitle'),
+  fbXp:$('#fbXp'),
+  fbMsg:$('#fbMsg'),
+  btnNext:$('#btnNext'),
+  ovComplete:$('#ovComplete'),
+  xpCount:$('#xpCount'),
+  totalXp:$('#totalXp'),
+  toast:$('#toast')
+};
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+let toastT;
+function toast(msg){
+  el.toast.textContent = msg;
+  el.toast.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>el.toast.classList.remove('on'), 2200);
+}
+
+/* ============================================================
+   SHEET
+   ============================================================ */
+function openSheet(){
+  el.backdrop.classList.add('on');
+  el.sheet.classList.add('on');
+  setTimeout(()=>$('#btnStartSheet').focus(), 300);
+}
+function closeSheet(){
+  el.backdrop.classList.remove('on');
+  el.sheet.classList.remove('on');
+}
+
+el.backdrop.addEventListener('click', closeSheet);
+$('#btnCancelSheet').addEventListener('click', closeSheet);
+$('#btnStartSheet').addEventListener('click', ()=>{ closeSheet(); startMission(); });
+$('#startHero').addEventListener('click', openSheet);
+$('#navShoot').addEventListener('click', openSheet);
+
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape' && el.sheet.classList.contains('on')) closeSheet();
+});
+
+document.querySelectorAll('.node').forEach(n=>{
+  n.addEventListener('click', ()=>{
+    const t = n.dataset.node;
+    if(t === 'current') openSheet();
+    else if(t === 'done') toast('Already complete · +40 XP earned');
+    else toast('Complete Exposure Drills to unlock');
+  });
+});
+
+/* ============================================================
+   CAMERA / SYNTHETIC FEED
+   ============================================================ */
+const ctx = el.feed.getContext('2d');
+let video = null, usingCamera = false, synthT = 0;
+
+function sizeCanvas(){
+  const r = el.feed.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  el.feed.width = Math.max(1, Math.round(r.width * dpr));
+  el.feed.height = Math.max(1, Math.round(r.height * dpr));
+}
+window.addEventListener('resize', sizeCanvas);
+
+async function initCamera(){
+  sizeCanvas();
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1920 }, height:{ ideal:1080 } },
+      audio:false
+    });
+    video = document.createElement('video');
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    await video.play();
+    usingCamera = true;
+  }catch(err){
+    usingCamera = false;
+    toast('Camera unavailable — demo view active');
+  }
+  if(!S.running){ S.running = true; requestAnimationFrame(loop); }
+}
+
+function drawSynthetic(w,h,t){
+  // sky
+  const sky = ctx.createLinearGradient(0,0,0,h*0.72);
+  sky.addColorStop(0,'#1b2430');
+  sky.addColorStop(0.45,'#3a4a5c');
+  sky.addColorStop(0.8,'#6b6f६f'.replace('६','6'));
+  sky.addColorStop(1,'#8a7f6d');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0,0,w,h);
+
+  // sun
+  const sunX = w*0.68, sunY = h*0.34 + Math.sin(t*0.4)*6;
+  const glow = ctx.createRadialGradient(sunX,sunY,0,sunX,sunY,w*0.34);
+  glow.addColorStop(0,'rgba(255,236,180,.95)');
+  glow.addColorStop(0.25,'rgba(255,200,120,.35)');
+  glow.addColorStop(1,'rgba(255,180,90,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0,0,w,h);
+  ctx.beginPath();
+  ctx.arc(sunX,sunY,w*0.045,0,Math.PI*2);
+  ctx.fillStyle = '#fff3cf';
+  ctx.fill();
+
+  // far hills
+  ctx.beginPath();
+  ctx.moveTo(0,h*0.66);
+  ctx.quadraticCurveTo(w*0.22,h*0.52,w*0.46,h*0.66);
+  ctx.quadraticCurveTo(w*0.7,h*0.78,w,h*0.62);
+  ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
+  ctx.fillStyle = '#2b3340';
+  ctx.fill();
+
+  // near hills
+  ctx.beginPath();
+  ctx.moveTo(0,h*0.80);
+  ctx.quadraticCurveTo(w*0.3,h*0.68,w*0.6,h*0.82);
+  ctx.quadraticCurveTo(w*0.82,h*0.9,w,h*0.78);
+  ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
+  ctx.fillStyle = '#171c24';
+  ctx.fill();
+
+  // subject silhouette
+  const bx = w*0.31, by = h*0.845;
+  ctx.fillStyle = '#0c0f14';
+  ctx.beginPath();
+  ctx.ellipse(bx, by - h*0.15, w*0.032, h*0.045, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(bx - w*0.055, by);
+  ctx.quadraticCurveTo(bx, by - h*0.13, bx + w*0.055, by);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function loop(ts){
+  const t = ts/1000 || (synthT += 0.016);
+  const w = el.feed.width, h = el.feed.height;
+  if(!w || !h){ requestAnimationFrame(loop); return; }
+
+  if(usingCamera && video && video.readyState >= 2){
+    // cover-fit the video
+    const vr = video.videoWidth / video.videoHeight;
+    const cr = w / h;
+    let dw = w, dh = h, dx = 0, dy = 0;
+    if(vr > cr){ dw = h * vr; dx = (w - dw)/2; }
+    else { dh = w / vr; dy = (h - dh)/2; }
+    ctx.drawImage(video, dx, dy, dw, dh);
+  }else{
+    drawSynthetic(w,h,t);
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   MISSION FLOW
+   ============================================================ */
+function startMission(){
+  S.step = 0;
+  S.phase = 'ready';
+  S.sessionXp = 0;
+  S.captured = null;
+  el.lastThumb.style.backgroundImage = '';
+
+  el.missions.classList.remove('active');
+  el.shoot.classList.add('active');
+  el.shoot.style.zIndex = 40;
+
+  el.ovReview.classList.remove('on');
+  el.ovComplete.classList.remove('on');
+  el.feedback.classList.remove('on');
+  el.instruction.classList.remove('hide');
+  el.shootBot.classList.remove('hide');
+  el.grid.classList.toggle('on', S.grid);
+
+  renderStep();
+  initCamera();
+  vibrate(12);
+}
+
+function renderStep(){
+  const s = MISSION.steps[S.step];
+  el.stepLabel.textContent = `STEP ${S.step+1} OF ${MISSION.steps.length}`;
+  el.instStep.textContent = s.tag;
+  el.instText.textContent = s.text;
+  el.instTip.textContent = s.tip;
+  el.shutter.classList.add('ready');
+
+  el.instDots.innerHTML = MISSION.steps.map((_,i)=>{
+    const cls = i < S.step ? 'done' : (i === S.step ? 'on' : '');
+    return `<i class="${cls}"></i>`;
+  }).join('');
+}
+
+function capture(){
+  if(S.phase !== 'ready') return;
+  const w = el.feed.width, h = el.feed.height;
+  if(!w || !h){ toast('Camera not ready'); return; }
+
+  const snap = document.createElement('canvas');
+  snap.width = w; snap.height = h;
+  snap.getContext('2d').drawImage(el.feed, 0, 0);
+  S.captured = snap.toDataURL('image/jpeg', 0.82);
+
+  el.ovShot.style.backgroundImage = `url(${S.captured})`;
+  el.ovReview.classList.add('on');
+  el.instruction.classList.add('hide');
+  el.shootBot.classList.add('hide');
+  el.shutter.classList.remove('ready');
+  S.phase = 'review';
+  vibrate(18);
+}
+
+function retake(){
+  el.ovReview.classList.remove('on');
+  el.instruction.classList.remove('hide');
+  el.shootBot.classList.remove('hide');
+  el.shutter.classList.add('ready');
+  S.phase = 'ready';
+}
+
+function usePhoto(){
+  const s = MISSION.steps[S.step];
+  el.ovReview.classList.remove('on');
+  el.lastThumb.style.backgroundImage = `url(${S.captured})`;
+
+  S.sessionXp += s.xp;
+  el.fbTitle.textContent = s.ok;
+  el.fbXp.textContent = `+${s.xp} XP`;
+  el.fbMsg.textContent = s.msg;
+  el.btnNext.textContent = (S.step === MISSION.steps.length - 1) ? 'COMPLETE MISSION' : 'NEXT STEP';
+
+  el.feedback.classList.add('on');
+  S.phase = 'feedback';
+  vibrate(14);
+}
+
+function nextStep(){
+  el.feedback.classList.remove('on');
+
+  if(S.step === MISSION.steps.length - 1){
+    completeMission();
+    return;
+  }
+  S.step++;
+  S.phase = 'ready';
+  el.instruction.classList.remove('hide');
+  el.shootBot.classList.remove('hide');
+  renderStep();
+}
+
+function completeMission(){
+  S.phase = 'complete';
+  el.instruction.classList.add('hide');
+  el.shootBot.classList.add('hide');
+
+  const bonus = MISSION.xp - S.sessionXp;
+  const total = MISSION.xp;
+  S.totalXp += total;
+
+  el.ovComplete.classList.add('on');
+  el.totalXp.textContent = S.totalXp.toLocaleString();
+
+  // count up
+  const dur = 1000;
+  const start = performance.now();
+  function tick(now){
+    const p = Math.min((now - start)/dur, 1);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.xpCount.textContent = '+' + Math.round(eased * total);
+    if(p < 1) requestAnimationFrame(tick);
+    else el.xpCount.textContent = '+' + total;
+  }
+  requestAnimationFrame(tick);
+  vibrate([20,60,30]);
+}
+
+function backToMissions(){
+  el.ovComplete.classList.remove('on');
+  el.ovReview.classList.remove('on');
+  el.feedback.classList.remove('on');
+  el.shoot.classList.remove('active');
+  el.missions.classList.add('active');
+  el.shoot.style.zIndex = '';
+  S.phase = 'ready';
+  toast('Exposure Drills complete · +50 XP');
+}
+
+function exitMission(){
+  if(S.phase === 'complete') return backToMissions();
+  el.shoot.classList.remove('active');
+  el.missions.classList.add('active');
+  el.shoot.style.zIndex = '';
+  el.ovReview.classList.remove('on');
+  el.feedback.classList.remove('on');
+  S.phase = 'ready';
+}
+
+function vibrate(p){ try{ navigator.vibrate && navigator.vibrate(p); }catch(e){} }
+
+/* ============================================================
+   EVENTS
+   ============================================================ */
+el.shutter.addEventListener('click', capture);
+$('#btnRetake').addEventListener('click', retake);
+$('#btnUse').addEventListener('click', usePhoto);
+el.btnNext.addEventListener('click', nextStep);
+$('#btnBackMissions').addEventListener('click', backToMissions);
+$('#shootClose').addEventListener('click', exitMission);
+
+$('#btnGrid').addEventListener('click', ()=>{
+  S.grid = !S.grid;
+  el.grid.classList.toggle('on', S.grid);
+  $('#btnGrid').classList.toggle('on', S.grid);
+  toast(S.grid ? 'Grid on' : 'Grid off');
+});
+$('#btnGrid').classList.toggle('on', S.grid);
+
+// tap-to-focus
+el.feed.addEventListener('pointerdown', e=>{
+  if(S.phase !== 'ready') return;
+  const r = el.feed.getBoundingClientRect();
+  el.focusRing.style.left = (e.clientX - r.left) + 'px';
+  el.focusRing.style.top  = (e.clientY - r.top)  + 'px';
+  el.focusRing.classList.remove('pop');
+  void el.focusRing.offsetWidth;
+  el.focusRing.classList.add('pop');
+});
+
+// keyboard
+document.addEventListener('keydown', e=>{
+  if(!el.shoot.classList.contains('active')) return;
+  if(e.code === 'Space' || e.code === 'Enter'){
+    if(S.phase === 'ready'){ e.preventDefault(); capture(); }
+  }
+  if(e.key === 'Escape') exitMission();
+});
+
+/* init */
+sizeCanvas();
+</script>
+</body>
+</html>

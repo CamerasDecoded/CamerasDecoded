@@ -41,7 +41,7 @@
   }
   var ICONS = {
     home:     svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>'),
-    journey:  svg('<path d="M4 19c4-1 5-8 9-9s7 1 7-4"/><circle cx="4" cy="19" r="1.6" fill="currentColor"/><circle cx="20" cy="6" r="1.6" fill="currentColor"/>'),     arena:    svg('<path d="M9 3l1.6 7.2M15 3l-1.6 7.2"/><circle cx="12" cy="14.2" r="4.2"/>'),
+    journey:  svg('<path d="M4 19c4-1 5-8 9-9s7 1 7-4"/><circle cx="4" cy="19" r="1.6" fill="currentColor"/><circle cx="20" cy="6" r="1.6" fill="currentColor"/>'),
     practice: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>'),
     library:  svg('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/>'),
     more:     svg('<circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/>'),
@@ -65,7 +65,7 @@
   // ---------- routes ----------
   var TABS = [
     { id: 'home',     label: 'Home',     href: '/operator-dashboard.html', icon: 'home' },
-    { id: 'journey',  label: 'Arena',     href: '/missions.html',            icon: 'arena' },
+    { id: 'journey',  label: 'Missions',  href: '/missions.html',            icon: 'journey' },
     { id: 'practice', label: 'Practice', sheet: 'practice',                icon: 'practice' },
     { id: 'library',  label: 'Protocols', href: '/protocols.html',         icon: 'library' },
     { id: 'more',     label: 'More',     sheet: 'more',                    icon: 'more' }
@@ -287,9 +287,9 @@
         matches(['#skill=', '#branch='], hash)) {
       return 'practice';
     }
-    // Missions tab: the arena.
-    if (matches(['/missions.html', '/learning-guide.html', '/guide-chapter.html',
-                 '/guide-progress.html', '/learning-journey.html', '/learning-module.html'], p)) {
+    // Missions tab: the guided journey.
+    if (matches(['/missions.html', '/mission-runner.html', '/learning-guide.html', '/guide-chapter.html',
+                 '/guide-progress.html', '/journey.html', '/learning-journey.html', '/learning-module.html'], p)) {
       return 'journey';
     }
     // Protocols tab: the numbered training archive and its reader pages.
