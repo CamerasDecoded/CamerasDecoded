@@ -286,21 +286,16 @@
     }
 
     // Referral codes must be unique — append -2, -3... on collision.
-    // This lookup must never brick signup: if the read is ever denied
-    // (e.g. rules drift), fall back to a uid-suffixed code and move on.
     async function getUniqueReferralCode(base, uid) {
       let code = (base || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
       if (!code) code = 'user' + uid.slice(0, 6).toLowerCase();
-      const fallback = code + '-' + uid.slice(0, 6).toLowerCase();
-      try {
-        let candidate = code, n = 2;
-        while (n < 100) {
-          const snap = await db.collection('referralCodes').doc(candidate).get();
-          if (!snap.exists || (snap.data() && snap.data().uid === uid)) return candidate;
-          candidate = code + '-' + n; n++;
-        }
-      } catch (e) { /* fall through to fallback */ }
-      return fallback;
+      let candidate = code, n = 2;
+      while (n < 100) {
+        const snap = await db.collection('referralCodes').doc(candidate).get();
+        if (!snap.exists || (snap.data() && snap.data().uid === uid)) return candidate;
+        candidate = code + '-' + n; n++;
+      }
+      return code + '-' + uid.slice(0, 6).toLowerCase();
     }
 
     async function claimReferralCode(code, uid) {
@@ -453,7 +448,6 @@
         if (err.code === 'auth/email-already-in-use') msg = 'This email is already registered. Please log in.';
         else if (err.code === 'auth/weak-password') msg = 'Password is too weak. Use at least 6 characters.';
         else if (err.code === 'auth/invalid-email') msg = 'Invalid email address.';
-        else if (err.code === 'permission-denied') msg = 'We couldn\'t create your account just now. Please try again in a moment.';
         showSignupError(msg);
       }
     };
@@ -493,9 +487,7 @@
         setTimeout(() => { window.location.href = 'profile.html?welcome=onboarding'; }, 900);
       } catch (err) {
         resetCreateBtn(btn, spinner);
-        showSignupError(err.code === 'permission-denied'
-          ? 'We couldn\'t create your profile just now. Please try again in a moment.'
-          : err.message);
+        showSignupError(err.message);
       }
     }
 

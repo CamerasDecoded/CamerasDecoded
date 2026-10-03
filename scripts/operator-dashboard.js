@@ -101,20 +101,6 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   };
   const cdDayFresh = (u) => !!u && u.xpTodayDate === cdTodayKey();
-  // Streak advance shared by the drill + lesson preview writes. Same day
-  // authority as reward-engine: activity today keeps the count, yesterday
-  // continues the chain, anything older restarts at 1. Reads the pre-write
-  // doc — callers spread the result into their update only when it exists.
-  const advanceStreak = (u) => {
-    const tk = cdTodayKey();
-    const yd = new Date(); yd.setDate(yd.getDate() - 1);
-    const yk = cdTodayKey(yd);
-    const lastSeen = pick(u, ['lastActivityDate', 'lastActiveDate', 'lastStreakDate', 'lastXpDate'], null);
-    const cur = toNum(pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0), 0);
-    if (lastSeen === tk) return cur || 1;
-    if (lastSeen === yk) return cur + 1;
-    return 1;
-  };
   let dayRolloverFired = false;
 
   // ---- Shared header bell: announcements are owned by header.js now.
@@ -644,6 +630,25 @@
 
     card.classList.add('chasing-border');
 
+    // Hero photo follows the user's current mission track, matching the
+    // banner art on the Missions page. Falls back to beginner, then hides.
+    const TRACK_BANNERS = {
+      beginner: '/images/mission-banners/banner-beginner.jpg',
+      intermediate: '/images/mission-banners/banner-intermediate.jpg',
+      flash: '/images/mission-banners/banner-flash.jpg',
+      advanced: '/images/mission-banners/banner-advanced.jpg'
+    };
+    const photoImg = card.querySelector('.resume-photo img');
+    if (photoImg) {
+      const src = TRACK_BANNERS[l.level] || TRACK_BANNERS.beginner;
+      photoImg.onerror = () => {
+        if (!photoImg.src.endsWith('banner-beginner.jpg')) photoImg.src = TRACK_BANNERS.beginner;
+        else photoImg.style.display = 'none';
+      };
+      if (photoImg.getAttribute('src') !== src) photoImg.src = src;
+      photoImg.alt = (l.title || 'Mission') + ' track artwork';
+    }
+
     if (!hasNext) {
       if (inner) inner.hidden = true;
       if (photo) photo.hidden = true;
@@ -762,6 +767,23 @@
     const vals = [c.protocols, c.snapshots];
     ids.forEach((id, i) => { const el = $(id); if (el) el.textContent = vals[i]; });
   }
+
+  function renderAI() {
+    const u = vm.raw;
+    const isPro = vm.user.tier === 'pro';
+    const usage = u.aiUsage || {};
+    const total = toNum(pick(usage, ['total','today'], toNum(u.aiUsageToday, 0)));
+    const limit = toNum(u.aiDailyLimit, isPro ? 50 : 5);
+    const pct = limit > 0 ? Math.min(100, (total / limit) * 100) : 0;
+    const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+    set('aiBadge', isPro ? 'Pro' : 'Free');
+    set('aiUsed', total);
+    set('aiLimit', isPro ? '∞' : limit);
+    set('aiPercent', isPro ? '∞' : Math.round(pct) + '%');
+    const bar = $('aiProgress'); if (bar) bar.setAttribute('aria-valuenow', Math.round(pct));
+    const fill = $('aiFill'); if (fill) fill.style.width = pct + '%';
+  }
+
   // Shared pool: /scripts/challenges-data.js (window.CD_CHALLENGES). Fallback below only if it fails to load.
   const CHALLENGES = window.CD_CHALLENGES || [
     { title:'Golden Hour Portrait', desc:'Capture a portrait during golden hour. Focus on warm tones and backlighting.' },
@@ -809,159 +831,16 @@
     }
   }
 
-  /* ---- Protocol library: real titles, cards link to readers, mid-screen modal ---- */
-  const PROTOCOL_TITLES = {
-    "protocol-001": "The 3-Second Reset",
-    "protocol-002": "Protect the Shot",
-    "protocol-003": "The Invisible Director",
-    "protocol-004": "I Belong Here",
-    "protocol-005": "The One Setting That Saves Indoor Birthday Parties",
-    "protocol-006": "Why Your Camera Keeps Focusing on the Wrong Thing",
-    "protocol-007": "The Metering Mistake",
-    "protocol-008": "The 3-Quote Rule",
-    "protocol-009": "Manual Mode Isn't a Test \u2014 It's a Tool",
-    "protocol-010": "The One Lens That Makes You a Better Photographer",
-    "protocol-011": "The White Balance Lie",
-    "protocol-012": "The Confidence Pause",
-    "protocol-013": "How to Price Your First 10 Clients",
-    "protocol-014": "What to Buy First (When You Have $500)",
-    "protocol-015": "Using AI for Culling: What Actually Works",
-    "protocol-016": "The Post-Shoot Email That Books the Next Gig",
-    "protocol-017": "When the Upgrade Is Actually Worth It",
-    "protocol-018": "The Editing Automation Stack",
-    "protocol-019": "Real Estate Protocols: The First 5 Shots",
-    "protocol-020": "Wedding Day: The 30-Second Venue Read",
-    "protocol-021": "Sports: The Autofocus That Actually Follows"
-  };
-
-  function plEsc(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-
-  /* Normalize a saved entry to {id,title,url}; null for anything unexpected. */
-  function protocolEntry(p) {
-    const id = typeof p === 'string' ? p : (p && (p.id || p.slug));
-    if (typeof id !== 'string' || !/^protocol-\d{3}$/.test(id)) return null;
-    return { id, title: PROTOCOL_TITLES[id] || id, url: '/' + id + '.html' };
-  }
-
-  function savedProtocolEntries() {
-    return (vm.raw.savedProtocols || []).map(protocolEntry).filter(Boolean);
-  }
-
-  function ensureProtocolChip(count) {
-    const title = $('protocolTitle');
-    const header = title && title.closest('.panel-top');
-    if (!header) return;
-    let chip = $('protocolLibraryBtn');
-    if (!count) { if (chip) chip.remove(); return; }
-    if (!chip) {
-      chip = document.createElement('button');
-      chip.type = 'button';
-      chip.id = 'protocolLibraryBtn';
-      chip.className = 'pl-count';
-      chip.addEventListener('click', openProtocolLibrary);
-      const viewAll = header.querySelector('a.text-btn');
-      header.insertBefore(chip, viewAll);
-    }
-    chip.innerHTML = '<i class="fas fa-bookmark" aria-hidden="true"></i>&nbsp;' + count + ' saved';
-  }
-
   function renderProtocols() {
     const grid = $('protocolGrid');
     if (!grid) return;
-    const saved = savedProtocolEntries();
-    ensureProtocolChip(saved.length);
+    const saved = vm.raw.savedProtocols || [];
     if (!saved.length) { grid.innerHTML = '<p class="empty-state">No saved protocols yet.</p>'; return; }
-    grid.innerHTML = saved.slice(0, 4).map(e =>
-      `<a class="protocol-card" href="${e.url}"><h3>${plEsc(e.title)}</h3>` +
-      `<span class="protocol-num">${e.id.replace('protocol-', 'No.&nbsp;')}</span></a>`
-    ).join('');
-  }
-
-  /* ---- Mid-screen "My protocol library" modal ---- */
-  let plModal = null;
-
-  function ensureProtocolCss() {
-    if (document.getElementById('pl-css')) return;
-    const st = document.createElement('style');
-    st.id = 'pl-css';
-    st.textContent =
-      '.cpl-backdrop{position:fixed;inset:0;z-index:21500;background:rgba(0,0,0,.72);' +
-      'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;' +
-      'justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .2s ease}' +
-      '.cpl-backdrop.cpl-open{opacity:1;pointer-events:auto}' +
-      '.cpl-modal{position:relative;width:100%;max-width:440px;max-height:82dvh;max-height:82vh;overflow-y:auto;' +
-      'background:#0b0b0b;border:1px solid rgba(141,235,0,.3);border-radius:16px;' +
-      'padding:22px 20px calc(20px + env(safe-area-inset-bottom));' +
-      'box-shadow:0 18px 70px rgba(0,0,0,.7),0 0 44px rgba(141,235,0,.08);' +
-      'transform:translateY(14px) scale(.98);transition:transform .24s cubic-bezier(.2,.9,.25,1)}' +
-      '.cpl-backdrop.cpl-open .cpl-modal{transform:none}' +
-      '@media (prefers-reduced-motion:reduce){.cpl-backdrop,.cpl-modal{transition:none;transform:none}}' +
-      '.cpl-close{position:absolute;top:8px;right:12px;background:none;border:0;color:#777;' +
-      'font-size:24px;cursor:pointer;line-height:1;padding:8px}' +
-      '.cpl-eyebrow{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:3px;' +
-      'color:#8deb00;text-transform:uppercase;margin:0 0 6px}' +
-      '.cpl-title{font-size:19px;color:#fff;margin:0 0 14px;font-weight:800}' +
-      '.cpl-list{display:flex;flex-direction:column;gap:8px}' +
-      '.cpl-row{display:flex;align-items:center;gap:12px;padding:13px 14px;' +
-      'border:1px solid rgba(141,235,0,.18);border-radius:12px;background:rgba(255,255,255,.02);' +
-      'text-decoration:none;color:#fff}' +
-      '.cpl-row:active{background:rgba(141,235,0,.07)}' +
-      '.cpl-num{font-family:"Space Mono",monospace;font-size:11px;color:#8deb00;letter-spacing:1px;min-width:30px}' +
-      '.cpl-name{flex:1;font-size:14px;font-weight:600;line-height:1.35}' +
-      '.cpl-go{color:#8deb00;font-size:16px}' +
-      '.cpl-empty{font-family:"Space Mono",monospace;font-size:12px;color:#888;line-height:1.7;margin:4px 2px 0}' +
-      '.cpl-empty b{color:#8deb00}' +
-      '#protocolGrid a.protocol-card{display:block;text-decoration:none;color:inherit;cursor:pointer}' +
-      '.pl-count{display:inline-flex;align-items:center;background:rgba(141,235,0,.08);' +
-      'border:1px solid rgba(141,235,0,.35);color:#8deb00;border-radius:999px;padding:7px 13px;' +
-      'font-family:"Space Mono",monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer}' +
-      '.pl-count:active{background:rgba(141,235,0,.16)}';
-    document.head.appendChild(st);
-  }
-
-  function cplEscKey(ev) { if (ev.key === 'Escape') closeProtocolLibrary(); }
-
-  function closeProtocolLibrary() {
-    if (!plModal) return;
-    const m = plModal; plModal = null;
-    m.classList.remove('cpl-open');
-    document.removeEventListener('keydown', cplEscKey);
-    document.body.style.overflow = '';
-    setTimeout(function () { if (m.parentNode) m.parentNode.removeChild(m); }, 220);
-  }
-
-  function openProtocolLibrary() {
-    ensureProtocolCss();
-    const saved = savedProtocolEntries();
-    closeProtocolLibrary();
-    const bd = document.createElement('div');
-    bd.className = 'cpl-backdrop';
-    bd.innerHTML =
-      '<div class="cpl-modal" role="dialog" aria-modal="true" aria-label="My protocol library">' +
-        '<button type="button" class="cpl-close" aria-label="Close">&times;</button>' +
-        '<p class="cpl-eyebrow">My protocol library</p>' +
-        '<h3 class="cpl-title">' + saved.length + (saved.length === 1 ? ' saved protocol' : ' saved protocols') + '</h3>' +
-        (saved.length
-          ? '<div class="cpl-list">' + saved.map(e =>
-              '<a class="cpl-row" href="' + e.url + '">' +
-              '<span class="cpl-num">' + e.id.replace('protocol-', '') + '</span>' +
-              '<span class="cpl-name">' + plEsc(e.title) + '</span>' +
-              '<span class="cpl-go" aria-hidden="true">&rarr;</span></a>'
-            ).join('') + '</div>'
-          : '<p class="cpl-empty">Nothing saved yet. Tap <b>Save protocol</b> on any protocol page and it will land here.</p>') +
-      '</div>';
-    document.body.appendChild(bd);
-    plModal = bd;
-    document.body.style.overflow = 'hidden';
-    bd.addEventListener('click', function (ev) { if (ev.target === bd) closeProtocolLibrary(); });
-    const closeBtn = bd.querySelector('.cpl-close');
-    if (closeBtn) closeBtn.addEventListener('click', closeProtocolLibrary);
-    document.addEventListener('keydown', cplEscKey);
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () { bd.classList.add('cpl-open'); });
-    });
+    grid.innerHTML = saved.slice(0,4).map(p => {
+      const title = typeof p === 'string' ? p : (p.title || p.name || 'Protocol');
+      const desc = typeof p === 'string' ? '' : (p.description || '');
+      return `<article class="protocol-card"><h3>${title}</h3>${desc ? `<p>${desc}</p>` : ''}</article>`;
+    }).join('');
   }
 
   function renderReferral() {
@@ -997,6 +876,7 @@
     renderJourneyList();
     renderActivity();
     renderCollections();
+    renderAI();
     renderChallenge();
     renderProtocols();
     renderReferral();
@@ -1019,7 +899,7 @@
   // Entrance choreography: panels rise in a staggered visual sequence once
   // the dashboard content is revealed. Uses the house ease; skipped entirely
   // under prefers-reduced-motion.
-  const ENTRANCE_ORDER = ['.hero-block','.goal-panel','.stats-strip','.drill-card','.journey-block','.activity-panel','.challenge-grid','.more-toggle','.workspace-heading','.collections-strip','.protocol-section','.referral-card','.quiz-card','.ambassador-card','.dashboard-footer'];
+  const ENTRANCE_ORDER = ['.hero-block','.goal-panel','.stats-strip','.drill-card','.journey-block','.activity-panel','.challenge-grid','.more-toggle','.workspace-heading','.collections-strip','.ai-section','.protocol-section','.referral-card','.quiz-card','.ambassador-card','.dashboard-footer'];
   function prepEntrance() {
     ENTRANCE_ORDER.forEach(sel => { const el = document.querySelector(sel); if (el) el.classList.add('rise'); });
   }
@@ -1046,7 +926,7 @@
     // Quick drill: if today's +10 is already banked, say so up front — the
     // finish button must never promise XP it won't pay. The write guard in
     // the drillFinish handler stays authoritative.
-    if (id === 'drill') { resetDrillState(); primeDrillMode(); }
+    if (id === 'drill') primeDrillMode();
   }
   // Practice mode for the quick drill. +10 XP banks once per local day;
   // quickDrillDays on users/{uid} is the anti-farm ledger (same shape as
@@ -1080,44 +960,6 @@
     modal.setAttribute('aria-hidden','true');
     document.body.style.overflow = '';
     lastFocus?.focus();
-  }
-  // Daily drill rotation: one drill per local day from the CDDrills pool
-  // (scripts/drills.js). Rendered once per page load — today's drill is
-  // fixed for the day, and the hardcoded HTML stays as the fallback if
-  // drills.js fails to load.
-  let currentDrill = null;
-  function cdDayIndex(d) {
-    d = d || new Date();
-    return Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 864e5);
-  }
-  function renderTodaysDrill() {
-    const pool = window.CDDrills;
-    if (!Array.isArray(pool) || !pool.length) return;
-    const idx = cdDayIndex() % pool.length;
-    const d = pool[idx];
-    currentDrill = d;
-    const st = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-    st('drill-title', d.t);
-    st('drill-heading', d.t);
-    st('drillEyebrow', 'Quick drill · ' + (idx + 1) + ' of ' + pool.length);
-    st('drillQuestion', d.q);
-    const group = document.querySelector('#drillModal [data-quiz="drill"]');
-    if (group) {
-      group.innerHTML = d.c.map((c, i) =>
-        '<button class="choice"' + (i === d.a ? ' data-correct="true"' : '') + '>' + c + '</button>').join('');
-    }
-  }
-  // Fresh attempt on every open: practice reps re-answer instead of staring
-  // at an already-answered state. XP stays guarded by the finish handler.
-  function resetDrillState() {
-    const group = document.querySelector('#drillModal [data-quiz="drill"]');
-    if (group) {
-      group.querySelectorAll('.choice').forEach(c => { c.disabled = false; c.classList.remove('correct', 'wrong'); });
-      const fb = group.parentElement.querySelector('.feedback');
-      if (fb) { fb.textContent = ''; fb.classList.remove('show'); }
-    }
-    const fin = $('drillFinish');
-    if (fin) fin.disabled = true;
   }
   function logout() {
     window.auth.signOut().then(() => { window.location.href = '/login.html'; })
@@ -1198,7 +1040,6 @@
 
     $('moreLogout')?.addEventListener('click', logout);
 
-    renderTodaysDrill();
     $$('[data-quiz]').forEach(group => {
       const feedback = group.parentElement.querySelector('.feedback');
       const finish = group.dataset.quiz === 'lesson' ? $('lessonFinish') : $('drillFinish');
@@ -1208,13 +1049,9 @@
         ch.classList.add(correct ? 'correct' : 'wrong');
         group.querySelector('[data-correct]')?.classList.add('correct');
         if (feedback) {
-          if (group.dataset.quiz === 'drill' && currentDrill) {
-            feedback.textContent = correct ? currentDrill.ok : currentDrill.no;
-          } else {
-            feedback.textContent = group.dataset.quiz === 'drill'
-              ? (correct ? 'Correct. Well decided.' : 'Not quite. Think about which control actually changes that.')
-              : (correct ? 'Correct. Positive compensation lifts the room while keeping your camera settings deliberate.' : 'Not quite. A faster shutter or negative compensation would make the room darker.');
-          }
+          feedback.textContent = group.dataset.quiz === 'drill'
+            ? (correct ? 'Correct. A slower shutter leaves the sensor exposed longer, so movement records as blur.' : 'Not quite. Aperture and ISO change exposure, but shutter speed controls how motion is rendered.')
+            : (correct ? 'Correct. Positive compensation lifts the room while keeping your camera settings deliberate.' : 'Not quite. A faster shutter or negative compensation would make the room darker.');
           feedback.classList.add('show');
         }
         if (finish) finish.disabled = false;
@@ -1238,10 +1075,6 @@
           return;
         }
         const freshDay = cdDayFresh(data);
-        // The drill keeps the streak alive: same day authority as
-        // reward-engine. Skip when the pre-write doc is missing — a failed
-        // read must never clobber the stored count.
-        const drillStreak = data ? advanceStreak(data) : 0;
         await window.db.collection('users').doc(uid).update({
           ...(freshDay
             ? { xpToday: firebase.firestore.FieldValue.increment(10) }
@@ -1249,7 +1082,6 @@
           totalPoints: firebase.firestore.FieldValue.increment(10),
           ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(10),
           quickDrillDays: firebase.firestore.FieldValue.arrayUnion(tk),
-          ...(drillStreak ? { dailyChallengeStreak: drillStreak, streakDays: drillStreak, streak: drillStreak } : {}),
           lastActivityDate: tk,
           lastActiveDate: tk,
           lastStreakDate: tk,
@@ -1294,9 +1126,6 @@
         }, { merge: true });
         const tk = cdTodayKey();
         const freshDay = cdDayFresh(ludata);
-        // The lesson preview keeps the streak alive too — same guard as the
-        // drill: never write a streak off a failed read.
-        const lessonStreak = ludata ? advanceStreak(ludata) : 0;
         await window.db.collection('users').doc(uid).update({
           ...(freshDay
             ? { xpToday: firebase.firestore.FieldValue.increment(20) }
@@ -1304,7 +1133,6 @@
           totalPoints: firebase.firestore.FieldValue.increment(20),
           ['xpByDay.' + tk]: firebase.firestore.FieldValue.increment(20),
           lessonPreviewBanked: true,
-          ...(lessonStreak ? { dailyChallengeStreak: lessonStreak, streakDays: lessonStreak, streak: lessonStreak } : {}),
           lastActivityDate: tk,
           lastActiveDate: tk,
           lastStreakDate: tk,

@@ -240,23 +240,6 @@
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#headerAnnouncePanel') && !e.target.closest('#headerNoticeButton')) closePanel();
     });
-    // Weekly Pro nudge: a bell item linking to #pro-pitch opens the paywall
-    // sheet as a modal instead of navigating. Falls back to the Why Pro
-    // page if the paywall script isn't available.
-    document.addEventListener('click', (e) => {
-      const t = e.target && e.target.closest ? e.target.closest('a[href="#pro-pitch"]') : null;
-      if (!t) return;
-      e.preventDefault();
-      closePanel();
-      if (window.CDPaywall && typeof window.CDPaywall.show === 'function') {
-        window.CDPaywall.show({
-          headline: 'Why go Pro?',
-          sub: 'Everything behind the Pro door \u2014 from $4.99/week, cancel anytime.'
-        });
-      } else {
-        window.location.href = '/why-pro.html';
-      }
-    });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
 
     // Live Firestore listener (same doc the Missions page uses).
@@ -385,11 +368,8 @@
     const fresh = u.xpTodayDate === hdrTodayKey();
     const xpToday = fresh ? toNum(pick(u, ['xpToday', 'dailyXp'], 0), 0) : 0;
     const xpGoal = toNum(pick(u, ['xpGoal', 'dailyXpGoal'], 100), 100) || 100;
-    // Streak: read the SAME fields the dashboard reads (dailyChallengeStreak /
-    // streakDays / streak). dailyStreak.count is a separate counter fed only
-    // by games + missions — reading it raw here left the pill stuck on a
-    // stale number the dashboard had already moved past.
-    const streakN = toNum(pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0), 0);
+    const ds = u.dailyStreak || {};
+    const streakN = toNum(pick(ds, ['count'], pick(u, ['dailyChallengeStreak', 'streakDays', 'streak'], 0)), 0);
     const txt = document.getElementById('headerXpText');
     const fill = document.getElementById('headerXpFill');
     const streakEl = document.getElementById('headerXpStreak');
