@@ -138,13 +138,17 @@
 
     // Day rollover on READ: the reset must not wait for the next XP award,
     // or yesterday's total lingers in the goal ring past midnight.
+    // NOTE: this write resets ONLY the daily XP counters. It must NEVER
+    // touch lastActivityDate/lastActiveDate/lastStreakDate/lastXpDate —
+    // stamping "today" on a mere page open fabricates activity, which
+    // freezes the streak (real activity later that day reads as "already
+    // counted today" and never advances the count).
     const rolledDay = !cdDayFresh(u);
     if (rolledDay && !dayRolloverFired) {
       dayRolloverFired = true;
       const tk = cdTodayKey();
       window.db.collection('users').doc(uid).set({
-        xpToday: 0, dailyXp: 0, xpTodayDate: tk,
-        lastActivityDate: tk, lastActiveDate: tk, lastStreakDate: tk, lastXpDate: tk
+        xpToday: 0, dailyXp: 0, xpTodayDate: tk
       }, { merge: true }).catch(e => console.warn('[Dashboard] day rollover failed', e));
     }
 
