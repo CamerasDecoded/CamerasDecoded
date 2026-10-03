@@ -159,24 +159,14 @@
     +   'body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}'
     + '}'
     + '.cd-bn-link{min-width:0;min-height:50px;border:0;background:transparent;'
-    +   'border-radius:9px;color:var(--cd-bn-mut);position:relative;z-index:1;'
+    +   'border-radius:9px;color:var(--cd-bn-mut);'
     +   'display:flex;flex-direction:column;align-items:center;justify-content:center;'
     +   'gap:3px;cursor:pointer;font-size:8px;font-weight:700;padding:0;'
-    +   'text-decoration:none;transition:color .15s}'
+    +   'text-decoration:none;transition:color .15s,background .15s}'
     + '.cd-bn-link svg{width:18px;height:18px}'
     + '.cd-bn-link:hover{color:#fff}'
-    + '.cd-bn-link.cd-active{color:var(--cd-bn-green)}'
+    + '.cd-bn-link.cd-active{color:var(--cd-bn-green);background:var(--cd-bn-green-dim)}'
     + '.cd-bn-link:active{transform:scale(.97)}'
-    /* Sliding active-tab pill: glides between tabs (Arena-style), branded glass, 0.5px border. */
-    + '.cd-bn-pill{position:absolute;top:8px;bottom:calc(8px + env(safe-area-inset-bottom));'
-    +   'left:8px;width:calc((100% - 16px)/5);border-radius:12px;pointer-events:none;z-index:0;'
-    +   'background:linear-gradient(180deg,rgba(141,235,0,.16),rgba(141,235,0,.05));'
-    +   'border:0.5px solid rgba(141,235,0,.38);'
-    +   'box-shadow:0 0 14px rgba(141,235,0,.12),inset 0 1px 0 rgba(255,255,255,.09);'
-    +   'backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);'
-    +   'transform:translateX(0);opacity:0;'
-    +   'transition:transform .32s cubic-bezier(.32,.72,.28,1),opacity .2s;will-change:transform}'
-    + '.cd-bn-pill.cd-no-anim{transition:none}'
     + '.cd-bn-scrim{position:fixed;inset:0;z-index:120;background:rgba(5,5,6,.72);'
     +   'backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);'
     +   'display:none;align-items:flex-end;justify-content:center}'
@@ -212,8 +202,7 @@
     + '.cd-bn-rc b{display:block;font-size:14px;font-weight:700}'
     + '.cd-bn-rc span{display:block;color:var(--cd-bn-mut);font-size:11px;margin-top:2px}'
     + '@media (prefers-reduced-motion:reduce){'
-    +   '.cd-bn-sheet{animation:none}.cd-bn-link:active,.cd-bn-row:active{transform:none}'
-    +   '.cd-bn-pill{transition:none}}';
+    +   '.cd-bn-sheet{animation:none}.cd-bn-link:active,.cd-bn-row:active{transform:none}}';
 
   // ---------- render ----------
   function injectStyles() {
@@ -230,8 +219,7 @@
     var nav = document.createElement('nav');
     nav.className = 'cd-bn-nav';
     nav.setAttribute('aria-label', 'Mobile navigation');
-    nav.innerHTML = '<span class="cd-bn-pill" aria-hidden="true"></span>'
-      + TABS.map(function (t) {
+    nav.innerHTML = TABS.map(function (t) {
       var isSheet = !!t.sheet;
       var tag = isSheet ? 'button' : 'a';
       var attrs = isSheet
@@ -328,40 +316,11 @@
 
   function applyActive(nav) {
     var id = detectActiveTab();
-    var pill = nav.querySelector('.cd-bn-pill');
-    var idx = -1;
-    if (id) {
-      var link = nav.querySelector('[data-cd-tab="' + id + '"]');
-      if (link) {
-        link.classList.add('cd-active');
-        if (link.tagName === 'A') link.setAttribute('aria-current', 'page');
-        for (var i = 0; i < TABS.length; i++) {
-          if (TABS[i].id === id) { idx = i; break; }
-        }
-      }
-    }
-    if (!pill) return;
-    if (idx < 0) { pill.style.opacity = '0'; return; }
-    pill.style.opacity = '1';
-    /* Glide from the previous tab's position (session-persisted), Arena-style. */
-    var prevIdx = idx;
-    try {
-      var raw = sessionStorage.getItem('cd-bn-last');
-      if (raw !== null) { var pv = parseInt(raw, 10); if (!isNaN(pv)) prevIdx = pv; }
-    } catch (e) {}
-    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
-    if (prevIdx !== idx && !reduce) {
-      pill.classList.add('cd-no-anim');
-      pill.style.transform = 'translateX(' + (prevIdx * 100) + '%)';
-      void pill.offsetWidth; /* reflow: commit the start position */
-      pill.classList.remove('cd-no-anim');
-      requestAnimationFrame(function () {
-        pill.style.transform = 'translateX(' + (idx * 100) + '%)';
-      });
-    } else {
-      pill.style.transform = 'translateX(' + (idx * 100) + '%)';
-    }
-    try { sessionStorage.setItem('cd-bn-last', String(idx)); } catch (e) {}
+    if (!id) return;
+    var link = nav.querySelector('[data-cd-tab="' + id + '"]');
+    if (!link) return;
+    link.classList.add('cd-active');
+    if (link.tagName === 'A') link.setAttribute('aria-current', 'page');
   }
 
   // ---------- sheet controller ----------
@@ -476,35 +435,6 @@
     window.addEventListener('hashchange', function () { applyActive(nav); });
   }
 
-  /* ---------- tap-to-slide ----------
-     Tapping a tab eases the pill over to it before navigating, so the
-     switch is visible instead of an instant page cut. Sheet tabs
-     (Practice/More) open in place — the pill stays on the current tab. */
-  function wireTapSlide(nav) {
-    var pill = nav.querySelector('.cd-bn-pill');
-    if (!pill) return;
-    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
-    nav.addEventListener('click', function (e) {
-      var link = e.target.closest('a.cd-bn-link');
-      if (!link) return; /* sheet buttons handled by wire() */
-      if (link.classList.contains('cd-active')) {
-        e.preventDefault(); /* already here — don't reload */
-        return;
-      }
-      var id = link.getAttribute('data-cd-tab');
-      var idx = -1;
-      for (var i = 0; i < TABS.length; i++) if (TABS[i].id === id) { idx = i; break; }
-      if (idx < 0) return;
-      e.preventDefault();
-      var href = link.getAttribute('href');
-      if (reduce) { location.href = href; return; }
-      pill.style.transform = 'translateX(' + (idx * 100) + '%)';
-      try { sessionStorage.setItem('cd-bn-last', String(idx)); } catch (err) {}
-      /* page switches only after the slide lands (transition is .32s) */
-      setTimeout(function () { location.href = href; }, 340);
-    });
-  }
-
   // ---------- public API ----------
   function updateBadges() { /* reserved for future badge display */ }
 
@@ -529,7 +459,6 @@
 
     applyActive(nav);
     wire(nav);
-    wireTapSlide(nav);
 
     window.__CDBottomNav = true;
     window.BottomNav = { updateBadges: updateBadges, close: closeAllSheets, setRole: setRole };

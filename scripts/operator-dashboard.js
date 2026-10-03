@@ -138,17 +138,13 @@
 
     // Day rollover on READ: the reset must not wait for the next XP award,
     // or yesterday's total lingers in the goal ring past midnight.
-    // NOTE: this write resets ONLY the daily XP counters. It must NEVER
-    // touch lastActivityDate/lastActiveDate/lastStreakDate/lastXpDate —
-    // stamping "today" on a mere page open fabricates activity, which
-    // freezes the streak (real activity later that day reads as "already
-    // counted today" and never advances the count).
     const rolledDay = !cdDayFresh(u);
     if (rolledDay && !dayRolloverFired) {
       dayRolloverFired = true;
       const tk = cdTodayKey();
       window.db.collection('users').doc(uid).set({
-        xpToday: 0, dailyXp: 0, xpTodayDate: tk
+        xpToday: 0, dailyXp: 0, xpTodayDate: tk,
+        lastActivityDate: tk, lastActiveDate: tk, lastStreakDate: tk, lastXpDate: tk
       }, { merge: true }).catch(e => console.warn('[Dashboard] day rollover failed', e));
     }
 
@@ -176,19 +172,8 @@
     const ledgerToday = (u && u.xpByDay && typeof u.xpByDay[ringDayKey] === 'number')
       ? u.xpByDay[ringDayKey] : null;
 
-    // Gap-aware streak: if last activity was more than 1 day ago, the streak
-    // is already dead — display 0, not the stale stored value. This prevents
-    // the misleading "Streak at risk. One drill saves it." when there's a
-    // multi-day gap (the drill would just reset to 1, not "save" anything).
-    const tk = cdTodayKey();
-    const ydGap = new Date(); ydGap.setDate(ydGap.getDate() - 1);
-    const ykGap = cdTodayKey(ydGap);
-    const lastSeenGap = pick(u, ['lastActivityDate', 'lastActiveDate', 'lastStreakDate', 'lastXpDate'], null);
-    const storedStreak = toNum(pick(u, ['dailyChallengeStreak','streakDays','streak'], 0), 0);
-    const effectiveStreak = (lastSeenGap === tk || lastSeenGap === ykGap) ? storedStreak : 0;
-
     vm.stats = {
-      streak: effectiveStreak,
+      streak: toNum(pick(u, ['dailyChallengeStreak','streakDays','streak'], 0)),
       xpToday: ledgerToday !== null ? ledgerToday : (rolledDay ? 0 : toNum(pick(u, ['xpToday','dailyXp'], 0))),
       xpGoal: toNum(pick(u, ['xpGoal','dailyXpGoal'], 100), 100),
       rank: pick(u, ['rank','operatorRank','level'], '—')
@@ -217,50 +202,49 @@
   }
 
   async function loadJourney(uid) {
-    // Wired to the Field Manual: chapters from guideContent/curriculum,
-    // completion from guideProgress/{uid}/chapters.
-    let chapters = [];
+    // Mirror the Missions page data model: the user's preferred track level
+    // -> journeys/{level} (modules of steps) -> userJourney/{uid}/levels/{level}
+    // (completedSteps). Flattened into the vm.journey shape the hero expects.
+    const level = (vm.raw && vm.raw.preferredJourneyLevel) || 'beginner';
+    let journeyData = null;
     try {
-      const snap = await window.db.collection('guideContent').doc('curriculum').get();
-      if (snap && snap.exists) {
-        const data = snap.data() || {};
-        let parsed = null;
-        if (typeof data.json === 'string') {
-          try { parsed = JSON.parse(data.json); } catch (e) { parsed = null; }
-        } else if (data.chapters && data.chapters.length) {
-          parsed = { chapters: data.chapters };
-        }
-        if (parsed && parsed.chapters) chapters = parsed.chapters;
+      const jDoc = await window.db.collection('journeys').doc(level).get();
+      if (jDoc && jDoc.exists) journeyData = jDoc.data();
+    } catch (e) { journeyData = null; }
+    let completedSteps = [];
+    try {
+      const pDoc = await window.db.collection('userJourney').doc(uid).collection('levels').doc(level).get();
+      if (pDoc && pDoc.exists) {
+        const p = pDoc.data() || {};
+        if (Array.isArray(p.completedSteps)) completedSteps = p.completedSteps;
       }
-    } catch (e) { chapters = []; }
+    } catch (e) { completedSteps = []; }
 
-    let completedIds = [];
-    try {
-      const pSnap = await window.db.collection('guideProgress').doc(uid).collection('chapters').get();
-      pSnap.docs.forEach((doc) => {
-        const d = doc.data() || {};
-        if (d.completed) completedIds.push(doc.id);
+    const modules = (journeyData && Array.isArray(journeyData.modules)) ? journeyData.modules : [];
+    const nodes = [];
+    modules.forEach((m) => {
+      (m.steps || []).forEach((s) => {
+        nodes.push({
+          id: s.id,
+          title: s.title || s.name || 'Mission',
+          name: s.title || s.name || 'Mission',
+          description: s.description || '',
+          moduleId: m.id,
+          moduleTitle: m.title || ''
+        });
       });
-    } catch (e) { completedIds = []; }
-
-    const nodes = chapters.map((c, i) => ({
-      id: c.id || ('ch' + String(i + 1).padStart(2, '0')),
-      title: c.title || c.name || ('Chapter ' + (i + 1)),
-      name: c.title || c.name || ('Chapter ' + (i + 1)),
-      description: c.description || c.subtitle || '',
-    }));
-
-    const completed = nodes.filter((n) => completedIds.includes(n.id)).map((n) => n.id);
+    });
+    const completedIds = nodes.filter((n) => completedSteps.includes(n.id)).map((n) => n.id);
+    const next = nodes.find((n) => !completedSteps.includes(n.id)) || null;
 
     vm.journey = {
-      title: 'Field Manual',
-      level: 'field-manual',
-      nodes,
-      next: nodes.find((n) => !completed.includes(n.id)) || null,
-      completed,
-      completedCount: completed.length,
+      title: (journeyData && (journeyData.title || journeyData.name)) || 'Missions',
+      level,
+      nodes, next,
+      completed: completedIds,
+      completedCount: completedIds.length,
       total: nodes.length,
-      pct: nodes.length ? (completed.length / nodes.length) * 100 : 0
+      pct: nodes.length ? (completedIds.length / nodes.length) * 100 : 0
     };
     return vm.journey;
   }
@@ -280,9 +264,7 @@
   let userScrolled = false;
 
   function paintRing(ring, pct, target) {
-    if (ring) ring.style.setProperty('--p', pct);
-    const bar = $('goalBarFill');
-    if (bar) bar.style.width = (parseFloat(pct) * 100) + '%';
+    ring.style.setProperty('--p', pct);
     const rv = $('ringValue');
     if (rv) {
       const from = parseFloat(rv.dataset.v || '0');
@@ -631,15 +613,13 @@
     const ring = $('xpRing');
     const target = Math.min(xpToday, xpGoal);
     const crushed = xpGoal > 0 && xpToday >= xpGoal;
-    // Compact goal bar: paint immediately (no scroll-reveal gate)
-    paintRing(null, pct / 100, target);
-    setGoalCrushed(crushed);
     if (ring) {
       ring.setAttribute('aria-label', crushed
         ? `Daily goal crushed: ${xpToday} of ${xpGoal} experience points`
         : `${xpToday} of ${xpGoal} daily experience points earned`);
       if (ring.dataset.revealed === '1') {
         paintRing(ring, pct, target);
+        setGoalCrushed(crushed);
       } else {
         ring.dataset.target = pct;
         ring.dataset.vtarget = target;
@@ -650,129 +630,6 @@
     set('ringGoal', `of ${xpGoal} XP`);
     set('xpRemaining', `${Math.max(xpGoal - xpToday, 0)} XP`);
     setStreakNudge(streak, xpToday);
-  }
-
-  // Split #heroLessonDesc into per-line spans so the shimmer sweeps
-  // left-to-right across one line at a time (staggered via animation-delay).
-  function splitHeroDescLines(){
-    const el = $('heroLessonDesc');
-    if(!el) return false;
-    const text = el.textContent;
-    if(el.dataset.splitFor === text && el.querySelector('.hero-shimmer-line')) return true;
-    el.innerHTML = '';
-    text.split(/(\s+)/).forEach(part => {
-      if(!part) return;
-      if(/^\s+$/.test(part)){ el.appendChild(document.createTextNode(' ')); }
-      else {
-        const s = document.createElement('span');
-        s.textContent = part;
-        el.appendChild(s);
-      }
-    });
-    const words = Array.from(el.children).filter(n => n.tagName === 'SPAN');
-    if(!words.length || !words[0].offsetParent){
-      el.textContent = text; // not laid out yet; leave plain, retry later
-      return false;
-    }
-    el.dataset.splitFor = text;
-    const lines = [];
-    let cur = [], top = null;
-    words.forEach(w => {
-      const t = w.offsetTop;
-      if(top === null || Math.abs(t - top) < 4){ cur.push(w); if(top === null) top = t; }
-      else { lines.push(cur); cur = [w]; top = t; }
-    });
-    if(cur.length) lines.push(cur);
-    lines.forEach((line, i) => {
-      const wrap = document.createElement('span');
-      wrap.className = 'hero-shimmer-line';
-      wrap.style.animationDelay = (i * 1.125) + 's';
-      const first = line[0];
-      const last = line[line.length - 1];
-      first.parentNode.insertBefore(wrap, first);
-      let node = first;
-      while(node){
-        const next = node.nextSibling;
-        wrap.appendChild(node);
-        if(node === last) break;
-        node = next;
-      }
-    });
-    return true;
-  }
-  let heroSplitRsz = null;
-  window.addEventListener('resize', () => {
-    clearTimeout(heroSplitRsz);
-    heroSplitRsz = setTimeout(() => {
-      const el = $('heroLessonDesc');
-      if(el) delete el.dataset.splitFor;
-      splitHeroDescLines();
-    }, 250);
-  });
-
-  // Hero auto-slide: crossfade through photographer slides every 6s.
-  // Pauses under reduced motion and when the tab is hidden.
-  function initHeroSlides(){
-    const wrap = $('heroSlides');
-    if(!wrap) return;
-    const slides = Array.from(wrap.querySelectorAll('.hero-slide'));
-    if(!slides.length) return;
-    const dotsWrap = $('heroDots');
-    if(dotsWrap){
-      slides.forEach((_, i) => {
-        const d = document.createElement('i');
-        if(i === 0) d.classList.add('on');
-        dotsWrap.appendChild(d);
-      });
-    }
-    const dots = dotsWrap ? Array.from(dotsWrap.children) : [];
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if(reduce || slides.length < 2) return;
-    let idx = 0, timer = null;
-    function go(n){
-      slides[idx].classList.remove('is-active');
-      if(dots[idx]) dots[idx].classList.remove('on');
-      idx = (n + slides.length) % slides.length;
-      slides[idx].classList.add('is-active');
-      if(dots[idx]) dots[idx].classList.add('on');
-    }
-    function start(){
-      stop();
-      timer = setInterval(() => { if(!document.hidden) go(idx + 1); }, 6000);
-    }
-    function stop(){ if(timer){ clearInterval(timer); timer = null; } }
-    document.addEventListener('visibilitychange', () => { if(document.hidden) stop(); else start(); });
-    start();
-  }
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', initHeroSlides);
-  } else {
-    initHeroSlides();
-  }
-
-  // Keep the line split fresh independently of renderLearning: the shimmer
-  // must work even when the journey data is missing or the card is static.
-  let heroSplitTries = 0;
-  function ensureHeroSplit(){
-    if(splitHeroDescLines()){ heroSplitTries = 0; return; }
-    if(heroSplitTries++ < 40) setTimeout(ensureHeroSplit, 500); // card hidden until auth; retry ~20s
-  }
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', ensureHeroSplit);
-  } else {
-    ensureHeroSplit();
-  }
-  const heroDescWatch = $('heroLessonDesc');
-  if(heroDescWatch && window.MutationObserver){
-    let heroLastSeen = heroDescWatch.textContent;
-    new MutationObserver(() => {
-      const t = heroDescWatch.textContent;
-      if(t !== heroLastSeen){
-        heroLastSeen = t;
-        delete heroDescWatch.dataset.splitFor;
-        ensureHeroSplit();
-      }
-    }).observe(heroDescWatch, {characterData:true, childList:true, subtree:true});
   }
 
   function renderLearning() {
@@ -796,7 +653,6 @@
           empty.innerHTML = '<i class="fas fa-compass" aria-hidden="true"></i><p>Your missions are waiting. <a href="/missions.html">Explore Missions →</a></p>';
         }
       }
-      splitHeroDescLines();
       return;
     }
 
@@ -821,12 +677,13 @@
     const ctaLabel = $('heroCtaLabel');
     if (cta) cta.href = '/missions.html';
     if (ctaLabel) ctaLabel.textContent = 'Continue mission';
-    splitHeroDescLines();
   }
 
   function renderJourneyList() {
     const list = $('journeyList');
+    const summary = $('journeyProgressText');
     const l = vm.journey;
+    if (summary) summary.textContent = `${l.title} · ${l.completedCount} of ${l.total} missions complete`;
     if (!list) return;
 
     if (!l.nodes.length) {
@@ -834,46 +691,30 @@
       return;
     }
 
-    // Chapter art: fm-ch1.jpg .. fm-ch4.jpg
-    const artFor = (idx) => `/images/fm-chapters/fm-ch${idx + 1}.jpg?v=20261002b`;
-
-    const firstIncompleteIdx = l.nodes.findIndex((n) => !l.completed.includes(n.id));
-    const allDone = firstIncompleteIdx === -1;
-    const curIdx = allDone ? l.nodes.length - 1 : firstIncompleteIdx;
-    const cur = l.nodes[curIdx];
-
-    let eyebrow, sub, pct;
-    if (allDone) {
-      eyebrow = 'FIELD MANUAL · COMPLETE';
-      sub = 'All chapters complete — review anytime';
-      pct = 100;
-    } else if (firstIncompleteIdx === 0 && (cur.lessonsDone || 0) === 0) {
-      eyebrow = 'FIELD MANUAL · START';
-      sub = `Lesson 1 of ${cur.lessonsTotal || '?'}`;
-      pct = 0;
-    } else {
-      eyebrow = 'FIELD MANUAL · CONTINUE';
-      const done = cur.lessonsDone || 0, total = cur.lessonsTotal || 0;
-      sub = total ? `Lesson ${Math.min(done + 1, total)} of ${total}` : 'In progress';
-      pct = typeof cur.pct === 'number' ? Math.round(cur.pct * 100) : 0;
+    const firstIncompleteIdx = l.nodes.findIndex(n => !l.completed.includes(n.id));
+    const visible = [];
+    if (firstIncompleteIdx > 0) visible.push({ ...l.nodes[firstIncompleteIdx - 1], _state:'done', _idx: firstIncompleteIdx - 1 });
+    if (firstIncompleteIdx >= 0) visible.push({ ...l.nodes[firstIncompleteIdx], _state:'current', _idx: firstIncompleteIdx });
+    for (let i = firstIncompleteIdx + 1; i < l.nodes.length && visible.length < 3; i++) {
+      visible.push({ ...l.nodes[i], _state:'upcoming', _idx: i });
+    }
+    if (!visible.length) {
+      list.innerHTML = '<p class="empty-state">You finished this journey. 🎉</p>';
+      return;
     }
 
-    const others = l.nodes.length - 1;
-    const moreHtml = others > 0
-      ? `<a class="np-more" href="/field-manual.html">${others} more chapter${others === 1 ? '' : 's'} →</a>`
-      : '';
-
-    list.innerHTML =
-      `<a class="np-card" href="/field-manual.html" aria-label="Field Manual: ${cur.title || cur.name} — ${eyebrow}">` +
-        `<img class="np-bg" src="${artFor(curIdx)}" alt="" loading="lazy" onerror="this.style.display='none'">` +
-        `<div class="np-scrim"></div>` +
-        `<div class="np-inner">` +
-          `<div class="np-eyebrow">${eyebrow}</div>` +
-          `<div class="np-title">${cur.title || cur.name || 'Chapter'}</div>` +
-          `<div class="np-sub">${sub}</div>` +
-          `<div class="np-bar"><i style="width:${pct}%"></i></div>` +
-        `</div>` +
-      `</a>` + moreHtml;
+    list.innerHTML = visible.map((n) => {
+      const num = String((typeof n._idx === 'number' ? n._idx : l.nodes.indexOf(n)) + 1).padStart(2,'0');
+      const nodeClass = n._state === 'done' ? 'done' : (n._state === 'current' ? 'current' : '');
+      const nodeIcon = n._state === 'done' ? '<i class="fas fa-check"></i>' : num;
+      const status = n._state === 'done' ? 'Complete' : n._state === 'current' ? 'In progress' : 'Up next';
+      const subtitle = n.description || n.summary || '';
+      return `<article class="journey-item ${nodeClass}">
+        <div class="lesson-node" aria-hidden="true">${nodeIcon}</div>
+        <div class="journey-title"><strong>${n.title || n.name || 'Lesson'}</strong>${subtitle ? `<span>${subtitle}</span>` : ''}</div>
+        <div class="lesson-status">${status}</div>
+      </article>`;
+    }).join('');
   }
 
   // Challenge mark-complete flow: the button opens a modal instead of routing
@@ -1258,7 +1099,7 @@
     const st = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     st('drill-title', d.t);
     st('drill-heading', d.t);
-    st('drillEyebrow', 'Quick drill');
+    st('drillEyebrow', 'Quick drill · ' + (idx + 1) + ' of ' + pool.length);
     st('drillQuestion', d.q);
     const group = document.querySelector('#drillModal [data-quiz="drill"]');
     if (group) {
@@ -1736,14 +1577,6 @@
   function initStatModals() {
     if (statModalsWired) return;
     statModalsWired = true;
-    // Header XP pill opens the XP detail modal on the dashboard (instead of navigating)
-    const hdrPill = $('headerXpPill');
-    if (hdrPill) {
-      hdrPill.addEventListener('click', (e) => {
-        e.preventDefault();
-        openXpDetail();
-      });
-    }
     $$('.stat[data-stat-modal]').forEach((card) => {
       const kind = card.dataset.statModal;
       const open = () => {

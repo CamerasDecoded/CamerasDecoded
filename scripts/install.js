@@ -119,8 +119,7 @@
           '<span class="cdi-icon"><img src="/apple-touch-icon.png" alt="" ' +
             'onerror="this.style.display=\'none\'"></span>' +
           '<div><h2 id="cdiTitle">Install Cameras Decoded</h2>' +
-          '<p>Your darkroom on the Home Screen — one tap to open, no browser chrome.</p>' +
-          '<p class="cdi-tagline" style="font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8deb00;margin:8px 0 0;font-size:13px;">Join. Learn. Play.</p></div>' +
+          '<p>Your darkroom on the Home Screen — one tap to open, no browser chrome.</p></div>' +
         '</div>' +
         '<div data-cdi-body></div>' +
       '</section>';
