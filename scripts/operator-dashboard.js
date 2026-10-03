@@ -831,7 +831,7 @@
     }
 
     // Chapter art: fm-ch1.jpg .. fm-ch4.jpg
-    const artFor = (idx) => `/images/fm-chapters/fm-ch${idx + 1}.jpg?v=20261002a`;
+    const artFor = (idx) => `/images/fm-chapters/fm-ch${idx + 1}.jpg?v=20261002b`;
 
     const firstIncompleteIdx = l.nodes.findIndex((n) => !l.completed.includes(n.id));
     const allDone = firstIncompleteIdx === -1;
