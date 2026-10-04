@@ -793,7 +793,7 @@
       if (empty) {
         empty.hidden = false;
         if (!l.total) {
-          empty.innerHTML = '<i class="fas fa-compass" aria-hidden="true"></i><p>Your missions are waiting. <a href="/missions.html">Explore Missions →</a></p>';
+          empty.innerHTML = '<i class="fas fa-compass" aria-hidden="true"></i><p>Your arena awaits. <a href="/missions.html">Explore Arena →</a></p>';
         }
       }
       splitHeroDescLines();
