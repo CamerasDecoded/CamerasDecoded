@@ -131,7 +131,7 @@
     placeholder.textContent = "Loading…";
     aside.appendChild(placeholder);
 
-    fetch(INDEX_URL, { credentials: "same-origin" })
+    fetch(INDEX_URL, { credentials: "same-origin", cache: "no-cache" })
       .then(function (r) {
         if (!r.ok) throw new Error("index fetch failed");
         return r.json();

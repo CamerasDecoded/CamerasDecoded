@@ -18,7 +18,7 @@
 
   function loadIndex() {
     if (indexPromise) return indexPromise;
-    indexPromise = fetch(INDEX_URL, { credentials: "same-origin" })
+    indexPromise = fetch(INDEX_URL, { credentials: "same-origin", cache: "no-cache" })
       .then(function (r) {
         if (!r.ok) throw new Error("index fetch failed: " + r.status);
         return r.json();
