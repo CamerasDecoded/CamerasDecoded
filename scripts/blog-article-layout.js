@@ -171,32 +171,20 @@
     if (window.innerWidth < MIN_WIDTH) return;
 
     var article = document.querySelector("article");
-    if (!article || document.querySelector(".cd-article-grid")) return;
+    if (!article || document.querySelector(".cd-rail-left")) return;
 
     // Current slug from URL: /blog/some-slug.html
     var m = window.location.pathname.match(/\/blog\/([^/]+)\.html/);
     var currentSlug = m ? m[1] : "";
 
-    document.body.classList.add("cd-article-enhanced");
-
-    var grid = document.createElement("div");
-    grid.className = "cd-article-grid";
-
+    // Fixed-position sidebars — appended to body, no grid needed.
+    // The article stays exactly as-is, centered by its own styles.
     var leftRail = buildLatestRail(currentSlug);
     var rightRail = buildTOC(article);
 
-    // Move article into grid: left | article | right
-    article.parentNode.insertBefore(grid, article);
-    grid.appendChild(leftRail);
-    grid.appendChild(article);
+    document.body.appendChild(leftRail);
     if (rightRail) {
-      grid.appendChild(rightRail);
-    } else {
-      // No TOC — leave right column empty but keep grid structure
-      var spacer = document.createElement("div");
-      spacer.className = "cd-rail-right";
-      spacer.style.visibility = "hidden";
-      grid.appendChild(spacer);
+      document.body.appendChild(rightRail);
     }
   }
 
@@ -210,7 +198,7 @@
   var wasDesktop = window.innerWidth >= MIN_WIDTH;
   window.addEventListener("resize", function () {
     var isDesktop = window.innerWidth >= MIN_WIDTH;
-    if (isDesktop && !wasDesktop && !document.querySelector(".cd-article-grid")) {
+    if (isDesktop && !wasDesktop && !document.querySelector(".cd-rail-left")) {
       enhance();
     }
     wasDesktop = isDesktop;
