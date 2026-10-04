@@ -1,0 +1,30 @@
+name: Leaderboard counter
+
+# Counts `leaderboard` docs and caches the total in `stats/leaderboard`.
+# The leaderboard page reads this for percentile ("Top X%") instead of
+# counting all docs client-side on every page load.
+#
+# Service-account pattern mirrors arena-close.yml exactly:
+#   repo secret FIREBASE_SERVICE_ACCOUNT (whole JSON).
+
+on:
+  schedule:
+    - cron: '15 6 * * *'  # 1:15am CDT daily
+  workflow_dispatch:
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/leaderboard-counter
+      - name: Run the counter
+        run: node counter.js
+        working-directory: tools/leaderboard-counter
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
