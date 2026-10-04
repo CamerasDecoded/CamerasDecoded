@@ -1322,6 +1322,42 @@
     let currentUser = null;
     let userDocRef = null;
 
+    // ---- Username policy: lowercase, 3-24 chars, letters/numbers/._- only,
+    // no leading/trailing/consecutive separators, reserved words blocked,
+    // globally unique via the usernames/{name} claim collection. ----
+    const USERNAME_RE = /^[a-z0-9][a-z0-9_.-]{1,22}[a-z0-9]$/;
+    const USERNAME_RESERVED = ['admin','administrator','root','api','support','help','billing','login','signin','signout','signup','auth','settings','dashboard','app','system','null','undefined','test','dev','official','moderator','mod','staff','security','privacy','terms','about','contact','blog','shop','store','pro','premium','founding','founder','camerasdecoded','cameras-decoded','cynetis','cynetis-7','signalkeeper','signal-keeper'];
+    function usernameProblem(u) {
+      u = (u || '').toLowerCase();
+      if (!USERNAME_RE.test(u)) return 'format';
+      if (/[._-]{2}/.test(u)) return 'format';
+      if (USERNAME_RESERVED.indexOf(u) !== -1) return 'reserved';
+      return null;
+    }
+    // Claim usernames/{name} — Firestore rules reject when taken.
+    // The claim is uid-bound and never changes hands.
+    async function claimUsername(username, uid) {
+      await db.collection('usernames').doc(username).set({
+        uid: uid, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    // For derived usernames (social sign-in, legacy docs): sanitize the base,
+    // then guarantee a claimable name with uid-suffixed fallbacks.
+    async function claimUniqueUsername(rawBase, uid) {
+      let base = (rawBase || '').toLowerCase().replace(/[^a-z0-9_.-]/g, '')
+        .replace(/^[._-]+/, '').replace(/[._-]+$/, '').slice(0, 24);
+      if (usernameProblem(base)) base = '';
+      const uidHex = uid.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cands = [];
+      if (base) cands.push(base);
+      cands.push('user' + uidHex.slice(0, 6), 'user' + uidHex.slice(0, 12));
+      for (const c of cands) {
+        try { await claimUsername(c, uid); return c; } catch (e) { /* taken — try next */ }
+      }
+      const f = ('user' + uidHex).slice(0, 24);
+      await claimUsername(f, uid); return f;
+    }
+
     // ---- Get (or create) user document ----
     async function getUserData(user) {
       const uid = user.uid;
@@ -1332,7 +1368,8 @@
         return doc.data();
       } else {
         const email = user.email || '';
-        const username = email ? email.split('@')[0] : 'operator_' + uid.slice(0,6);
+        const rawBase = email ? email.split('@')[0] : (user.displayName || 'user');
+        const username = await claimUniqueUsername(rawBase, uid);
         const defaultData = {
           displayName: user.displayName || '',
           email: user.email || '',
