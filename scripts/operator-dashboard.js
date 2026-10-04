@@ -868,7 +868,7 @@
         `<img class="np-bg" src="${artFor(curIdx)}" alt="" loading="lazy" onerror="this.style.display='none'">` +
         `<div class="np-scrim"></div>` +
         `<div class="np-inner">` +
-          `<div class="np-eyebrow">${eyebrow}</div>` +
+          `<div class="np-eyebrow"><img src="/custom-site-titles/field-manual.png?v=20261004a" alt="Field Manual" style="max-width:140px;width:auto;height:auto;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display=''"><span style="display:none">${eyebrow}</span></div>` +
           `<div class="np-title">${cur.title || cur.name || 'Chapter'}</div>` +
           `<div class="np-sub">${sub}</div>` +
           `<div class="np-bar"><i style="width:${pct}%"></i></div>` +
