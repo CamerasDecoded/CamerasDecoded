@@ -149,6 +149,14 @@ async function closeRound(db, roundRef, round) {
   const lane = round.lane;
   const { entries, votesByEntryId } = await loadRoundDetail(db, roundRef);
 
+  // Demo/mock rounds close without crowning a winner — the entries are
+  // examples, not competition.
+  if (round.demo === true) {
+    await roundRef.update({ state: "closed", winnerEntryId: null, winnerUid: null });
+    log(`round ${roundId}: demo round closed with no winner`);
+    return;
+  }
+
   if (!entries.length) {
     await roundRef.update({ state: "closed", winnerEntryId: null, winnerUid: null });
     log(`round ${roundId}: closed with no entries (no winner, no scores, no broadcast)`);
