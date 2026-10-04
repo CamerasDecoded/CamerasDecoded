@@ -1,0 +1,40 @@
+name: Rebuild blog search index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/*.html'
+      - 'tools/blog-index/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild-index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate search index
+        run: python3 tools/blog-index/generate.py
+
+      - name: Commit updated index
+        run: |
+          git config user.name "cynetis-7"
+          git config user.email "cynetis-7@users.noreply.github.com"
+          git add blog/search-index.json
+          if git diff --cached --quiet; then
+            echo "Index unchanged, nothing to commit."
+          else
+            git commit -m "Auto-rebuild blog search index"
+            git push
+          fi
