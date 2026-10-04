@@ -168,8 +168,6 @@
   }
 
   function enhance() {
-    if (window.innerWidth < MIN_WIDTH) return;
-
     var article = document.querySelector("article");
     if (!article || document.querySelector(".cd-rail-left")) return;
 
