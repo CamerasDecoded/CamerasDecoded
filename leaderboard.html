@@ -395,12 +395,15 @@
             } catch (e) { /* no last-week data yet — trends stay hidden */ }
           }
 
-          // Total user count for percentile (best-effort)
-          var totalCount = 0;
+          // Total user count for percentile — cached in stats/leaderboard by the
+          // daily counter job (tools/leaderboard-counter). Falls back to the
+          // fetched page size if the cache doc doesn't exist yet.
+          var totalCount = rows.length;
           try {
-            var countSnap = await db.collection('leaderboard').select().get();
-            totalCount = countSnap.size;
-          } catch (e) { /* percentile stays hidden */ }
+            var metaDoc = await db.collection('stats').doc('leaderboard').get();
+            var meta = metaDoc.data() || {};
+            if (meta.totalUsers > 0) totalCount = meta.totalUsers;
+          } catch (e) { /* percentile uses page size as fallback */ }
 
           renderBoard(rows, wk, meUid, lastWkRanks);
           renderYou(rows, wk, meUid, totalCount);
