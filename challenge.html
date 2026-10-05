@@ -18,16 +18,16 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <!-- ===== FIREBASE INIT ===== -->
-  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/firebase-init.js?v=20261004a"></script>
   <script src="/scripts/badges.js?v=20261001a"></script>
   <script src="/scripts/gear-awards.js?v=20261001a"></script>
-  <script src="/scripts/gear-share.js"></script>
+  <script src="/scripts/gear-share.js?v=20261004a"></script>
 
   <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
-  <script src="/scripts/user-state.js"></script>
-  <script src="/scripts/haptics.js"></script>
+  <script src="/scripts/user-state.js?v=20261004a"></script>
+  <script src="/scripts/haptics.js?v=20261004a"></script>
   <script src="/scripts/sfx.js?v=20260923d"></script>
-  <script src="/scripts/challenges-data.js"></script>
+  <script src="/scripts/challenges-data.js?v=20261004a"></script>
 
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="/header.js?v=20261002a"></script>
@@ -83,7 +83,7 @@
       font-family:'Space Mono',monospace; font-size:12px; letter-spacing:1px;
       color:var(--text-muted); margin-bottom:14px; text-transform:uppercase;
     }
-    .ch-hero h1 { font-size:clamp(30px,7vw,46px); font-weight:700; margin-bottom:12px; }
+    .ch-hero h1, .ch-hero .ch-title { font-size:clamp(30px,7vw,46px); font-weight:700; margin-bottom:12px; }
     .ch-hero .sub { color:var(--text-muted); font-size:15px; max-width:520px; margin:0 auto; }
 
     /* ===== STREAK STRIP ===== */
@@ -126,6 +126,26 @@
 
     /* ===== CTA ===== */
     .cta-wrap { text-align:center; margin-bottom:16px; }
+    /* Photo upload */
+    .photo-wrap { text-align:center; margin-bottom:16px; }
+    .cbtn-ghost{
+      display:inline-flex;align-items:center;gap:8px;justify-content:center;
+      width:100%;max-width:420px;padding:14px 20px;font:700 15px var(--font-d);
+      color:var(--neon);background:rgba(141,235,0,.07);
+      border:1px dashed rgba(141,235,0,.4);border-radius:14px;cursor:pointer;
+      transition:background .2s,border-color .2s;
+    }
+    .cbtn-ghost:hover{background:rgba(141,235,0,.12);border-color:rgba(141,235,0,.6)}
+    .photo-preview{margin:12px auto 0;max-width:420px;position:relative}
+    .photo-preview img{width:100%;border-radius:12px;border:1px solid var(--border);display:block}
+    .photo-retake{
+      margin-top:8px;font:600 13px var(--font-d);color:var(--muted);
+      background:transparent;border:1px solid var(--border);border-radius:8px;
+      padding:6px 14px;cursor:pointer;
+    }
+    .photo-retake:hover{color:var(--text);border-color:var(--neon)}
+    .photo-note{font-size:12px;color:var(--muted);margin-top:10px;letter-spacing:.04em}
+    .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
     /* Signature chase CTA — the dashboard hero button recipe, under a page-unique
        class. (Generic .btn-primary collides with the shared components.css that
        master-loader injects after page styles, which would flatten it back to
@@ -265,7 +285,7 @@
     <div class="ch-hero">
       <div class="kicker">Today's Challenge</div>
       <div class="ch-date" id="chDate"></div>
-      <h1 id="chTitle">Loading today's challenge…</h1>
+      <h2 id="chTitle" class="ch-title">Loading today's challenge…</h2>
       <p class="sub" id="chDesc"></p>
     </div>
 
@@ -293,9 +313,20 @@
       <div id="tipList"></div>
     </div>
 
+    <!-- ===== PHOTO UPLOAD ===== -->
+    <div class="photo-wrap" id="photoWrap" style="display:none;">
+      <input type="file" id="challengeFileInput" accept="image/*" class="sr-only" aria-hidden="true" tabindex="-1">
+      <button class="cbtn-ghost btn-photo" id="photoBtn" type="button"><i class="fas fa-camera" aria-hidden="true"></i> Add your shot</button>
+      <div class="photo-preview" id="photoPreview" style="display:none;">
+        <img id="photoPreviewImg" alt="Your challenge shot preview">
+        <button type="button" class="photo-retake" id="photoRetake">Retake</button>
+      </div>
+      <div class="photo-note">Your shot auto-posts to the Arena daily feed on completion · +10 XP</div>
+    </div>
+
     <!-- ===== CTA ===== -->
     <div class="cta-wrap" id="ctaWrap" style="display:none;">
-      <button class="cbtn-chase btn-complete" id="completeBtn" type="button"><i class="fas fa-check" aria-hidden="true"></i> Mark complete · +10 XP</button>
+      <button class="cbtn-chase btn-complete" id="completeBtn" type="button" disabled><i class="fas fa-check" aria-hidden="true"></i> <span id="completeBtnLabel">Add your shot to complete</span></button>
       <div class="cta-note">One completion per day · honest work only</div>
     </div>
     <div class="done-state" id="doneState" style="display:none;">
@@ -433,10 +464,12 @@
 
       if (done) {
         $('ctaWrap').style.display = 'none';
+        $('photoWrap').style.display = 'none';
         $('doneState').style.display = 'block';
       } else {
         $('doneState').style.display = 'none';
         $('ctaWrap').style.display = currentUser ? 'block' : 'none';
+        $('photoWrap').style.display = currentUser ? 'block' : 'none';
       }
     }
 
@@ -448,6 +481,138 @@
       try {
         if (window.CDHaptics && window.CDHaptics[kind]) window.CDHaptics[kind]();
       } catch (e) {}
+    }
+
+
+    // ---- Photo upload + Arena auto-post ----
+var IMGBB_API_KEY = '0b9201a8e4212a124013c23eb559936a'; /* replaced at build from the established client pattern */
+    var COMPRESS_MAX_EDGE = 1600, HARD_CAP_BYTES = 5 * 1024 * 1024;
+    var COMPRESS_QUALITIES = [0.85, 0.7, 0.55, 0.4];
+    var challengePhotoBlob = null;
+
+    function canvasToBlob(canvas, q) {
+      return new Promise(function (res) {
+        if (canvas.toBlob) canvas.toBlob(function (b) { res(b); }, 'image/jpeg', q);
+        else res(null);
+      });
+    }
+    function compressImage(file) {
+      return new Promise(function (resolve, reject) {
+        var objUrl = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () {
+          URL.revokeObjectURL(objUrl);
+          var w = img.naturalWidth, h = img.naturalHeight;
+          if (!w || !h) { reject(new Error('empty image')); return; }
+          var scale = Math.min(1, COMPRESS_MAX_EDGE / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+          var canvas = document.createElement('canvas');
+          canvas.width = cw; canvas.height = ch;
+          var ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('canvas unavailable')); return; }
+          ctx.drawImage(img, 0, 0, cw, ch);
+          var qi = 0;
+          (function nextQ() {
+            if (qi >= COMPRESS_QUALITIES.length) { reject(new Error('Image too large — try a smaller file.')); return; }
+            canvasToBlob(canvas, COMPRESS_QUALITIES[qi]).then(function (blob) {
+              if (!blob) { reject(new Error('encode failed')); return; }
+              if (blob.size <= HARD_CAP_BYTES) resolve(blob);
+              else { qi++; nextQ(); }
+            }).catch(function () { reject(new Error('encode failed')); });
+          })();
+        };
+        img.onerror = function () { URL.revokeObjectURL(objUrl); reject(new Error('Couldn\u2019t read that image — try a JPG or PNG.')); };
+        img.src = objUrl;
+      });
+    }
+
+    function pad2(n) { return (n < 10 ? '0' : '') + n; }
+    function ymdUTC(d) { return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate()); }
+
+    function setupPhotoUpload() {
+      var fi = $('challengeFileInput'), btn = $('photoBtn'), prev = $('photoPreview'),
+          prevImg = $('photoPreviewImg'), retake = $('photoRetake'),
+          completeBtn = $('completeBtn'), label = $('completeBtnLabel');
+      if (!fi || !btn) return;
+      btn.addEventListener('click', function () { fi.click(); });
+      fi.addEventListener('change', function () {
+        var file = fi.files && fi.files[0];
+        fi.value = '';
+        if (!file) return;
+        if (!file.type || file.type.indexOf('image/') !== 0) { cdToast('That doesn\u2019t look like an image file.', 'error'); return; }
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing…';
+        compressImage(file).then(function (blob) {
+          challengePhotoBlob = blob;
+          var url = URL.createObjectURL(blob);
+          prevImg.src = url;
+          prev.style.display = 'block';
+          btn.style.display = 'none';
+          if (completeBtn) { completeBtn.disabled = false; }
+          if (label) label.textContent = 'Mark complete · +20 XP';
+        }).catch(function (err) {
+          cdToast(err && err.message ? err.message : 'Couldn\u2019t prepare that photo.', 'error');
+          btn.disabled = false; btn.innerHTML = '<i class="fas fa-camera"></i> Add your shot';
+        });
+      });
+      retake.addEventListener('click', function () {
+        challengePhotoBlob = null;
+        prev.style.display = 'none';
+        prevImg.src = '';
+        btn.style.display = '';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-camera"></i> Add your shot';
+        var completeBtn = $('completeBtn'), label = $('completeBtnLabel');
+        if (completeBtn) completeBtn.disabled = true;
+        if (label) label.textContent = 'Add your shot to complete';
+      });
+    }
+
+    /* Auto-post the challenge photo to the Arena daily feed (best-effort).
+       Returns a promise; never rejects — failures are silent-ish (toast). */
+    function autoPostToArena() {
+      return new Promise(function (resolve) {
+        if (!challengePhotoBlob || !currentUser) { resolve(false); return; }
+        if (IMGBB_API_KEY.indexOf('__IMGBB') === 0) { resolve(false); return; }
+        var todayId = 'c-' + ymdUTC(new Date());
+        var roundRef = db.collection('arenaRounds').doc(todayId);
+        roundRef.get().then(function (snap) {
+          if (!snap.exists) { resolve(false); return; } /* no daily round today — skip */
+          var form = new FormData();
+          form.append('image', challengePhotoBlob, 'daily-challenge.jpg');
+          return fetch('https://api.imgbb.com/1/upload?key=' + encodeURIComponent(IMGBB_API_KEY), { method: 'POST', body: form })
+            .then(function (res) { return res.json(); })
+            .then(function (json) {
+              if (!json || !json.success || !json.data || !json.data.url) throw new Error('upload failed');
+              var entryRef = db.collection('arenaRounds').doc(todayId).collection('entries').doc(currentUser.uid);
+              return entryRef.create({
+                imgUrl: json.data.url,
+                submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                roundId: todayId, lane: 'daily', swept: false,
+                source: 'daily-challenge'
+              }).then(function () {
+                return entryRef.collection('_private').doc('data').create({
+                  authorUid: currentUser.uid,
+                  authorName: (window.USER && window.USER.name) || currentUser.displayName || 'Operator',
+                  deleteUrl: json.data.delete_url
+                });
+              });
+            })
+            .then(function () {
+              /* +10 XP for the Arena post, once per day (localStorage guard) */
+              try {
+                var mark = 'arena-xp-' + currentUser.uid + '-' + todayId;
+                if (window.RewardEngine && !localStorage.getItem(mark)) {
+                  window.RewardEngine.award({
+                    uid: currentUser.uid, xp: 10,
+                    activity: { type: 'arena', label: 'Arena entry · Daily', icon: '◎', meta: { lane: 'daily', round: todayId } }
+                  }).then(function () { try { localStorage.setItem(mark, '1'); } catch (e) {} }).catch(function () {});
+                }
+              } catch (e) {}
+              resolve(true);
+            })
+            .catch(function () { resolve(false); });
+        }).catch(function () { resolve(false); });
+      });
     }
 
     // ---- Celebration ----
@@ -500,6 +665,7 @@
     // ---- Complete ----
     async function completeChallenge() {
       if (!currentUser || completing) return;
+      if (!challengePhotoBlob) { cdToast('Add your shot first.', 'error'); return; }
       completing = true;
       const btn = $('completeBtn');
       if (btn) btn.disabled = true;
@@ -542,6 +708,11 @@
         renderStreak(Object.assign({}, u, { challengeLog: [...(Array.isArray(log) ? log : []), key], dailyChallengeStreak: newStreak }));
         celebrate(newStreak);
         try { if (window.CDGear) { window.CDGear.award(currentUser.uid, 'gear-framed', db); window.CDGear.trackChallenge(db, currentUser.uid); } } catch (e) { /* best-effort */ }
+        /* Auto-post the shot to the Arena daily feed (best-effort — never blocks) */
+        try {
+          const posted = await autoPostToArena();
+          if (posted) cdToast('Shared to the Arena daily feed · +10 XP');
+        } catch (e) { /* best-effort */ }
       } catch (err) {
         cdToast('Could not save. Check your connection.', 'error');
         if (btn) btn.disabled = false;
@@ -550,6 +721,7 @@
       }
     }
     $('completeBtn').addEventListener('click', completeChallenge);
+    setupPhotoUpload();
 
     // ---- Auth ----
     auth.onAuthStateChanged(async (user) => {
@@ -590,7 +762,7 @@
       }
     }, 100);
   </script>
-  <script src="/scripts/ptr.js"></script>
+  <script src="/scripts/ptr.js?v=20261004a"></script>
   <script defer src="/scripts/light-feed.js?v=20260929c"></script>
 </body>
 </html>
