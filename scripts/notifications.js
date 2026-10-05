@@ -37,6 +37,7 @@
   var externalUnread = 0;
   var origSetNotifs = null;
   var booted = false;
+  var lastUnread = 0;   // track for new-arrival sound
   var inited = false;
 
   function nowMs() { return Date.now(); }
@@ -329,6 +330,11 @@
       var target = origSetNotifs || H.setNotifications;
       if (typeof target === 'function') target.call(H, items, unread);
     } catch (e) {}
+    // Soft chime when new notifications arrive (not on first load)
+    if (booted && unread > lastUnread) {
+      try { if (window.CDSfx && typeof window.CDSfx.play === 'function') window.CDSfx.play('notify'); } catch (e) {}
+    }
+    lastUnread = unread;
   }
 
   /* ---------------- boot ---------------- */

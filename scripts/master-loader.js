@@ -314,7 +314,7 @@
   function loadNotifications() {
     if (document.querySelector('script[src*="notifications.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/scripts/notifications.js?v=20260930b';
+    script.src = '/scripts/notifications.js?v=20261005a';
     script.onload = () => {
       try { if (window.CDNotifs) window.CDNotifs.init(); } catch (e) {}
     };
