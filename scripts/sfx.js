@@ -41,6 +41,7 @@
     lesson:  ['lesson.mp3',   0.85],
     chapter: ['chapter.mp3',  0.9],
     tick:    ['tick.mp3',     0.5],
+    notify:  ['notify.mp3',   0.6],
     continue:['continue.mp3', 0.7],
     back:    ['back.mp3',     0.55]
   };
