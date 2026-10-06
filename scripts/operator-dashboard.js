@@ -248,6 +248,7 @@
       title: c.title || c.name || ('Chapter ' + (i + 1)),
       name: c.title || c.name || ('Chapter ' + (i + 1)),
       description: c.description || c.subtitle || '',
+      lessonsTotal: Array.isArray(c.lessons) ? c.lessons.length : 0,
     }));
 
     const completed = nodes.filter((n) => completedIds.includes(n.id)).map((n) => n.id);
