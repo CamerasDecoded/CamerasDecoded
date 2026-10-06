@@ -953,9 +953,7 @@ GE('scnClose').addEventListener('click',closeScenePicker);
 scnVeil.addEventListener('click',closeScenePicker);
 
 /* ================= grading + XP + ledger =================
-   Firestore target (unified site-wide ledger): users/{uid}/ledger/{eventId}
-   as type 'arcade.shot.graded' (spec: SITE_LEDGER_SPEC.md). The play.html
-   shell maps pendingLedger entries to the canonical envelope.
+   Firestore target (instructor portal): xpLedger/{uid}/entries/{entryId}
    Same entry shape below; on Firestore write use serverTimestamp for ts.
    localStorage keys: clab_ledger (entries), clab_banked (anti-farm),
    clab_best (personal bests), clab_milestones (first-S per scene). */

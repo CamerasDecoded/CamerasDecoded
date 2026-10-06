@@ -430,11 +430,9 @@
     persistBadges(d, currentUid(), rec);
   }
 
-  /* Game-provided ledger entries (e.g. camera-lab-v2 SHOT LOG) sync to the
-     unified site-wide ledger at users/{uid}/ledger/{eventId} (spec:
-     ~/workspace/your_files/ledger-arch/SITE_LEDGER_SPEC.md). Games never
-     touch Firebase directly; the shell drains getSnapshot().detail.pendingLedger
-     and maps each entry to the canonical arcade.shot.graded event envelope. */
+  /* Game-provided ledger entries (e.g. camera-lab-v2 SHOT LOG) sync to
+     xpLedger/{uid}/entries/{entryId} for the instructor portal. Games never
+     touch Firebase directly; the shell drains getSnapshot().detail.pendingLedger. */
   async function persistLedger(d, uid, rec) {
     if (!uid || !rec || !rec.detail || !rec.detail.pendingLedger) return;
     var entries = rec.detail.pendingLedger;
@@ -443,61 +441,16 @@
       var batch = d.batch();
       entries.forEach(function (e) {
         if (!e || !e.id) return;
-        // Map the game entry to the unified ledger schema (teaching tier).
-        var detail = {
-          sceneId: e.sceneId, sceneName: e.sceneName,
-          grade: e.grade, score: e.score,
-          settings: e.settings || {},
-          evOffset: typeof e.evOffset === 'number' ? e.evOffset : 0,
-          breakdown: e.breakdown || {},
-          difficulty: e.difficulty || 1,
-          perfectTriangle: e.perfectTriangle === true,
-          newBest: e.newBest === true,
-          milestone: e.milestone || null,
-          badges: Array.isArray(e.badges) ? e.badges : []
-        };
-        var doc = {
+        var ref = d.collection('xpLedger').doc(uid).collection('entries').doc(String(e.id));
+        var data = Object.assign({}, e, {
           uid: uid,
-          tier: 'teaching',
-          type: 'arcade.shot.graded',
-          surface: 'arcade',
-          ts: firebase.firestore.FieldValue.serverTimestamp(),
-          clientTs: typeof e.ts === 'number' ? e.ts : Date.now(),
-          day: chicagoDay(new Date(typeof e.ts === 'number' ? e.ts : Date.now())),
-          xp: typeof e.xp === 'number' ? e.xp : 0,
-          xpBanked: e.banked === true,
-          sessionId: rec.sessionId || null,
-          summary: 'Graded ' + (e.grade || '?') + ' (' + (e.score || 0) + ') on ' +
-                   (e.sceneName || 'Camera Lab'),
-          skillTags: ['exposure', 'iso', 'shutter', 'aperture', 'white-balance'],
-          homeworkIds: [],
-          detail: detail,
-          schemaV: 1
-        };
-        var ref = d.collection('users').doc(uid).collection('ledger').doc(String(e.id));
-        batch.set(ref, doc, { merge: false });
+          slotId: slot.slotId,
+          syncedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        batch.set(ref, data, { merge: true });
       });
       await batch.commit();
     } catch (e) {}
-  }
-
-  /* YYYY-MM-DD in America/Chicago (platform TZ for ledger day grouping). */
-  function chicagoDay(d) {
-    try {
-      var parts = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/Chicago',
-        year: 'numeric', month: '2-digit', day: '2-digit'
-      }).formatToParts(d);
-      var y, m, day;
-      parts.forEach(function (p) {
-        if (p.type === 'year') y = p.value;
-        if (p.type === 'month') m = p.value;
-        if (p.type === 'day') day = p.value;
-      });
-      return y + '-' + m + '-' + day;
-    } catch (e) {
-      return d.toISOString().slice(0, 10);
-    }
   }
 
   /* Badge awards from games (e.g. camera-lab-v2). Games queue earned badge
