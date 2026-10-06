@@ -1,0 +1,57 @@
+name: Delete Arena entries
+
+# Deletes specific entries from an Arena round. Used for swapping out
+# test entries or removing invalid submissions.
+
+on:
+  workflow_dispatch:
+    inputs:
+      round_id:
+        description: 'Round ID (e.g. c-2026-10-06)'
+        required: true
+      usernames_b64:
+        description: 'Base64 of JSON.stringify({ usernames: [...] })'
+        required: true
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install firebase-admin
+      - name: Delete entries
+        run: |
+          node -e "
+          const { initializeApp, cert } = require('firebase-admin/app');
+          const { getFirestore } = require('firebase-admin/firestore');
+          const sa = JSON.parse(process.env.SERVICE_ACCOUNT_JSON);
+          initializeApp({ credential: cert(sa) });
+          const db = getFirestore();
+          const roundId = process.env.ROUND_ID;
+          const { usernames } = JSON.parse(Buffer.from(process.env.USERNAMES_B64, 'base64').toString());
+          (async () => {
+            // Find UIDs by username
+            const usersSnap = await db.collection('users').get();
+            const uidByUsername = {};
+            usersSnap.forEach(doc => {
+              const d = doc.data() || {};
+              if (d.username && usernames.includes(d.username)) uidByUsername[d.username] = doc.id;
+              if (d.displayName && usernames.includes(d.displayName)) uidByUsername[d.displayName] = doc.id;
+            });
+            for (const username of usernames) {
+              const uid = uidByUsername[username];
+              if (!uid) { console.log('No UID for ' + username); continue; }
+              await db.collection('arenaRounds').doc(roundId).collection('entries').doc(uid).delete();
+              console.log('Deleted entry for ' + username);
+            }
+            console.log('Done');
+          })();
+          "
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ROUND_ID: ${{ inputs.round_id }}
+          USERNAMES_B64: ${{ inputs.usernames_b64 }}
