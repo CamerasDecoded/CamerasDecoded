@@ -1,0 +1,34 @@
+name: Seed Arena data
+
+# Seeds Arena prompt and brief queue data to Firestore.
+# The seed data itself is NEVER committed to this repo — it arrives
+# per-run as a workflow_dispatch input (base64), so nothing private touches git.
+#
+# One-time setup (owner): Firebase service account already in
+# FIREBASE_SERVICE_ACCOUNT secret (same as curriculum uploader).
+# After that, seeds are dispatched via the API.
+
+on:
+  workflow_dispatch:
+    inputs:
+      seed_b64:
+        description: 'Base64 of JSON.stringify({ prompts: [...], briefs: [...] })'
+        required: true
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/arena-seeder
+      - name: Seed Arena data to Firestore
+        run: node seed.js
+        working-directory: tools/arena-seeder
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          SEED_B64: ${{ inputs.seed_b64 }}
