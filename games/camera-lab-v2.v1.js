@@ -223,6 +223,27 @@
     letter-spacing:.24em;color:var(--neon);margin-bottom:6px}.cl2-root .xp-toast .m {font-family:'Space Mono',monospace;font-size:11.5px;line-height:1.65;
     color:rgba(255,255,255,.85);letter-spacing:.02em}.cl2-root .xp-toast .m b {color:#fff}
 
+.cl2-root{--ease-out:cubic-bezier(.16,1,.3,1);--ease-in-out:cubic-bezier(.65,0,.35,1);--ease-pop:cubic-bezier(.34,1.3,.64,1)}.cl2-root /* ---------- animation concepts (preview-approved 2026-10-06) ---------- */
+.cl2-root .shutter-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--green);
+    opacity:0;pointer-events:none;z-index:0}.cl2-root .shutter-ring.go{animation:cl2-ring 600ms var(--ease-out)}
+@keyframes cl2-ring{0%{opacity:.9;transform:scale(.9)}100%{opacity:0;transform:scale(2.2)}}
+.cl2-root .shutter.cl2-pressing{animation:cl2-press 200ms var(--ease-out)}
+@keyframes cl2-press{0%{transform:scale(1)}40%{transform:scale(.82)}100%{transform:scale(1)}}
+.cl2-root .thumb.cl2-pop{animation:cl2-pop 300ms var(--ease-pop)}
+.cl2-root .dial .v.cl2-pop{animation:cl2-pop 300ms var(--ease-pop)}
+@keyframes cl2-pop{0%{transform:scale(1)}35%{transform:scale(1.18)}100%{transform:scale(1)}}
+.cl2-root .grade-letter.cl2-stamp{animation:cl2-stamp 500ms var(--ease-pop)}
+@keyframes cl2-stamp{0%{opacity:0;transform:scale(1.4)}60%{opacity:1;transform:scale(.94)}100%{opacity:1;transform:scale(1)}}
+.cl2-root #gl{transition:opacity 350ms var(--ease-in-out)}
+.cl2-root #gl.cl2-fading{opacity:.15}
+.cl2-root .cl2-wipe{position:absolute;top:0;bottom:0;width:34%;left:-40%;pointer-events:none;z-index:4;
+    background:linear-gradient(90deg,transparent,rgba(141,235,0,.35),transparent)}
+.cl2-root .cl2-wipe.go{animation:cl2-wipe 480ms var(--ease-in-out)}
+@keyframes cl2-wipe{0%{left:-40%}100%{left:110%}}
+@media (prefers-reduced-motion: reduce){.cl2-root *,.cl2-root *::before,.cl2-root *::after{
+    animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important}}
+
 `;
 
   var HTML = `
@@ -273,6 +294,7 @@
     <div class="scene-tag">SCENE <b>01</b> · CITY NOON</div>
     <div class="shake" id="shakeWarn">SHAKE</div>
     <div class="flash" id="flash"></div>
+    <div class="cl2-wipe" id="cl2wipe"></div>
     <div class="gl-err" id="glErr">WebGL unavailable on this device.</div>
   </div>
 
@@ -292,7 +314,7 @@
 
   <div class="shutter-row">
     <div class="mode-m">M</div>
-    <div class="shutter-wrap"><button class="shutter" id="shutterBtn" aria-label="Capture"></button></div>
+    <div class="shutter-wrap"><div class="shutter-ring" id="shutterRing"></div><button class="shutter" id="shutterBtn" aria-label="Capture"></button></div>
     <div class="side-btns">
       <div class="thumb empty" id="thumb"></div>
       <div class="zoom" id="zoomBtn">1&times;</div>
@@ -350,7 +372,29 @@
   // Scoped element getter (prototype uses GE() throughout)
   function GE(id) { return root ? root.querySelector('#' + id) : null; }
 
-  // Ledger entries not yet synced to Firestore (shell drains via getSnapshot)
+  /* ================= animation helpers (preview-approved 2026-10-06) ================= */
+var _reduceMotion = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+var _dialPrev = {};   // last rendered dial values (drives tick pop)
+function cl2Restart(el, cls){
+  if(!el) return;
+  el.classList.remove(cls);
+  void el.offsetWidth;   // reflow so the animation replays
+  el.classList.add(cls);
+}
+function cl2CountUp(el, to, dur){
+  if(!el) return;
+  if(_reduceMotion){ el.textContent=String(to); return; }
+  var start=null, d=dur||900;
+  function fr(now){
+    if(start===null) start=now;
+    var t=Math.min((now-start)/d,1);
+    el.textContent=String(Math.round(to*(1-Math.pow(1-t,3))));  // easeOutCubic
+    if(t<1) requestAnimationFrame(fr);
+  }
+  requestAnimationFrame(fr);
+}
+
+// Ledger entries not yet synced to Firestore (shell drains via getSnapshot)
   var pendingLedger = [];
 
   // Badge ids earned this session, not yet awarded (shell drains via getSnapshot
@@ -595,9 +639,15 @@ function applyPipeline(){
     gl.uniform1f(U.uGrain,Math.max(0,Math.min(1,grain)));
   }
 
-  // dial readouts
+  // dial readouts (+ tick pop when a value changes)
   for(const key in DIALS){
-    dialEls[key].querySelector('.v').textContent=DIALS[key].vals[DIALS[key].idx];
+    const vEl=dialEls[key].querySelector('.v');
+    const nv=DIALS[key].vals[DIALS[key].idx];
+    if(vEl.textContent!==nv){
+      vEl.textContent=nv;
+      if(_dialPrev[key]!==undefined) cl2Restart(vEl,'cl2-pop');
+      _dialPrev[key]=nv;
+    }
   }
   wbLbl.textContent='WB '+k+'K';
   tickVal.textContent=DIALS[activeDial].label;
@@ -738,7 +788,11 @@ GE('shutterBtn').addEventListener('click',()=>{
       }catch(e){ console.error('grade failed',e); }
     }catch(e){ console.error('capture failed',e); }
   }
+  // shutter press: button punch + green ring burst + flash, then thumb pop
+  cl2Restart(GE('shutterBtn'),'cl2-pressing');
+  cl2Restart(GE('shutterRing'),'go');
   flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go');
+  setTimeout(function(){ cl2Restart(thumbEl,'cl2-pop'); },160);
 });
 
 /* ================= first-tap XP notice =================
@@ -937,6 +991,10 @@ function closeScenePicker(){
 }
 function setScene(i){
   if(i===curScene){ closeScenePicker(); return; }
+  // scene transition: green wipe band + canvas crossfade
+  const glc=GE('gl');
+  if(glc) glc.classList.add('cl2-fading');
+  cl2Restart(GE('cl2wipe'),'go');
   curScene=i;
   const s=SCENES[i];
   DIALS.SS.idx=s.base.SS; DIALS.ISO.idx=s.base.ISO;
@@ -944,7 +1002,8 @@ function setScene(i){
   evCorrect=sceneEV(s);
   setActive('SS');
   sceneTagEl.innerHTML='SCENE <b>'+s.num+'</b> \u00b7 '+s.name;
-  loadTexture(s.img,()=>{ sizeCanvas(); applyPipeline(); });
+  loadTexture(s.img,()=>{ sizeCanvas(); applyPipeline();
+    if(glc) glc.classList.remove('cl2-fading'); });
   closeScenePicker();
 }
 sceneTagEl.addEventListener('click',openScenePicker);
@@ -1126,13 +1185,17 @@ function renderGrade(){
   const gl=GE('gradeLetter');
   gl.textContent=g.grade;
   gl.className='grade-letter'+(g.grade==='B'?' gB':g.grade==='C'?' gC':g.grade==='D'?' gD':'');
-  GE('gradeScore').textContent=g.score+' / 100';
-  let xpLine='+'+xr.xp+' XP';
-  if(!xr.banked) xpLine+=' · ALREADY BANKED';
-  if(xr.perfect) xpLine+=' · PERFECT TRIANGLE';
-  if(xr.newBest) xpLine+=' · NEW BEST';
-  if(xr.milestone==='firstS') xpLine+=' · FIRST S +15';
-  GE('gradeXp').textContent=xpLine;
+  cl2Restart(gl,'cl2-stamp');   // grade reveal punch
+  // score + XP count-ups (value-driven; instant under reduced motion)
+  GE('gradeScore').innerHTML='<span id="cl2scoreNum">0</span> / 100';
+  cl2CountUp(GE('cl2scoreNum'),g.score);
+  let xpSuffix='';
+  if(!xr.banked) xpSuffix+=' · ALREADY BANKED';
+  if(xr.perfect) xpSuffix+=' · PERFECT TRIANGLE';
+  if(xr.newBest) xpSuffix+=' · NEW BEST';
+  if(xr.milestone==='firstS') xpSuffix+=' · FIRST S +15';
+  GE('gradeXp').innerHTML='+<span id="cl2xpNum">0</span> XP'+xpSuffix;
+  cl2CountUp(GE('cl2xpNum'),xr.xp);
   const fb=GE('gradeFb');
   fb.innerHTML='';
   g.feedback.forEach(function(f){ const d=document.createElement('div'); d.innerHTML=f; fb.appendChild(d); });
