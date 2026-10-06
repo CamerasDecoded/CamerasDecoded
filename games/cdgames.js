@@ -78,7 +78,7 @@
       }
       loadedScripts[src] = true;
       var s = document.createElement('script');
-      s.src = src;
+      s.src = src + '?v=' + Date.now();
       s.async = true;
       s.onload = function () {
         if (registry[key]) resolve(registry[key]);
