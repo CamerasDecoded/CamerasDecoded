@@ -194,16 +194,16 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="/scripts/firebase-init.js"></script>
+<script src="/scripts/firebase-init.js?v=20261006a"></script>
 <script src="/scripts/badges.js?v=20261001a"></script>
 <script src="/scripts/gear-awards.js?v=20261001a"></script>
-<script src="/scripts/gear-share.js"></script>
-<script src="/scripts/streak.js"></script>
-<script src="/scripts/streak-flames.js"></script>
-<script src="/scripts/haptics.js"></script>
+<script src="/scripts/gear-share.js?v=20261006a"></script>
+<script src="/scripts/streak.js?v=20261006a"></script>
+<script src="/scripts/streak-flames.js?v=20261006a"></script>
+<script src="/scripts/haptics.js?v=20261006a"></script>
 <script src="/scripts/sound.js?v=20260924b"></script>
 <script src="/scripts/sfx.js?v=20261005a"></script>
-<script src="games/cdgames.js"></script>
+<script src="games/cdgames.js?v=20261006a"></script>
 <script>
 (function () {
   'use strict';
@@ -426,6 +426,42 @@
     var d = db();
     if (!d || !slot || !slot.slotId) return; // demo mode: nothing to write to
     persistWithDailyXp(d, currentUid(), rec);
+    persistLedger(d, currentUid(), rec);
+    persistBadges(d, currentUid(), rec);
+  }
+
+  /* Game-provided ledger entries (e.g. camera-lab-v2 SHOT LOG) sync to
+     xpLedger/{uid}/entries/{entryId} for the instructor portal. Games never
+     touch Firebase directly; the shell drains getSnapshot().detail.pendingLedger. */
+  async function persistLedger(d, uid, rec) {
+    if (!uid || !rec || !rec.detail || !rec.detail.pendingLedger) return;
+    var entries = rec.detail.pendingLedger;
+    if (!entries.length) return;
+    try {
+      var batch = d.batch();
+      entries.forEach(function (e) {
+        if (!e || !e.id) return;
+        var ref = d.collection('xpLedger').doc(uid).collection('entries').doc(String(e.id));
+        var data = Object.assign({}, e, {
+          uid: uid,
+          slotId: slot.slotId,
+          syncedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        batch.set(ref, data, { merge: true });
+      });
+      await batch.commit();
+    } catch (e) {}
+  }
+
+  /* Badge awards from games (e.g. camera-lab-v2). Games queue earned badge
+     ids in getSnapshot().detail.pendingBadges and never touch Firebase;
+     the shell awards each via CDBadges.award (idempotent server-side:
+     re-awards are silent, but the game's awarded{} map already guards). */
+  function persistBadges(d, uid, rec) {
+    if (!uid || !rec || !rec.detail || !rec.detail.pendingBadges) return;
+    var ids = rec.detail.pendingBadges;
+    if (!ids.length || !window.CDBadges) return;
+    ids.forEach(function (id) { try { window.CDBadges.award(uid, id, d); } catch (e) {} });
   }
 
   function localDayKey(d) {
