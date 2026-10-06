@@ -23,6 +23,7 @@
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="header.js?v=20261002a"></script>
   <script src="/scripts/desktop-sidebar.js?v=20260930a"></script>
+  <script src="/scripts/cd-loading.js?v=20261006a"></script>
   <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
 
   <!-- ===== FONTS & ICONS ===== -->
@@ -373,6 +374,19 @@
         }
         db = firebase.firestore();
         firebase.auth().onAuthStateChanged(function () { loadArcade(); });
+        // Cynetis-7 loading interstitial: show the Signal Sync overlay on
+        // game tap so the transition to play.html feels continuous.
+        gridEl.addEventListener('click', function (e) {
+          var a = e.target.closest ? e.target.closest('a.abtn-chase') : null;
+          if (!a || !a.href) return;
+          e.preventDefault();
+          var card = a.closest('.game-card');
+          var title = card ? (card.querySelector('.game-meta b') || {}).textContent : '';
+          try {
+            if (window.CDLoading) CDLoading.show({ text: 'LOADING ' + (title || 'GAME').toUpperCase() });
+          } catch (err) {}
+          setTimeout(function () { location.href = a.href; }, 450);
+        });
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
       else boot();
