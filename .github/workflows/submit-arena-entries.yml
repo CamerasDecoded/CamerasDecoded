@@ -1,0 +1,33 @@
+name: Submit Arena entries
+
+# Submits Arena entries for launch accounts to Firestore.
+# Entry data arrives per-run as a workflow_dispatch input (base64),
+# so nothing sensitive touches git.
+#
+# Uses the Firebase service account in FIREBASE_SERVICE_ACCOUNT secret
+# (same as curriculum uploader and arena seeder).
+
+on:
+  workflow_dispatch:
+    inputs:
+      entries_b64:
+        description: 'Base64 of JSON.stringify({ roundId, entries: [{ username, displayName, imgUrl }] })'
+        required: true
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/arena-entry-submitter
+      - name: Submit entries to Firestore
+        run: node submit.js
+        working-directory: tools/arena-entry-submitter
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ENTRIES_B64: ${{ inputs.entries_b64 }}
