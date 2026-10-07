@@ -1433,9 +1433,20 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       }
     };
     if(lastAward.gained > 0){
-      playFmSting(isChapter
+      var stingTier = isChapter
         ? { src: "/media/mission-complete-success.mp4", kick: "MISSION COMPLETE" }
-        : { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" }, showDone);
+        : { src: "/media/signal-decoded-success.mp4", kick: "SIGNAL DECODED" };
+      // Cynetis-7 celebrates FIRST (graceful entrance), then the sting plays.
+      // Sequencing via promise — never overlapping.
+      if (window.CDCompanion) {
+        window.CDCompanion.celebrate({
+          xp: lastAward.gained,
+          context: isChapter ? 'chapter' : 'lesson',
+          perfect: lastAward.perfect === true
+        }).then(function () { playFmSting(stingTier, showDone); });
+      } else {
+        playFmSting(stingTier, showDone);
+      }
     } else {
       showDone();
     }
@@ -1927,5 +1938,6 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 })();
   </script>
   <script src="/scripts/ptr.js"></script>
+  <script src="/scripts/cd-companion.js?v=20251007a"></script>
 </body>
 </html>

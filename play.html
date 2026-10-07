@@ -178,6 +178,7 @@
 <script src="/scripts/sfx.js?v=20261005a"></script>
 <script src="games/cdgames.js?v=20261006a"></script>
 <script src="/scripts/cd-loading.js?v=20261006c"></script>
+<script src="/scripts/cd-companion.js?v=20251007a"></script>
 <script>
 (function () {
   'use strict';
@@ -644,18 +645,28 @@
       }).join('<br>');
     }
     $('cdResult').classList.add('on');
-    // Animated success backdrop: tiered 3s sting behind the overlaid text (plays once, fades to black).
-    try {
-      var rv = $('cdResultVideo');
-      if (rv) {
-        if (RM) rv.remove();
-        else {
-          var srcEl = rv.querySelector('source');
-          if (srcEl && srcEl.getAttribute('src') !== tier.src) { srcEl.setAttribute('src', tier.src); rv.load(); }
-          var vp = rv.play(); if (vp && vp.catch) vp.catch(function () {});
+    // Cynetis-7 companion celebrates FIRST (graceful entrance), then the
+    // video sting plays. Sequencing via promise — never overlapping.
+    var playStingVideo = function () {
+      try {
+        var rv = $('cdResultVideo');
+        if (rv) {
+          if (RM) rv.remove();
+          else {
+            var srcEl = rv.querySelector('source');
+            if (srcEl && srcEl.getAttribute('src') !== tier.src) { srcEl.setAttribute('src', tier.src); rv.load(); }
+            var vp = rv.play(); if (vp && vp.catch) vp.catch(function () {});
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    };
+    // Animated success backdrop: tiered 3s sting behind the overlaid text (plays once, fades to black).
+    if (window.CDCompanion && xp > 0 && !RM) {
+      var grade = detail && detail.grade ? detail.grade : (score >= 90 ? 'S' : score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 60 ? 'C' : 'D');
+      window.CDCompanion.gameResult({ score: score, xp: xp, grade: grade, detail: detail }).then(playStingVideo);
+    } else {
+      playStingVideo();
+    }
     var kick = $('cdKicker');
     if (kick) { if (RM) kick.textContent = tier.kick; else decodeText(kick, tier.kick, 1100); }
     window.CDGames.fx.countUp($('cdScoreNum'), score, 900);
