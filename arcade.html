@@ -186,6 +186,39 @@
     .abtn-chase:hover { filter:brightness(1.12); }
     .abtn-chase:active { transform:scale(.97); }
     .abtn-chase:focus-visible { outline:3px solid var(--green); outline-offset:2px; }
+    /* ---- guest teaser cards: full art stays visible, an honest
+       "free with sign-in" flag rides the artwork, and the CTA is a
+       demoted glass button (the chase stays reserved for playable cards) ---- */
+    .game-card.is-teaser .game-art::before {
+      content: ''; position: absolute; inset: 0; z-index: 1;
+      background: linear-gradient(180deg,
+        rgba(5, 7, 5, 0.42) 0%,
+        rgba(5, 7, 5, 0.04) 45%,
+        rgba(16, 19, 16, 0.5) 100%);
+    }
+    .teaser-flag {
+      position: absolute; z-index: 2; left: 14px; bottom: 12px;
+      font-family: var(--font-display); font-size: 10px; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--green);
+      background: rgba(5, 8, 5, 0.72);
+      border: 1px solid rgba(141, 235, 0, 0.35);
+      padding: 6px 12px; border-radius: 999px;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      white-space: nowrap;
+    }
+    .abtn-ghost {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 48px; border-radius: 12px; padding: 12px 22px;
+      border: 1px solid rgba(141, 235, 0, 0.28);
+      background: rgba(141, 235, 0, 0.06);
+      color: var(--green);
+      font-family: var(--font-body); font-weight: 700; font-size: 13px;
+      letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none;
+      cursor: pointer; transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    }
+    .abtn-ghost:hover { background: rgba(141, 235, 0, 0.12); border-color: rgba(141, 235, 0, 0.5); }
+    .abtn-ghost:active { transform: scale(0.97); }
+    .abtn-ghost:focus-visible { outline:3px solid var(--green); outline-offset:2px; }
     .arcade-empty {
       text-align: center; color: var(--text-muted); font-size: 14px;
       padding: 40px 20px; border: 1px dashed var(--border); border-radius: var(--radius);
@@ -285,6 +318,10 @@
       /* photographic card art — media/arcade/<game>.jpg, 800x450 (16:9).
          Keyed by slot id, falling back to the game id. New lesson_slots docs
          pick up art automatically once their id/game is listed here. */
+      /* Guests play the first few drills outright; the rest of the library
+         stays fully visible as an honest teaser — full art, real copy,
+         and a "sign in to play" moment instead of a wall. */
+      var FREE_GUEST_COUNT = 3;
       var ART_V = '20260927a';
       var GAME_ART = {
         'exposure-lab': 'exposure-lab',
@@ -303,23 +340,29 @@
         });
       }
 
-      function renderGames(slots, bestBySlot) {
+      function renderGames(slots, bestBySlot, guest) {
         if (!slots.length) {
           gridEl.innerHTML = '<div class="arcade-empty">No drills live yet.<br>Check back soon.</div>';
           return;
         }
-        gridEl.innerHTML = slots.map(function (s) {
+        gridEl.innerHTML = slots.map(function (s, idx) {
           var iconKey = GAME_ICON[s.id] || GAME_ICON[s.game] || 'camera';
           var blurb = GAME_BLURBS[s.id] || GAME_BLURBS[s.game] || '';
           var artKey = GAME_ART[s.id] || GAME_ART[s.game] || '';
+          var isTeaser = !!guest && idx >= FREE_GUEST_COUNT;
+          var artInner = isTeaser ? '<span class="teaser-flag">Free with sign-in</span>' : '';
           var art = artKey ? '<div class="game-art" role="img" aria-label="' +
             esc(s.title || s.game) + ' artwork" style="background-image:url(\'/media/arcade/' +
-            artKey + '.jpg?v=' + ART_V + '\')"></div>' : '';
+            artKey + '.jpg?v=' + ART_V + '\')">' + artInner + '</div>' : '';
           var best = bestBySlot[s.id];
-          var bestHtml = best != null
-            ? 'Best: ' + best + '%'
-            : 'No signal yet';
-          return '<article class="game-card">' +
+          var bestHtml;
+          if (isTeaser) bestHtml = 'Sign in to track your best';
+          else bestHtml = best != null ? 'Best: ' + best + '%' : 'No signal yet';
+          var cta = isTeaser
+            ? '<button type="button" class="abtn-ghost" data-arcade-paywall>Sign in to play</button>'
+            : '<a class="abtn-chase" href="/play.html?slot=' + encodeURIComponent(s.id) + '">' +
+              '<i class="fas fa-play" aria-hidden="true"></i>Play</a>';
+          return '<article class="game-card' + (isTeaser ? ' is-teaser' : '') + '">' +
             art +
             '<div class="game-top">' +
               '<div class="game-icon">' + iconSvg(iconKey) + '</div>' +
@@ -330,8 +373,7 @@
             (blurb ? '<p class="game-desc">' + esc(blurb) + '</p>' : '') +
             '<div class="game-foot">' +
               '<span class="game-best">' + esc(bestHtml) + '</span>' +
-              '<a class="abtn-chase" href="/play.html?slot=' + encodeURIComponent(s.id) + '">' +
-                '<i class="fas fa-play" aria-hidden="true"></i>Play</a>' +
+              cta +
             '</div>' +
           '</article>';
         }).join('');
@@ -345,8 +387,9 @@
           snap.forEach(function (doc) {
             slots.push(Object.assign({ id: doc.id }, doc.data() || {}));
           });
-          var bestBySlot = {};
           var user = firebase.auth().currentUser;
+          var guest = !user;
+          var bestBySlot = {};
           if (user) {
             try {
               var gs = await db.collection('game_sessions')
@@ -361,7 +404,7 @@
               });
             } catch (e) { /* best scores are optional */ }
           }
-          renderGames(slots, bestBySlot);
+          renderGames(slots, bestBySlot, guest);
         } catch (e) {
           gridEl.innerHTML = '<div class="arcade-empty">Could not load games.<br>Check your connection and reload.</div>';
         }
@@ -386,6 +429,24 @@
             if (window.CDLoading) CDLoading.show({ text: 'LOADING ' + (title || 'GAME').toUpperCase() });
           } catch (err) {}
           setTimeout(function () { location.href = a.href; }, 450);
+        });
+        // Teaser cards: tapping the ghost CTA opens the paywall sheet
+        // (which routes guests to login itself). Falls back to a plain
+        // login redirect if paywall.js hasn't loaded yet.
+        gridEl.addEventListener('click', function (e) {
+          var btn = e.target.closest ? e.target.closest('[data-arcade-paywall]') : null;
+          if (!btn) return;
+          e.preventDefault();
+          try {
+            if (window.CDPaywall && window.CDPaywall.show) {
+              window.CDPaywall.show({
+                headline: 'Unlock the full Arcade',
+                sub: 'Every drill, tracked scores and the Daily Brief — free with an account.'
+              });
+              return;
+            }
+          } catch (err) {}
+          window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.href);
         });
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
