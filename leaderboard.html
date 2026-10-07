@@ -209,6 +209,8 @@
       'use strict';
       var db = null;
       var lbMode = 'week';
+      var currentUser = null; // tracked so tab switches re-check auth
+      var authReady = false;  // true once onAuthStateChanged has fired
       var listEl = document.getElementById('lbList');
       var youEl = document.getElementById('lbYou');
 
@@ -510,6 +512,11 @@
         all: 'Every point ever earned, all in one place.',
         daily: 'One brief per day. Unlimited attempts \u2014 your best score counts.'
       };
+      function showSignInPrompt() {
+        listEl.innerHTML = '<div class="lb-empty">Sign in to see the leaderboard.<br><a href="/login.html" style="color:var(--green);font-weight:700;">Sign in</a></div>';
+        youEl.hidden = true;
+        document.getElementById('lbPodium').hidden = true;
+      }
       function setMode(mode) {
         lbMode = mode;
         var tabs = { week: 'tabWeek', all: 'tabAll', daily: 'tabDaily' };
@@ -519,8 +526,22 @@
           tab.setAttribute('aria-selected', mode === m);
         });
         document.getElementById('lbNote').textContent = LB_NOTES[mode] || LB_NOTES.week;
-        listEl.innerHTML = '<div class="lb-empty">Loading the board…</div>';
         document.getElementById('lbPodium').hidden = true;
+        // Auth check on every tab switch: logged-out users get the sign-in
+        // prompt on all tabs — never a Firestore query or generic error.
+        if (!db) {
+          listEl.innerHTML = '<div class="lb-empty">Could not reach our servers.<br>Check your connection and reload.</div>';
+          return;
+        }
+        if (!authReady) {
+          listEl.innerHTML = '<div class="lb-empty">Loading the board…</div>';
+          return;
+        }
+        if (!currentUser) {
+          showSignInPrompt();
+          return;
+        }
+        listEl.innerHTML = '<div class="lb-empty">Loading the board…</div>';
         loadBoard();
       }
       document.getElementById('tabWeek').addEventListener('click', function () { setMode('week'); });
@@ -534,13 +555,11 @@
         }
         db = firebase.firestore();
         firebase.auth().onAuthStateChanged(function (user) {
-          if (!user) {
-            listEl.innerHTML = '<div class="lb-empty">Sign in to see the leaderboard.<br><a href="/login.html" style="color:var(--green);font-weight:700;">Sign in</a></div>';
-            youEl.hidden = true;
-            document.getElementById('lbPodium').hidden = true;
-            return;
-          }
-          loadBoard();
+          currentUser = user || null;
+          authReady = true;
+          // Re-render the current tab so sign-in/sign-out in another tab
+          // updates this page immediately.
+          setMode(lbMode);
         });
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
