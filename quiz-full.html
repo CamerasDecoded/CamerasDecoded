@@ -347,6 +347,34 @@
     }
     .retake-btn:hover, .reset-diff-btn:hover { background: rgba(141,235,0,0.1); }
 
+    /* ----- GUEST MODE ----- */
+    .guest-banner {
+      margin: 12px 0 0;
+      padding: 10px 14px;
+      border: 1px solid rgba(141,235,0,0.35);
+      border-radius: 12px;
+      background: rgba(141,235,0,0.07);
+      color: #c9c9c9;
+      font-size: 12.5px;
+      text-align: center;
+      font-family: 'Space Mono', monospace;
+    }
+    .guest-banner[hidden] { display: none; }
+    .guest-banner a { color: var(--green); font-weight: 700; }
+    .signin-cta {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 12px 22px;
+      border-radius: 12px;
+      background: var(--green);
+      color: #000;
+      font-weight: 800;
+      font-size: 14px;
+      text-decoration: none;
+      font-family: 'Space Mono', monospace;
+    }
+    .signin-cta[hidden] { display: none; }
+
     /* ----- RESPONSIVE ----- */
     @media (max-width: 600px) {
       .quiz-container { padding: 20px 16px; }
@@ -394,6 +422,11 @@
     <!-- HEADER -->
     <div class="quiz-header">
       <h1><img src="/custom-site-titles/quiz-arena.png" alt="Quiz Arena" style="max-width:240px;width:100%;height:auto;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display=''"><span style="display:none"><i class="fas fa-brain" style="margin-right:8px;"></i> Quiz Arena</span></h1>
+    </div>
+
+    <!-- GUEST BANNER (signed-out visitors only) -->
+    <div class="guest-banner" id="guestBanner" hidden>
+      <span>You're playing as a guest — <a href="/login.html">sign in</a> to save scores and earn XP.</span>
     </div>
 
     <!-- SIGNAL METER -->
@@ -452,6 +485,7 @@
         <div class="score-highlight"><span id="finalScore">0</span> / <span id="totalQ">0</span></div>
         <div class="sub" id="resultMsg" style="color:var(--green); font-family:'Space Mono',monospace; margin-top:10px;">Keep decoding!</div>
         <div class="xp-line" id="xpLine" style="display:none;"></div>
+        <a href="/login.html" class="signin-cta" id="guestSigninCta" hidden>Sign in to play all 10 questions and bank XP</a>
         <button class="xp-how" id="xpHowBtn" type="button">How XP works</button>
         <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
           <button class="retake-btn" onclick="resetQuiz()"><i class="fas fa-redo"></i> Retake</button>
@@ -669,6 +703,8 @@
     let answered = false;
     let streak = 0;
     let currentUser = null;
+    let authReady = false; // true once Firebase auth state has resolved
+    let didAutostart = false; // guards the ?level= autostart to a single run
     let quizXpState = 'signedout'; // 'banked' | 'already' | 'signedout' | 'error' | 'noscore' 
 
     const letters = ['A', 'B', 'C', 'D'];
@@ -853,15 +889,26 @@
       });
     });
 
+    // ---- Guest mode: signed-out visitors get a 3-question teaser ----
+    // Guest = auth state is known AND there is no signed-in user.
+    function isGuest() { return authReady && !currentUser; }
+
+    function updateGuestUI() {
+      var banner = document.getElementById('guestBanner');
+      if (banner) banner.hidden = !isGuest();
+    }
+
     function loadQuestions(level) {
       var bank = questionBank[level] || questionBank.beginner;
-      // Shuffle a copy and deal 10 per run, so repeat visits meet fresh questions.
+      // Shuffle a copy and deal per run, so repeat visits meet fresh questions.
+      // Guests get a 3-question teaser; signed-in players get the full 10.
       var pool = bank.slice();
       for (var i = pool.length - 1; i > 0; i--) {
         var j = Math.floor(Math.random() * (i + 1));
         var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
       }
-      questions = pool.slice(0, Math.min(10, pool.length));
+      var dealCount = isGuest() ? 3 : 10;
+      questions = pool.slice(0, Math.min(dealCount, pool.length));
       return questions;
     }
 
@@ -1009,6 +1056,12 @@
         }
       })();
 
+      // Guest teaser: prompt sign-in for the full quiz after the 3-question teaser.
+      (function() {
+        var guestCta = document.getElementById('guestSigninCta');
+        if (guestCta) guestCta.hidden = !isGuest();
+      })();
+
       const finalPct = (score / questions.length) * 100;
       signalFill.style.width = finalPct + '%';
       signalPercent.textContent = Math.round(finalPct) + '%';
@@ -1121,36 +1174,54 @@
     // 4.  INIT – load data then start
     // ============================================================
     document.addEventListener('DOMContentLoaded', async function() {
-      // Wait for auth to be ready
+      const params = new URLSearchParams(window.location.search);
+      // Accept both ?level= and ?difficulty= (dashboard links use ?difficulty=).
+      const levelParam = params.get('level') || params.get('difficulty');
+      const validLevel = (levelParam && ['beginner','intermediate','advanced'].includes(levelParam)) ? levelParam : null;
+
+      function applyLevelParam() {
+        if (didAutostart) return;
+        didAutostart = true;
+        if (!validLevel) { resetDifficulty(); return; }
+        currentLevel = validLevel;
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.level === validLevel);
+        });
+        startQuiz();
+      }
+
+      // Wait for auth to be ready. Guests get the 3-question teaser, so the
+      // ?level= autostart must wait until we know whether the visitor is
+      // signed in — otherwise a signed-out visitor would be dealt 10.
       if (auth && auth.currentUser) {
+        authReady = true;
         await loadQuizData();
+        updateGuestUI();
+        applyLevelParam();
       } else if (auth) {
         // Listen for auth
         auth.onAuthStateChanged(async (user) => {
+          authReady = true;
+          currentUser = user || null;
           if (user) {
-            currentUser = user;
             await loadQuizData();
           }
+          updateGuestUI();
+          applyLevelParam();
         });
-      }
-
-      const params = new URLSearchParams(window.location.search);
-      const levelParam = params.get('level');
-      if (levelParam && ['beginner','intermediate','advanced'].includes(levelParam)) {
-        currentLevel = levelParam;
-        document.querySelectorAll('.diff-btn').forEach(btn => {
-          btn.classList.toggle('active', btn.dataset.level === levelParam);
-        });
-        startQuiz();
       } else {
-        resetDifficulty();
+        // No Firebase (CDN blocked): fully offline, guest mode.
+        authReady = true;
+        updateGuestUI();
+        applyLevelParam();
       }
     });
 
     // ---- Auth listener for real-time updates ----
     if (auth) auth.onAuthStateChanged((user) => {
+      currentUser = user || null;
+      updateGuestUI();
       if (user) {
-        currentUser = user;
         // If quiz hasn't started yet, load data
         if (document.querySelector('.diff-btn.active')) {
           loadQuizData();
