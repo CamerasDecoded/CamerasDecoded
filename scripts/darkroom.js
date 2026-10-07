@@ -55,7 +55,7 @@ function boot(){
       // Signed-out users don't see the Darkroom — straight to login,
       // back here after (deep link preserved).
       try { sessionStorage.setItem('cd_post_login_redirect', location.pathname + location.search + location.hash); } catch(e){}
-      location.href = '/login.html';
+      location.replace('/login.html');
       return;
     }
     if (window.CDLearn) CDLearn.prefetchTier();
