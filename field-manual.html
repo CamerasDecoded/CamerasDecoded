@@ -753,8 +753,15 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     $("fm-back").addEventListener("click", function(){ tapFx("back"); renderChapter(); });
     wireSoundToggle();
     var auth = (typeof window.auth !== "undefined") ? window.auth : null;
-    if(auth && auth.onAuthStateChanged){ auth.onAuthStateChanged(boot); }
-    else { boot(null); }
+    var booted = false;
+    var safeBoot = function(u){ if(!booted){ booted = true; boot(u); } };
+    if(auth && auth.onAuthStateChanged){
+      auth.onAuthStateChanged(safeBoot);
+      /* If auth never resolves (blocked CDN, network hang), don't trap the user
+         on "Establishing uplink" forever — boot signed-out after 5s. */
+      setTimeout(function(){ safeBoot(null); }, 5000);
+    }
+    else { safeBoot(null); }
   }
 
   async function boot(u){
