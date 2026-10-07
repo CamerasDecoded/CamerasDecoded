@@ -116,6 +116,15 @@
       object-fit: contain;
     }
 
+    .login-header .title-image {
+      display: block;
+      max-width: 100%;
+      max-height: 44px;
+      width: auto;
+      margin: 0 auto 4px auto;
+      object-fit: contain;
+    }
+
     .login-header h1 {
       font-family: 'Space Mono', monospace;
       font-size: 22px;
@@ -236,6 +245,117 @@
       font-size: 16px;
     }
 
+    .forgot-row {
+      text-align: right;
+      margin-top: 4px;
+      margin-bottom: 2px;
+      font-size: 12px;
+      position: relative;
+      z-index: 1;
+    }
+    .forgot-row a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.3px;
+      transition: color 0.2s ease;
+    }
+    .forgot-row a:hover { color: var(--green); }
+
+    /* ============ FORGOT PASSWORD MODAL ============ */
+    .cd-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .cd-modal[hidden] { display: none; }
+    .cd-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .cd-modal-card {
+      position: relative;
+      width: 100%;
+      max-width: 340px;
+      background: #0c0c0e;
+      border: 1px solid rgba(141, 235, 0, 0.25);
+      border-radius: var(--radius);
+      padding: 32px 28px 28px;
+      box-shadow: 0 0 60px rgba(141, 235, 0, 0.08), 0 20px 60px rgba(0, 0, 0, 0.6);
+      animation: modalIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      text-align: center;
+    }
+    @keyframes modalIn {
+      0% { opacity: 0; transform: translateY(16px) scale(0.96); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .cd-modal-card h3 {
+      font-family: 'Space Mono', monospace;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .cd-modal-card p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 300;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .cd-modal-card .form-group { text-align: left; }
+    .cd-modal-msg {
+      font-size: 13px;
+      margin-top: 14px;
+      min-height: 18px;
+      font-family: 'Space Mono', monospace;
+    }
+    .cd-modal-msg.success { color: var(--green); }
+    .cd-modal-msg.error { color: #ff4d4d; }
+    .cd-modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .btn-modal-primary {
+      width: 100%;
+      padding: 13px;
+      background: var(--green);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #000;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .btn-modal-primary:hover:not(:disabled) {
+      background: #a0f520;
+      box-shadow: 0 0 30px rgba(141, 235, 0, 0.2);
+    }
+    .btn-modal-primary:disabled { opacity: 0.6; cursor: wait; }
+    .btn-modal-cancel {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 8px;
+      transition: color 0.2s ease;
+    }
+    .btn-modal-cancel:hover { color: var(--text-secondary); }
+
     .btn-login {
       width: 100%;
       padding: 14px;
@@ -340,8 +460,9 @@
 
   <div class="login-card">
     <div class="login-header">
-      <img src="cameras-decoded-logo.png" alt="Cameras Decoded" class="logo-image" />
-      <h1>Welcome back</h1>
+      <img src="/cameras-decoded-logo.png?v=20261006" alt="Cameras Decoded" class="logo-image" />
+      <img src="/custom-site-titles/login.png?v=20261006" alt="Welcome back" class="title-image" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
+      <h1 hidden>Welcome back</h1>
       <p>Access your command center</p>
     </div>
 
@@ -370,7 +491,7 @@
           <button type="button" class="toggle-password" onclick="togglePasswordVisibility('password', this)"><i class="fas fa-eye"></i></button>
         </div>
       </div>
-      <p style="text-align:right; margin-top:4px; font-size:12px;"><a href="#" onclick="forgotPassword(); return false;" style="color:var(--green); text-decoration:none;">Forgot password?</a></p>
+      <p class="forgot-row"><a href="#" id="forgotLink">Forgot password?</a></p>
       <button type="submit" class="btn-login" id="loginBtn">Access Dashboard</button>
       <div id="errorMsg" class="error-msg"></div>
     </form>
@@ -378,6 +499,24 @@
     <div class="login-footer">
       <a href="signup.html">No account? Sign up</a>
       <a href="https://camerasdecoded.com"><i class="fas fa-arrow-left"></i> Return to Cameras Decoded</a>
+    </div>
+  </div>
+
+  <!-- Forgot password modal -->
+  <div id="forgotModal" class="cd-modal" hidden role="dialog" aria-modal="true" aria-labelledby="forgotModalTitle">
+    <div class="cd-modal-backdrop" id="forgotBackdrop"></div>
+    <div class="cd-modal-card">
+      <h3 id="forgotModalTitle">Reset password</h3>
+      <p>Enter the email you signed up with and we'll send you a reset link.</p>
+      <div class="form-group">
+        <label for="resetEmail">Email address</label>
+        <input type="email" id="resetEmail" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <div class="cd-modal-msg" id="resetMsg"></div>
+      <div class="cd-modal-actions">
+        <button type="button" class="btn-modal-primary" id="sendResetBtn">Send reset link</button>
+        <button type="button" class="btn-modal-cancel" id="forgotCancel">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -398,9 +537,15 @@
       appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
       measurementId: "G-YN3M01WW0B"
     };
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+    // Null-guarded: page degrades gracefully if the Firebase CDN is blocked
+    var auth = null;
+    var db = null;
+    var hasFirebase = (typeof firebase !== 'undefined' && firebase.apps);
+    if (hasFirebase) {
+      if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      db = firebase.firestore();
+    }
 
     // Referral capture: stash ?ref=CODE (in case this page is the landing).
     (function () {
@@ -556,21 +701,85 @@
       return ref.get();
     }
 
-    // Forgot password
-    window.forgotPassword = function() {
-      const email = document.getElementById('email').value.trim();
-      if (!email) { cdToast('Please enter your email address.', 'error'); return; }
-      auth.sendPasswordResetEmail(email)
-        .then(() => cdToast('Password reset email sent!'))
-        .catch(err => cdToast(err.message, 'error'));
-    };
+    // Forgot password — mid-screen modal
+    (function() {
+      var modal = document.getElementById('forgotModal');
+      var forgotLink = document.getElementById('forgotLink');
+      var cancelBtn = document.getElementById('forgotCancel');
+      var backdrop = document.getElementById('forgotBackdrop');
+      var sendBtn = document.getElementById('sendResetBtn');
+      var emailInput = document.getElementById('resetEmail');
+      var msg = document.getElementById('resetMsg');
+      if (!modal) return;
+
+      function setMsg(text, kind) {
+        msg.textContent = text;
+        msg.className = 'cd-modal-msg' + (kind ? ' ' + kind : '');
+      }
+      function openModal() {
+        // Pre-fill from the login form if the user already typed their email
+        var loginEmail = document.getElementById('email');
+        if (loginEmail && loginEmail.value.trim() && !emailInput.value) {
+          emailInput.value = loginEmail.value.trim();
+        }
+        setMsg('', '');
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send reset link';
+        modal.hidden = false;
+        setTimeout(function() { emailInput.focus(); }, 60);
+      }
+      function closeModal() { modal.hidden = true; }
+
+      forgotLink.addEventListener('click', function(e) { e.preventDefault(); openModal(); });
+      cancelBtn.addEventListener('click', closeModal);
+      backdrop.addEventListener('click', closeModal);
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !modal.hidden) closeModal();
+      });
+
+      function friendlyResetError(err) {
+        if (!err || !err.code) return 'Something went wrong. Please try again.';
+        if (err.code === 'auth/invalid-email') return 'That email address doesn\u2019t look right.';
+        if (err.code === 'auth/user-not-found') return 'No account found for that email.';
+        if (err.code === 'auth/too-many-requests') return 'Too many attempts. Please wait a moment and try again.';
+        return err.message || 'Something went wrong. Please try again.';
+      }
+
+      sendBtn.addEventListener('click', function() {
+        var email = emailInput.value.trim();
+        if (!email) { setMsg('Please enter your email address.', 'error'); return; }
+        // Null-guard: degrade gracefully if Firebase didn't load
+        if (typeof firebase === 'undefined' || !auth || typeof auth.sendPasswordResetEmail !== 'function') {
+          setMsg('Password reset is unavailable right now. Please try again later.', 'error');
+          return;
+        }
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+        setMsg('', '');
+        auth.sendPasswordResetEmail(email)
+          .then(function() {
+            setMsg('Check your email for the reset link.', 'success');
+            sendBtn.textContent = 'Sent';
+          })
+          .catch(function(err) {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send reset link';
+            setMsg(friendlyResetError(err), 'error');
+          });
+      });
+      emailInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); }
+      });
+    })();
 
     // Social login
     window.signInWithGoogle = function() {
+      if (!auth) { cdToast('Login is unavailable right now. Please try again later.', 'error'); return; }
       const provider = new firebase.auth.GoogleAuthProvider();
       auth.signInWithPopup(provider).then(result => handleSocialLogin(result.user)).catch(err => cdToast(err.message, 'error'));
     };
     window.signInWithFacebook = function() {
+      if (!auth) { cdToast('Login is unavailable right now. Please try again later.', 'error'); return; }
       const provider = new firebase.auth.FacebookAuthProvider();
       auth.signInWithPopup(provider).then(result => handleSocialLogin(result.user)).catch(err => cdToast(err.message, 'error'));
     };
@@ -605,6 +814,7 @@
       const errorMsg = document.getElementById('errorMsg');
       const loginBtn = document.getElementById('loginBtn');
       errorMsg.style.display = 'none';
+      if (!auth) { errorMsg.textContent = 'Login is unavailable right now. Please try again later.'; errorMsg.style.display = 'block'; return; }
       if (!email || !password) { errorMsg.textContent = 'Please fill in all fields.'; errorMsg.style.display = 'block'; return; }
       loginBtn.disabled = true;
       loginBtn.textContent = 'Accessing...';
