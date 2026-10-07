@@ -40,6 +40,9 @@
   var waapiAnims = [];
   var RM = false;
   var isShowing = false;
+  var showStartTime = 0;
+  var hidePending = false;
+  var MIN_DISPLAY_MS = 2500;
   var eyeBase = 'translateX(0) scale(1,1)';
 
   var EYE_BASE = {
@@ -460,6 +463,8 @@
     }
     clearTimers();
     isShowing = true;
+    showStartTime = Date.now();
+    hidePending = false;
 
     // Reset state
     els.rig.classList.remove('cdl-locked');
@@ -495,7 +500,20 @@
   }
 
   function hide() {
-    if (!overlay || !isShowing) return;
+    if (!overlay || !isShowing || hidePending) return;
+
+    // Minimum display time: she stays visible long enough to be seen,
+    // even when the load finishes instantly.
+    var elapsed = Date.now() - showStartTime;
+    if (elapsed < MIN_DISPLAY_MS) {
+      hidePending = true;
+      later(function () {
+        hidePending = false;
+        hide();
+      }, MIN_DISPLAY_MS - elapsed);
+      return;
+    }
+
     isShowing = false;
     clearTimers();
 
@@ -525,6 +543,8 @@
     }
     clearTimers();
     isShowing = true;
+    showStartTime = Date.now();
+    hidePending = false;
     overlay.classList.add('on');
 
     // Hide normal UI, show error
