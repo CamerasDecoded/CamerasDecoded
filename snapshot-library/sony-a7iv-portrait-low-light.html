@@ -248,19 +248,75 @@
     }
   })();
 
+  // --- AUTH-AWARE UID ---
+  // On camerasdecoded.com (same origin as login.html) Firebase Auth is the
+  // source of truth. The localStorage bridge UID exists for the settings
+  // subdomain, where Firebase Auth cannot sync — but on the main domain a
+  // stale bridge UID left over after sign-out must never impersonate the user.
+  var _authResolved = false;
+  var _authUid = null;
+  function _isAuthAuthoritative() {
+    try { return (window.location.hostname || '').toLowerCase() === 'camerasdecoded.com'; }
+    catch (e) { return false; }
+  }
   function getCurrentUid() {
-    return localStorage.getItem(UID_KEY);
+    // Authoritative once Firebase Auth has resolved on the main domain;
+    // otherwise fall back to the opToken bridge (settings subdomain, or
+    // before auth state resolves).
+    if (_isAuthAuthoritative() && _authResolved) return _authUid;
+    try { return localStorage.getItem(UID_KEY); } catch (e) { return null; }
+  }
+  // Reconcile the bridge token against live auth state. If auth resolves to
+  // signed-out on the main domain, any stored bridge UID is stale — drop it.
+  // If it resolves to a user, refresh the bridge value so it can't go stale.
+  try {
+    if (window.firebase && firebase.auth && _isAuthAuthoritative()) {
+      firebase.auth().onAuthStateChanged(function (u) {
+        _authResolved = true;
+        _authUid = u ? u.uid : null;
+        try {
+          if (u && u.uid) localStorage.setItem(UID_KEY, u.uid);
+          else localStorage.removeItem(UID_KEY);
+        } catch (e) {}
+      });
+    }
+  } catch (e) {}
+  // Resolve the effective UID, waiting for Firebase Auth on the main domain so
+  // a stale bridge token can never trigger a save. Calls back with uid|null.
+  function _resolveUid(cb) {
+    if (!_isAuthAuthoritative() || !(window.firebase && firebase.auth)) {
+      cb(getCurrentUid());
+      return;
+    }
+    var auth = firebase.auth();
+    if (_authResolved) { cb(_authUid); return; }
+    var done = false;
+    var unsub = null;
+    var finish = function (uid) {
+      if (done) return;
+      done = true;
+      try { if (unsub) unsub(); } catch (e) {}
+      cb(uid);
+    };
+    try { unsub = auth.onAuthStateChanged(function (u) { finish(u ? u.uid : null); }); }
+    catch (e) { finish(auth.currentUser ? auth.currentUser.uid : null); return; }
+    setTimeout(function () {
+      try { finish(auth.currentUser ? auth.currentUser.uid : null); }
+      catch (e) { finish(null); }
+    }, 4000);
   }
 
   // If we just came back from a login redirect triggered by this exact card's
   // save button, finish the save automatically.
   (function retryPendingSave() {
-    const uid = getCurrentUid();
-    const pendingCard = localStorage.getItem('pending_save_card');
-    if (uid && pendingCard === THIS_CARD_ID) {
-      localStorage.removeItem('pending_save_card');
+    var pendingCard = null;
+    try { pendingCard = localStorage.getItem('pending_save_card'); } catch (e) {}
+    if (pendingCard !== THIS_CARD_ID) return;
+    _resolveUid(function (uid) {
+      if (!uid) return; // still signed out — keep pending for a later visit
+      try { localStorage.removeItem('pending_save_card'); } catch (e) {}
       performSave(pendingCard, uid);
-    }
+    });
   })();
 
   // --- SAVE-TO-COLLECTION ---
@@ -268,16 +324,17 @@
   // in production Firestore documents. arrayUnion is a no-op if the card
   // is already saved, so this also handles "re-add with no limits" safely.
   function saveCardToCollection(cardId) {
-    const uid = getCurrentUid();
-    if (!uid) {
-      // Remember what we were trying to save, then send the user to log in
-      // with a redirect back to this exact page.
-      localStorage.setItem('pending_save_card', cardId);
-      const returnUrl = window.location.href;
-      window.location.href = "https://camerasdecoded.com/login.html?redirect=" + encodeURIComponent(returnUrl);
-      return;
-    }
-    performSave(cardId, uid);
+    _resolveUid(function (uid) {
+      if (!uid) {
+        // Remember what we were trying to save, then send the user to log in
+        // with a redirect back to this exact page.
+        try { localStorage.setItem('pending_save_card', cardId); } catch (e) {}
+        var returnUrl = window.location.href;
+        window.location.href = "https://camerasdecoded.com/login.html?redirect=" + encodeURIComponent(returnUrl);
+        return;
+      }
+      performSave(cardId, uid);
+    });
   }
 
   function performSave(cardId, uid) {
