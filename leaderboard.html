@@ -15,10 +15,10 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <!-- ===== FIREBASE INIT ===== -->
-  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/firebase-init.js?v=20261007a"></script>
 
   <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
-  <script src="/scripts/user-state.js"></script>
+  <script src="/scripts/user-state.js?v=20261007a"></script>
 
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="header.js?v=20261002a"></script>
@@ -86,10 +86,10 @@
       border-radius: var(--radius); padding: 6px; margin-bottom: 14px;
     }
     .lb-tab {
-      border: 0; border-radius: 12px; padding: 12px;
+      border: 0; border-radius: 12px; padding: 12px 8px;
       background: transparent; color: var(--text-muted);
-      font-family: var(--font-display); font-size: 13px; letter-spacing: 1px;
-      cursor: pointer; min-height: 48px;
+      font-family: var(--font-display); font-size: 12px; letter-spacing: 1px;
+      cursor: pointer; min-height: 48px; white-space: nowrap;
     }
     .lb-tab.on { background: var(--green-dim); color: var(--green); font-weight: 700; }
     .lb-tab:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
@@ -117,7 +117,7 @@
     .lb-podium { display:flex; align-items:flex-end; justify-content:center; gap:10px; margin:6px 0 22px; }
     .lb-pcol { display:flex; flex-direction:column; align-items:center; flex:1; max-width:130px; }
     .lb-pavatar { width:64px; height:64px; border-radius:50%; border:3px solid var(--border); object-fit:cover; background:#222; }
-    .lb-pinitial { display:flex; align-items:center; justify-content:center; font:700 26px var(--font-b); color:var(--green); background:rgba(141,235,0,.08); }
+    .lb-pinitial { display:flex; align-items:center; justify-content:center; font:700 26px var(--font-display); color:var(--green); background:rgba(141,235,0,.08); }
     .lb-p1 .lb-pavatar { width:78px; height:78px; border-color:var(--gold); box-shadow:0 0 24px rgba(224,177,45,.35); }
     .lb-p2 .lb-pavatar { border-color:var(--silver); box-shadow:0 0 18px rgba(199,204,212,.25); }
     .lb-p3 .lb-pavatar { border-color:var(--bronze); box-shadow:0 0 18px rgba(208,138,78,.25); }
@@ -216,14 +216,21 @@
           return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
         });
       }
+      // Podium avatar fallback: broken photoURL -> initial-letter avatar
+      window.lbAvatarFallback = function (img) {
+        var d = document.createElement('div');
+        d.className = 'lb-pavatar lb-pinitial';
+        d.textContent = img.getAttribute('data-initial') || 'O';
+        img.replaceWith(d);
+      };
       function lbWeekKey(d) {
         d = d || new Date();
-        var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-        var day = (t.getUTCDay() + 6) % 7;
-        t.setUTCDate(t.getUTCDate() - day + 3);
-        var first = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
-        var week = 1 + Math.round(((t - first) / 864e5 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
-        return t.getUTCFullYear() + '-W' + ('0' + week).slice(-2);
+        var t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        var day = (t.getDay() + 6) % 7;
+        t.setDate(t.getDate() - day + 3);
+        var first = new Date(t.getFullYear(), 0, 4);
+        var week = 1 + Math.round(((t - first) / 864e5 - 3 + ((first.getDay() + 6) % 7)) / 7);
+        return t.getFullYear() + '-W' + ('0' + week).slice(-2);
       }
       function xpOf(r, wk) {
         if (lbMode === 'week') return ((r.weeks || {})[wk]) || 0;
@@ -259,7 +266,7 @@
             var crown = vi === 1 ? '<div class="lb-crown"><img src="/media/icons/leaderboard-crown.png?v=20261004a" alt="1st place crown" style="width:46px;height:46px;object-fit:contain"></div>' : '';
             var pInitial = esc((pr.row.displayName || 'O').charAt(0).toUpperCase());
             var avatar = pr.row.photoURL ?
-              '<img class="lb-pavatar" src="' + esc(pr.row.photoURL) + '" alt="">' :
+              '<img class="lb-pavatar" src="' + esc(pr.row.photoURL) + '" data-initial="' + pInitial + '" onerror="lbAvatarFallback(this)" alt="">' :
               '<div class="lb-pavatar lb-pinitial">' + pInitial + '</div>';
             return '<div class="lb-pcol ' + pClasses[vi] + '">' + crown + avatar +
               '<div class="lb-pname">' + esc(pr.row.displayName || 'Operator') + '</div>' +
@@ -365,7 +372,7 @@
 
       function lastWeekKey() {
         var d = new Date();
-        d.setUTCDate(d.getUTCDate() - 7);
+        d.setDate(d.getDate() - 7);
         return lbWeekKey(d);
       }
 
@@ -421,49 +428,42 @@
         return d;
       }
 
+      function localDayKey(d) {
+        d = d || new Date();
+        var m = String(d.getMonth() + 1).padStart(2, '0');
+        var day = String(d.getDate()).padStart(2, '0');
+        return d.getFullYear() + '-' + m + '-' + day;
+      }
+
       async function loadDailyBoard() {
         var meUid = (window.firebase && firebase.auth().currentUser) ? firebase.auth().currentUser.uid : null;
         try {
-          var snap = await db.collection('game_sessions')
-            .where('slotId', '==', 'lab-daily')
-            .where('createdAt', '>=', firebase.firestore.Timestamp.fromDate(startOfToday()))
-            .get();
-          var best = {};
+          // Daily board is a dedicated per-day collection populated by the
+          // game shell on lab-daily completion — no cross-user game_sessions
+          // query needed (rules forbid it).
+          var today = localDayKey();
+          var snap = await db.collection('daily_boards').doc(today).collection('scores')
+            .orderBy('score', 'desc').limit(50).get();
+          var rows = [];
           snap.forEach(function (doc) {
             var d = doc.data() || {};
-            if (!d.uid) return;
-            var sc = Math.round(d.score || 0);
-            if (!best[d.uid]) best[d.uid] = { score: 0, plays: 0 };
-            if (sc > best[d.uid].score) best[d.uid].score = sc;
-            best[d.uid].plays++;
-          });
-          var rows = Object.keys(best).map(function (uid) {
-            return { id: uid, displayName: 'Operator', score: best[uid].score, plays: best[uid].plays };
-          });
-          rows.sort(function (a, b) { return b.score - a.score; });
-          var top = rows.slice(0, 50);
-          var uids = top.map(function (r) { return r.id; });
-          for (var i = 0; i < uids.length; i += 10) {
-            var chunk = uids.slice(i, i + 10);
-            var nsnap = await db.collection('leaderboard')
-              .where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
-            nsnap.forEach(function (nd) {
-              var nm = (nd.data() || {}).displayName;
-              if (!nm) return;
-              for (var j = 0; j < top.length; j++) {
-                if (top[j].id === nd.id) top[j].displayName = nm;
-              }
+            rows.push({
+              id: doc.id,
+              displayName: d.displayName || 'Operator',
+              score: Math.round(d.score || 0),
+              plays: d.plays || 0
             });
-          }
-          renderDailyBoard(top, meUid, best[meUid] || null);
+          });
+          renderDailyBoard(rows, meUid);
         } catch (e) {
           listEl.innerHTML = '<div class="lb-empty">Could not load today\u2019s board.<br>Check your connection and reload.</div>';
           youEl.hidden = true;
         }
       }
 
-      function renderDailyBoard(rows, meUid, mine) {
+      function renderDailyBoard(rows, meUid) {
         var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+        document.getElementById('lbPodium').hidden = true;
         if (!rows.length) {
           listEl.innerHTML = '<div class="lb-empty">No scores on today\u2019s brief yet.<br>Be the first to shoot it.</div>';
         } else {
@@ -479,21 +479,28 @@
               '</div>';
           }).join('');
         }
+        // Your card — reuses the existing lb-you elements (no daily-only DOM)
         if (!meUid) { youEl.hidden = true; return; }
         youEl.hidden = false;
         var idx = -1;
         rows.forEach(function (r, i) { if (r.id === meUid) idx = i; });
+        document.getElementById('lbYouPct').textContent = 'DAILY BRIEF';
         if (idx >= 0) {
+          var r = rows[idx];
           document.getElementById('lbYouRank').textContent = '#' + (idx + 1);
-          document.getElementById('lbYouName').textContent = (rows[idx].displayName || 'Operator') + ' (you)';
-          document.getElementById('lbYouXp').textContent = rows[idx].score;
-          document.getElementById('lbYouSub').textContent =
-            rows[idx].plays + (rows[idx].plays === 1 ? ' attempt' : ' attempts') + ' \u00b7 today\u2019s brief';
+          document.getElementById('lbYouTotal').textContent = rows.length >= 50 ? '/ 50+' : '/ ' + rows.length;
+          document.getElementById('lbYouXp').textContent = r.score.toLocaleString() + ' PTS';
+          document.getElementById('lbYouNote').textContent = r.plays + (r.plays === 1 ? ' attempt' : ' attempts') + ' \u00b7 today\u2019s brief';
+          var top = rows.length ? rows[0].score : r.score;
+          var pct = top > 0 ? Math.min(100, Math.round((r.score / top) * 100)) : 0;
+          document.getElementById('lbYouBarFill').style.width = pct + '%';
         } else {
-          document.getElementById('lbYouRank').textContent = '50+';
-          document.getElementById('lbYouName').textContent = 'You';
-          document.getElementById('lbYouXp').textContent = mine ? mine.score : 0;
-          document.getElementById('lbYouSub').textContent = 'today\u2019s brief';
+          document.getElementById('lbYouRank').textContent = '\u2014';
+          document.getElementById('lbYouTotal').textContent = '';
+          document.getElementById('lbYouPct').textContent = 'DAILY BRIEF';
+          document.getElementById('lbYouXp').textContent = 'No score yet';
+          document.getElementById('lbYouBarFill').style.width = '0%';
+          document.getElementById('lbYouNote').textContent = 'Shoot today\u2019s brief to join the board.';
         }
       }
 
@@ -524,7 +531,15 @@
           return;
         }
         db = firebase.firestore();
-        firebase.auth().onAuthStateChanged(function () { loadBoard(); });
+        firebase.auth().onAuthStateChanged(function (user) {
+          if (!user) {
+            listEl.innerHTML = '<div class="lb-empty">Sign in to see the leaderboard.<br><a href="/login.html" style="color:var(--green);font-weight:700;">Sign in</a></div>';
+            youEl.hidden = true;
+            document.getElementById('lbPodium').hidden = true;
+            return;
+          }
+          loadBoard();
+        });
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
       else boot();

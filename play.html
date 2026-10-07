@@ -529,6 +529,39 @@
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } catch (e) {}
+    // Daily Brief board: dedicated per-day collection (leaderboard.html reads
+    // this — it cannot query game_sessions across users per Firestore rules).
+    // Best score wins; plays increments.
+    if (slot && slot.slotId === 'lab-daily' && rec.score > 0) {
+      try {
+        var _F = firebase.firestore.FieldValue;
+        var _dayDoc = d.collection('daily_boards').doc(localDayKey());
+        var _scoreRef = _dayDoc.collection('scores').doc(uid);
+        var _prev = await _scoreRef.get().catch(function () { return null; });
+        var _prevData = (_prev && _prev.exists) ? (_prev.data() || {}) : {};
+        var _prevScore = Math.round(_prevData.score || 0);
+        var _dName = _prevData.displayName;
+        if (!_dName) {
+          var _u = firebase.auth().currentUser;
+          _dName = (_u && _u.displayName) || null;
+          if (!_dName && _u) {
+            try {
+              var _ud = await d.collection('users').doc(_u.uid).get();
+              var _udata = (_ud && _ud.exists) ? (_ud.data() || {}) : {};
+              _dName = _udata.displayName || _udata.name || null;
+            } catch (_e) {}
+          }
+          if (!_dName) _dName = 'Operator ' + String(uid).slice(0, 4);
+        }
+        var _upd = {
+          displayName: _dName,
+          plays: _F.increment(1),
+          updatedAt: _F.serverTimestamp()
+        };
+        if (Math.round(rec.score) > _prevScore) _upd.score = Math.round(rec.score);
+        await _scoreRef.set(_upd, { merge: true });
+      } catch (e) {}
+    }
     try { if (window.CDGear && uid) window.CDGear.trackArcade(d, uid, slot && slot.slotId, rec.score); } catch (e) {} // gear: overdrive / arsenal progress + glass tiers
     if (bank) {
       // Feed the daily total. Day keys included so RewardEngine.award()'s
@@ -571,12 +604,12 @@
   var _lbName = null;
   function lbWeekKey(d) {
     d = d || new Date();
-    var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    var day = (t.getUTCDay() + 6) % 7;
-    t.setUTCDate(t.getUTCDate() - day + 3);
-    var first = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
-    var week = 1 + Math.round(((t - first) / 864e5 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
-    return t.getUTCFullYear() + '-W' + ('0' + week).slice(-2);
+    var t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var day = (t.getDay() + 6) % 7;
+    t.setDate(t.getDate() - day + 3);
+    var first = new Date(t.getFullYear(), 0, 4);
+    var week = 1 + Math.round(((t - first) / 864e5 - 3 + ((first.getDay() + 6) % 7)) / 7);
+    return t.getFullYear() + '-W' + ('0' + week).slice(-2);
   }
   async function updateLeaderboard(uid, xp, plays) {
     var d = db();
