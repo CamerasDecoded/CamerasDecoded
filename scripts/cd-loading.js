@@ -45,7 +45,7 @@
   var EYE_BASE = {
     'eye-alert': 'translateX(0) scale(1.08,1.03)',
     'eye-curious': 'translateX(0) scale(1.06,1.04)',
-    'eye-impatient': 'translateX(-6px) scale(1.08,1.02)',
+    'eye-impatient': 'translateX(0) scale(1.06,0.95)',
     'locked': 'translateX(0) scale(1.06,1)',
     'default': 'translateX(0) scale(1,1)'
   };
@@ -127,37 +127,31 @@
       '@keyframes cdlSpinCW{to{transform:rotate(360deg);}}' +
       '@keyframes cdlSpinCCW{to{transform:rotate(-360deg);}}' +
 
-      /* Eyes — expression system */
+      /* Eyes — expression system. Slow, deliberate, alive. Nothing under 3s.
+         Blinks are WAAPI-only (see blinkEye); the CSS keyframes below do NOT
+         blink, so the two systems never fight. */
       '.cdl-layer-eye{animation:cdlEyeIdle 5.2s cubic-bezier(0.65,0,0.35,1) infinite;}' +
       '@keyframes cdlEyeIdle{' +
       '0%,100%{transform:translateX(0) scale(1,1);opacity:1;filter:brightness(1);}' +
-      '22%{transform:translateX(5px) scale(1.012,0.995);opacity:0.98;filter:brightness(1.05);}' +
-      '45%{transform:translateX(-4px) scale(1.02,0.99);opacity:0.96;filter:brightness(1.09);}' +
-      '68%{transform:translateX(3px) scale(1.008,1);opacity:0.99;filter:brightness(1.03);}' +
-      '86%{transform:translateX(0) scale(1,1);opacity:1;filter:brightness(1);}' +
-      '89%{opacity:1;filter:brightness(1);}' +
-      '91.5%{opacity:0.28;filter:brightness(0.75);}' +
-      '94%{opacity:1;filter:brightness(1.05);}}' +
-      '.cdl-rig .cdl-layer-eye.cdl-eye-alert{animation:cdlEyeAlert 2.6s cubic-bezier(0.65,0,0.35,1) infinite;}' +
+      '25%{transform:translateX(4px) scale(1.01,0.998);opacity:0.99;filter:brightness(1.04);}' +
+      '50%{transform:translateX(-3px) scale(1.015,0.995);opacity:0.98;filter:brightness(1.07);}' +
+      '75%{transform:translateX(2px) scale(1.008,1);opacity:0.99;filter:brightness(1.02);}}' +
+      '.cdl-rig .cdl-layer-eye.cdl-eye-alert{animation:cdlEyeAlert 5s cubic-bezier(0.65,0,0.35,1) infinite;}' +
       '@keyframes cdlEyeAlert{' +
       '0%,100%{transform:translateX(0) scale(1.08,1.03);filter:brightness(1.35);opacity:1;}' +
-      '18%{transform:translateX(-9px) scale(1.1,1.04);filter:brightness(1.44);}' +
-      '34%{transform:translateX(-9px) scale(1.1,1.04);filter:brightness(1.44);}' +
-      '54%{transform:translateX(9px) scale(1.1,1.04);filter:brightness(1.44);}' +
-      '70%{transform:translateX(9px) scale(1.1,1.04);filter:brightness(1.44);}' +
-      '86%{transform:translateX(0) scale(1.08,1.03);filter:brightness(1.35);}}' +
-      '.cdl-rig .cdl-layer-eye.cdl-eye-curious{animation:cdlEyeCurious 0.72s cubic-bezier(0.65,0,0.35,1) infinite;}' +
+      '25%{transform:translateX(-3px) scale(1.09,1.035);filter:brightness(1.4);}' +
+      '50%{transform:translateX(0) scale(1.08,1.03);filter:brightness(1.35);}' +
+      '75%{transform:translateX(3px) scale(1.09,1.035);filter:brightness(1.4);}}' +
+      '.cdl-rig .cdl-layer-eye.cdl-eye-curious{animation:cdlEyeCurious 4s cubic-bezier(0.65,0,0.35,1) infinite;}' +
       '@keyframes cdlEyeCurious{' +
       '0%,100%{transform:translateX(0) scale(1.06,1.04);filter:brightness(1.28);opacity:1;}' +
-      '25%{transform:translateX(3px) scale(1.1,1.07);filter:brightness(1.45);}' +
-      '50%{transform:translateX(-2px) scale(1.05,1.03);filter:brightness(1.22);}' +
-      '75%{transform:translateX(4px) scale(1.09,1.06);filter:brightness(1.38);}}' +
-      '.cdl-rig .cdl-layer-eye.cdl-eye-impatient{animation:cdlEyeImpatient 0.5s cubic-bezier(0.65,0,0.35,1) infinite;}' +
+      '35%{transform:translateX(2px) scale(1.09,1.06);filter:brightness(1.4);}' +
+      '70%{transform:translateX(-2px) scale(1.07,1.05);filter:brightness(1.33);}}' +
+      '.cdl-rig .cdl-layer-eye.cdl-eye-impatient{animation:cdlEyeImpatient 4.5s cubic-bezier(0.65,0,0.35,1) infinite;}' +
       '@keyframes cdlEyeImpatient{' +
-      '0%,100%{transform:translateX(-6px) scale(1.08,1.02);filter:brightness(1.5);opacity:1;}' +
-      '25%{transform:translateX(6px) scale(1.1,1.04);filter:brightness(1.72);}' +
-      '50%{transform:translateX(-3px) scale(1.06,1);filter:brightness(1.42);}' +
-      '75%{transform:translateX(5px) scale(1.09,1.03);filter:brightness(1.66);}}' +
+      '0%,100%{transform:translateX(0) scale(1.06,0.95);filter:brightness(1.45);opacity:1;}' +
+      '30%{transform:translateX(-4px) scale(1.07,0.92);filter:brightness(1.55);}' +
+      '60%{transform:translateX(4px) scale(1.07,0.92);filter:brightness(1.55);}}' +
       '.cdl-rig.cdl-locked .cdl-layer-eye{animation:cdlEyeExcite 1.5s cubic-bezier(0.22,1,0.36,1) forwards;}' +
       '@keyframes cdlEyeExcite{' +
       '0%{transform:translateX(0) scale(1,1);filter:brightness(1.2);opacity:1;}' +
@@ -299,6 +293,7 @@
     timers = [];
     waapiAnims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
     waapiAnims = [];
+    blinking = false;
   }
 
   function setEyeState(cls) {
@@ -312,26 +307,33 @@
         if (EYE_BASE[cls]) eyeBase = EYE_BASE[cls];
       }
     }
+    // Slow crossfade so mood shifts feel smooth, never snappy
     try {
       var a = els.eye.animate(
-        [{ opacity: 1 }, { opacity: 0.3, offset: 0.5 }, { opacity: 1 }],
-        { duration: 160, easing: 'cubic-bezier(0.22,1,0.36,1)' }
+        [{ opacity: 1 }, { opacity: 0.45, offset: 0.5 }, { opacity: 1 }],
+        { duration: 320, easing: 'cubic-bezier(0.22,1,0.36,1)' }
       );
       a.onfinish = swap;
-      setTimeout(swap, 220);
+      setTimeout(swap, 380);
     } catch (e) { swap(); }
   }
 
+  var blinking = false;
+
   function blinkEye(duration) {
-    if (RM || !els.eye) return;
+    if (RM || !els.eye || blinking) return;
+    blinking = true;
     try {
-      els.eye.animate([
+      var a = els.eye.animate([
         { transform: eyeBase + ' scaleY(1)', offset: 0 },
         { transform: eyeBase + ' scaleY(0.06)', offset: 0.42 },
         { transform: eyeBase + ' scaleY(0.06)', offset: 0.58 },
         { transform: eyeBase + ' scaleY(1)', offset: 1 }
-      ], { duration: duration || 150, easing: 'ease-in-out' });
-    } catch (e) {}
+      ], { duration: duration || 180, easing: 'ease-in-out' });
+      var done = function () { blinking = false; };
+      a.onfinish = done;
+      setTimeout(done, (duration || 180) + 60);
+    } catch (e) { blinking = false; }
   }
 
   function startBlinkLoop(minMs, maxMs, duration) {
@@ -434,16 +436,17 @@
     requestAnimationFrame(frame);
   }
 
-  /* Expression arc: alert -> curious -> impatient (if loading drags) */
+  /* Expression arc: alert -> curious -> impatient (if loading drags).
+     Slow and deliberate — each mood holds for seconds, never snaps. */
   function startExpressionArc() {
     if (RM) return;
-    later(function () { setEyeState('eye-alert'); }, 60);
-    later(function () { setEyeState('eye-curious'); }, 950);
-    later(function () { setEyeState('eye-alert'); }, 1650);
-    later(function () { setEyeState('eye-impatient'); rigFrustrated(); }, 2200);
-    // Keep her impatient if still loading after 6s — another frustrated pulse
-    later(function () { if (isShowing) rigFrustrated(); }, 6000);
-    later(function () { if (isShowing) rigFrustrated(); }, 10000);
+    later(function () { setEyeState('eye-alert'); }, 800);
+    later(function () { setEyeState('eye-curious'); }, 3400);
+    later(function () { setEyeState('eye-alert'); }, 7000);
+    later(function () { setEyeState('eye-impatient'); rigFrustrated(); }, 11000);
+    // Keep her impatient if still loading after a while — another frustrated pulse
+    later(function () { if (isShowing) rigFrustrated(); }, 18000);
+    later(function () { if (isShowing) rigFrustrated(); }, 26000);
   }
 
   /* ================= Public API ================= */
@@ -481,7 +484,7 @@
 
     // Start her personality
     startExpressionArc();
-    startBlinkLoop(2000, 3200, 150);
+    startBlinkLoop(3200, 5200, 180);
     startTiltLoop();
   }
 
