@@ -92,13 +92,18 @@
 
   /* ================================================================
      BADGE STING — one celebratory moment per new earn.
-     Bottom sheet with the badge art, name and rarity; plays the
-     sting sound (CDSfx 'perfect') and a haptic (CDHaptics), both
-     guarded — pages without sfx.js/haptics.js get the visual only.
-     Earns are queued so back-to-back badges celebrate in sequence.
-     Never throws; never blocks the awarding flow.
+     Rarity-scaled celebrations: common gets a spin-in + particle
+     puff; rare adds glow burst + rotating light rays; legendary
+     opens with Cynetis-7 in proud state (via CDCompanion), then the
+     sting sheet drops in with confetti + vignette flash.
+     Plays the sting sound (CDSfx 'perfect') and a haptic
+     (CDHaptics), both guarded — pages without sfx.js/haptics.js
+     get the visual only. Earns are queued so back-to-back badges
+     celebrate in sequence. Never throws; never blocks the awarding
+     flow.
      ================================================================ */
   var stingQueue = [];
+  var stingActive = false; // true while a legendary Cynetis-7 intro is playing
 
   function stingDefs() { return DEFS; }
 
@@ -125,10 +130,161 @@
     });
   }
 
+  function reduceMotionOn() {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (e) { return false; }
+  }
+
+  /* ---------- Celebration CSS (injected once) ---------- */
+  function injectStingCss() {
+    if (typeof document === 'undefined' || document.getElementById('cdbs-css')) return;
+    var css = [
+      '@keyframes cdbsFade{from{opacity:0}}',
+      '@keyframes cdbsSheetSpring{0%{transform:translateY(60px);opacity:0}100%{transform:translateY(0);opacity:1}}',
+      '@keyframes cdbsFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}',
+      '@keyframes cdbsBadgeSpinIn{0%{opacity:0;transform:rotate(-360deg) scale(0)}100%{opacity:1;transform:rotate(0) scale(1)}}',
+      '@keyframes cdbsBadgeDrop{0%{opacity:0;transform:translateY(-40vh) scale(1)}55%{opacity:1;transform:translateY(0) scale(1.12)}78%{transform:translateY(-18px) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1)}}',
+      '@keyframes cdbsRaysSpin{to{transform:rotate(360deg)}}',
+      '@keyframes cdbsGlowBurst{0%{opacity:0;transform:scale(.4)}35%{opacity:1;transform:scale(1.15)}100%{opacity:0;transform:scale(1.5)}}',
+      '@keyframes cdbsPillPulse{0%,100%{box-shadow:0 0 14px rgba(212,175,55,.35)}50%{box-shadow:0 0 26px rgba(212,175,55,.65)}}',
+      '@keyframes cdbsVigFlash{0%{opacity:0}18%{opacity:1}100%{opacity:0}}',
+      '@keyframes cdbsSheetOut{to{transform:translateY(40px);opacity:0}}',
+      '.cdbs-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.62);opacity:0}',
+      '.cdbs-wrap.cdbs-in .cdbs-backdrop{animation:cdbsFade .3s ease forwards}',
+      '.cdbs-sheet-inner{transform:translateY(60px);opacity:0}',
+      '.cdbs-wrap.cdbs-in .cdbs-sheet-inner{animation:cdbsSheetSpring .55s cubic-bezier(0.34,1.3,0.64,1) forwards}',
+      '.cdbs-kicker,.cdbs-badge-name,.cdbs-badge-desc,.cdbs-pill,.cdbs-buttons{opacity:0}',
+      '.cdbs-wrap.cdbs-in .cdbs-kicker{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .35s forwards}',
+      '.cdbs-wrap.cdbs-in .cdbs-badge-name{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .55s forwards}',
+      '.cdbs-wrap.cdbs-in .cdbs-badge-desc{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .65s forwards}',
+      '.cdbs-wrap.cdbs-in .cdbs-pill{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .75s forwards}',
+      '.cdbs-wrap.cdbs-in .cdbs-pill.cdbs-legendary{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .75s forwards,cdbsPillPulse 2s ease-in-out 1.2s infinite}',
+      '.cdbs-wrap.cdbs-in .cdbs-buttons{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .85s forwards}',
+      '.cdbs-badge-zone{position:relative;width:150px;height:150px;margin:0 auto 14px}',
+      '.cdbs-rays{position:absolute;inset:-46px;border-radius:50%;opacity:0;pointer-events:none;',
+      ' background:repeating-conic-gradient(from 0deg,rgba(141,235,0,.14) 0deg 7deg,transparent 7deg 22deg);',
+      ' -webkit-mask:radial-gradient(circle,#000 0%,transparent 68%);mask:radial-gradient(circle,#000 0%,transparent 68%)}',
+      '.cdbs-wrap[data-rarity="rare"].cdbs-in .cdbs-rays,.cdbs-wrap[data-rarity="legendary"].cdbs-in .cdbs-rays{opacity:1;animation:cdbsRaysSpin 14s linear infinite}',
+      '.cdbs-glow-burst{position:absolute;inset:-30px;border-radius:50%;opacity:0;pointer-events:none;',
+      ' background:radial-gradient(circle,rgba(141,235,0,.55),rgba(141,235,0,0) 65%)}',
+      '.cdbs-wrap[data-rarity="rare"].cdbs-in .cdbs-glow-burst,.cdbs-wrap[data-rarity="legendary"].cdbs-in .cdbs-glow-burst{animation:cdbsGlowBurst .9s cubic-bezier(0.22,1,0.36,1) .15s}',
+      '.cdbs-badge-art{position:absolute;inset:15px;width:120px;height:120px;object-fit:contain;opacity:0}',
+      '.cdbs-wrap[data-rarity="common"].cdbs-in .cdbs-badge-art{animation:cdbsBadgeSpinIn .8s cubic-bezier(0.34,1.3,0.64,1) .2s forwards;filter:drop-shadow(0 6px 22px rgba(141,235,0,.25))}',
+      '.cdbs-wrap[data-rarity="rare"].cdbs-in .cdbs-badge-art{animation:cdbsBadgeSpinIn .9s cubic-bezier(0.34,1.3,0.64,1) .2s forwards;filter:drop-shadow(0 6px 22px rgba(141,235,0,.35))}',
+      '.cdbs-wrap[data-rarity="legendary"].cdbs-in .cdbs-badge-art{animation:cdbsBadgeDrop 1s cubic-bezier(0.22,1,0.36,1) forwards;filter:drop-shadow(0 10px 30px rgba(212,175,55,.5))}',
+      '.cdbs-vignette{position:absolute;inset:0;pointer-events:none;opacity:0;',
+      ' background:radial-gradient(ellipse at center,transparent 55%,rgba(141,235,0,.28) 100%)}',
+      '.cdbs-vignette.cdbs-flash{animation:cdbsVigFlash 1.6s cubic-bezier(0.22,1,0.36,1)}',
+      '.cdbs-wrap.cdbs-out .cdbs-backdrop{animation:cdbsFade .25s ease reverse forwards}',
+      '.cdbs-wrap.cdbs-out .cdbs-sheet-inner{animation:cdbsSheetOut .25s ease forwards}',
+      '@media (prefers-reduced-motion: reduce){',
+      ' .cdbs-wrap.cdbs-in .cdbs-backdrop{animation:cdbsFade .25s ease forwards}',
+      ' .cdbs-wrap.cdbs-in .cdbs-sheet-inner{animation:cdbsSheetSpring .3s ease forwards}',
+      ' .cdbs-wrap.cdbs-in .cdbs-kicker,.cdbs-wrap.cdbs-in .cdbs-badge-name,.cdbs-wrap.cdbs-in .cdbs-badge-desc,.cdbs-wrap.cdbs-in .cdbs-pill,.cdbs-wrap.cdbs-in .cdbs-buttons{animation:cdbsFade .3s ease .1s forwards}',
+      ' .cdbs-wrap.cdbs-in .cdbs-badge-art{animation:cdbsFade .3s ease .1s forwards !important;filter:none}',
+      ' .cdbs-rays,.cdbs-glow-burst,.cdbs-vignette{display:none !important}',
+      '}'
+    ].join('\n');
+    var el = document.createElement('style');
+    el.id = 'cdbs-css';
+    el.textContent = css;
+    document.head.appendChild(el);
+  }
+
+  /* ---------- Canvas particle engine (lazy-init, reused) ---------- */
+  var FX_GREENS = ['#8deb00', '#b6ff45', '#ffffff'];
+  var FX_GOLDS = ['#8deb00', '#ffffff', '#d4af37', '#f5d76e'];
+  var fxCv = null, fxCtx = null, fxParts = [], fxRaf = null;
+
+  function fxInit() {
+    if (fxCv || typeof document === 'undefined') return;
+    try {
+      fxCv = document.createElement('canvas');
+      fxCv.id = 'cdbs-fx';
+      fxCv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:99995;';
+      document.body.appendChild(fxCv);
+      fxCtx = fxCv.getContext('2d');
+      var size = function () {
+        var dpr = window.devicePixelRatio || 1;
+        fxCv.width = window.innerWidth * dpr;
+        fxCv.height = window.innerHeight * dpr;
+        fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      };
+      size();
+      window.addEventListener('resize', size);
+    } catch (e) { fxCv = null; }
+  }
+
+  function fxSpawn(x, y, n, colors, confetti) {
+    if (!fxCv || reduceMotionOn()) return;
+    fxInit();
+    if (!fxCtx) return;
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var sp = confetti ? 3 + Math.random() * 7 : 2 + Math.random() * 5;
+      fxParts.push({
+        x: x, y: y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - (confetti ? 3 : 1.5),
+        life: 1, decay: 0.008 + Math.random() * 0.012,
+        size: confetti ? 4 + Math.random() * 6 : 2 + Math.random() * 4,
+        color: colors[(Math.random() * colors.length) | 0],
+        confetti: confetti,
+        rot: Math.random() * Math.PI * 2,
+        vr: (Math.random() - 0.5) * 0.3,
+        grav: confetti ? 0.14 : 0.06
+      });
+    }
+    if (!fxRaf) fxTick();
+  }
+
+  function fxTick() {
+    if (!fxCtx) { fxRaf = null; return; }
+    fxCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    fxParts = fxParts.filter(function (p) { return p.life > 0; });
+    for (var i = 0; i < fxParts.length; i++) {
+      var p = fxParts[i];
+      p.vy += p.grav; p.vx *= 0.985; p.vy *= 0.99;
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life -= p.decay;
+      fxCtx.save();
+      fxCtx.globalAlpha = Math.max(p.life, 0);
+      if (p.confetti) {
+        fxCtx.translate(p.x, p.y); fxCtx.rotate(p.rot);
+        fxCtx.fillStyle = p.color;
+        fxCtx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+      } else {
+        fxCtx.fillStyle = p.color;
+        fxCtx.beginPath();
+        fxCtx.arc(p.x, p.y, Math.max(p.size * p.life, 0.01), 0, 7);
+        fxCtx.fill();
+      }
+      fxCtx.restore();
+    }
+    if (fxParts.length) {
+      fxRaf = requestAnimationFrame(fxTick);
+    } else {
+      fxCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      fxRaf = null;
+    }
+  }
+
+  function badgeZoneCenter() {
+    try {
+      var el = document.querySelector('#cd-badge-sting .cdbs-badge-zone') ||
+               document.querySelector('.cdbs-wrap .cdbs-badge-zone');
+      if (!el) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      var r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    } catch (e) {
+      return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    }
+  }
+
   function queueSting(badgeId) {
     if (typeof document === 'undefined') return;
     try {
-      if (document.getElementById('cd-badge-sting') || stingQueue.length) {
+      if (stingActive || document.getElementById('cd-badge-sting') || stingQueue.length) {
         if (stingQueue.indexOf(badgeId) === -1) stingQueue.push(badgeId);
         return;
       }
@@ -138,8 +294,9 @@
 
   function nextSting() {
     try {
+      stingActive = false;
       if (stingQueue.length) showSting(stingQueue.shift());
-    } catch (e) {}
+    } catch (e) { stingActive = false; }
   }
 
   function showSting(badgeId) {
@@ -147,62 +304,116 @@
     if (!d) { nextSting(); return; }
     try {
       if (document.getElementById('cd-badge-sting')) { queueSting(badgeId); return; }
-      var reduceMotion = false;
-      try {
-        reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      } catch (e) {}
+      var rarity = d.rarity || 'common';
+
+      // Legendary: Cynetis-7 in proud state first, then the sheet.
+      // CDCompanion.celebrate() resolves after her moment + the 300ms beat.
+      if (rarity === 'legendary' && !reduceMotionOn() &&
+          window.CDCompanion && typeof window.CDCompanion.celebrate === 'function') {
+        stingActive = true;
+        try {
+          window.CDCompanion.celebrate({ xp: 0, context: 'badge', milestone: true }).then(function () {
+            showStingSheet(badgeId);
+          }, function () {
+            showStingSheet(badgeId);
+          });
+          return;
+        } catch (e) {
+          stingActive = false;
+          /* fall through to direct sheet */
+        }
+      }
+      showStingSheet(badgeId);
+    } catch (e) {
+      stingActive = false;
+      nextSting();
+    }
+  }
+
+  function showStingSheet(badgeId) {
+    var d = stingDefs()[badgeId];
+    if (!d) { nextSting(); return; }
+    try {
+      if (document.getElementById('cd-badge-sting')) { queueSting(badgeId); return; }
+      var rm = reduceMotionOn();
+      injectStingCss();
+      if (!rm) fxInit();
 
       var GREEN = '#8DEB00';
       var GREEN_SOFT = '#B6FF45';
+      var GOLD = '#d4af37';
       var rarity = d.rarity || 'common';
-      var accent = rarity === 'legendary' ? GREEN_SOFT : (rarity === 'rare' ? GREEN : '#999');
+      var accent = rarity === 'legendary' ? GOLD : (rarity === 'rare' ? GREEN : '#999');
       var isGear = badgeId.indexOf('gear-') === 0 || badgeId.indexOf('glass-') === 0;
-      var kicker = isGear ? 'GEAR ACQUIRED' : 'BADGE EARNED';
+      var kicker = rarity === 'legendary' ? 'LEGENDARY EARNED' : (isGear ? 'GEAR ACQUIRED' : 'BADGE EARNED');
       var shareable = !!(d.art && window.CDGearShare && typeof window.CDGearShare.card === 'function');
 
-      var artHtml = d.art
-        ? '<img src="' + d.art + '" alt="" style="width:96px;height:96px;object-fit:contain;">'
-        : (d.icon
-            ? '<div style="font-size:52px;line-height:96px;color:' + accent + ';"><i class="fa ' + escapeHtml(d.icon) + '"></i></div>'
-            : '<div style="font-size:52px;line-height:96px;">' + (d.emoji || '🏅') + '</div>');
+      var artHtml;
+      if (d.art) {
+        artHtml = '<img class="cdbs-badge-art" src="' + d.art + '" alt="">';
+      } else if (d.icon) {
+        artHtml = '<div class="cdbs-badge-art" style="font-size:52px;line-height:120px;color:' + accent + ';text-align:center;"><i class="fa ' + escapeHtml(d.icon) + '"></i></div>';
+      } else {
+        artHtml = '<div class="cdbs-badge-art" style="font-size:52px;line-height:120px;text-align:center;">' + escapeHtml(d.emoji || '') + '</div>';
+      }
 
-      var rarityHtml = d.rarity
-        ? '<div style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:2px;color:' + accent +
-          ';border:1px solid ' + accent + ';border-radius:20px;padding:5px 14px;margin-bottom:16px;">' +
+      var pillHtml = d.rarity
+        ? '<div class="cdbs-pill cdbs-' + escapeHtml(rarity) + '" style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:2px;color:' + accent +
+          ';border:1px solid ' + accent + ';border-radius:20px;padding:5px 14px;margin-bottom:18px;">' +
           escapeHtml(rarity.toUpperCase()) + '</div>'
-        : '<div style="margin-bottom:16px;"></div>';
+        : '<div style="margin-bottom:18px;"></div>';
 
       var buttonsHtml = shareable
-        ? '<div style="display:flex;gap:10px;">' +
+        ? '<div class="cdbs-buttons" style="display:flex;gap:10px;">' +
           '<button type="button" id="cdStingShareBtn" style="flex:1;padding:14px;border:none;border-radius:12px;background:' + GREEN + ';color:#000;font-weight:800;font-size:15px;cursor:pointer;">Share</button>' +
           '<button type="button" id="cdStingDismissBtn" style="flex:1;padding:14px;border:1px solid #2a2a2a;border-radius:12px;background:transparent;color:#bbb;font-weight:700;font-size:15px;cursor:pointer;">Not now</button>' +
           '</div>'
-        : '<button type="button" id="cdStingDismissBtn" style="width:100%;padding:14px;border:none;border-radius:12px;background:' + GREEN + ';color:#000;font-weight:800;font-size:15px;cursor:pointer;">Keep going</button>';
+        : '<div class="cdbs-buttons"><button type="button" id="cdStingDismissBtn" style="width:100%;padding:14px;border:none;border-radius:12px;background:' + GREEN + ';color:#000;font-weight:800;font-size:15px;cursor:pointer;">Keep going</button></div>';
 
       var wrap = document.createElement('div');
       wrap.id = 'cd-badge-sting';
+      wrap.className = 'cdbs-wrap';
+      wrap.setAttribute('data-rarity', rarity);
       wrap.setAttribute('role', 'dialog');
       wrap.setAttribute('aria-label', kicker);
-      wrap.style.cssText = 'position:fixed;inset:0;z-index:99990;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.6);' +
-        (reduceMotion ? '' : 'animation:cdStingFade .25s ease;');
+      wrap.style.cssText = 'position:fixed;inset:0;z-index:99990;display:flex;align-items:flex-end;justify-content:center;';
 
       wrap.innerHTML =
-        '<div style="width:100%;max-width:520px;background:#0c0c0c;border:1px solid #1e1e1e;border-bottom:none;border-radius:20px 20px 0 0;padding:24px 24px calc(24px + env(safe-area-inset-bottom));text-align:center;' +
-        (reduceMotion ? '' : 'animation:cdStingUp .3s ease;') + '">' +
-          '<div style="font-size:11px;letter-spacing:3px;color:' + GREEN + ';font-weight:700;margin-bottom:12px;">' + kicker + '</div>' +
-          '<div style="margin-bottom:12px;">' + artHtml + '</div>' +
-          '<div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;">' + escapeHtml(d.name || badgeId) + '</div>' +
-          '<div style="font-size:13px;color:#888;margin-bottom:12px;">' + escapeHtml(d.desc || '') + '</div>' +
-          rarityHtml +
-          buttonsHtml +
+        '<div class="cdbs-backdrop"></div>' +
+        '<div class="cdbs-sheet" style="position:relative;width:100%;display:flex;justify-content:center;pointer-events:none;">' +
+          '<div class="cdbs-sheet-inner" style="pointer-events:auto;width:100%;max-width:520px;background:#0c0c0c;border:1px solid #1e1e1e;border-bottom:none;border-radius:20px 20px 0 0;padding:28px 24px calc(24px + env(safe-area-inset-bottom));text-align:center;">' +
+            '<div class="cdbs-kicker" style="font-size:11px;letter-spacing:3px;color:' + GREEN + ';font-weight:700;margin-bottom:14px;">' + kicker + '</div>' +
+            '<div class="cdbs-badge-zone">' +
+              '<div class="cdbs-rays"></div>' +
+              '<div class="cdbs-glow-burst"></div>' +
+              artHtml +
+            '</div>' +
+            '<div class="cdbs-badge-name" style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;">' + escapeHtml(d.name || badgeId) + '</div>' +
+            '<div class="cdbs-badge-desc" style="font-size:13px;color:#888;margin-bottom:12px;">' + escapeHtml(d.desc || '') + '</div>' +
+            pillHtml +
+            buttonsHtml +
+          '</div>' +
         '</div>' +
-        '<style>@keyframes cdStingFade{from{opacity:0}}@keyframes cdStingUp{from{transform:translateY(40px);opacity:0}}</style>';
+        '<div class="cdbs-vignette"></div>';
 
+      var closed = false;
       function close() {
-        try { wrap.remove(); } catch (e) {}
+        if (closed) return;
+        closed = true;
+        // Drop the id immediately so the queued next sting doesn't see a stale element
+        try { wrap.removeAttribute('id'); } catch (e) {}
+        try {
+          if (rm) {
+            wrap.remove();
+          } else {
+            wrap.classList.remove('cdbs-in');
+            wrap.classList.add('cdbs-out');
+            setTimeout(function () { try { wrap.remove(); } catch (e) {} }, 260);
+          }
+        } catch (e) {}
         nextSting();
       }
-      wrap.addEventListener('click', function (ev) { if (ev.target === wrap) close(); });
+      wrap.addEventListener('click', function (ev) { if (ev.target === wrap || ev.target.classList.contains('cdbs-backdrop')) close(); });
       var dismissBtn = wrap.querySelector('#cdStingDismissBtn');
       if (dismissBtn) dismissBtn.addEventListener('click', close);
       var shareBtn = wrap.querySelector('#cdStingShareBtn');
@@ -211,8 +422,32 @@
         try { window.CDGearShare.card(badgeId); } catch (e) {}
       });
       document.body.appendChild(wrap);
+      // Trigger entrance animations on the next frame
+      requestAnimationFrame(function () {
+        try { wrap.classList.add('cdbs-in'); } catch (e) {}
+      });
       playStingFeedback(rarity);
+
+      // Rarity-scaled particle celebrations, timed to the badge entrance
+      if (!rm) {
+        var colors = rarity === 'legendary' ? FX_GOLDS : FX_GREENS;
+        if (rarity === 'common') {
+          setTimeout(function () { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 12, colors, false); }, 450);
+        } else if (rarity === 'rare') {
+          setTimeout(function () { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 24, colors, false); }, 500);
+        } else if (rarity === 'legendary') {
+          setTimeout(function () {
+            var c = badgeZoneCenter();
+            fxSpawn(c.x, c.y, 46, colors, true);
+            try {
+              var v = wrap.querySelector('.cdbs-vignette');
+              if (v) v.classList.add('cdbs-flash');
+            } catch (e) {}
+          }, 700);
+        }
+      }
     } catch (e) {
+      stingActive = false;
       nextSting();
     }
   }
