@@ -52,27 +52,211 @@ def _chicago_ymd():
     return chicago.strftime("%Y-%m-%d")
 
 
-def _make_seed_image(username):
-    """Download a real photo of hands at work for Arena seeding.
+"""
+Theme-aware Arena seed photo system
+=====================================
+The QA script submits one seed entry per QA account per Arena round so
+visitors always see example photos. Seeds must be REAL photographs that
+match the day's challenge theme (user rule: no AI/generated illustrations,
+no randoms — entries must be relevant to the challenge).
 
-    Returns (base64_jpeg, width, height). Each account gets a different
-    hands-at-work photo matching today's challenge theme.
+How it works:
+  1. action_arena_submit reads the round's prompt text (brief/text/title)
+     from Firestore via the page's own Firebase.
+  2. _match_theme() scans the prompt for keywords and returns a theme key.
+  3. _make_seed_image(username, theme) picks a deterministic photo from
+     SEED_PHOTO_LIBRARY[theme] (per-account via md5, so the 4 accounts
+     get 4 different photos), downloads it, and returns base64 JPEG.
+
+How to add a new theme in the future:
+  1. Add a key to SEED_PHOTO_LIBRARY with 4 direct image URLs.
+     - URLs must be DIRECT image links (not page URLs).
+     - Verify each with: curl -sI -A 'Mozilla/5.0' <url>
+       (expect HTTP 200 + content-type image/*).
+     - Prefer Pexels (images.pexels.com), Unsplash (images.unsplash.com),
+       Wikimedia Commons. Avoid hotlink-protected hosts.
+  2. Add a matching key to THEME_KEYWORDS with a list of lowercase
+     substrings to look for in the challenge prompt.
+  3. Place more specific themes EARLIER in THEME_KEYWORDS — matching
+     stops at the first hit, so "golden hour" must come before "portrait"
+     or "nature" to win on prompts like "Golden Hour Portrait".
+"""
+
+# ---------------------------------------------------------------------------
+# Seed photo library: theme -> 4 direct image URLs (all verified 200/image/*)
+# ---------------------------------------------------------------------------
+SEED_PHOTO_LIBRARY = {
+    "hands": [
+        # carpenter hands with chisel
+        "https://www.woodennickelmt.com/wp-content/uploads/sites/479/2024/03/Carpenter-hands-working-with-a-chisel-and-carving-tools-488603598.jpg",
+        # woodcarver hands (pexels)
+        "https://images.pexels.com/photos/18709054/pexels-photo-18709054/free-photo-of-ferfi-kezek-dolgozo-kezmuves.jpeg?w=600",
+        # potter hands on wheel
+        "https://bunnyears.com/wp-content/uploads/2018/03/pottery-2784562_1920.jpg",
+        # chef hands preparing vegetables
+        "https://static.vecteezy.com/system/resources/thumbnails/078/773/747/small/a-chef-prepares-food-from-fresh-vegetables-in-the-kitchen-lettuce-salad-prepared-by-the-cook-hands-vegetarian-cuisine-photo.jpg",
+    ],
+    "texture": [
+        # weathered wood grain close-up
+        "https://static.vecteezy.com/system/resources/thumbnails/081/332/010/small/stunning-wood-grain-textures-detailed-closeup-of-ancient-weathered-and-intricately-swirled-wooden-surface-reveals-natural-beauty-and-complex-patterns-perfect-for-backgrounds-and-design-inspiration-photo.jpg",
+        # old wood plank with knot
+        "https://static.vecteezy.com/system/resources/thumbnails/071/482/034/small/detailed-texture-of-an-old-weathered-wood-plank-with-a-natural-knot-photo.jpeg",
+        # weathered wooden planks
+        "https://static.vecteezy.com/system/resources/thumbnails/053/200/726/small/detailed-texture-of-weathered-wooden-planks-in-natural-tones-photo.jpeg",
+        # concrete/graffiti texture (pexels)
+        "https://images.pexels.com/photos/14070662/pexels-photo-14070662.jpeg?cs=srgb&dl=pexels-krakograff-textures-124842124-14070662.jpg&fm=jpg",
+    ],
+    "street": [
+        # city street (pexels)
+        "https://images.pexels.com/photos/378570/pexels-photo-378570.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+        "https://images.pexels.com/photos/1786768/pexels-photo-1786768.jpeg?auto=compress&cs=tinysrgb&w=600&loading=lazy",
+        "https://images.pexels.com/photos/2056735/pexels-photo-2056735.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+        "https://images.pexels.com/photos/12206301/pexels-photo-12206301.jpeg?auto=compress&cs=tinysrgb&w=1920",
+    ],
+    "portrait": [
+        # natural-light portraits (pexels)
+        "https://images.pexels.com/photos/10029667/pexels-photo-10029667.jpeg?w=600",
+        "https://images.pexels.com/photos/1902643/pexels-photo-1902643.jpeg?cs=srgb&dl=fashion-portrait-portrait-photography-1902643.jpg&fm=jpg",
+        "https://images.pexels.com/photos/9031636/pexels-photo-9031636.jpeg?w=600",
+        "https://images.pexels.com/photos/18367877/pexels-photo-18367877.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    ],
+    "nature": [
+        # landscapes (pexels)
+        "https://images.pexels.com/photos/16918439/pexels-photo-16918439.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+        "https://images.pexels.com/photos/2932022/pexels-photo-2932022.jpeg?auto=compress&cs=tinysrgb&dpr=2&w=500",
+        "https://images.pexels.com/photos/618833/pexels-photo-618833.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "https://images.pexels.com/photos/18615707/pexels-photo-18615707.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    ],
+    "architecture": [
+        # buildings (pexels)
+        "https://images.pexels.com/photos/14491729/pexels-photo-14491729.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "https://images.pexels.com/photos/6734236/pexels-photo-6734236.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500",
+        "https://images.pexels.com/photos/934350/pexels-photo-934350.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500",
+        "https://images.pexels.com/photos/7017222/pexels-photo-7017222.jpeg?cs=tinysrgb&dpr=1&w=500",
+    ],
+    "food": [
+        # food photography (pexels)
+        "https://images.pexels.com/photos/9031942/pexels-photo-9031942.jpeg?auto=compress&cs=tinysrgb&w=600&loading=lazy",
+        "https://images.pexels.com/photos/6262224/pexels-photo-6262224.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "https://images.pexels.com/photos/7218637/pexels-photo-7218637.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500",
+        "https://images.pexels.com/photos/3551658/pexels-photo-3551658.jpeg?auto=compress&cs=tinysrgb&w=300",
+    ],
+    "animals": [
+        # wildlife (pexels)
+        "https://images.pexels.com/photos/792381/pexels-photo-792381.jpeg?auto=compress&cs=tinysrgb&w=1400",
+        "https://images.pexels.com/photos/35369625/pexels-photo-35369625.jpeg?auto=compress&cs=tinysrgb&w=600&loading=lazy",
+        "https://images.pexels.com/photos/12376936/pexels-photo-12376936.jpeg?auto=compress&cs=tinysrgb&w=750",
+        "https://images.pexels.com/photos/25960853/pexels-photo-25960853.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    ],
+    "golden_hour": [
+        # backlit / sunset portraits (pexels)
+        "https://images.pexels.com/photos/4780696/pexels-photo-4780696.jpeg?w=1260&h=750&dpr=1",
+        "https://images.pexels.com/photos/13023091/pexels-photo-13023091.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "https://images.pexels.com/photos/7431448/pexels-photo-7431448.jpeg?auto=compress&cs=tinysrgb&w=600&loading=lazy",
+        "https://images.pexels.com/photos/17731973/pexels-photo-17731973/free-photo-of-a-woman-with-her-hair-blowing-in-the-wind-at-sunset.jpeg?auto=compress&cs=tinysrgb&w=600",
+    ],
+    "night": [
+        # neon / night city (pexels)
+        "https://images.pexels.com/photos/28283544/pexels-photo-28283544/free-photo-of-neon-vej.jpeg?auto=compress&w=800",
+        "https://images.pexels.com/photos/10952174/pexels-photo-10952174.jpeg?w=1260&h=750&dpr=1",
+        "https://images.pexels.com/photos/2337920/pexels-photo-2337920.jpeg?auto=compress&cs=tinysrgb&h=627&fit=crop&w=1200",
+        "https://images.pexels.com/photos/17089483/pexels-photo-17089483.jpeg?w=600",
+    ],
+    "macro": [
+        # close-up details (pexels)
+        "https://images.pexels.com/photos/2471457/pexels-photo-2471457.jpeg?auto=compress&cs=tinysrgb&w=750",
+        "https://images.pexels.com/photos/31078012/pexels-photo-31078012.jpeg?w=600",
+        "https://images.pexels.com/photos/24988684/pexels-photo-24988684.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500",
+        "https://images.pexels.com/photos/11047652/pexels-photo-11047652.jpeg?auto=compress&cs=tinysrgb&w=1600&lazy=load",
+    ],
+    "motion": [
+        # action / movement (pexels)
+        "https://images.pexels.com/photos/4632094/pexels-photo-4632094.jpeg?auto=compress&cs=tinysrgb&dpr=2&w=500",
+        "https://images.pexels.com/photos/6460486/pexels-photo-6460486.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+        "https://images.pexels.com/photos/6460520/pexels-photo-6460520.jpeg?auto=compress&cs=tinysrgb&w=600",
+        "https://images.pexels.com/photos/6460525/pexels-photo-6460525.jpeg?auto=compress&cs=tinysrgb&w=600",
+    ],
+    # Fallback when no theme matches: one strong photo from 4 different
+    # themes so the 4 accounts still get visual variety.
+    "default": [
+        "https://images.pexels.com/photos/378570/pexels-photo-378570.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+        "https://images.pexels.com/photos/16918439/pexels-photo-16918439.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+        "https://images.pexels.com/photos/10029667/pexels-photo-10029667.jpeg?w=600",
+        "https://images.pexels.com/photos/792381/pexels-photo-792381.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    ],
+}
+
+# ---------------------------------------------------------------------------
+# Theme keywords: matched against the round's prompt text (lowercased).
+# ORDER MATTERS — first match wins, so specific themes go before general
+# ones (e.g. "golden hour" beats "portrait" on "Golden Hour Portrait").
+# ---------------------------------------------------------------------------
+THEME_KEYWORDS = {
+    "hands": ["hand", "hands", "finger", "fingers", "palm", "grip",
+              "craft", "artisan", "maker"],
+    "golden_hour": ["golden hour", "sunset", "sunrise", "dusk", "dawn",
+                    "backlit", "rim light", "rim-light", "warm light",
+                    "evening light", "low sun"],
+    "night": ["night", "after dark", "neon", "long exposure", "stars",
+              "astrophotography", "milky way", "city lights", "nocturne"],
+    "macro": ["macro", "close-up", "closeup", "close up", "tiny",
+              "insect", "dew", "petal", "small details"],
+    "motion": ["motion", "movement", "action", "blur", "speed", "dance",
+               "dancer", "sports", "running", "freeze", "panning"],
+    "texture": ["texture", "surface", "pattern", "grain", "rough",
+                "smooth", "bark", "stone", "wall texture", "abstract detail"],
+    "street": ["street", "urban", "city", "downtown", "sidewalk",
+               "candid", "stranger", "metropolis", "alley"],
+    "portrait": ["portrait", "face", "person", "people", "human",
+                 "model", "eyes", "expression", "self-portrait"],
+    "nature": ["nature", "landscape", "mountain", "forest", "tree",
+               "lake", "river", "meadow", "wilderness", "outdoors",
+               "seascape", "desert"],
+    "architecture": ["architecture", "building", "buildings", "structure",
+                     "facade", "skyscraper", "bridge", "geometric",
+                     "interior"],
+    "food": ["food", "meal", "dish", "cooking", "kitchen", "restaurant",
+             "recipe", "culinary", "eat", "chef"],
+    "animals": ["animal", "animals", "wildlife", "pet", "dog", "cat",
+                "bird", "creature", "horse", "safari"],
+}
+
+
+def _match_theme(prompt_text):
+    """Return the theme key best matching the challenge prompt.
+
+    Scans THEME_KEYWORDS in order; first theme with any keyword found
+    (case-insensitive substring) wins. Returns "default" for empty
+    prompts or no match — never raises.
+    """
+    if not prompt_text:
+        return "default"
+    text = prompt_text.lower()
+    for theme, keywords in THEME_KEYWORDS.items():
+        if any(kw in text for kw in keywords):
+            return theme
+    return "default"
+
+
+def _make_seed_image(username, theme="default"):
+    """Download a real photo matching the challenge theme for Arena seeding.
+
+    Returns (base64_jpeg, width, height). The photo is picked
+    deterministically per account (md5 of username) so the 4 QA accounts
+    get 4 different photos from the theme's list. Falls back to the
+    "default" set for unknown themes.
     """
     import base64
     import hashlib
     import urllib.request
 
-    # Real CC0/free photos of hands at work (today's challenge theme)
-    PHOTOS = [
-        "https://www.woodennickelmt.com/wp-content/uploads/sites/479/2024/03/Carpenter-hands-working-with-a-chisel-and-carving-tools-488603598.jpg",
-        "https://images.pexels.com/photos/18709054/pexels-photo-18709054/free-photo-of-ferfi-kezek-dolgozo-kezmuves.jpeg?w=600",
-        "https://bunnyears.com/wp-content/uploads/2018/03/pottery-2784562_1920.jpg",
-        "https://static.vecteezy.com/system/resources/thumbnails/078/773/747/small/a-chef-prepares-food-from-fresh-vegetables-in-the-kitchen-lettuce-salad-prepared-by-the-cook-hands-vegetarian-cuisine-photo.jpg",
-    ]
+    photos = SEED_PHOTO_LIBRARY.get(theme) or SEED_PHOTO_LIBRARY["default"]
 
-    # Deterministic pick per account
-    h = int(hashlib.md5(username.encode()).hexdigest(), 16)
-    url = PHOTOS[h % len(PHOTOS)]
+    # Deterministic pick per account+theme for variety: the same account
+    # gets a different photo when the theme changes, and accounts spread
+    # across the theme's photos.
+    h = int(hashlib.md5((username + "|" + theme).encode()).hexdigest(), 16)
+    url = photos[h % len(photos)]
 
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=30) as resp:
@@ -128,9 +312,10 @@ def action_arena_submit(page, collector, account):
                         } catch(delErr) {}
                     }
                     var lane = rd.lane || 'daily';
+                    var prompt = rd.brief || rd.text || rd.title || '';
                     return { ok: true, uid: user.uid,
                              name: (window.USER && window.USER.name) || 'Operator',
-                             lane: lane };
+                             lane: lane, prompt: prompt };
                 } catch (e) {
                     return { ok: false, reason: 'check failed: ' + (e.message || e) };
                 }
@@ -145,8 +330,10 @@ def action_arena_submit(page, collector, account):
         author_name = state["name"]
         lane = state["lane"]
 
-        # Generate seed image
-        img_b64, _, _ = _make_seed_image(username)
+        # Match the challenge theme and pick a relevant seed photo
+        theme = _match_theme(state.get("prompt", ""))
+        log(f"{username}: arena_submit theme={theme}")
+        img_b64, _, _ = _make_seed_image(username, theme)
 
         # Upload to imgbb via the page (uses its configured API key),
         # then write the entry docs via window.db — mirroring submitEntry().
