@@ -244,12 +244,15 @@
     <span class="tbfallback" style="display:none"><b>Exposure</b> Lab</span>
   </div>
   <button class="tb-btn" id="btnReset">Reset</button>
+  <button class="tb-btn" id="btnImport" aria-label="Import photo">Import</button>
+  <button class="tb-btn" id="btnExport" aria-label="Export image">Export</button>
   <button class="tb-btn accent" id="btnDevelop" aria-label="Develop this shot">Develop this shot</button>
 </div>
 
 <!-- ============ SCENE ============ -->
 <div class="scene-zone">
   <canvas id="sceneCanvas"></canvas>
+  <input type="file" id="importInput" accept="image/*" class="hidden">
   <div class="scene-chips" id="sceneChips"></div>
 </div>
 
@@ -502,6 +505,7 @@
 
   /* ================= SCENE RENDERING ================= */
   var cv = $('sceneCanvas');
+  var userPhoto = null; // imported photo replaces procedural scene
   var ctx = cv.getContext('2d');
   var bgCv = document.createElement('canvas'), bgCtx = bgCv.getContext('2d');
   var fgCv = document.createElement('canvas'), fgCtx = fgCv.getContext('2d');
@@ -673,7 +677,7 @@
     wc.clearRect(0, 0, W, H);
     wc.save();
     wc.filter = bgBlur > 0.4 ? 'blur(' + bgBlur.toFixed(1) + 'px)' : 'none';
-    wc.drawImage(bgCv, 0, 0);
+    if (userPhoto) { wc.drawImage(userPhoto, 0, 0); } else { wc.drawImage(bgCv, 0, 0); }
     wc.restore();
 
     var birdY = H * 0.42;
@@ -810,6 +814,38 @@
     } catch (e) {}
     location.href = '/darkroom-lab.html?handoff=1';
   }
+  function exportShot() {
+    try {
+      var a = document.createElement('a');
+      a.href = cv.toDataURL('image/png');
+      a.download = 'exposure-lab-shot.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {}
+  }
+  $('btnImport').addEventListener('click', function() { $('importInput').click(); });
+  $('importInput').addEventListener('change', function() {
+    var f = this.files[0];
+    if (!f) return;
+    var url = URL.createObjectURL(f);
+    var img = new Image();
+    img.onload = function() {
+      // Scale to canvas size, cover
+      var pc = document.createElement('canvas');
+      pc.width = W; pc.height = H;
+      var pctx = pc.getContext('2d');
+      var s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      var dw = img.naturalWidth * s, dh = img.naturalHeight * s;
+      pctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      userPhoto = pc;
+      URL.revokeObjectURL(url);
+      render();
+    };
+    img.src = url;
+    this.value = '';
+  });
+  $('btnExport').addEventListener('click', exportShot);
   $('btnDevelop').addEventListener('click', developThisShot);
   $('btnDevelop2').addEventListener('click', developThisShot);
 
