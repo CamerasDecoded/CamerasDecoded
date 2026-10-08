@@ -53,71 +53,24 @@ def _chicago_ymd():
 
 
 def _make_seed_image(username):
-    """Generate a simple placeholder photo for Arena seeding.
+    """Download a real CC0 photo for Arena seeding.
 
     Returns (base64_jpeg, width, height). Varied per account so the
     4 seed entries don't look identical.
     """
     import base64
     import hashlib
-    import io
-    from PIL import Image, ImageDraw
+    import urllib.request
 
-    # Deterministic but varied palette per account
-    h = int(hashlib.md5(username.encode()).hexdigest(), 16)
-    palettes = [
-        ((12, 12, 18), (141, 235, 0)),    # dark + neon green
-        ((18, 10, 24), (255, 120, 60)),   # dark purple + orange
-        ((8, 18, 28), (80, 180, 255)),    # dark blue + sky
-        ((24, 14, 10), (255, 200, 80)),   # dark warm + gold
-    ]
-    bg, accent = palettes[h % len(palettes)]
+    # Deterministic seed per account for variety (real photos from Picsum)
+    h = hashlib.md5(username.encode()).hexdigest()[:8]
+    url = f"https://picsum.photos/seed/{h}/800/1000"
 
-    W, H = 800, 1000  # portrait, phone-friendly
-    img = Image.new("RGB", (W, H), bg)
-    d = ImageDraw.Draw(img)
+    with urllib.request.urlopen(url, timeout=30) as resp:
+        data = resp.read()
 
-    # Gradient sky bands
-    for i in range(12):
-        y0 = int(H * 0.05 + i * H * 0.045)
-        y1 = int(y0 + H * 0.045)
-        f = i / 11
-        r = int(bg[0] + (accent[0] - bg[0]) * f * 0.55)
-        g = int(bg[1] + (accent[1] - bg[1]) * f * 0.55)
-        b = int(bg[2] + (accent[2] - bg[2]) * f * 0.55)
-        d.rectangle([0, y0, W, y1], fill=(r, g, b))
-
-    # Mountain silhouettes
-    import random
-    rng = random.Random(h)
-    for layer in range(3):
-        base_y = int(H * (0.45 + layer * 0.12))
-        pts = [(0, H)]
-        x = 0
-        while x < W:
-            peak_x = x + rng.randint(60, 160)
-            peak_y = base_y - rng.randint(40, 160 - layer * 30)
-            pts.append((peak_x, peak_y))
-            x = peak_x + rng.randint(40, 100)
-        pts.append((W, H))
-        shade = max(8, 30 - layer * 8)
-        d.polygon(pts, fill=(shade, shade, shade + 6))
-
-    # Sun/moon dot
-    sx, sy = W // 2 + rng.randint(-100, 100), int(H * 0.28)
-    for rad, alpha in ((70, 40), (45, 90), (28, 255)):
-        d.ellipse([sx - rad, sy - rad, sx + rad, sy + rad],
-                  fill=(*accent[:3],) if alpha == 255 else None,
-                  outline=accent, width=2)
-
-    # Subtle label
-    d.text((20, H - 40), "Cameras Decoded · seed entry",
-           fill=(120, 120, 130))
-
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=82)
-    b64 = base64.b64encode(buf.getvalue()).decode()
-    return b64, W, H
+    b64 = base64.b64encode(data).decode()
+    return b64, 800, 1000
 
 
 def action_arena_submit(page, collector, account):
