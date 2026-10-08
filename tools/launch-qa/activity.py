@@ -121,7 +121,11 @@ def action_arena_submit(page, collector, account):
                     var entrySnap = await window.db.collection('arenaRounds')
                         .doc(roundId).collection('entries').doc(user.uid).get();
                     if (entrySnap.exists) {
-                        return { ok: false, reason: 'already entered' };
+                        // Replace existing seed entry instead of skipping
+                        try {
+                            await window.db.collection('arenaRounds').doc(roundId).collection('entries').doc(user.uid).delete();
+                            await window.db.collection('entries').doc(user.uid).collection('_private').doc('data').delete();
+                        } catch(delErr) {}
                     }
                     var lane = rd.lane || 'daily';
                     return { ok: true, uid: user.uid,
