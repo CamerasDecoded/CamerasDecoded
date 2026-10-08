@@ -936,6 +936,36 @@
   $('btnBack').addEventListener('click', () => {
     window.location.href = '/darkroom.html';
   });
+  /* Skill tree wiring: track which Color tools get used, bank XP on export */
+  var touchedColorSkills = {};
+  function trackColorSkill(toolId) {
+    if (toolId === 'temp' || toolId === 'tint') touchedColorSkills['white-balance'] = 1;
+    else if (toolId === 'vibrance' || toolId === 'saturation') touchedColorSkills['color-temp'] = 1;
+    else if (toolId === 'mixer') touchedColorSkills['color-harmony'] = 1;
+  }
+  function bankDevelopLabSkillXP() {
+    var ids = Object.keys(touchedColorSkills);
+    if (!ids.length) return;
+    var db = window.db, u = window.USER;
+    if (!db || !u || !u.uid || typeof firebase === 'undefined') return;
+    var F = firebase.firestore.FieldValue;
+    var tk = new Date().toISOString().slice(0, 10);
+    var batch = db.batch();
+    var ref = db.collection('userSkills').doc(u.uid);
+    var anyBanked = false;
+    ids.forEach(function(skillId) {
+      var lk = 'cd_devlab_skill_' + skillId + '_' + tk;
+      try { if (localStorage.getItem(lk)) return; localStorage.setItem(lk, '1'); } catch (e) { return; }
+      anyBanked = true;
+      var patch = { xp: F.increment(10), updatedAt: F.serverTimestamp() };
+      patch.drillDays = F.arrayUnion(tk);
+      var data = { updatedAt: F.serverTimestamp(), skills: {} };
+      data.skills[skillId] = patch;
+      batch.set(ref, data, { merge: true });
+    });
+    if (anyBanked) batch.commit().catch(function(){});
+    touchedColorSkills = {};
+  }
   $('btnSave').addEventListener('click', () => {
     if (!original) return;
     render();
@@ -945,6 +975,7 @@
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    try { bankDevelopLabSkillXP(); } catch (e) {}
     statusEl.textContent = 'Exported PNG';
   });
 
@@ -998,6 +1029,7 @@
     const update = () => { val.textContent = tool.fmt(tool.get()); };
     slider.addEventListener('input', () => {
       tool.set(parseFloat(slider.value));
+      try { trackColorSkill(tool.id); } catch (e) {}
       update();
       scheduleRender();
     });
