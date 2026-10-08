@@ -1,0 +1,54 @@
+name: Launch QA Activity
+
+on:
+  schedule:
+    # Every 8 hours: 00:00, 08:00, 16:00 UTC
+    - cron: '0 0,8,16 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  qa-activity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install chromium
+          sudo playwright install-deps chromium 2>/dev/null || playwright install-deps chromium
+      
+      - name: Run QA activity
+        env:
+          LAUNCH_ACCOUNTS_JSON: ${{ secrets.LAUNCH_ACCOUNTS_JSON }}
+          QA_REPORT_PATH: /tmp/qa-report/ISSUES.md
+        run: |
+          mkdir -p /tmp/qa-report
+          python3 ${{ github.workspace }}/tools/launch-qa/activity.py 2>&1 | tail -60
+      
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report-${{ github.run_number }}
+          path: /tmp/qa-report/ISSUES.md
+          retention-days: 90
+          if-no-files-found: warn
+      
+      - name: Flag high-severity issues
+        if: always()
+        run: |
+          if [ -f /tmp/qa-report/ISSUES.md ] && grep -q "\[HIGH\]" /tmp/qa-report/ISSUES.md; then
+            echo "::warning::High-severity issues found - download the artifact for details"
+            grep "\[HIGH\]" /tmp/qa-report/ISSUES.md | head -10
+          else
+            echo "No high-severity issues this run."
+          fi
