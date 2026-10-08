@@ -31,11 +31,217 @@ STATE_DIR = "/tmp/launch-qa-state"
 
 # Per-account action plans (slightly different to vary coverage)
 PLANS = {
-    "maya.shoots": ["dashboard", "field_manual", "arcade_flashcards"],
-    "lightchaser_jo": ["dashboard", "arena_daily", "leaderboard"],
-    "aperture.ann": ["arcade", "dashboard", "arena_daily_vote"],
-    "shutterbug_mike": ["leaderboard", "arena_daily", "dashboard"],
+    "maya.shoots": ["dashboard", "field_manual", "arcade_flashcards", "arena_submit"],
+    "lightchaser_jo": ["dashboard", "arena_daily", "leaderboard", "arena_submit"],
+    "aperture.ann": ["arcade", "dashboard", "arena_daily_vote", "arena_submit"],
+    "shutterbug_mike": ["leaderboard", "arena_daily", "dashboard", "arena_submit"],
 }
+
+
+def _chicago_ymd():
+    """Today's date in America/Chicago as YYYY-MM-DD (matches missions.html)."""
+    from datetime import timedelta
+    # Chicago is UTC-5 (CDT) in October; use a fixed offset approach via
+    # time module to avoid pytz dependency
+    import time as _time
+    # Get current UTC, apply Chicago offset (CDT = UTC-5)
+    utc_now = datetime.now(timezone.utc)
+    # Determine if DST is in effect for Chicago (rough: Mar-Nov)
+    # For simplicity in the QA window, use -5 (CDT)
+    chicago = utc_now - timedelta(hours=5)
+    return chicago.strftime("%Y-%m-%d")
+
+
+def _make_seed_image(username):
+    """Generate a simple placeholder photo for Arena seeding.
+
+    Returns (base64_jpeg, width, height). Varied per account so the
+    4 seed entries don't look identical.
+    """
+    import base64
+    import hashlib
+    import io
+    from PIL import Image, ImageDraw
+
+    # Deterministic but varied palette per account
+    h = int(hashlib.md5(username.encode()).hexdigest(), 16)
+    palettes = [
+        ((12, 12, 18), (141, 235, 0)),    # dark + neon green
+        ((18, 10, 24), (255, 120, 60)),   # dark purple + orange
+        ((8, 18, 28), (80, 180, 255)),    # dark blue + sky
+        ((24, 14, 10), (255, 200, 80)),   # dark warm + gold
+    ]
+    bg, accent = palettes[h % len(palettes)]
+
+    W, H = 800, 1000  # portrait, phone-friendly
+    img = Image.new("RGB", (W, H), bg)
+    d = ImageDraw.Draw(img)
+
+    # Gradient sky bands
+    for i in range(12):
+        y0 = int(H * 0.05 + i * H * 0.045)
+        y1 = int(y0 + H * 0.045)
+        f = i / 11
+        r = int(bg[0] + (accent[0] - bg[0]) * f * 0.55)
+        g = int(bg[1] + (accent[1] - bg[1]) * f * 0.55)
+        b = int(bg[2] + (accent[2] - bg[2]) * f * 0.55)
+        d.rectangle([0, y0, W, y1], fill=(r, g, b))
+
+    # Mountain silhouettes
+    import random
+    rng = random.Random(h)
+    for layer in range(3):
+        base_y = int(H * (0.45 + layer * 0.12))
+        pts = [(0, H)]
+        x = 0
+        while x < W:
+            peak_x = x + rng.randint(60, 160)
+            peak_y = base_y - rng.randint(40, 160 - layer * 30)
+            pts.append((peak_x, peak_y))
+            x = peak_x + rng.randint(40, 100)
+        pts.append((W, H))
+        shade = max(8, 30 - layer * 8)
+        d.polygon(pts, fill=(shade, shade, shade + 6))
+
+    # Sun/moon dot
+    sx, sy = W // 2 + rng.randint(-100, 100), int(H * 0.28)
+    for rad, alpha in ((70, 40), (45, 90), (28, 255)):
+        d.ellipse([sx - rad, sy - rad, sx + rad, sy + rad],
+                  fill=(*accent[:3],) if alpha == 255 else None,
+                  outline=accent, width=2)
+
+    # Subtle label
+    d.text((20, H - 40), "Cameras Decoded · seed entry",
+           fill=(120, 120, 130))
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=82)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    return b64, W, H
+
+
+def action_arena_submit(page, collector, account):
+    """Submit one seed entry to the current daily Arena round.
+
+    Skips if: no live round, round not open, or account already entered.
+    Uses the page's own Firebase (window.db) and imgbb key so no
+    secrets are hardcoded.
+    """
+    username = account["username"]
+    page_name = "arena_submit"
+
+    if not visit(page, collector, account, "/missions.html",
+                 page_name, wait_ms=6000):
+        return
+
+    try:
+        round_id = "c-" + _chicago_ymd()
+
+        # Check round state + existing entry via page's Firebase
+        state = page.evaluate("""(roundId) => {
+            return (async () => {
+                try {
+                    if (typeof window.db === 'undefined' || !window.db) {
+                        return { ok: false, reason: 'no db' };
+                    }
+                    var user = (window.firebase && firebase.auth &&
+                                firebase.auth().currentUser) || null;
+                    if (!user) return { ok: false, reason: 'not logged in' };
+                    var roundSnap = await window.db.collection('arenaRounds')
+                        .doc(roundId).get();
+                    if (!roundSnap.exists) {
+                        return { ok: false, reason: 'no round doc' };
+                    }
+                    var rd = roundSnap.data() || {};
+                    if (rd.state !== 'open') {
+                        return { ok: false, reason: 'round not open: ' + rd.state };
+                    }
+                    var entrySnap = await window.db.collection('arenaRounds')
+                        .doc(roundId).collection('entries').doc(user.uid).get();
+                    if (entrySnap.exists) {
+                        return { ok: false, reason: 'already entered' };
+                    }
+                    var lane = rd.lane || 'daily';
+                    return { ok: true, uid: user.uid,
+                             name: (window.USER && window.USER.name) || 'Operator',
+                             lane: lane };
+                } catch (e) {
+                    return { ok: false, reason: 'check failed: ' + (e.message || e) };
+                }
+            })();
+        }""", round_id)
+
+        if not state.get("ok"):
+            log(f"{username}: arena_submit skipped ({state.get('reason')})")
+            return
+
+        uid = state["uid"]
+        author_name = state["name"]
+        lane = state["lane"]
+
+        # Generate seed image
+        img_b64, _, _ = _make_seed_image(username)
+
+        # Upload to imgbb via the page (uses its configured API key),
+        # then write the entry docs via window.db — mirroring submitEntry().
+        result = page.evaluate("""async (args) => {
+            var roundId = args.roundId, uid = args.uid,
+                lane = args.lane, authorName = args.authorName,
+                imgB64 = args.imgB64;
+            try {
+                if (typeof IMGBB_API_KEY === 'undefined' ||
+                    IMGBB_API_KEY.indexOf('__IMGBB') === 0) {
+                    return { ok: false, reason: 'imgbb not configured' };
+                }
+                // base64 -> Blob
+                var bin = atob(imgB64);
+                var arr = new Uint8Array(bin.length);
+                for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                var blob = new Blob([arr], { type: 'image/jpeg' });
+                var form = new FormData();
+                form.append('image', blob, 'arena-entry.jpg');
+                var up = await fetch(
+                    'https://api.imgbb.com/1/upload?key=' +
+                    encodeURIComponent(IMGBB_API_KEY),
+                    { method: 'POST', body: form });
+                var json = await up.json();
+                if (!json || !json.success || !json.data || !json.data.url) {
+                    return { ok: false, reason: 'imgbb upload failed' };
+                }
+                var imgUrl = json.data.url;
+                var deleteUrl = json.data.delete_url || '';
+                var entryRef = window.db.collection('arenaRounds')
+                    .doc(roundId).collection('entries').doc(uid);
+                await entryRef.set({
+                    imgUrl: imgUrl,
+                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    roundId: roundId,
+                    lane: lane,
+                    swept: false
+                });
+                await entryRef.collection('_private').doc('data').set({
+                    authorUid: uid,
+                    authorName: authorName,
+                    deleteUrl: deleteUrl
+                });
+                return { ok: true, imgUrl: imgUrl };
+            } catch (e) {
+                return { ok: false,
+                         reason: 'submit failed: ' + (e.message || e) };
+            }
+        }""", {"roundId": round_id, "uid": uid, "lane": lane,
+               "authorName": author_name, "imgB64": img_b64})
+
+        if result.get("ok"):
+            log(f"{username}: arena_submit OK — seed entry in {round_id}")
+        else:
+            # Don't file high-severity for expected skips; medium for real failures
+            sev = "low" if "imgbb not configured" in str(result.get("reason")) else "medium"
+            collector.add(sev, username, page_name,
+                          f"Seed entry failed: {result.get('reason')}")
+    except Exception as e:
+        collector.add("medium", username, page_name,
+                      f"arena_submit exception: {str(e)[:200]}")
 
 
 def log(msg):
@@ -402,6 +608,7 @@ ACTIONS = {
     "arcade_flashcards": action_arcade_flashcards,
     "arena_daily": lambda p, c, a: action_arena_daily(p, c, a, False),
     "arena_daily_vote": lambda p, c, a: action_arena_daily(p, c, a, True),
+    "arena_submit": action_arena_submit,
     "leaderboard": action_leaderboard,
 }
 
