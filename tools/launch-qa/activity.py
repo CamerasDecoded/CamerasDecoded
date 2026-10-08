@@ -189,8 +189,12 @@ def action_arena_submit(page, collector, account):
                 lane = args.lane, authorName = args.authorName,
                 imgB64 = args.imgB64;
             try {
-                if (typeof IMGBB_API_KEY === 'undefined' ||
-                    IMGBB_API_KEY.indexOf('__IMGBB') === 0) {
+                var IMGBB_API_KEY = (function() {
+                    try { if (typeof window.IMGBB_API_KEY !== 'undefined' && window.IMGBB_API_KEY.indexOf('__IMGBB') !== 0) return window.IMGBB_API_KEY; } catch(e) {}
+                    try { var m = document.documentElement.innerHTML.match(/IMGBB_API_KEY\s*=\s*["']([^"']+)["']/); if (m && m[1] && m[1].indexOf('__IMGBB') !== 0) return m[1]; } catch(e) {}
+                    return null;
+                })();
+                if (!IMGBB_API_KEY) {
                     return { ok: false, reason: 'imgbb not configured' };
                 }
                 // base64 -> Blob
