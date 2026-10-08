@@ -21,6 +21,8 @@
     --gold: #d4af37;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  /* FULL-SCREEN EDITOR: hide site chrome on this page only */
+  .floating-header, .cd-bn-nav, #bottomNavContainer { display: none !important; }
   html, body { height: 100%; }
   html { scrollbar-width: none; }
   html::-webkit-scrollbar { display: none; }
@@ -38,6 +40,7 @@
     flex-direction: column;
     overflow: hidden;
     padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     user-select: none;
     -webkit-user-select: none;
   }
@@ -48,7 +51,7 @@
   .topbar {
     flex-shrink: 0;
     height: 54px;
-    margin-top: calc(48px + env(safe-area-inset-top, 0px));
+    margin-top: env(safe-area-inset-top, 0px);
     display: flex;
     align-items: center;
     gap: 2px;
@@ -56,6 +59,21 @@
     border-bottom: 1px solid var(--border);
     background: rgba(8, 8, 10, 0.9);
   }
+  .tb-modeseg {
+    display: flex; background: rgba(255,255,255,0.06);
+    border-radius: 10px; padding: 2px; margin-right: 6px;
+  }
+  .tb-modeseg button {
+    border: none; background: none; color: rgba(255,255,255,0.5);
+    font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.08em;
+    padding: 6px 10px; border-radius: 8px; cursor: pointer;
+  }
+  .tb-modeseg button.active { background: rgba(141,235,0,0.15); color: #8deb00; }
+  .tb-enginedot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.2); margin-right: 6px; flex-shrink: 0;
+  }
+  .tb-enginedot.live { background: #8deb00; box-shadow: 0 0 8px rgba(141,235,0,0.6); }
   .tb-btn {
     width: 38px; height: 38px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
@@ -118,9 +136,9 @@
 
   /* ============ CANVAS ZONE ============ */
   .canvas-zone {
-    flex: 1; min-height: 0; position: relative;
+    flex: 1 1 auto; min-height: 200px; position: relative;
     display: flex; align-items: center; justify-content: center;
-    padding: 4px 8px;
+    padding: 6px 8px;
   }
   .compare-wrap {
     position: relative;
@@ -171,7 +189,7 @@
   /* ============ CONTROL PANEL ============ */
   .panel {
     flex-shrink: 0;
-    min-height: 218px;
+    min-height: 150px;
     border-top: 1px solid var(--border);
     background: rgba(9, 9, 11, 0.94);
     backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
@@ -181,6 +199,8 @@
   .tool-row {
     display: flex; gap: 6px; overflow-x: auto;
     padding-bottom: 10px; scrollbar-width: none;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
   }
   .tool-row::-webkit-scrollbar { display: none; }
   .tool-btn {
@@ -278,11 +298,13 @@
   .preset-strip {
     display: flex; gap: 10px; overflow-x: auto;
     padding: 2px 2px 10px; scrollbar-width: none;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
   }
   .preset-strip::-webkit-scrollbar { display: none; }
-  .preset-card { flex-shrink: 0; width: 104px; background: none; border: none; cursor: pointer; padding: 0; text-align: left; }
+  .preset-card { flex-shrink: 0; width: 88px; background: none; border: none; cursor: pointer; padding: 0; text-align: left; }
   .preset-card canvas {
-    width: 104px; height: 70px; border-radius: 10px; display: block;
+    width: 88px; height: 60px; border-radius: 10px; display: block;
     border: 1px solid var(--border); object-fit: cover; background: #101012;
   }
   .preset-card.active canvas { border-color: var(--green); box-shadow: 0 0 14px rgba(141,235,0,0.3); }
@@ -409,12 +431,12 @@
   .sheet-ghost { background: none; border: none; color: var(--text-faint); font-size: 13px; cursor: pointer; padding: 8px; }
 
   .status-line {
-    flex-shrink: 0; text-align: center;
-    font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; color: var(--text-faint);
-    padding: 5px 12px calc(5px + env(safe-area-inset-bottom, 0px));
-    border-top: 1px solid var(--border);
+    position: absolute; bottom: 8px; right: 10px; z-index: 5;
+    font-family: var(--mono); font-size: 8px; letter-spacing: 0.06em; color: rgba(255,255,255,0.35);
+    background: rgba(0,0,0,0.5); padding: 3px 8px; border-radius: 8px;
+    pointer-events: none;
   }
-  .status-line.live { color: var(--green); }
+  .status-line.live { color: rgba(141,235,0,0.7); }
   input[type="file"] { display: none; }
 </style>
 </head>
@@ -438,6 +460,11 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="12" cy="10" r="2.5"/><path d="M5 19l5-5 3 3 3-3 3 3"/></svg>
   </button><div style="flex:1;"></div>
   
+  <div class="tb-modeseg">
+    <button id="modeEdit" class="active">Edit</button>
+    <button id="modeLearn">Learn</button>
+  </div>
+  <div class="tb-enginedot" id="engineDot" title="Engine status"></div>
   <div class="tb-tier" id="tierToggle">
     <button id="tierFree" class="active">Free</button>
     <button id="tierPro">Pro</button>
@@ -445,16 +472,6 @@
   <button class="tb-export" id="btnSave">Export</button>
 </div>
 <input type="file" id="fileInput" accept="image/*">
-
-<!-- ============ MODE TOGGLE ============ -->
-<div class="modebar" id="modebar">
-  <div class="mode-seg">
-    <button id="modeEdit" class="active">Edit</button>
-    <button id="modeLearn">Learn</button>
-  </div>
-  <div class="engine-dot off" id="engineDot"></div>
-  <span class="engine-label" id="engineLabel">Loading engine</span>
-</div>
 
 <!-- ============ EDIT MODE ============ -->
 <div id="editMode" style="display:flex;flex-direction:column;flex:1;min-height:0;">
@@ -466,6 +483,7 @@
       <div class="cmp-handle" id="cmpHandle" style="left:50%;">&lt;&gt;</div>
       <div class="cmp-tag before" id="tagBefore">Before</div>
       <div class="cmp-tag after" id="tagAfter">After</div>
+      <div class="status-line" id="status">Engine loading&hellip;</div>
       <div class="canvas-empty hidden" id="canvasEmpty">
         <div class="big">No photo</div>
         <div>Tap the image icon above<br>to load a photo</div>
@@ -551,7 +569,7 @@
   </div>
 </div>
 
-<div class="status-line" id="status">Engine loading&hellip;</div>
+
 
 <!-- ============ PAYWALL SHEET ============ -->
 <div class="sheet-backdrop" id="paywallSheet">
@@ -586,7 +604,7 @@
   const ctxB = cvBefore.getContext('2d', { willReadFrequently: true });
   const ctxA = cvAfter.getContext('2d', { willReadFrequently: true });
   const statusEl = $('status');
-  const engineDot = $('engineDot'), engineLabel = $('engineLabel');
+  const engineDot = $('engineDot');
 
   let wasm = null;
   let original = null;          // working base ImageData (may be cropped)
@@ -596,7 +614,7 @@
   let activeDock = 'adjust';
   let activeToolId = 'exposure';
   let activeBand = 'blue';
-  let compareMode = true;
+  let compareMode = false;
   let dividerPos = 50;
   let thumbsBuiltFor = null;
   let history = [], hIndex = -1;
@@ -828,7 +846,7 @@
     updateCompareUI();
   }
   function makeSample(dark) {
-    const w = 720, h = 480;
+    const w = 480, h = 720;
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     const g = c.getContext('2d');
@@ -905,8 +923,7 @@
     img.src = url;
   });
   $('btnBack').addEventListener('click', () => {
-    if (window.history.length > 1) window.history.back();
-    else statusEl.textContent = 'Demo build \u2014 no page to go back to';
+    window.location.href = '/darkroom.html';
   });
   $('btnSave').addEventListener('click', () => {
     if (!original) return;
@@ -914,7 +931,9 @@
     const a = document.createElement('a');
     a.download = 'cd-develop.png';
     a.href = cvAfter.toDataURL('image/png');
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     statusEl.textContent = 'Exported PNG';
   });
 
@@ -1083,7 +1102,8 @@
     const cards = PRESETS.map(p => {
       const el = document.createElement('button');
       el.className = 'preset-card';
-      el.innerHTML = `<div class="preset-skel"></div><div class="preset-name">${p.name}</div><div class="preset-desc">${p.desc}</div>`;
+      el.innerHTML = `<div class="preset-skel"></div><div class="preset-name">${p.name}</div>`;
+      el.title = p.desc;
       el.addEventListener('click', () => {
         if (!wasm || !original) return;
         pushHistory();
@@ -1394,13 +1414,13 @@
       const mod = await import('/scripts/wasm/cd_wasm.js?v=20261008a');
       await mod.default();
       wasm = mod;
-      engineDot.classList.remove('off');
-      engineLabel.textContent = 'Rust engine live';
+      engineDot.classList.add('live');
+      engineDot.title = 'Rust engine live';
       statusEl.textContent = 'Engine ready';
       statusEl.classList.add('live');
     } catch (err) {
       console.error('WASM load failed:', err);
-      engineLabel.textContent = 'Engine failed to load';
+      engineDot.title = 'Engine failed to load';
       statusEl.textContent = 'WASM failed';
       return;
     }
