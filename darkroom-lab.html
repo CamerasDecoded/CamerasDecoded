@@ -2,31 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#050705">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>Develop Lab — Cameras Decoded</title>
-<meta name="description" content="Hands-on photo editing powered by a real Rust engine. Free controls for everyone, Pro unlocks the full darkroom.">
-<meta property="og:title" content="Develop Lab — Cameras Decoded">
-<meta property="og:description" content="Edit real photos in your browser with a Rust-powered engine.">
-<meta property="og:image" content="https://camerasdecoded.com/media/og-develop-lab.jpg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-
-  /* ---------- Darkroom Lab page scope ---------- */
-  .dl-page {
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: calc(env(safe-area-inset-top, 0px) + 92px) 16px calc(env(safe-area-inset-bottom, 0px) + 100px);
-    background:
-      radial-gradient(ellipse at 30% 15%, rgba(141, 235, 0, 0.05) 0%, transparent 55%),
-      radial-gradient(ellipse at 75% 85%, rgba(141, 235, 0, 0.03) 0%, transparent 50%),
-      radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 22px 22px;
-  }
-
   :root {
     --green: #8deb00;
     --green-dim: rgba(141, 235, 0, 0.08);
@@ -42,808 +21,554 @@
     --gold: #d4af37;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
   html { scrollbar-width: none; }
   html::-webkit-scrollbar { display: none; }
-  
-
-  /* ---------- header ---------- */
-  .cd-eyebrow {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.32em;
-    color: var(--green);
-    text-transform: uppercase;
-    opacity: 0.9;
-    margin-bottom: 6px;
-  }
-  .cd-title {
-    font-size: 26px;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    text-align: center;
-    margin-bottom: 4px;
-  }
-  .cd-title em { font-style: normal; color: var(--green); text-shadow: 0 0 26px rgba(141,235,0,.4); }
-  .cd-sub {
-    font-size: 13px;
-    color: var(--text-dim);
-    text-align: center;
-    max-width: 300px;
-    line-height: 1.55;
-    margin-bottom: 12px;
-  }
-  .cd-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.14em;
-    color: var(--green);
-    border: 1px solid rgba(141,235,0,.3);
-    background: rgba(141,235,0,.06);
-    border-radius: 999px;
-    padding: 5px 12px;
-    margin-bottom: 10px;
-    text-transform: uppercase;
-  }
-  .cd-badge .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 10px var(--green);
-    animation: pulse 2s ease-in-out infinite;
-  }
-  @keyframes pulse { 50% { opacity: 0.4; } }
-
-  
-
-  /* ---------- tabs ---------- */
-  .cd-tabs {
+  body {
+    background: var(--dark);
+    background-image:
+      radial-gradient(ellipse at 30% 15%, rgba(141, 235, 0, 0.05) 0%, transparent 55%),
+      radial-gradient(ellipse at 75% 85%, rgba(141, 235, 0, 0.03) 0%, transparent 50%),
+      radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 22px 22px;
+    color: var(--text);
+    font-family: var(--sans);
+    height: 100dvh;
     display: flex;
-    width: 100%;
-    max-width: 380px;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-  .cd-tab {
-    flex: 1;
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    padding: 12px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: rgba(255,255,255,.02);
-    color: var(--text-faint);
-    cursor: pointer;
-    transition: all .15s ease;
-  }
-  .cd-tab.active {
-    border-color: rgba(141,235,0,.4);
-    background: rgba(141,235,0,.08);
-    color: var(--green);
-  }
-
-  /* ---------- preview ---------- */
-  .cd-preview-wrap {
-    position: relative;
-    width: 100%;
-    max-width: 380px;
-    border-radius: 18px;
+    flex-direction: column;
     overflow: hidden;
-    border: 1px solid var(--border);
-    background: #0c0c0e;
-    box-shadow: 0 14px 44px rgba(0,0,0,.55), 0 0 0 1px rgba(141,235,0,.05);
-    touch-action: none;
+    padding-top: env(safe-area-inset-top, 0px);
     user-select: none;
     -webkit-user-select: none;
   }
-  .cd-preview-wrap canvas { display: block; width: 100%; height: auto; }
-  .cd-hold-hint {
-    position: absolute;
-    bottom: 10px; left: 50%;
-    transform: translateX(-50%);
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,.75);
-    background: rgba(0,0,0,.55);
-    border: 1px solid rgba(255,255,255,.12);
-    padding: 6px 12px;
-    border-radius: 999px;
-    pointer-events: none;
-    backdrop-filter: blur(6px);
-  }
-  .cd-engine-tag {
-    position: absolute;
-    top: 10px; right: 10px;
-    font-family: var(--mono);
-    font-size: 8px;
-    letter-spacing: 0.16em;
-    color: var(--green);
-    background: rgba(0,0,0,.6);
-    border: 1px solid rgba(141,235,0,.25);
-    padding: 4px 9px;
-    border-radius: 999px;
-    pointer-events: none;
-  }
+  .hidden { display: none !important; }
+  button { font-family: inherit; }
 
-  /* ---------- sections ---------- */
-  .cd-section {
-    width: 100%;
-    max-width: 380px;
-    margin-top: 18px;
-  }
-  .cd-section-head {
+  /* ============ TOP BAR ============ */
+  .topbar {
+    flex-shrink: 0;
+    height: 54px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 10px;
+    gap: 2px;
+    padding: 0 6px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8, 8, 10, 0.9);
   }
-  .cd-section-title {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.28em;
-    text-transform: uppercase;
-    color: var(--text-dim);
+  .tb-btn {
+    width: 38px; height: 38px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none; border-radius: 11px;
+    color: var(--text-dim); cursor: pointer;
   }
-  .cd-pro-tag {
-    font-family: var(--mono);
-    font-size: 8px;
-    letter-spacing: 0.2em;
-    color: #0a0a0a;
-    background: var(--gold);
-    padding: 3px 10px;
-    border-radius: 999px;
-    text-transform: uppercase;
-    font-weight: 700;
+  .tb-btn:active { background: rgba(255,255,255,0.07); color: var(--text); }
+  .tb-btn:disabled { opacity: 0.25; }
+  .tb-btn.on { color: var(--green); }
+  .tb-btn svg { width: 19px; height: 19px; }
+  .tb-title {
+    flex: 1; text-align: center;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em;
+    color: var(--text-faint); text-transform: uppercase;
+    white-space: nowrap; overflow: hidden;
   }
-  .cd-free-tag {
-    font-family: var(--mono);
-    font-size: 8px;
-    letter-spacing: 0.2em;
-    color: var(--green);
-    border: 1px solid rgba(141,235,0,.35);
-    padding: 3px 10px;
-    border-radius: 999px;
-    text-transform: uppercase;
+  .tb-tier {
+    display: flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden;
+    flex-shrink: 0; margin: 0 2px;
   }
+  .tb-tier button {
+    background: none; border: none; color: var(--text-faint);
+    font-family: var(--mono); font-size: 8px; letter-spacing: 0.06em;
+    padding: 7px 7px; cursor: pointer; text-transform: uppercase;
+  }
+  .tb-tier button.active { background: var(--green-dim); color: var(--green); }
+  .tb-export {
+    flex-shrink: 0;
+    border: 1px solid rgba(141,235,0,0.4); border-radius: 10px;
+    background: rgba(141,235,0,0.1); color: var(--green);
+    font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+    padding: 8px 10px; cursor: pointer; text-transform: uppercase;
+    margin-left: 2px;
+  }
+  .tb-export:active { background: rgba(141,235,0,0.2); }
 
-  /* ---------- controls ---------- */
-  .cd-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 13px;
+  /* ============ MODE TOGGLE ============ */
+  .modebar {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; padding: 8px 12px 4px;
   }
-  .cd-slider-row { display: flex; flex-direction: column; gap: 6px; }
-  .cd-slider-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
+  .mode-seg {
+    display: flex; border: 1px solid var(--border); border-radius: 11px; overflow: hidden;
   }
-  .cd-slider-label {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--text-dim);
+  .mode-seg button {
+    background: none; border: none; color: var(--text-faint);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 8px 18px; cursor: pointer;
   }
-  .cd-slider-val {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--green);
-    min-width: 52px;
-    text-align: right;
+  .mode-seg button.active { background: rgba(141,235,0,0.1); color: var(--green); }
+  .engine-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 10px var(--green);
+    animation: pulse 2s ease-in-out infinite; flex-shrink: 0;
   }
-  input[type="range"] {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 26px;
-    background: transparent;
-    cursor: pointer;
-  }
-  input[type="range"]::-webkit-slider-runnable-track {
-    height: 4px;
-    border-radius: 2px;
-    background: linear-gradient(90deg, rgba(141,235,0,.55), rgba(141,235,0,.12));
-  }
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 20px; height: 20px;
-    border-radius: 50%;
-    margin-top: -8px;
-    background: #0c0c0e;
-    border: 2px solid var(--green);
-    box-shadow: 0 0 14px rgba(141,235,0,.45);
-  }
-  input[type="range"]::-moz-range-track {
-    height: 4px; border-radius: 2px;
-    background: linear-gradient(90deg, rgba(141,235,0,.55), rgba(141,235,0,.12));
-  }
-  input[type="range"]::-moz-range-thumb {
-    width: 16px; height: 16px; border-radius: 50%;
-    background: #0c0c0e; border: 2px solid var(--green);
-    box-shadow: 0 0 14px rgba(141,235,0,.45);
-  }
-  input[type="range"]:disabled { opacity: 0.35; }
+  .engine-dot.off { background: var(--text-faint); box-shadow: none; animation: none; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+  .engine-label { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; color: var(--text-faint); }
 
-  /* ---------- pro lock ---------- */
-  .cd-pro-wrap { position: relative; }
-  .cd-pro-lock {
-    position: absolute;
-    inset: -8px;
-    z-index: 5;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border-radius: 16px;
-    background: rgba(5, 5, 7, 0.72);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(212, 175, 55, 0.25);
-    cursor: pointer;
-    text-align: center;
-    padding: 20px;
-    transition: opacity .25s ease;
+  /* ============ CANVAS ZONE ============ */
+  .canvas-zone {
+    flex: 1; min-height: 0; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    padding: 8px 14px;
   }
-  .cd-pro-lock.hidden { opacity: 0; pointer-events: none; }
-  .cd-pro-lock svg { width: 28px; height: 28px; color: var(--gold); }
-  .cd-pro-lock-title {
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: var(--gold);
-  }
-  .cd-pro-lock-sub {
-    font-size: 12px;
-    color: var(--text-dim);
-    line-height: 1.5;
-    max-width: 230px;
-  }
-  .cd-pro-lock-cta {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--green);
-    border: 1px solid rgba(141,235,0,.4);
-    background: rgba(141,235,0,.08);
-    border-radius: 999px;
-    padding: 9px 22px;
-    margin-top: 4px;
-  }
-
-  /* ---------- HSL mixer ---------- */
-  .cd-band-chips {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 4px;
-  }
-  .cd-band-chip {
-    width: 34px; height: 34px;
-    border-radius: 10px;
-    border: 2px solid transparent;
-    cursor: pointer;
-    transition: all .12s ease;
+  .compare-wrap {
     position: relative;
-  }
-  .cd-band-chip.active {
-    border-color: var(--green);
-    box-shadow: 0 0 12px rgba(141,235,0,.35);
-    transform: scale(1.08);
-  }
-  .cd-band-name {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 8px;
-    text-align: center;
-  }
-
-  /* ---------- presets ---------- */
-  .cd-presets {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .cd-preset {
+    max-width: 100%; max-height: 100%;
+    border-radius: 14px; overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: 14px;
-    background: var(--card);
-    padding: 13px 12px;
-    cursor: pointer;
-    transition: all .15s ease;
-    text-align: left;
+    touch-action: none; cursor: ew-resize;
+    box-shadow: 0 12px 44px rgba(0,0,0,0.55);
+    background: #0b0b0d;
   }
-  .cd-preset:active { transform: scale(0.97); }
-  .cd-preset-name {
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text);
-    margin-bottom: 5px;
+  .compare-wrap canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block;
   }
-  .cd-preset-desc {
-    font-size: 11px;
-    color: var(--text-dim);
-    line-height: 1.5;
+  .compare-wrap canvas.layer-before { z-index: 1; }
+  .compare-wrap canvas.layer-after { z-index: 2; }
+  .cmp-divider {
+    position: absolute; top: 0; bottom: 0; width: 2px; z-index: 3;
+    background: var(--green); box-shadow: 0 0 14px rgba(141,235,0,0.65);
+    pointer-events: none;
   }
-  .cd-preset-desc em { font-style: normal; color: var(--green); }
+  .cmp-handle {
+    position: absolute; top: 50%; z-index: 4;
+    width: 46px; height: 46px; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 12, 10, 0.92);
+    border: 2px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--green); font-size: 13px; letter-spacing: 1px;
+    box-shadow: 0 2px 18px rgba(0,0,0,0.65), 0 0 16px rgba(141,235,0,0.25);
+    pointer-events: none; font-family: var(--mono);
+  }
+  .cmp-tag {
+    position: absolute; z-index: 4; top: 10px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em;
+    padding: 5px 10px; border-radius: 8px;
+    background: rgba(0,0,0,0.62); color: var(--text-dim);
+    border: 1px solid var(--border); pointer-events: none;
+  }
+  .cmp-tag.before { left: 10px; }
+  .cmp-tag.after { right: 10px; color: var(--green); border-color: rgba(141,235,0,0.3); }
+  .canvas-empty {
+    position: absolute; inset: 0; z-index: 5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    color: var(--text-faint); font-size: 13px; text-align: center; padding: 20px;
+  }
+  .canvas-empty .big { font-size: 26px; color: var(--text-dim); }
 
-  /* ---------- actions ---------- */
-  .cd-actions {
-    width: 100%;
-    max-width: 380px;
-    margin-top: 18px;
-    display: flex;
-    gap: 10px;
-  }
-  .cd-btn {
-    flex: 1;
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    padding: 15px 10px;
-    border-radius: 14px;
-    border: 1px solid rgba(141,235,0,.3);
-    background: rgba(141,235,0,.07);
-    color: var(--green);
-    cursor: pointer;
-    transition: transform .12s ease;
-  }
-  .cd-btn:active { transform: scale(0.97); }
-  .cd-btn-ghost {
-    border-color: var(--border);
-    background: rgba(255,255,255,.03);
-    color: var(--text-dim);
-  }
-
-  /* chase-border primary CTA */
-  @property --cd-angle { syntax: '<angle>'; initial-value: 120deg; inherits: false; }
-  @keyframes cdSpin { to { --cd-angle: 360deg; } }
-  .cd-btn-primary {
+  /* ============ CONTROL PANEL ============ */
+  .panel {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    background: rgba(9, 9, 11, 0.94);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    padding: 10px 12px 8px;
     position: relative;
-    border: 1px solid transparent;
+  }
+  .tool-row {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding-bottom: 10px; scrollbar-width: none;
+  }
+  .tool-row::-webkit-scrollbar { display: none; }
+  .tool-btn {
+    flex-shrink: 0; position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    min-width: 64px; padding: 9px 8px;
+    background: none; border: 1px solid transparent; border-radius: 13px;
+    color: var(--text-dim); cursor: pointer;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.07em; text-transform: uppercase;
+  }
+  .tool-btn:active { background: rgba(255,255,255,0.05); }
+  .tool-btn.active {
+    color: var(--green); border-color: rgba(141,235,0,0.35);
+    background: rgba(141,235,0,0.07);
+    box-shadow: inset 0 0 18px rgba(141,235,0,0.05);
+  }
+  .tool-btn .tdot {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1.5px solid currentColor; opacity: 0.75;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px;
+  }
+  .tool-btn.active .tdot { opacity: 1; box-shadow: 0 0 10px rgba(141,235,0,0.3); }
+  .tool-btn .tlock {
+    position: absolute; top: 3px; right: 5px;
+    color: var(--gold); font-size: 10px; line-height: 1;
+  }
+  /* big slider */
+  .bigslider-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 2px; padding: 0 2px;
+  }
+  .bigslider-label { font-size: 15px; font-weight: 700; letter-spacing: 0.01em; }
+  .bigslider-label .pro-flag {
+    font-family: var(--mono); font-size: 8px; letter-spacing: 0.14em; color: var(--gold);
+    border: 1px solid rgba(212,175,55,0.45); border-radius: 6px; padding: 2px 6px;
+    margin-left: 8px; vertical-align: 2px;
+  }
+  .bigslider-val {
+    font-family: var(--mono); font-size: 14px; color: var(--green);
+    text-shadow: 0 0 14px rgba(141,235,0,0.35);
+    cursor: pointer; padding: 4px 6px; border-radius: 8px;
+  }
+  .bigslider-val:active { background: rgba(141,235,0,0.08); }
+  .bigslider-hint { font-family: var(--mono); font-size: 8px; color: var(--text-faint); letter-spacing: 0.08em; text-align: center; margin-top: 2px;}
+  input[type=range].big {
+    width: 100%; height: 46px; -webkit-appearance: none; appearance: none;
+    background: transparent; cursor: pointer; display: block;
+  }
+  input[type=range].big::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, rgba(141,235,0,0.55), rgba(141,235,0,0.12));
+  }
+  input[type=range].big::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #0b0d0b; border: 2px solid var(--green); margin-top: -12px;
+    box-shadow: 0 0 16px rgba(141,235,0,0.4), 0 2px 8px rgba(0,0,0,0.6);
+  }
+  input[type=range].big::-moz-range-track {
+    height: 6px; border-radius: 3px; background: rgba(141,235,0,0.25);
+  }
+  input[type=range].big::-moz-range-thumb {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #0b0d0b; border: 2px solid var(--green);
+    box-shadow: 0 0 16px rgba(141,235,0,0.4);
+  }
+  input[type=range].big:disabled { opacity: 0.35; }
+
+  /* ============ DOCK ============ */
+  .dock {
+    flex-shrink: 0;
+    display: flex;
+    border-top: 1px solid var(--border);
+    background: rgba(6, 6, 8, 0.97);
+    padding: 4px 2px calc(4px + env(safe-area-inset-bottom, 0px));
+  }
+  .dock-tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 9px 2px 7px; background: none; border: none; border-radius: 13px;
+    color: var(--text-faint); cursor: pointer;
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    position: relative;
+  }
+  .dock-tab:active { background: rgba(255,255,255,0.04); }
+  .dock-tab svg { width: 22px; height: 22px; }
+  .dock-tab.active { color: var(--green); }
+  .dock-tab.active svg { filter: drop-shadow(0 0 9px rgba(141,235,0,0.55)); }
+  .dock-tab .dock-pro {
+    position: absolute; top: 4px; right: calc(50% - 22px);
+    color: var(--gold); font-size: 9px; line-height: 1;
+  }
+
+  /* ============ PRESETS ============ */
+  .preset-strip {
+    display: flex; gap: 10px; overflow-x: auto;
+    padding: 2px 2px 10px; scrollbar-width: none;
+  }
+  .preset-strip::-webkit-scrollbar { display: none; }
+  .preset-card { flex-shrink: 0; width: 104px; background: none; border: none; cursor: pointer; padding: 0; text-align: left; }
+  .preset-card canvas {
+    width: 104px; height: 70px; border-radius: 10px; display: block;
+    border: 1px solid var(--border); object-fit: cover; background: #101012;
+  }
+  .preset-card.active canvas { border-color: var(--green); box-shadow: 0 0 14px rgba(141,235,0,0.3); }
+  .preset-name { font-size: 11px; font-weight: 700; margin-top: 6px; color: var(--text); }
+  .preset-card.active .preset-name { color: var(--green); }
+  .preset-desc { font-size: 10px; color: var(--text-faint); line-height: 1.45; margin-top: 2px; }
+  .preset-desc em { font-style: normal; color: var(--text-dim); }
+  .preset-skel {
+    width: 104px; height: 70px; border-radius: 10px;
+    background: linear-gradient(100deg, #141416 40%, #1c1c20 50%, #141416 60%);
+    background-size: 200% 100%; animation: shimmer 1.4s linear infinite;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* ============ CROP ============ */
+  .crop-row { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: none; }
+  .crop-row::-webkit-scrollbar { display: none; }
+  .crop-btn {
+    flex-shrink: 0; min-width: 58px; padding: 10px 12px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px;
+    color: var(--text-dim); font-family: var(--mono); font-size: 11px; cursor: pointer;
+  }
+  .crop-btn.active { color: var(--green); border-color: rgba(141,235,0,0.4); background: rgba(141,235,0,0.07); }
+  .crop-btn.wide { min-width: 84px; }
+
+  /* ============ MIXER ============ */
+  .band-chips { display: flex; gap: 7px; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: none; }
+  .band-chips::-webkit-scrollbar { display: none; }
+  .band-chip {
+    flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+    border: 2px solid transparent; cursor: pointer; padding: 0;
+  }
+  .band-chip.active { border-color: #fff; box-shadow: 0 0 12px rgba(255,255,255,0.35); }
+  .mixer-sliders { display: flex; flex-direction: column; gap: 2px; }
+  .mixer-sliders .ms-row { display: flex; align-items: center; gap: 10px; }
+  .mixer-sliders .ms-label { font-family: var(--mono); font-size: 10px; color: var(--text-dim); width: 34px; text-transform: uppercase; letter-spacing: 0.08em;}
+  .mixer-sliders input[type=range].big { height: 38px; }
+
+  /* ============ PRO LOCK ============ */
+  .pro-lock-veil {
+    position: absolute; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    background: rgba(6, 6, 8, 0.72);
+    backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+    border-radius: 8px; cursor: pointer; text-align: center; padding: 16px;
+  }
+  .pro-lock-veil svg { width: 26px; height: 26px; color: var(--gold); }
+  .pro-lock-title { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; color: var(--gold); text-transform: uppercase; }
+  .pro-lock-sub { font-size: 12px; color: var(--text-dim); max-width: 250px; line-height: 1.5; }
+  .pro-lock-cta {
+    margin-top: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #0a0a0a; background: var(--gold); border-radius: 999px; padding: 9px 20px; font-weight: 700;
+  }
+
+  /* ============ LEARN MODE ============ */
+  .learn-wrap {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 4px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; gap: 12px; align-items: center;
+  }
+  .ex-card {
+    width: 100%; max-width: 420px;
+    border: 1px solid var(--border); border-radius: 18px;
+    background: var(--card); padding: 18px 16px;
+  }
+  .ex-tag { font-family: var(--mono); font-size: 9px; letter-spacing: 0.22em; color: var(--green); text-transform: uppercase; margin-bottom: 8px; }
+  .ex-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+  .ex-desc { font-size: 13px; color: var(--text-dim); line-height: 1.65; margin-bottom: 12px; }
+  .ex-desc strong { color: var(--text); }
+  .ex-target {
+    font-family: var(--mono); font-size: 10.5px; line-height: 1.7; color: var(--text-dim);
+    border: 1px dashed rgba(141,235,0,0.3); border-radius: 12px; padding: 10px 12px; margin-bottom: 14px;
+    background: rgba(141,235,0,0.03);
+  }
+  .ex-slider { margin-bottom: 10px; }
+  .ex-slider .bigslider-head { margin-bottom: 0; }
+  .ex-slider input[type=range].big { height: 40px; }
+  .cd-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 16px; font-weight: 800; font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 15px 26px; cursor: pointer; border: 1px solid transparent; text-decoration: none;
+  }
+  .cd-btn-primary {
+    position: relative; color: var(--green); width: 100%;
+    text-shadow: 0 0 18px rgba(141,235,0,0.45);
     background:
-      linear-gradient(120deg, rgba(255,255,255,.09), rgba(255,255,255,0) 45%),
-      linear-gradient(165deg, rgba(141,235,0,.22) 0%, rgba(141,235,0,.06) 60%, rgba(141,235,0,.14) 100%);
-    color: var(--green);
-    text-shadow: 0 0 16px rgba(141,235,0,.4);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 6px 22px rgba(141,235,0,.1);
+      linear-gradient(120deg, rgba(255,255,255,0.1), rgba(255,255,255,0) 42%),
+      linear-gradient(165deg, rgba(141,235,0,0.2) 0%, rgba(141,235,0,0.07) 60%, rgba(141,235,0,0.13) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 6px 22px rgba(141,235,0,0.1);
   }
   .cd-btn-primary::before {
-    content: ''; position: absolute; inset: -0.5px;
-    border-radius: inherit; padding: 1.5px;
-    opacity: .5; pointer-events: none;
-    background: conic-gradient(from var(--cd-angle), transparent 20%, #8deb00 40%, transparent 60%, #8deb00 80%, transparent 100%);
+    content: ''; position: absolute; inset: -0.5px; border-radius: inherit; padding: 1.5px; opacity: 0.5; pointer-events: none;
+    background: conic-gradient(from 120deg, transparent 20%, #8deb00 40%, transparent 60%, #8deb00 80%, transparent 100%);
     -webkit-mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
     -webkit-mask-composite: xor; mask-composite: exclude;
-    animation: cdSpin 5s linear infinite;
   }
-  @media (prefers-reduced-motion: reduce) { .cd-btn-primary::before { animation: none; } }
-
-  .cd-status {
-    margin-top: 14px;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: var(--text-faint);
-    text-align: center;
-    min-height: 16px;
-  }
-  .cd-status.live { color: var(--green); }
-
-  /* ---------- exercise ---------- */
-  .cd-exercise-card {
-    width: 100%;
-    max-width: 380px;
-    border: 1px solid rgba(141,235,0,.2);
-    border-radius: 18px;
-    background: var(--card);
-    padding: 18px 16px;
-    margin-top: 16px;
-  }
-  .cd-exercise-tag {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.26em;
-    text-transform: uppercase;
-    color: var(--green);
-    margin-bottom: 8px;
-  }
-  .cd-exercise-title {
-    font-size: 19px;
-    font-weight: 800;
-    margin-bottom: 6px;
-  }
-  .cd-exercise-desc {
-    font-size: 13px;
-    color: var(--text-dim);
-    line-height: 1.6;
-    margin-bottom: 12px;
-  }
-  .cd-exercise-desc strong { color: var(--text); }
-  .cd-exercise-target {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--green);
-    background: rgba(141,235,0,.06);
-    border: 1px solid rgba(141,235,0,.2);
-    border-radius: 10px;
-    padding: 10px 12px;
-    margin-bottom: 14px;
-    line-height: 1.6;
-  }
-  .cd-score {
-    display: none;
-    text-align: center;
-    padding: 16px;
-    margin-top: 14px;
-    border-radius: 14px;
-    border: 1px solid rgba(141,235,0,.3);
-    background: rgba(141,235,0,.05);
-  }
+  .cd-score { text-align: center; margin-top: 14px; display: none; }
   .cd-score.show { display: block; }
-  .cd-score-num {
-    font-family: var(--mono);
-    font-size: 42px;
-    font-weight: 700;
-    color: var(--green);
-    text-shadow: 0 0 24px rgba(141,235,0,.4);
-  }
-  .cd-score-label {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-top: 4px;
-  }
-  .cd-score-feedback {
-    font-size: 13px;
-    color: var(--text-dim);
-    margin-top: 10px;
-    line-height: 1.55;
-  }
+  .cd-score-num { font-size: 52px; font-weight: 800; color: var(--green); text-shadow: 0 0 30px rgba(141,235,0,0.4); line-height: 1; }
+  .cd-score-label { font-family: var(--mono); font-size: 9px; letter-spacing: 0.2em; color: var(--text-faint); text-transform: uppercase; margin: 6px 0; }
+  .cd-score-feedback { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
 
-  /* ---------- paywall sheet ---------- */
-  .cd-sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    background: rgba(0,0,0,.7);
-    backdrop-filter: blur(4px);
-    display: none;
-    align-items: flex-end;
-    justify-content: center;
+  /* ============ PAYWALL SHEET ============ */
+  .sheet-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    display: none; align-items: flex-end; justify-content: center;
   }
-  .cd-sheet-backdrop.show { display: flex; }
-  .cd-sheet {
-    width: 100%;
-    max-width: 430px;
-    background: #0d0d10;
-    border: 1px solid rgba(141,235,0,.2);
-    border-bottom: none;
-    border-radius: 22px 22px 0 0;
-    padding: 26px 22px calc(env(safe-area-inset-bottom, 0px) + 26px);
+  .sheet-backdrop.show { display: flex; }
+  .sheet {
+    width: 100%; max-width: 480px;
+    background: #0d0f0d; border: 1px solid rgba(141,235,0,0.25); border-bottom: none;
+    border-radius: 24px 24px 0 0; padding: 26px 22px calc(26px + env(safe-area-inset-bottom, 0px));
     text-align: center;
   }
-  .cd-sheet-eyebrow {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    color: var(--gold);
-    margin-bottom: 10px;
-  }
-  .cd-sheet h2 {
-    font-size: 22px;
-    font-weight: 800;
-    margin-bottom: 8px;
-  }
-  .cd-sheet h2 em { font-style: normal; color: var(--green); }
-  .cd-sheet p {
-    font-size: 13px;
-    color: var(--text-dim);
-    line-height: 1.6;
-    margin-bottom: 18px;
-  }
-  .cd-sheet-list {
-    text-align: left;
-    margin-bottom: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .cd-sheet-list div {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--text-dim);
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-  .cd-sheet-list div::before {
-    content: '';
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 8px var(--green);
-    flex-shrink: 0;
-  }
-  .cd-sheet .cd-btn { width: 100%; margin-bottom: 10px; }
+  .sheet-eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em; color: var(--green); text-transform: uppercase; margin-bottom: 10px; }
+  .sheet h2 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+  .sheet h2 em { font-style: normal; color: var(--green); }
+  .sheet p { font-size: 13.5px; color: var(--text-dim); line-height: 1.6; margin-bottom: 16px; }
+  .sheet-list { text-align: left; margin-bottom: 20px; display: flex; flex-direction: column; gap: 9px; }
+  .sheet-list div { font-size: 13px; color: var(--text-dim); padding-left: 22px; position: relative; }
+  .sheet-list div::before { content: ''; position: absolute; left: 2px; top: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .sheet .cd-btn { margin-bottom: 10px; }
+  .sheet-ghost { background: none; border: none; color: var(--text-faint); font-size: 13px; cursor: pointer; padding: 8px; }
 
+  .status-line {
+    flex-shrink: 0; text-align: center;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; color: var(--text-faint);
+    padding: 5px 12px calc(5px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+  }
+  .status-line.live { color: var(--green); }
   input[type="file"] { display: none; }
-  .hidden { display: none !important; }
-
-  .cd-title-wrap { text-align: center; margin-bottom: 4px; }
-  .cd-title-img { width: min(300px, 80%); height: auto; display: block; margin: 0 auto; }
-
 </style>
 </head>
 <body>
-<div class="dl-page">
 
-
-  <div class="cd-eyebrow">Cameras Decoded · Darkroom</div>
-  <div class="cd-title-wrap">
-    <img src="/custom-site-titles/darkroom-lab.png" alt="Develop Lab" class="cd-title-img" onerror="this.style.display='none';document.getElementById('dlTitleFb').hidden=false;">
-    <h1 class="cd-title" id="dlTitleFb" hidden>Develop <em>Lab</em></h1>
+<!-- ============ TOP BAR ============ -->
+<div class="topbar">
+  <button class="tb-btn" id="btnBack" aria-label="Back">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+  <button class="tb-btn" id="btnUndo" aria-label="Undo" disabled>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+  </button>
+  <button class="tb-btn" id="btnRedo" aria-label="Redo" disabled>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg>
+  </button>
+  <button class="tb-btn on" id="btnCompare" aria-label="Toggle compare">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/></svg>
+  </button>
+  <button class="tb-btn" id="btnUpload" aria-label="Load photo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="12" cy="10" r="2.5"/><path d="M5 19l5-5 3 3 3-3 3 3"/></svg>
+  </button><div style="flex:1;"></div>
+  
+  <div class="tb-tier" id="tierToggle">
+    <button id="tierFree" class="active">Free</button>
+    <button id="tierPro">Pro</button>
   </div>
-  <p class="cd-sub">Real raw-style processing, powered by a Rust engine running in your browser.</p>
-  <div class="cd-badge"><span class="dot"></span><span id="engineStatus">Loading Rust engine…</span></div>
-
-  <div class="cd-tabs">
-    <button class="cd-tab active" id="tabEditBtn">Edit</button>
-    <button class="cd-tab" id="tabLearnBtn">Learn</button>
-  </div>
-
-  <!-- ============ EDIT TAB ============ -->
-  <div id="tabEdit">
-    <div class="cd-preview-wrap" id="previewWrap">
-      <canvas id="preview"></canvas>
-      <div class="cd-engine-tag">Rust · WASM</div>
-      <div class="cd-hold-hint">Hold to compare</div>
-    </div>
-
-    <!-- FREE -->
-    <div class="cd-section">
-      <div class="cd-section-head">
-        <span class="cd-section-title">Light &amp; Color</span>
-        <span class="cd-free-tag">Free</span>
-      </div>
-      <div class="cd-controls" id="controlsFree">
-        <div class="cd-slider-row">
-          <div class="cd-slider-head"><span class="cd-slider-label">Exposure</span><span class="cd-slider-val" id="v-exposure">+0.00</span></div>
-          <input type="range" id="s-exposure" min="-5" max="5" step="0.05" value="0">
-        </div>
-        <div class="cd-slider-row">
-          <div class="cd-slider-head"><span class="cd-slider-label">Temperature</span><span class="cd-slider-val" id="v-temp">6500K</span></div>
-          <input type="range" id="s-temp" min="2000" max="12000" step="50" value="6500">
-        </div>
-        <div class="cd-slider-row">
-          <div class="cd-slider-head"><span class="cd-slider-label">Tint</span><span class="cd-slider-val" id="v-tint">+0</span></div>
-          <input type="range" id="s-tint" min="-100" max="100" step="1" value="0">
-        </div>
-        <div class="cd-slider-row">
-          <div class="cd-slider-head"><span class="cd-slider-label">Contrast</span><span class="cd-slider-val" id="v-contrast">+0</span></div>
-          <input type="range" id="s-contrast" min="-100" max="100" step="1" value="0">
-        </div>
-        <div class="cd-slider-row">
-          <div class="cd-slider-head"><span class="cd-slider-label">Highlights</span><span class="cd-slider-val" id="v-highlights">+0</span></div>
-          <input type="range" id="s-highlights" min="-100" max="100" step="1" value="0">
-        </div>
-        <div class="cd-slider-row">
-          <div class="cd-slider-head"><span class="cd-slider-label">Shadows</span><span class="cd-slider-val" id="v-shadows">+0</span></div>
-          <input type="range" id="s-shadows" min="-100" max="100" step="1" value="0">
-        </div>
-      </div>
-    </div>
-
-    <!-- PRO: Detail -->
-    <div class="cd-section">
-      <div class="cd-section-head">
-        <span class="cd-section-title">Detail &amp; Presence</span>
-        <span class="cd-pro-tag">Pro</span>
-      </div>
-      <div class="cd-pro-wrap" id="proDetail">
-        <div class="cd-controls">
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Clarity</span><span class="cd-slider-val" id="v-clarity">+0</span></div>
-            <input type="range" id="s-clarity" min="-100" max="100" step="1" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Dehaze</span><span class="cd-slider-val" id="v-dehaze">+0</span></div>
-            <input type="range" id="s-dehaze" min="-100" max="100" step="1" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Vibrance</span><span class="cd-slider-val" id="v-vibrance">+0</span></div>
-            <input type="range" id="s-vibrance" min="-100" max="100" step="1" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Saturation</span><span class="cd-slider-val" id="v-saturation">+0</span></div>
-            <input type="range" id="s-saturation" min="-100" max="100" step="1" value="0">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PRO: Tone curve -->
-    <div class="cd-section">
-      <div class="cd-section-head">
-        <span class="cd-section-title">Tone Curve</span>
-        <span class="cd-pro-tag">Pro</span>
-      </div>
-      <div class="cd-pro-wrap" id="proCurve">
-        <div class="cd-controls">
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Highlights</span><span class="cd-slider-val" id="v-ch">+0</span></div>
-            <input type="range" id="s-ch" min="-100" max="100" step="1" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Lights</span><span class="cd-slider-val" id="v-cl">+0</span></div>
-            <input type="range" id="s-cl" min="-100" max="100" step="1" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Darks</span><span class="cd-slider-val" id="v-cd">+0</span></div>
-            <input type="range" id="s-cd" min="-100" max="100" step="1" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Shadows</span><span class="cd-slider-val" id="v-cs">+0</span></div>
-            <input type="range" id="s-cs" min="-100" max="100" step="1" value="0">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PRO: HSL mixer -->
-    <div class="cd-section">
-      <div class="cd-section-head">
-        <span class="cd-section-title">Color Mixer</span>
-        <span class="cd-pro-tag">Pro</span>
-      </div>
-      <div class="cd-pro-wrap" id="proMixer">
-        <div class="cd-band-name" id="bandName">Blue</div>
-        <div class="cd-band-chips" id="bandChips"></div>
-        <div class="cd-controls">
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Hue</span><span class="cd-slider-val" id="v-mh">+0</span></div>
-            <input type="range" id="s-mh" min="-100" max="100" step="1" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Saturation</span><span class="cd-slider-val" id="v-ms">+0</span></div>
-            <input type="range" id="s-ms" min="-100" max="100" step="1" value="0">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PRO: Effects -->
-    <div class="cd-section">
-      <div class="cd-section-head">
-        <span class="cd-section-title">Finishing</span>
-        <span class="cd-pro-tag">Pro</span>
-      </div>
-      <div class="cd-pro-wrap" id="proFx">
-        <div class="cd-controls">
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Vignette</span><span class="cd-slider-val" id="v-vignette">+0</span></div>
-            <input type="range" id="s-vignette" min="-100" max="0" step="1" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Grain</span><span class="cd-slider-val" id="v-grain">+0</span></div>
-            <input type="range" id="s-grain" min="0" max="100" step="1" value="0">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PRO: Presets -->
-    <div class="cd-section">
-      <div class="cd-section-head">
-        <span class="cd-section-title">Presets</span>
-        <span class="cd-pro-tag">Pro</span>
-      </div>
-      <div class="cd-pro-wrap" id="proPresets">
-        <div class="cd-presets" id="presetGrid"></div>
-      </div>
-    </div>
-
-    <div class="cd-actions">
-      <button class="cd-btn cd-btn-ghost" id="btnUpload">Load photo</button>
-      <button class="cd-btn cd-btn-ghost" id="btnReset">Reset</button>
-      <button class="cd-btn cd-btn-primary" id="btnSave">Export</button>
-    </div>
-    <input type="file" id="fileInput" accept="image/*">
-    <div class="cd-status" id="status"></div>
-  </div>
-
-  <!-- ============ LEARN TAB ============ -->
-  <div id="tabLearn" class="hidden">
-    <div class="cd-pro-wrap" id="proLearn">
-      <div class="cd-preview-wrap" id="exPreviewWrap">
-        <canvas id="exPreview"></canvas>
-        <div class="cd-engine-tag">Exercise · Rust</div>
-        <div class="cd-hold-hint">Hold to compare</div>
-      </div>
-
-      <div class="cd-exercise-card">
-        <div class="cd-exercise-tag">Guided exercise · 01</div>
-        <div class="cd-exercise-title">Rescue the Shadows</div>
-        <div class="cd-exercise-desc">
-          This frame was shot <strong>two stops underexposed</strong> — the foreground
-          is crushed to near-black. Your job: <strong>open up the shadows</strong>
-          without blowing out the sky. Use <strong>Exposure</strong>,
-          <strong>Shadows</strong> and <strong>Highlights</strong> below.
-        </div>
-        <div class="cd-exercise-target">
-          TARGET — Shadows lifted and readable, sky holds detail.<br>
-          Reference: exposure ≈ +0.7 · shadows ≈ +55 · highlights ≈ −25
-        </div>
-        <div class="cd-controls">
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Exposure</span><span class="cd-slider-val" id="xv-exposure">+0.00</span></div>
-            <input type="range" id="x-exposure" min="-5" max="5" step="0.05" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Shadows</span><span class="cd-slider-val" id="xv-shadows">+0</span></div>
-            <input type="range" id="x-shadows" min="-100" max="100" step="1" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Highlights</span><span class="cd-slider-val" id="xv-highlights">+0</span></div>
-            <input type="range" id="x-highlights" min="-100" max="100" step="1" value="0">
-          </div>
-          <div class="cd-slider-row">
-            <div class="cd-slider-head"><span class="cd-slider-label">Contrast</span><span class="cd-slider-val" id="xv-contrast">+0</span></div>
-            <input type="range" id="x-contrast" min="-100" max="100" step="1" value="0">
-          </div>
-        </div>
-        <div style="margin-top:14px;">
-          <button class="cd-btn cd-btn-primary" id="btnCheck" style="width:100%;">Check my edit</button>
-        </div>
-        <div class="cd-score" id="exScore">
-          <div class="cd-score-num" id="exScoreNum">0</div>
-          <div class="cd-score-label">Edit score</div>
-          <div class="cd-score-feedback" id="exFeedback"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- paywall sheet -->
-  <div class="cd-sheet-backdrop" id="paywallSheet">
-    <div class="cd-sheet">
-      <div class="cd-sheet-eyebrow">Cameras Decoded · Pro</div>
-      <h2>Unlock the full <em>Darkroom</em></h2>
-      <p>These controls are where good photographers become dangerous ones. Pro opens every one of them.</p>
-      <div class="cd-sheet-list">
-        <div>Clarity, Dehaze, Vibrance + full color science</div>
-        <div>Parametric tone curve — sculpt light by zone</div>
-        <div>8-band color mixer for precise grades</div>
-        <div>Guided exercises with scored feedback</div>
-        <div>Presets that teach, not just apply</div>
-      </div>
-      <button class="cd-btn cd-btn-primary" id="btnGoPro">See Pro plans</button>
-      <button class="cd-btn cd-btn-ghost" id="btnDismissSheet">Not now</button>
-    </div>
-  </div>
-
+  <button class="tb-export" id="btnSave">Export</button>
 </div>
+<input type="file" id="fileInput" accept="image/*">
+
+<!-- ============ MODE TOGGLE ============ -->
+<div class="modebar" id="modebar">
+  <div class="mode-seg">
+    <button id="modeEdit" class="active">Edit</button>
+    <button id="modeLearn">Learn</button>
+  </div>
+  <div class="engine-dot off" id="engineDot"></div>
+  <span class="engine-label" id="engineLabel">Loading engine</span>
+</div>
+
+<!-- ============ EDIT MODE ============ -->
+<div id="editMode" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+  <div class="canvas-zone">
+    <div class="compare-wrap" id="compareWrap" style="aspect-ratio: 3/2;">
+      <canvas class="layer-before" id="cvBefore"></canvas>
+      <canvas class="layer-after" id="cvAfter"></canvas>
+      <div class="cmp-divider" id="cmpDivider" style="left:50%;"></div>
+      <div class="cmp-handle" id="cmpHandle" style="left:50%;">&lt;&gt;</div>
+      <div class="cmp-tag before" id="tagBefore">Before</div>
+      <div class="cmp-tag after" id="tagAfter">After</div>
+      <div class="canvas-empty hidden" id="canvasEmpty">
+        <div class="big">No photo</div>
+        <div>Tap the image icon above<br>to load a photo</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div id="panelContent"></div>
+  </div>
+
+  <div class="dock" id="dock">
+    <button class="dock-tab active" data-dock="adjust">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8h10M18 8h2M4 16h4M12 16h8"/><circle cx="16" cy="8" r="2.2"/><circle cx="10" cy="16" r="2.2"/></svg>
+      <span>Adjust</span>
+    </button>
+    <button class="dock-tab" data-dock="color">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18c-1.5 0-2-1-1.4-2.2.7-1.4.1-3.1-1.5-3.6-2.3-.7-5.1.6-5.1.6A9 9 0 0 1 12 3z"/></svg>
+      <span>Color</span>
+    </button>
+    <button class="dock-tab" data-dock="effects">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>
+      <span>Effects</span>
+    </button>
+    <button class="dock-tab" data-dock="presets">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span>Presets</span>
+      <span class="dock-pro hidden" data-probadge>&#9679;</span>
+    </button>
+    <button class="dock-tab" data-dock="crop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v16a2 2 0 0 0 2 2h16"/><path d="M2 6h16a2 2 0 0 1 2 2v16"/></svg>
+      <span>Crop</span>
+    </button>
+  </div>
+</div>
+
+<!-- ============ LEARN MODE ============ -->
+<div id="learnMode" class="hidden" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+  <div class="learn-wrap" id="learnWrap">
+    <div class="compare-wrap" id="exWrap" style="aspect-ratio: 3/2; width:100%; max-width:420px; flex-shrink:0;">
+      <canvas class="layer-before" id="exBefore"></canvas>
+      <canvas class="layer-after" id="exAfter"></canvas>
+      <div class="cmp-divider" id="exDivider" style="left:50%;"></div>
+      <div class="cmp-handle" id="exHandle" style="left:50%;">&lt;&gt;</div>
+      <div class="cmp-tag before">Before</div>
+      <div class="cmp-tag after">After</div>
+    </div>
+    <div class="ex-card" style="position:relative;" id="exCard">
+      <div class="ex-tag">Guided exercise &middot; 01</div>
+      <div class="ex-title">Rescue the Shadows</div>
+      <div class="ex-desc">
+        This frame was shot <strong>two stops underexposed</strong> &mdash; the foreground
+        is crushed to near-black. Your job: <strong>open up the shadows</strong>
+        without blowing out the sky. Drag the divider to compare.
+      </div>
+      <div class="ex-target">
+        TARGET &mdash; Shadows lifted and readable, sky holds detail.<br>
+        Reference: exposure &asymp; +0.7 &middot; shadows &asymp; +55 &middot; highlights &asymp; &minus;25
+      </div>
+      <div class="ex-slider">
+        <div class="bigslider-head"><span class="bigslider-label" style="font-size:13px;">Exposure</span><span class="bigslider-val" id="xv-exposure">+0.00</span></div>
+        <input type="range" class="big" id="x-exposure" min="-5" max="5" step="0.05" value="0">
+      </div>
+      <div class="ex-slider">
+        <div class="bigslider-head"><span class="bigslider-label" style="font-size:13px;">Shadows</span><span class="bigslider-val" id="xv-shadows">+0</span></div>
+        <input type="range" class="big" id="x-shadows" min="-100" max="100" step="1" value="0">
+      </div>
+      <div class="ex-slider">
+        <div class="bigslider-head"><span class="bigslider-label" style="font-size:13px;">Highlights</span><span class="bigslider-val" id="xv-highlights">+0</span></div>
+        <input type="range" class="big" id="x-highlights" min="-100" max="100" step="1" value="0">
+      </div>
+      <div class="ex-slider">
+        <div class="bigslider-head"><span class="bigslider-label" style="font-size:13px;">Contrast</span><span class="bigslider-val" id="xv-contrast">+0</span></div>
+        <input type="range" class="big" id="x-contrast" min="-100" max="100" step="1" value="0">
+      </div>
+      <div style="margin-top:6px;"><button class="cd-btn cd-btn-primary" id="btnCheck">Check my edit</button></div>
+      <div class="cd-score" id="exScore">
+        <div class="cd-score-num" id="exScoreNum">0</div>
+        <div class="cd-score-label">Edit score</div>
+        <div class="cd-score-feedback" id="exFeedback"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="status-line" id="status">Engine loading&hellip;</div>
+
+<!-- ============ PAYWALL SHEET ============ -->
+<div class="sheet-backdrop" id="paywallSheet">
+  <div class="sheet">
+    <div class="sheet-eyebrow">Cameras Decoded &middot; Pro</div>
+    <h2>Unlock the full <em>Darkroom</em></h2>
+    <p>These controls are where good photographers become dangerous ones. Pro opens every one of them.</p>
+    <div class="sheet-list">
+      <div>Clarity, Dehaze, Vibrance + full color science</div>
+      <div>Parametric tone curve &mdash; sculpt light by zone</div>
+      <div>8-band color mixer for precise grades</div>
+      <div>Guided exercises with scored feedback</div>
+      <div>Presets that teach, not just apply</div>
+    </div>
+    <button class="cd-btn cd-btn-primary" id="btnGoPro">See Pro plans</button><br>
+    <button class="sheet-ghost" id="btnDismissSheet">Not now</button>
+  </div>
+</div>
+
 
 <script src="/scripts/master-loader.js?v=20261007a"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -854,41 +579,95 @@
 <script src="/scripts/bottom-nav.js?v=20260924c"></script>
 <script src="/scripts/ptr.js"></script>
 <script type="module">
-
   const $ = id => document.getElementById(id);
-  const canvas = $('preview');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const exCanvas = $('exPreview');
-  const exCtx = exCanvas.getContext('2d', { willReadFrequently: true });
+  const cvBefore = $('cvBefore'), cvAfter = $('cvAfter');
+  const ctxB = cvBefore.getContext('2d', { willReadFrequently: true });
+  const ctxA = cvAfter.getContext('2d', { willReadFrequently: true });
   const statusEl = $('status');
-  const engineEl = $('engineStatus');
+  const engineDot = $('engineDot'), engineLabel = $('engineLabel');
 
   let wasm = null;
-  let original = null;
-  let exOriginal = null;
+  let original = null;          // working base ImageData (may be cropped)
   let renderTimer = null;
   let isPro = false;
+  let activeDock = 'adjust';
+  let activeToolId = 'exposure';
   let activeBand = 'blue';
+  let compareMode = true;
+  let dividerPos = 50;
+  let thumbsBuiltFor = null;
+  let history = [], hIndex = -1;
 
-  /* ---------------- settings model ---------------- */
+  /* ================= settings model ================= */
   const S = {
     exposure: 0, temp: 6500, tint: 0, contrast: 0, highlights: 0, shadows: 0,
     clarity: 0, dehaze: 0, vibrance: 0, saturation: 0,
     curveH: 0, curveL: 0, curveD: 0, curveS: 0,
-    mixer: {},
-    vignette: 0, grain: 0,
+    mixer: {}, vignette: 0, grain: 0,
   };
   const BANDS = ['red','orange','yellow','green','aqua','blue','purple','magenta'];
   const BAND_COLORS = { red:'#e5484d', orange:'#f76b15', yellow:'#ffd60a', green:'#46a758',
     aqua:'#12a594', blue:'#3e63dd', purple:'#8e4ec6', magenta:'#d6409f' };
   BANDS.forEach(b => S.mixer[b] = { h: 0, s: 0 });
 
-  function settingsJSON() {
+  const sign0 = v => (v >= 0 ? '+' : '') + Math.round(v);
+  const sign2 = v => (v >= 0 ? '+' : '') + Number(v).toFixed(2);
+
+  /* tool definitions: id, label, min, max, step, def, get, set, fmt, pro, special */
+  const TOOLS = {
+    adjust: [
+      { id:'exposure', label:'Exposure', min:-5, max:5, step:0.05, def:0,
+        get:()=>S.exposure, set:v=>S.exposure=v, fmt:sign2 },
+      { id:'contrast', label:'Contrast', min:-100, max:100, step:1, def:0,
+        get:()=>S.contrast, set:v=>S.contrast=v, fmt:sign0 },
+      { id:'highlights', label:'Highlights', min:-100, max:100, step:1, def:0,
+        get:()=>S.highlights, set:v=>S.highlights=v, fmt:sign0 },
+      { id:'shadows', label:'Shadows', min:-100, max:100, step:1, def:0,
+        get:()=>S.shadows, set:v=>S.shadows=v, fmt:sign0 },
+    ],
+    color: [
+      { id:'temp', label:'Temp', min:2000, max:12000, step:50, def:6500,
+        get:()=>S.temp, set:v=>S.temp=v, fmt:v=>Math.round(v)+'K' },
+      { id:'tint', label:'Tint', min:-100, max:100, step:1, def:0,
+        get:()=>S.tint, set:v=>S.tint=v, fmt:sign0 },
+      { id:'vibrance', label:'Vibrance', min:-100, max:100, step:1, def:0, pro:true,
+        get:()=>S.vibrance, set:v=>S.vibrance=v, fmt:sign0 },
+      { id:'saturation', label:'Saturation', min:-100, max:100, step:1, def:0, pro:true,
+        get:()=>S.saturation, set:v=>S.saturation=v, fmt:sign0 },
+      { id:'mixer', label:'Mixer', pro:true, special:'mixer' },
+    ],
+    effects: [
+      { id:'clarity', label:'Clarity', min:-100, max:100, step:1, def:0, pro:true,
+        get:()=>S.clarity, set:v=>S.clarity=v, fmt:sign0 },
+      { id:'dehaze', label:'Dehaze', min:-100, max:100, step:1, def:0, pro:true,
+        get:()=>S.dehaze, set:v=>S.dehaze=v, fmt:sign0 },
+      { id:'vignette', label:'Vignette', min:-100, max:0, step:1, def:0, pro:true,
+        get:()=>S.vignette, set:v=>S.vignette=v, fmt:sign0 },
+      { id:'grain', label:'Grain', min:0, max:100, step:1, def:0, pro:true,
+        get:()=>S.grain, set:v=>S.grain=v, fmt:v=>Math.round(v) },
+    ],
+  };
+  /* tone curve lives inside effects as a special tool */
+  TOOLS.effects.push(
+    { id:'curve', label:'Curve', pro:true, special:'curve' },
+  );
+  const CURVE_BANDS = [
+    { id:'curveH', label:'Highlights', get:()=>S.curveH, set:v=>S.curveH=v },
+    { id:'curveL', label:'Lights', get:()=>S.curveL, set:v=>S.curveL=v },
+    { id:'curveD', label:'Darks', get:()=>S.curveD, set:v=>S.curveD=v },
+    { id:'curveS', label:'Shadows', get:()=>S.curveS, set:v=>S.curveS=v },
+  ];
+  const DEFAULTS = { exposure:0, temp:6500, tint:0, contrast:0, highlights:0, shadows:0,
+    clarity:0, dehaze:0, vibrance:0, saturation:0, curveH:0, curveL:0, curveD:0, curveS:0,
+    vignette:0, grain:0 };
+
+  function settingsJSON(forcePro) {
+    const pro = forcePro || isPro;
     const j = {
       light: { exposure: S.exposure, contrast: S.contrast, highlights: S.highlights, shadows: S.shadows },
       wb: { temp: S.temp, tint: S.tint },
     };
-    if (isPro) {
+    if (pro) {
       j.effects = { clarity: S.clarity, dehaze: S.dehaze };
       j.color = { vibrance: S.vibrance, saturation: S.saturation };
       j.curve = { highlights: S.curveH, lights: S.curveL, darks: S.curveD, shadows: S.curveS };
@@ -900,8 +679,20 @@
     }
     return JSON.stringify(j);
   }
+  function snapshotSettings() {
+    return JSON.stringify({ S: { ...S, mixer: JSON.parse(JSON.stringify(S.mixer)) } });
+  }
+  function restoreSettings(snap) {
+    const o = JSON.parse(snap).S;
+    for (const k of Object.keys(DEFAULTS)) S[k] = o[k];
+    for (const b of BANDS) S.mixer[b] = { ...o.mixer[b] };
+  }
+  function resetSettings() {
+    for (const k of Object.keys(DEFAULTS)) S[k] = DEFAULTS[k];
+    for (const b of BANDS) S.mixer[b] = { h: 0, s: 0 };
+  }
 
-  /* ---------------- render ---------------- */
+  /* ================= render ================= */
   function render() {
     if (!wasm || !original) return;
     const t0 = performance.now();
@@ -909,83 +700,129 @@
       const out = wasm.process_json(original.data, original.width, original.height, settingsJSON());
       const ms = performance.now() - t0;
       if (!out || out.length !== original.data.length) {
-        statusEl.textContent = 'Engine error — check console';
+        statusEl.textContent = 'Engine error';
         return;
       }
-      ctx.putImageData(new ImageData(new Uint8ClampedArray(out), original.width, original.height), 0, 0);
-      statusEl.textContent = 'Rendered in ' + ms.toFixed(0) + ' ms · Rust pipeline' + (isPro ? ' · Pro' : '');
+      ctxA.putImageData(new ImageData(new Uint8ClampedArray(out), original.width, original.height), 0, 0);
+      statusEl.textContent = 'Rendered in ' + ms.toFixed(0) + ' ms · Rust' + (isPro ? ' · Pro' : '');
       statusEl.classList.add('live');
     } catch (err) {
       console.error(err);
-      statusEl.textContent = 'Render failed — see console';
+      statusEl.textContent = 'Render failed';
     }
   }
   function scheduleRender() {
-    fmtVals();
     clearTimeout(renderTimer);
     renderTimer = setTimeout(render, 60);
   }
-
-  /* ---------------- exercise render ---------------- */
-  const XS = { exposure: 0, shadows: 0, highlights: 0, contrast: 0 };
-  function exSettingsJSON() {
-    return JSON.stringify({
-      light: { exposure: XS.exposure, contrast: XS.contrast, highlights: XS.highlights, shadows: XS.shadows },
-      wb: { temp: 6500, tint: 0 },
+  function drawBefore() {
+    if (!original) return;
+    ctxB.putImageData(original, 0, 0);
+  }
+  function fitCanvases() {
+    if (!original) return;
+    for (const cv of [cvBefore, cvAfter]) { cv.width = original.width; cv.height = original.height; }
+    const wrap = $('compareWrap');
+    const r = original.width / original.height;
+    wrap.style.aspectRatio = original.width + ' / ' + original.height;
+    // constrain: fit within zone
+    wrap.style.width = '';
+    wrap.style.height = '';
+    requestAnimationFrame(() => {
+      const zone = wrap.parentElement.getBoundingClientRect();
+      const pad = 28;
+      const zw = zone.width - pad, zh = zone.height - pad;
+      let w = zw, h = w / r;
+      if (h > zh) { h = zh; w = h * r; }
+      wrap.style.width = Math.max(80, w) + 'px';
+      wrap.style.height = Math.max(80, h) + 'px';
     });
   }
-  function exRender() {
-    if (!wasm || !exOriginal) return;
-    try {
-      const out = wasm.process_json(exOriginal.data, exOriginal.width, exOriginal.height, exSettingsJSON());
-      if (!out || out.length !== exOriginal.data.length) return;
-      exCtx.putImageData(new ImageData(new Uint8ClampedArray(out), exOriginal.width, exOriginal.height), 0, 0);
-    } catch (err) { console.error(err); }
-  }
-  function exSchedule() {
-    $('xv-exposure').textContent = (XS.exposure >= 0 ? '+' : '') + XS.exposure.toFixed(2);
-    $('xv-shadows').textContent = (XS.shadows >= 0 ? '+' : '') + XS.shadows;
-    $('xv-highlights').textContent = (XS.highlights >= 0 ? '+' : '') + XS.highlights;
-    $('xv-contrast').textContent = (XS.contrast >= 0 ? '+' : '') + XS.contrast;
-    clearTimeout(renderTimer);
-    renderTimer = setTimeout(exRender, 60);
-  }
 
-  /* ---------------- formatting ---------------- */
-  function fmtVals() {
-    $('v-exposure').textContent = (S.exposure >= 0 ? '+' : '') + S.exposure.toFixed(2);
-    $('v-temp').textContent = Math.round(S.temp) + 'K';
-    $('v-tint').textContent = (S.tint >= 0 ? '+' : '') + Math.round(S.tint);
-    $('v-contrast').textContent = (S.contrast >= 0 ? '+' : '') + Math.round(S.contrast);
-    $('v-highlights').textContent = (S.highlights >= 0 ? '+' : '') + Math.round(S.highlights);
-    $('v-shadows').textContent = (S.shadows >= 0 ? '+' : '') + Math.round(S.shadows);
-    $('v-clarity').textContent = (S.clarity >= 0 ? '+' : '') + Math.round(S.clarity);
-    $('v-dehaze').textContent = (S.dehaze >= 0 ? '+' : '') + Math.round(S.dehaze);
-    $('v-vibrance').textContent = (S.vibrance >= 0 ? '+' : '') + Math.round(S.vibrance);
-    $('v-saturation').textContent = (S.saturation >= 0 ? '+' : '') + Math.round(S.saturation);
-    $('v-ch').textContent = (S.curveH >= 0 ? '+' : '') + Math.round(S.curveH);
-    $('v-cl').textContent = (S.curveL >= 0 ? '+' : '') + Math.round(S.curveL);
-    $('v-cd').textContent = (S.curveD >= 0 ? '+' : '') + Math.round(S.curveD);
-    $('v-cs').textContent = (S.curveS >= 0 ? '+' : '') + Math.round(S.curveS);
-    $('v-mh').textContent = (S.mixer[activeBand].h >= 0 ? '+' : '') + Math.round(S.mixer[activeBand].h);
-    $('v-ms').textContent = (S.mixer[activeBand].s >= 0 ? '+' : '') + Math.round(S.mixer[activeBand].s);
-    $('v-vignette').textContent = Math.round(S.vignette);
-    $('v-grain').textContent = '+' + Math.round(S.grain);
+  /* ================= compare divider ================= */
+  function updateCompareUI() {
+    const show = compareMode && !!original;
+    for (const id of ['cmpDivider','cmpHandle','tagBefore','tagAfter']) {
+      $(id).classList.toggle('hidden', !show);
+    }
+    cvAfter.style.clipPath = show ? `inset(0 ${100 - dividerPos}% 0 0)` : 'none';
+    $('cmpDivider').style.left = dividerPos + '%';
+    $('cmpHandle').style.left = dividerPos + '%';
+    $('btnCompare').classList.toggle('on', compareMode);
   }
-
-  function bindSlider(id, get, set) {
-    $(id).addEventListener('input', e => { set(parseFloat(e.target.value)); scheduleRender(); });
+  function setDividerFromEvent(e) {
+    const wrap = $('compareWrap');
+    const r = wrap.getBoundingClientRect();
+    const x = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX);
+    dividerPos = Math.min(97, Math.max(3, ((x - r.left) / r.width) * 100));
+    updateCompareUI();
   }
+  (function wireDivider() {
+    const wrap = $('compareWrap');
+    let dragging = false;
+    wrap.addEventListener('pointerdown', e => {
+      if (!original || !compareMode) return;
+      dragging = true;
+      try { wrap.setPointerCapture(e.pointerId); } catch (err) {}
+      setDividerFromEvent(e);
+    });
+    wrap.addEventListener('pointermove', e => { if (dragging) setDividerFromEvent(e); });
+    wrap.addEventListener('pointerup', () => dragging = false);
+    wrap.addEventListener('pointercancel', () => dragging = false);
+  })();
+  $('btnCompare').addEventListener('click', () => {
+    compareMode = !compareMode;
+    updateCompareUI();
+  });
 
-  /* ---------------- photos ---------------- */
-  function setPhoto(imgData) {
-    original = imgData;
-    canvas.width = imgData.width;
-    canvas.height = imgData.height;
-    ctx.putImageData(imgData, 0, 0);
+  /* ================= undo / redo ================= */
+  function pushHistory(withImage) {
+    history.length = hIndex + 1;
+    history.push({ snap: snapshotSettings(), image: withImage || null });
+    if (history.length > 24) history.shift();
+    hIndex = history.length - 1;
+    updateUndoBtns();
+  }
+  function applyHistory(h) {
+    if (h.image) {
+      original = h.image;
+      fitCanvases(); drawBefore(); thumbsBuiltFor = null;
+    }
+    restoreSettings(h.snap);
+    renderPanel();
     render();
   }
+  function undo() {
+    if (hIndex <= 0) return;
+    hIndex--;
+    applyHistory(history[hIndex]);
+    updateUndoBtns();
+  }
+  function redo() {
+    if (hIndex >= history.length - 1) return;
+    hIndex++;
+    applyHistory(history[hIndex]);
+    updateUndoBtns();
+  }
+  function updateUndoBtns() {
+    $('btnUndo').disabled = hIndex <= 0;
+    $('btnRedo').disabled = hIndex >= history.length - 1;
+  }
+  $('btnUndo').addEventListener('click', undo);
+  $('btnRedo').addEventListener('click', redo);
 
+  /* ================= photo ================= */
+  function setPhoto(imgData) {
+    original = imgData;
+    history = []; hIndex = -1;
+    fitCanvases();
+    drawBefore();
+    thumbsBuiltFor = null;
+    pushHistory(imgData);
+    render();
+    $('canvasEmpty').classList.add('hidden');
+    updateCompareUI();
+  }
   function makeSample(dark) {
     const w = 720, h = 480;
     const c = document.createElement('canvas');
@@ -1041,17 +878,6 @@
     const n = parseInt(hex.slice(1), 16);
     return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
   }
-
-  /* hold-to-compare */
-  function wireHold(wrap, showOrig, showProc) {
-    wrap.addEventListener('pointerdown', showOrig);
-    window.addEventListener('pointerup', showProc);
-    wrap.addEventListener('pointerleave', showProc);
-  }
-  wireHold($('previewWrap'), () => { if (original) ctx.putImageData(original, 0, 0); }, render);
-  wireHold($('exPreviewWrap'), () => { if (exOriginal) exCtx.putImageData(exOriginal, 0, 0); }, exRender);
-
-  /* upload */
   const fileInput = $('fileInput');
   $('btnUpload').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', () => {
@@ -1066,90 +892,145 @@
       const c = document.createElement('canvas');
       c.width = w; c.height = h;
       c.getContext('2d').drawImage(img, 0, 0, w, h);
+      resetSettings();
       setPhoto(c.getContext('2d').getImageData(0, 0, w, h));
+      renderPanel();
       URL.revokeObjectURL(url);
-      statusEl.textContent = 'Photo loaded — ' + w + '×' + h;
+      statusEl.textContent = 'Photo loaded \u2014 ' + w + '\u00d7' + h;
     };
     img.src = url;
   });
-
-  /* reset */
-  $('btnReset').addEventListener('click', () => {
-    Object.assign(S, { exposure: 0, temp: 6500, tint: 0, contrast: 0, highlights: 0, shadows: 0,
-      clarity: 0, dehaze: 0, vibrance: 0, saturation: 0,
-      curveH: 0, curveL: 0, curveD: 0, curveS: 0, vignette: 0, grain: 0 });
-    BANDS.forEach(b => S.mixer[b] = { h: 0, s: 0 });
-    syncSliderUI();
-    scheduleRender();
+  $('btnBack').addEventListener('click', () => {
+    if (window.history.length > 1) window.history.back();
+    else statusEl.textContent = 'Demo build \u2014 no page to go back to';
   });
-
-  function syncSliderUI() {
-    $('s-exposure').value = S.exposure; $('s-temp').value = S.temp; $('s-tint').value = S.tint;
-    $('s-contrast').value = S.contrast; $('s-highlights').value = S.highlights; $('s-shadows').value = S.shadows;
-    $('s-clarity').value = S.clarity; $('s-dehaze').value = S.dehaze;
-    $('s-vibrance').value = S.vibrance; $('s-saturation').value = S.saturation;
-    $('s-ch').value = S.curveH; $('s-cl').value = S.curveL; $('s-cd').value = S.curveD; $('s-cs').value = S.curveS;
-    $('s-mh').value = S.mixer[activeBand].h; $('s-ms').value = S.mixer[activeBand].s;
-    $('s-vignette').value = S.vignette; $('s-grain').value = S.grain;
-    fmtVals();
-  }
-
-  /* export */
   $('btnSave').addEventListener('click', () => {
+    if (!original) return;
     render();
     const a = document.createElement('a');
     a.download = 'cd-develop.png';
-    a.href = canvas.toDataURL('image/png');
+    a.href = cvAfter.toDataURL('image/png');
     a.click();
     statusEl.textContent = 'Exported PNG';
   });
 
-  /* ---------------- slider bindings ---------------- */
-  bindSlider('s-exposure', 0, v => S.exposure = v);
-  bindSlider('s-temp', 0, v => S.temp = v);
-  bindSlider('s-tint', 0, v => S.tint = v);
-  bindSlider('s-contrast', 0, v => S.contrast = v);
-  bindSlider('s-highlights', 0, v => S.highlights = v);
-  bindSlider('s-shadows', 0, v => S.shadows = v);
-  bindSlider('s-clarity', 0, v => S.clarity = v);
-  bindSlider('s-dehaze', 0, v => S.dehaze = v);
-  bindSlider('s-vibrance', 0, v => S.vibrance = v);
-  bindSlider('s-saturation', 0, v => S.saturation = v);
-  bindSlider('s-ch', 0, v => S.curveH = v);
-  bindSlider('s-cl', 0, v => S.curveL = v);
-  bindSlider('s-cd', 0, v => S.curveD = v);
-  bindSlider('s-cs', 0, v => S.curveS = v);
-  bindSlider('s-mh', 0, v => S.mixer[activeBand].h = v);
-  bindSlider('s-ms', 0, v => S.mixer[activeBand].s = v);
-  bindSlider('s-vignette', 0, v => S.vignette = v);
-  bindSlider('s-grain', 0, v => S.grain = v);
-
-  /* exercise sliders */
-  $('x-exposure').addEventListener('input', e => { XS.exposure = parseFloat(e.target.value); exSchedule(); });
-  $('x-shadows').addEventListener('input', e => { XS.shadows = parseFloat(e.target.value); exSchedule(); });
-  $('x-highlights').addEventListener('input', e => { XS.highlights = parseFloat(e.target.value); exSchedule(); });
-  $('x-contrast').addEventListener('input', e => { XS.contrast = parseFloat(e.target.value); exSchedule(); });
-
-  /* ---------------- HSL band chips ---------------- */
-  const chipsEl = $('bandChips');
-  BANDS.forEach(b => {
-    const chip = document.createElement('button');
-    chip.className = 'cd-band-chip' + (b === activeBand ? ' active' : '');
-    chip.style.background = BAND_COLORS[b];
-    chip.setAttribute('aria-label', b);
-    chip.addEventListener('click', () => {
-      activeBand = b;
-      document.querySelectorAll('.cd-band-chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      $('bandName').textContent = b.charAt(0).toUpperCase() + b.slice(1);
-      $('s-mh').value = S.mixer[b].h;
-      $('s-ms').value = S.mixer[b].s;
-      fmtVals();
+  /* ================= panel + dock ================= */
+  const LOCK_GLYPH = '<span class="tlock">\u25cf</span>'; // gold dot marker
+  function findTool(id) {
+    for (const tab of Object.keys(TOOLS))
+      for (const t of TOOLS[tab]) if (t.id === id) return t;
+    return null;
+  }
+  function renderPanel() {
+    const pc = $('panelContent');
+    pc.innerHTML = '';
+    if (activeDock === 'presets') { renderPresetPanel(pc); return; }
+    if (activeDock === 'crop') { renderCropPanel(pc); return; }
+    // tool row
+    const row = document.createElement('div');
+    row.className = 'tool-row';
+    for (const t of TOOLS[activeDock]) {
+      const b = document.createElement('button');
+      b.className = 'tool-btn' + (t.id === activeToolId ? ' active' : '');
+      const locked = t.pro && !isPro;
+      b.innerHTML = `<span class="tdot">${t.label.slice(0,2).toUpperCase()}</span><span>${t.label}</span>` +
+        (locked ? LOCK_GLYPH : '');
+      b.addEventListener('click', () => {
+        if (t.pro && !isPro) { showPaywall(); return; }
+        activeToolId = t.id;
+        renderPanel();
+      });
+      row.appendChild(b);
+    }
+    pc.appendChild(row);
+    // control area
+    const tool = findTool(activeToolId);
+    if (!tool || tool.special === 'mixer') { renderMixer(pc); return; }
+    if (tool.special === 'curve') { renderCurve(pc); return; }
+    renderBigSlider(pc, tool);
+  }
+  function renderBigSlider(pc, tool) {
+    const wrap = document.createElement('div');
+    const locked = tool.pro && !isPro;
+    wrap.innerHTML = `
+      <div class="bigslider-head">
+        <span class="bigslider-label">${tool.label}${tool.pro ? '<span class="pro-flag">PRO</span>' : ''}</span>
+        <span class="bigslider-val" id="bsVal" title="Tap to reset">${tool.fmt(tool.get())}</span>
+      </div>
+      <input type="range" class="big" id="bsSlider" min="${tool.min}" max="${tool.max}" step="${tool.step}" value="${tool.get()}" ${locked ? 'disabled' : ''}>
+      <div class="bigslider-hint">DOUBLE-TAP SLIDER TO RESET</div>`;
+    pc.appendChild(wrap);
+    const slider = $('bsSlider'), val = $('bsVal');
+    const update = () => { val.textContent = tool.fmt(tool.get()); };
+    slider.addEventListener('input', () => {
+      tool.set(parseFloat(slider.value));
+      update();
+      scheduleRender();
     });
-    chipsEl.appendChild(chip);
-  });
+    slider.addEventListener('change', () => pushHistory());
+    const doReset = () => {
+      tool.set(tool.def);
+      slider.value = tool.def;
+      update();
+      pushHistory();
+      scheduleRender();
+    };
+    slider.addEventListener('dblclick', doReset);
+    val.addEventListener('click', doReset);
+  }
+  function renderMixer(pc) {
+    const wrap = document.createElement('div');
+    const chips = BANDS.map(b =>
+      `<button class="band-chip${b === activeBand ? ' active' : ''}" data-band="${b}" style="background:${BAND_COLORS[b]}" aria-label="${b}"></button>`
+    ).join('');
+    wrap.innerHTML = `
+      <div class="bigslider-head">
+        <span class="bigslider-label">Color Mixer <span class="pro-flag">PRO</span></span>
+        <span class="bigslider-val" id="bandName" style="text-transform:capitalize;">${activeBand}</span>
+      </div>
+      <div class="band-chips">${chips}</div>
+      <div class="mixer-sliders">
+        <div class="ms-row"><span class="ms-label">Hue</span>
+          <input type="range" class="big" id="msHue" min="-100" max="100" step="1" value="${S.mixer[activeBand].h}"></div>
+        <div class="ms-row"><span class="ms-label">Sat</span>
+          <input type="range" class="big" id="msSat" min="-100" max="100" step="1" value="${S.mixer[activeBand].s}"></div>
+      </div>`;
+    pc.appendChild(wrap);
+    wrap.querySelectorAll('.band-chip').forEach(ch => {
+      ch.addEventListener('click', () => {
+        activeBand = ch.dataset.band;
+        renderPanel();
+      });
+    });
+    const hue = $('msHue'), sat = $('msSat');
+    hue.addEventListener('input', () => { S.mixer[activeBand].h = parseFloat(hue.value); scheduleRender(); });
+    sat.addEventListener('input', () => { S.mixer[activeBand].s = parseFloat(sat.value); scheduleRender(); });
+    hue.addEventListener('change', () => pushHistory());
+    sat.addEventListener('change', () => pushHistory());
+  }
+  function renderCurve(pc) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div class="bigslider-head" style="margin-bottom:8px;">
+        <span class="bigslider-label">Tone Curve <span class="pro-flag">PRO</span></span>
+        <span class="bigslider-val" style="font-size:11px;color:var(--text-faint);">4 zones</span>
+      </div>
+      <div class="mixer-sliders" id="curveRows"></div>`;
+    pc.appendChild(wrap);
+    const rows = $('curveRows');
+    for (const cb of CURVE_BANDS) {
+      const r = document.createElement('div');
+      r.className = 'ms-row';
+      r.innerHTML = `<span class="ms-label" style="width:64px;">${cb.label}</span>
+        <input type="range" class="big" min="-100" max="100" step="1" value="${cb.get()}">`;
+      const sl = r.querySelector('input');
+      sl.addEventListener('input', () => { cb.set(parseFloat(sl.value)); scheduleRender(); });
+      sl.addEventListener('change', () => pushHistory());
+      sl.addEventListener('dblclick', () => { cb.set(0); sl.value = 0; pushHistory(); scheduleRender(); });
+      rows.appendChild(r);
+    }
+  }
 
-  /* ---------------- presets ---------------- */
+  /* ================= presets ================= */
   const PRESETS = [
     { name: 'Golden Hour', desc: 'Warms highlights, lifts shadows. <em>See how temperature shapes mood.</em>',
       s: { temp: 7500, highlights: -15, shadows: 20, vibrance: 15 } },
@@ -1161,25 +1042,89 @@
       s: { temp: 7200, mixer: { blue: { s: 20 }, orange: { s: 15 } } } },
     { name: 'Faded Matte', desc: 'Lifted blacks, muted color. <em>How the tone curve creates film.</em>',
       s: { curveS: 30, saturation: -20, contrast: -15 } },
-    { name: 'Punchy', desc: 'Contrast plus vibrance. <em>The quick win — and why it breaks when pushed.</em>',
+    { name: 'Punchy', desc: 'Contrast plus vibrance. <em>The quick win \u2014 and why it breaks when pushed.</em>',
       s: { contrast: 30, vibrance: 25, saturation: 10 } },
     { name: 'Night Rescue', desc: 'Shadows up, haze cut. <em>Salvage the shot you almost deleted.</em>',
       s: { exposure: 1.0, shadows: 40, dehaze: 10 } },
     { name: 'Noir', desc: 'Crushed blacks, stark contrast. <em>When less light says more.</em>',
       s: { saturation: -85, contrast: 25, curveS: -20, vignette: -40 } },
   ];
-  const presetGrid = $('presetGrid');
-  PRESETS.forEach(p => {
-    const el = document.createElement('button');
-    el.className = 'cd-preset';
-    el.innerHTML = `<div class="cd-preset-name">${p.name}</div><div class="cd-preset-desc">${p.desc}</div>`;
-    el.addEventListener('click', () => {
-      if (!isPro) { showPaywall(); return; }
-      applyPreset(p.s);
+  function renderPresetPanel(pc) {
+    const wrap = document.createElement('div');
+    wrap.style.position = 'relative';
+    wrap.innerHTML = `
+      <div class="bigslider-head" style="margin-bottom:8px;">
+        <span class="bigslider-label">Presets <span class="pro-flag">PRO</span></span>
+        <span class="bigslider-val" style="font-size:11px;color:var(--text-faint);">tap to preview</span>
+      </div>
+      <div class="preset-strip" id="presetStrip"></div>`;
+    pc.appendChild(wrap);
+    const strip = $('presetStrip');
+    if (!isPro) {
+      // locked: show skeleton cards behind veil
+      for (let i = 0; i < 4; i++) {
+        const sk = document.createElement('div');
+        sk.className = 'preset-card';
+        sk.innerHTML = `<div class="preset-skel"></div><div class="preset-name" style="color:var(--text-faint)">Locked</div>`;
+        strip.appendChild(sk);
+      }
+      const veil = document.createElement('div');
+      veil.className = 'pro-lock-veil';
+      veil.innerHTML = `${LOCK_SVG}<div class="pro-lock-title">Pro</div><div class="pro-lock-sub">Presets that teach \u2014 every one explains its thinking.</div><div class="pro-lock-cta">Unlock with Pro</div>`;
+      veil.addEventListener('click', showPaywall);
+      wrap.appendChild(veil);
+      return;
+    }
+    // skeleton placeholders, then build thumbs async
+    const cards = PRESETS.map(p => {
+      const el = document.createElement('button');
+      el.className = 'preset-card';
+      el.innerHTML = `<div class="preset-skel"></div><div class="preset-name">${p.name}</div><div class="preset-desc">${p.desc}</div>`;
+      el.addEventListener('click', () => {
+        if (!wasm || !original) return;
+        pushHistory();
+        applyPreset(p.s);
+        document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+      });
+      strip.appendChild(el);
+      return el;
     });
-    presetGrid.appendChild(el);
-  });
-  function applyPreset(ps) {
+    buildPresetThumbs(cards);
+  }
+  async function buildPresetThumbs(cards) {
+    if (!wasm || !original || thumbsBuiltFor === original) return;
+    // downscale once
+    const tw = 160, th = Math.round(160 * original.height / original.width);
+    const dc = document.createElement('canvas'); dc.width = tw; dc.height = th;
+    const dg = dc.getContext('2d');
+    const full = document.createElement('canvas');
+    full.width = original.width; full.height = original.height;
+    full.getContext('2d').putImageData(original, 0, 0);
+    dg.drawImage(full, 0, 0, tw, th);
+    const small = dg.getImageData(0, 0, tw, th);
+    const savedSnap = snapshotSettings();
+    for (let i = 0; i < PRESETS.length; i++) {
+      resetSettings();
+      applyPresetToState(PRESETS[i].s);
+      try {
+        const out = wasm.process_json(small.data, tw, th, settingsJSON(true));
+        if (out && out.length === small.data.length) {
+          const tc = document.createElement('canvas');
+          tc.width = tw; tc.height = th;
+          tc.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(out), tw, th), 0, 0);
+          const skel = cards[i].querySelector('.preset-skel');
+          if (skel) skel.replaceWith(tc);
+        }
+      } catch (err) { console.error('thumb', i, err); }
+      await new Promise(r => setTimeout(r, 15));
+      if (thumbsBuiltFor === 'cancelled') return;
+    }
+    restoreSettings(savedSnap);
+    thumbsBuiltFor = original;
+    render();
+  }
+  function applyPresetToState(ps) {
     if (ps.temp !== undefined) S.temp = ps.temp;
     if (ps.exposure !== undefined) S.exposure = ps.exposure;
     if (ps.highlights !== undefined) S.highlights = ps.highlights;
@@ -1195,34 +1140,117 @@
       if (v.s !== undefined) S.mixer[b].s = v.s;
       if (v.h !== undefined) S.mixer[b].h = v.h;
     }
-    syncSliderUI();
+  }
+  function applyPreset(ps) {
+    applyPresetToState(ps);
     scheduleRender();
-    statusEl.textContent = 'Preset applied — adjust to taste';
+    statusEl.textContent = 'Preset applied \u2014 adjust to taste';
   }
 
-  /* ---------------- pro gating ---------------- */
-  const LOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
-  function addLock(wrapId, title, sub) {
-    const wrap = $(wrapId);
-    const lock = document.createElement('div');
-    lock.className = 'cd-pro-lock';
-    lock.innerHTML = `${LOCK_SVG}<div class="cd-pro-lock-title">${title}</div><div class="cd-pro-lock-sub">${sub}</div><div class="cd-pro-lock-cta">Unlock with Pro</div>`;
-    lock.addEventListener('click', showPaywall);
-    wrap.appendChild(lock);
-    return lock;
-  }
-  const locks = [
-    addLock('proDetail', 'Pro', 'Clarity, Dehaze, Vibrance and Saturation — the presence controls.'),
-    addLock('proCurve', 'Pro', 'Parametric tone curve. Sculpt light by zone, like the masters.'),
-    addLock('proMixer', 'Pro', '8-band color mixer. Grade with surgical precision.'),
-    addLock('proFx', 'Pro', 'Vignette and grain. The finishing touches.'),
-    addLock('proPresets', 'Pro', 'Presets that teach — every one explains its thinking.'),
-    addLock('proLearn', 'Pro', 'Guided exercises with scored feedback. Learn by doing.'),
+  /* ================= crop ================= */
+  const RATIOS = [
+    { id: 'free', label: 'Free', ratio: null },
+    { id: '11', label: '1:1', ratio: 1 },
+    { id: '45', label: '4:5', ratio: 4/5 },
+    { id: '32', label: '3:2', ratio: 3/2 },
+    { id: '169', label: '16:9', ratio: 16/9 },
   ];
-  function updateLocks() {
-    locks.forEach(l => l.classList.toggle('hidden', isPro));
+  function renderCropPanel(pc) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="bigslider-head" style="margin-bottom:8px;">
+        <span class="bigslider-label">Crop &amp; Rotate</span>
+        <span class="bigslider-val" id="cropInfo" style="font-size:11px;color:var(--text-faint);"></span>
+      </div>
+      <div class="crop-row" id="cropRow"></div>
+      <div class="crop-row">
+        <button class="crop-btn wide" id="btnRotate">Rotate 90\u00b0</button>
+        <button class="crop-btn wide" id="btnCropReset">Reset crop</button>
+      </div>`;
+    pc.appendChild(wrap);
+    const row = $('cropRow');
+    for (const r of RATIOS) {
+      const b = document.createElement('button');
+      b.className = 'crop-btn';
+      b.textContent = r.label;
+      b.addEventListener('click', () => {
+        if (r.ratio) applyCrop(r.ratio);
+        row.querySelectorAll('.crop-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+      });
+      row.appendChild(b);
+    }
+    $('btnRotate').addEventListener('click', rotate90);
+    $('btnCropReset').addEventListener('click', () => {
+      if (history.length && history[0].image === null) {
+        // first history entry holds pristine state only if no crop yet; simplest: reload sample/upload
+        statusEl.textContent = 'Reload photo to reset crop';
+      }
+    });
+    updateCropInfo();
+  }
+  function updateCropInfo() {
+    const el = $('cropInfo');
+    if (el && original) el.textContent = original.width + '\u00d7' + original.height;
+  }
+  function blitTo(srcData, w, h) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').putImageData(srcData, 0, 0);
+    return c;
+  }
+  function applyCrop(ratio) {
+    if (!original || !ratio) return;
+    const w = original.width, h = original.height;
+    const imgR = w / h;
+    let cw, ch;
+    if (imgR > ratio) { ch = h; cw = Math.round(h * ratio); }
+    else { cw = w; ch = Math.round(w / ratio); }
+    if (cw === w && ch === h) { statusEl.textContent = 'Already at that ratio'; return; }
+    pushHistory(original);
+    const sx = Math.round((w - cw) / 2), sy = Math.round((h - ch) / 2);
+    const src = blitTo(original, w, h);
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    c.getContext('2d').drawImage(src, sx, sy, cw, ch, 0, 0, cw, ch);
+    original = c.getContext('2d').getImageData(0, 0, cw, ch);
+    fitCanvases(); drawBefore(); thumbsBuiltFor = null;
+    render(); updateCropInfo();
+    statusEl.textContent = 'Cropped to ' + cw + '\u00d7' + ch;
+  }
+  function rotate90() {
+    if (!original) return;
+    pushHistory(original);
+    const w = original.width, h = original.height;
+    const src = blitTo(original, w, h);
+    const c = document.createElement('canvas'); c.width = h; c.height = w;
+    const g = c.getContext('2d');
+    g.translate(h / 2, w / 2); g.rotate(Math.PI / 2);
+    g.drawImage(src, -w / 2, -h / 2);
+    original = g.getImageData(0, 0, h, w);
+    fitCanvases(); drawBefore(); thumbsBuiltFor = null;
+    render(); updateCropInfo();
+    statusEl.textContent = 'Rotated';
   }
 
+  /* ================= dock ================= */
+  document.querySelectorAll('.dock-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.dock-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      activeDock = tab.dataset.dock;
+      // pick first tool of the tab as active
+      const tools = TOOLS[activeDock];
+      if (tools && tools.length) {
+        const first = tools[0];
+        if (!(findTool(activeToolId) && TOOLS[activeDock].some(t => t.id === activeToolId))) {
+          activeToolId = first.id;
+        }
+      }
+      renderPanel();
+    });
+  });
+
+  /* ================= pro gating ================= */
+  const LOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
   function showPaywall() {
     if (window.CDPaywall && typeof window.CDPaywall.show === 'function') {
       window.CDPaywall.show({ headline: 'Unlock the Darkroom', sub: 'Pro opens every control below.' });
@@ -1236,46 +1264,104 @@
   });
   $('btnGoPro').addEventListener('click', () => {
     $('paywallSheet').classList.remove('show');
-    window.location.href = '/why-pro.html';
+    statusEl.textContent = 'Demo build \u2014 checkout not wired';
   });
-
-  /* real tier detection via user-state.js */
-  function refreshTier() {
-    try {
-      var u = window.USER || {};
-      var tier = String(u.tier || 'free').toLowerCase();
-      var role = String(u.role || '').toLowerCase();
-      isPro = (tier === 'pro' || role === 'admin');
-    } catch (e) { isPro = false; }
-    updateLocks();
-    scheduleRender();
+  function updateProUI() {
+    document.querySelectorAll('[data-probadge]').forEach(el => el.classList.toggle('hidden', isPro));
+    renderPanel();
+    renderLearnLock();
   }
-  if (window.USER) refreshTier();
-  window.addEventListener('userStateReady', refreshTier);
-  setTimeout(refreshTier, 3000); /* backstop for late user-state.js */
-
-  /* ---------------- tabs ---------------- */
-  $('tabEditBtn').addEventListener('click', () => {
-    $('tabEditBtn').classList.add('active');
-    $('tabLearnBtn').classList.remove('active');
-    $('tabEdit').classList.remove('hidden');
-    $('tabLearn').classList.add('hidden');
+  $('tierFree').addEventListener('click', () => {
+    isPro = false;
+    $('tierFree').classList.add('active'); $('tierPro').classList.remove('active');
+    updateProUI(); scheduleRender();
   });
-  $('tabLearnBtn').addEventListener('click', () => {
-    $('tabLearnBtn').classList.add('active');
-    $('tabEditBtn').classList.remove('active');
-    $('tabLearn').classList.remove('hidden');
-    $('tabEdit').classList.add('hidden');
-    if (wasm && !exOriginal) {
-      exOriginal = makeSample(true);
-      exCanvas.width = exOriginal.width;
-      exCanvas.height = exOriginal.height;
-      exCtx.putImageData(exOriginal, 0, 0);
+  $('tierPro').addEventListener('click', () => {
+    isPro = true;
+    $('tierPro').classList.add('active'); $('tierFree').classList.remove('active');
+    updateProUI(); scheduleRender();
+  });
+
+  /* ================= mode toggle ================= */
+  $('modeEdit').addEventListener('click', () => setMode('edit'));
+  $('modeLearn').addEventListener('click', () => setMode('learn'));
+  function setMode(m) {
+    const edit = m === 'edit';
+    $('modeEdit').classList.toggle('active', edit);
+    $('modeLearn').classList.toggle('active', !edit);
+    $('editMode').classList.toggle('hidden', !edit);
+    $('editMode').style.display = edit ? 'flex' : 'none';
+    $('learnMode').classList.toggle('hidden', edit);
+    $('learnMode').style.display = edit ? 'none' : 'flex';
+    if (!edit && wasm && !exOriginal) initExercise();
+  }
+
+  /* ================= learn mode ================= */
+  const exB = $('exBefore'), exA = $('exAfter');
+  const exCtxB = exB.getContext('2d', { willReadFrequently: true });
+  const exCtxA = exA.getContext('2d', { willReadFrequently: true });
+  let exOriginal = null, exDividerPos = 50, exTimer = null;
+  const XS = { exposure: 0, shadows: 0, highlights: 0, contrast: 0 };
+  function exSettingsJSON() {
+    return JSON.stringify({
+      light: { exposure: XS.exposure, contrast: XS.contrast, highlights: XS.highlights, shadows: XS.shadows },
+      wb: { temp: 6500, tint: 0 },
+    });
+  }
+  function exRender() {
+    if (!wasm || !exOriginal) return;
+    try {
+      const out = wasm.process_json(exOriginal.data, exOriginal.width, exOriginal.height, exSettingsJSON());
+      if (!out || out.length !== exOriginal.data.length) return;
+      exCtxA.putImageData(new ImageData(new Uint8ClampedArray(out), exOriginal.width, exOriginal.height), 0, 0);
+      exA.style.clipPath = `inset(0 ${100 - exDividerPos}% 0 0)`;
+      $('exDivider').style.left = exDividerPos + '%';
+      $('exHandle').style.left = exDividerPos + '%';
+    } catch (err) { console.error(err); }
+  }
+  function exSchedule() {
+    $('xv-exposure').textContent = (XS.exposure >= 0 ? '+' : '') + XS.exposure.toFixed(2);
+    $('xv-shadows').textContent = (XS.shadows >= 0 ? '+' : '') + XS.shadows;
+    $('xv-highlights').textContent = (XS.highlights >= 0 ? '+' : '') + XS.highlights;
+    $('xv-contrast').textContent = (XS.contrast >= 0 ? '+' : '') + XS.contrast;
+    clearTimeout(exTimer);
+    exTimer = setTimeout(exRender, 60);
+  }
+  function initExercise() {
+    exOriginal = makeSample(true);
+    for (const cv of [exB, exA]) { cv.width = exOriginal.width; cv.height = exOriginal.height; }
+    const wrap = $('exWrap');
+    wrap.style.aspectRatio = exOriginal.width + ' / ' + exOriginal.height;
+    exCtxB.putImageData(exOriginal, 0, 0);
+    exRender();
+    // divider drag
+    let dragging = false;
+    const setFromEvent = e => {
+      const r = wrap.getBoundingClientRect();
+      const x = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX);
+      exDividerPos = Math.min(97, Math.max(3, ((x - r.left) / r.width) * 100));
       exRender();
-    }
-  });
-
-  /* ---------------- exercise scoring ---------------- */
+    };
+    wrap.addEventListener('pointerdown', e => { dragging = true; try { wrap.setPointerCapture(e.pointerId); } catch (err) {} setFromEvent(e); });
+    wrap.addEventListener('pointermove', e => { if (dragging) setFromEvent(e); });
+    wrap.addEventListener('pointerup', () => dragging = false);
+    wrap.addEventListener('pointercancel', () => dragging = false);
+  }
+  function renderLearnLock() {
+    let veil = $('exLockVeil');
+    if (isPro) { if (veil) veil.remove(); return; }
+    if (veil) return;
+    veil = document.createElement('div');
+    veil.id = 'exLockVeil';
+    veil.className = 'pro-lock-veil';
+    veil.innerHTML = `${LOCK_SVG}<div class="pro-lock-title">Pro</div><div class="pro-lock-sub">Guided exercises with scored feedback. Learn by doing.</div><div class="pro-lock-cta">Unlock with Pro</div>`;
+    veil.addEventListener('click', showPaywall);
+    $('exCard').appendChild(veil);
+  }
+  $('x-exposure').addEventListener('input', e => { XS.exposure = parseFloat(e.target.value); exSchedule(); });
+  $('x-shadows').addEventListener('input', e => { XS.shadows = parseFloat(e.target.value); exSchedule(); });
+  $('x-highlights').addEventListener('input', e => { XS.highlights = parseFloat(e.target.value); exSchedule(); });
+  $('x-contrast').addEventListener('input', e => { XS.contrast = parseFloat(e.target.value); exSchedule(); });
   const EX_REF = { exposure: 0.7, shadows: 55, highlights: -25, contrast: 10 };
   $('btnCheck').addEventListener('click', () => {
     const dE = Math.abs(XS.exposure - EX_REF.exposure);
@@ -1286,35 +1372,35 @@
     $('exScoreNum').textContent = score;
     $('exScore').classList.add('show');
     let fb;
-    if (score >= 85) fb = 'Excellent — shadows are open, sky holds. You see light like an editor now.';
+    if (score >= 85) fb = 'Excellent \u2014 shadows are open, sky holds. You see light like an editor now.';
     else if (score >= 65) fb = 'Solid. Push shadows a touch more, or ease off the highlights.';
-    else if (score >= 40) fb = 'Getting there. The reference lifts shadows to +55 — be bolder down there.';
-    else fb = 'Keep going. Start with shadows at +55 and exposure near +0.7, then protect the sky with highlights at −25.';
+    else if (score >= 40) fb = 'Getting there. The reference lifts shadows to +55 \u2014 be bolder down there.';
+    else fb = 'Keep going. Start with shadows at +55 and exposure near +0.7, then protect the sky with highlights at \u221225.';
     $('exFeedback').textContent = fb;
-    $('exScore').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
 
-  /* ---------------- boot ---------------- */
-  updateLocks();
+  /* ================= boot ================= */
+  renderPanel();
+  renderLearnLock();
+  updateCompareUI();
   (async () => {
     try {
       const mod = await import('/scripts/wasm/cd_wasm.js?v=20261008a');
       await mod.default();
       wasm = mod;
-      engineEl.textContent = 'Rust engine live · v' + mod.version();
+      engineDot.classList.remove('off');
+      engineLabel.textContent = 'Rust engine live';
       statusEl.textContent = 'Engine ready';
       statusEl.classList.add('live');
     } catch (err) {
       console.error('WASM load failed:', err);
-      engineEl.textContent = 'Engine failed to load';
-      statusEl.textContent = 'WASM failed — sliders disabled';
-      $('controlsFree').style.opacity = '0.35';
-      $('controlsFree').style.pointerEvents = 'none';
+      engineLabel.textContent = 'Engine failed to load';
+      statusEl.textContent = 'WASM failed';
       return;
     }
     setPhoto(makeSample(false));
   })();
-
+  window.addEventListener('resize', () => { if (original) fitCanvases(); });
 </script>
 </body>
 </html>
