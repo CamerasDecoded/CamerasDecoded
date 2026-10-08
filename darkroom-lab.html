@@ -54,6 +54,7 @@
   .topbar {
     flex-shrink: 0;
     height: 56px;
+    padding-top: env(safe-area-inset-top, 0px);
     display: flex;
     align-items: center;
     gap: 2px;
@@ -282,7 +283,7 @@
     display: flex;
     border-top: 1px solid var(--border);
     background: rgba(6, 6, 8, 0.97);
-    padding: 2px 2px calc(2px + env(safe-area-inset-bottom, 0px));
+    padding: 6px 2px calc(10px + env(safe-area-inset-bottom, 0px));
   }
   .dock-tab {
     flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -1287,6 +1288,23 @@
     $('paywallSheet').classList.remove('show');
     statusEl.textContent = 'Demo build \u2014 checkout not wired';
   });
+  // Check real user tier from session (not just the demo toggle)
+  function syncTierFromSession() {
+    try {
+      const t = (window.USER && window.USER.tier || '').toLowerCase();
+      if (t === 'pro' || t === 'admin' || t === 'founding') {
+        isPro = true;
+        $('tierPro').classList.add('active'); $('tierFree').classList.remove('active');
+      }
+    } catch (e) {}
+  }
+  // Run after user-state.js loads (poll briefly)
+  let tierChecks = 0;
+  const tierTimer = setInterval(() => {
+    syncTierFromSession();
+    if (isPro || ++tierChecks > 20) { clearInterval(tierTimer); updateProUI(); }
+  }, 250);
+
   function updateProUI() {
     document.querySelectorAll('[data-probadge]').forEach(el => el.classList.toggle('hidden', isPro));
     renderPanel();
