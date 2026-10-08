@@ -48,6 +48,7 @@
   .topbar {
     flex-shrink: 0;
     height: 54px;
+    margin-top: calc(48px + env(safe-area-inset-top, 0px));
     display: flex;
     align-items: center;
     gap: 2px;
@@ -119,7 +120,7 @@
   .canvas-zone {
     flex: 1; min-height: 0; position: relative;
     display: flex; align-items: center; justify-content: center;
-    padding: 8px 14px;
+    padding: 4px 8px;
   }
   .compare-wrap {
     position: relative;
@@ -170,6 +171,7 @@
   /* ============ CONTROL PANEL ============ */
   .panel {
     flex-shrink: 0;
+    min-height: 218px;
     border-top: 1px solid var(--border);
     background: rgba(9, 9, 11, 0.94);
     backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
@@ -588,6 +590,7 @@
 
   let wasm = null;
   let original = null;          // working base ImageData (may be cropped)
+  let pristine = null;          // untouched original — crop always starts here
   let renderTimer = null;
   let isPro = false;
   let activeDock = 'adjust';
@@ -730,7 +733,7 @@
     wrap.style.height = '';
     requestAnimationFrame(() => {
       const zone = wrap.parentElement.getBoundingClientRect();
-      const pad = 28;
+      const pad = 8;
       const zw = zone.width - pad, zh = zone.height - pad;
       let w = zw, h = w / r;
       if (h > zh) { h = zh; w = h * r; }
@@ -814,6 +817,7 @@
   /* ================= photo ================= */
   function setPhoto(imgData) {
     original = imgData;
+    pristine = new ImageData(new Uint8ClampedArray(imgData.data), imgData.width, imgData.height);
     history = []; hIndex = -1;
     fitCanvases();
     drawBefore();
@@ -1182,10 +1186,12 @@
     }
     $('btnRotate').addEventListener('click', rotate90);
     $('btnCropReset').addEventListener('click', () => {
-      if (history.length && history[0].image === null) {
-        // first history entry holds pristine state only if no crop yet; simplest: reload sample/upload
-        statusEl.textContent = 'Reload photo to reset crop';
-      }
+      if (!pristine) return;
+      pushHistory(original);
+      original = new ImageData(new Uint8ClampedArray(pristine.data), pristine.width, pristine.height);
+      fitCanvases(); drawBefore(); thumbsBuiltFor = null;
+      render(); updateCropInfo();
+      statusEl.textContent = 'Crop reset';
     });
     updateCropInfo();
   }
@@ -1199,8 +1205,8 @@
     return c;
   }
   function applyCrop(ratio) {
-    if (!original || !ratio) return;
-    const w = original.width, h = original.height;
+    if (!pristine || !ratio) return;
+    const w = pristine.width, h = pristine.height;
     const imgR = w / h;
     let cw, ch;
     if (imgR > ratio) { ch = h; cw = Math.round(h * ratio); }
@@ -1208,7 +1214,7 @@
     if (cw === w && ch === h) { statusEl.textContent = 'Already at that ratio'; return; }
     pushHistory(original);
     const sx = Math.round((w - cw) / 2), sy = Math.round((h - ch) / 2);
-    const src = blitTo(original, w, h);
+    const src = blitTo(pristine, w, h);
     const c = document.createElement('canvas'); c.width = cw; c.height = ch;
     c.getContext('2d').drawImage(src, sx, sy, cw, ch, 0, 0, cw, ch);
     original = c.getContext('2d').getImageData(0, 0, cw, ch);
@@ -1220,7 +1226,7 @@
     if (!original) return;
     pushHistory(original);
     const w = original.width, h = original.height;
-    const src = blitTo(original, w, h);
+    const src = blitTo(pristine, w, h);
     const c = document.createElement('canvas'); c.width = h; c.height = w;
     const g = c.getContext('2d');
     g.translate(h / 2, w / 2); g.rotate(Math.PI / 2);
