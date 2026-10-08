@@ -23,6 +23,9 @@
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   /* FULL-SCREEN EDITOR: hide site chrome on this page only */
   .floating-header, .cd-bn-nav, #bottomNavContainer { display: none !important; }
+  /* body-layout guard: design-system.css (via master-loader) forces flex centering —
+     this page owns its body layout, so force stretch */
+  body { align-items: stretch !important; }
   html, body { height: 100%; }
   html { scrollbar-width: none; }
   html::-webkit-scrollbar { display: none; }
@@ -39,8 +42,8 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding: 0 !important;
+    margin: 0 !important;
     user-select: none;
     -webkit-user-select: none;
   }
@@ -50,8 +53,7 @@
   /* ============ TOP BAR ============ */
   .topbar {
     flex-shrink: 0;
-    height: 54px;
-    margin-top: env(safe-area-inset-top, 0px);
+    height: 56px;
     display: flex;
     align-items: center;
     gap: 2px;
@@ -136,22 +138,24 @@
 
   /* ============ CANVAS ZONE ============ */
   .canvas-zone {
-    flex: 1 1 0; min-height: 0; position: relative;
-    display: flex; align-items: center; justify-content: center;
-    padding: 0;
+    flex: 1; min-height: 0; position: relative;
+    display: flex; align-items: stretch; justify-content: stretch;
+    padding: 0; margin: 0;
+    overflow: hidden;
+    background: #000;
   }
   .compare-wrap {
     position: relative;
     width: 100%; height: 100%;
-    max-width: 100%; max-height: 100%;
+    flex: 1; min-height: 0;
     border-radius: 0; overflow: hidden;
     border: none;
     touch-action: none; cursor: ew-resize;
-    box-shadow: 0 12px 44px rgba(0,0,0,0.55);
-    background: #0b0b0d;
+    background: #000;
   }
   .compare-wrap canvas {
     position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+    object-fit: cover;
   }
   .compare-wrap canvas.layer-before { z-index: 1; }
   .compare-wrap canvas.layer-after { z-index: 2; }
@@ -190,8 +194,7 @@
   /* ============ CONTROL PANEL ============ */
   .panel {
     flex-shrink: 0;
-    flex: 0 0 auto;
-    min-height: 0; max-height: 28vh;
+    min-height: 0; max-height: 160px;
     overflow-y: auto;
     border-top: 1px solid var(--border);
     background: rgba(9, 9, 11, 0.94);
@@ -481,7 +484,7 @@
 <!-- ============ EDIT MODE ============ -->
 <div id="editMode" style="display:flex;flex-direction:column;flex:1;min-height:0;">
   <div class="canvas-zone" style="flex:1;min-height:0;">
-    <div class="compare-wrap" id="compareWrap" style="aspect-ratio: 3/2;">
+    <div class="compare-wrap" id="compareWrap">
       <canvas class="layer-before" id="cvBefore"></canvas>
       <canvas class="layer-after" id="cvAfter"></canvas>
       <div class="cmp-divider" id="cmpDivider" style="left:50%;"></div>
@@ -748,21 +751,8 @@
   function fitCanvases() {
     if (!original) return;
     for (const cv of [cvBefore, cvAfter]) { cv.width = original.width; cv.height = original.height; }
-    const wrap = $('compareWrap');
-    const r = original.width / original.height;
-    wrap.style.aspectRatio = original.width + ' / ' + original.height;
-    // constrain: fit within zone
-    wrap.style.width = '';
-    wrap.style.height = '';
-    requestAnimationFrame(() => {
-      const zone = wrap.parentElement.getBoundingClientRect();
-      const zw = zone.width, zh = zone.height;
-      // Fill width first; only constrain by height if wildly taller than zone
-      let w = zw, h = w / r;
-      if (h > zh * 1.5) { h = zh * 1.5; w = h * r; }
-      wrap.style.width = Math.max(80, w) + 'px';
-      wrap.style.height = Math.max(80, h) + 'px';
-    });
+    // wrap fills the zone via CSS (width/height 100%) and canvases use
+    // object-fit: cover — no JS sizing needed, no letterboxing.
   }
 
   /* ================= compare divider ================= */
