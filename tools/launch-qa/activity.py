@@ -53,20 +53,29 @@ def _chicago_ymd():
 
 
 def _make_seed_image(username):
-    """Download a real CC0 photo for Arena seeding.
+    """Download a real photo of hands at work for Arena seeding.
 
-    Returns (base64_jpeg, width, height). Varied per account so the
-    4 seed entries don't look identical.
+    Returns (base64_jpeg, width, height). Each account gets a different
+    hands-at-work photo matching today's challenge theme.
     """
     import base64
     import hashlib
     import urllib.request
 
-    # Deterministic seed per account for variety (real photos from Picsum)
-    h = hashlib.md5(username.encode()).hexdigest()[:8]
-    url = f"https://picsum.photos/seed/{h}/800/1000"
+    # Real CC0/free photos of hands at work (today's challenge theme)
+    PHOTOS = [
+        "https://www.woodennickelmt.com/wp-content/uploads/sites/479/2024/03/Carpenter-hands-working-with-a-chisel-and-carving-tools-488603598.jpg",
+        "https://images.pexels.com/photos/18709054/pexels-photo-18709054/free-photo-of-ferfi-kezek-dolgozo-kezmuves.jpeg?w=600",
+        "https://bunnyears.com/wp-content/uploads/2018/03/pottery-2784562_1920.jpg",
+        "https://static.vecteezy.com/system/resources/thumbnails/078/773/747/small/a-chef-prepares-food-from-fresh-vegetables-in-the-kitchen-lettuce-salad-prepared-by-the-cook-hands-vegetarian-cuisine-photo.jpg",
+    ]
 
-    with urllib.request.urlopen(url, timeout=30) as resp:
+    # Deterministic pick per account
+    h = int(hashlib.md5(username.encode()).hexdigest(), 16)
+    url = PHOTOS[h % len(PHOTOS)]
+
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
         data = resp.read()
 
     b64 = base64.b64encode(data).decode()
