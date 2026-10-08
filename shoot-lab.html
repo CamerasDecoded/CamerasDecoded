@@ -464,7 +464,29 @@
         window.CDStreak.touch(window.db, window.USER.uid);
       }
     } catch (e) {}
+    // Skill tree wiring: Nail-it banks XP to Light & Exposure skills
+    try { bankShootLabSkillXP(firstToday); } catch (e) {}
     return firstToday;
+  }
+
+  /* Award skill-tree XP to aperture/shutter/iso on first Nail-it of the day */
+  function bankShootLabSkillXP(firstToday) {
+    if (!firstToday) return;
+    var db = window.db, u = window.USER;
+    if (!db || !u || !u.uid || typeof firebase === 'undefined') return;
+    var F = firebase.firestore.FieldValue;
+    var lk = 'cd_shootlab_skill_' + localDateKey();
+    try { if (localStorage.getItem(lk)) return; localStorage.setItem(lk, '1'); } catch (e) {}
+    var batch = db.batch();
+    var ref = db.collection('userSkills').doc(u.uid);
+    ['aperture', 'shutter', 'iso'].forEach(function(skillId) {
+      var patch = { xp: F.increment(10), updatedAt: F.serverTimestamp() };
+      patch.drillDays = F.arrayUnion(localDateKey());
+      var data = { updatedAt: F.serverTimestamp(), skills: {} };
+      data.skills[skillId] = patch;
+      batch.set(ref, data, { merge: true });
+    });
+    batch.commit().catch(function(){});
   }
 
   /* ================= WHY TEXT ================= */
