@@ -47,6 +47,20 @@
     user-select: none; -webkit-user-select: none;
   }
   .hidden { display: none !important; }
+  /* Shimmer effect for Import button */
+  #btnImport {
+    background: linear-gradient(110deg, #1a1a1e 30%, #2a2a30 45%, #1a1a1e 60%);
+    background-size: 200% 100%;
+    animation: shimmer 2.5s linear infinite;
+    border: 1px solid rgba(141,235,0,0.3);
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #btnImport { animation: none; }
+  }
   button { font-family: inherit; }
 
   /* ============ TOP BAR ============ */
@@ -350,11 +364,11 @@
 
   /* ================= SCENES + PRO GATING ================= */
   var SCENES = [
-    { name: 'Daylight', ev: 15, pro: false, blurb: 'Bright midday sun. Plenty of light — you can afford to be picky.' },
-    { name: 'Overcast', ev: 12, pro: true, blurb: 'Soft grey sky. Two stops less than sun — open up or slow down.' },
-    { name: 'Blue hour', ev: 9, pro: true, blurb: 'Dusk glow. Light is fading fast — every stop counts now.' },
-    { name: 'Indoor lamp', ev: 7, pro: true, blurb: 'Warm living-room lamp. Wide aperture or high ISO territory.' },
-    { name: 'Night street', ev: 5, pro: true, blurb: 'Streetlights only. This is where the triangle gets real — trade sharpness, freeze, and grain.' }
+    { name: 'Daylight', ev: 15, pro: false, img: '/media/shoot-lab/daylight.jpg', blurb: 'Bright midday sun. Plenty of light — you can afford to be picky.' },
+    { name: 'Overcast', ev: 12, pro: true, img: '/media/shoot-lab/overcast.jpg', blurb: 'Soft grey sky. Two stops less than sun — open up or slow down.' },
+    { name: 'Blue hour', ev: 9, pro: true, img: '/media/shoot-lab/bluehour.jpg', blurb: 'Dusk glow. Light is fading fast — every stop counts now.' },
+    { name: 'Indoor lamp', ev: 7, pro: true, img: '/media/shoot-lab/indoor.jpg', blurb: 'Warm living-room lamp. Wide aperture or high ISO territory.' },
+    { name: 'Night street', ev: 5, pro: true, img: '/media/shoot-lab/night.jpg', blurb: 'Streetlights only. This is where the triangle gets real — trade sharpness, freeze, and grain.' }
   ];
   var LOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
   function isProUser() {
@@ -394,6 +408,7 @@
     state.sceneName = s.name;
     $('chDesc').innerHTML = '<b>' + s.name + ' (EV ' + s.ev + ').</b> ' + s.blurb + ' Get the meter to <b>0</b>.';
     buildStaticLayers();
+    ensureScenePhoto();
     renderSceneChips();
   }
 
@@ -464,7 +479,29 @@
         window.CDStreak.touch(window.db, window.USER.uid);
       }
     } catch (e) {}
+    // Skill tree wiring: Nail-it banks XP to Light & Exposure skills
+    try { bankShootLabSkillXP(firstToday); } catch (e) {}
     return firstToday;
+  }
+
+  /* Award skill-tree XP to aperture/shutter/iso on first Nail-it of the day */
+  function bankShootLabSkillXP(firstToday) {
+    if (!firstToday) return;
+    var db = window.db, u = window.USER;
+    if (!db || !u || !u.uid || typeof firebase === 'undefined') return;
+    var F = firebase.firestore.FieldValue;
+    var lk = 'cd_shootlab_skill_' + localDateKey();
+    try { if (localStorage.getItem(lk)) return; localStorage.setItem(lk, '1'); } catch (e) {}
+    var batch = db.batch();
+    var ref = db.collection('userSkills').doc(u.uid);
+    ['aperture', 'shutter', 'iso'].forEach(function(skillId) {
+      var patch = { xp: F.increment(10), updatedAt: F.serverTimestamp() };
+      patch.drillDays = F.arrayUnion(localDateKey());
+      var data = { updatedAt: F.serverTimestamp(), skills: {} };
+      data.skills[skillId] = patch;
+      batch.set(ref, data, { merge: true });
+    });
+    batch.commit().catch(function(){});
   }
 
   /* ================= WHY TEXT ================= */
@@ -514,15 +551,40 @@
 
   var W = 0, H = 0, birdT = 0;
 
+  /* ---- Real scene photos (replace procedural backdrop) ---- */
+  var scenePhotoCv = document.createElement('canvas');
+  var scenePhotoKey = '', scenePhotoOK = false;
+  function ensureScenePhoto() {
+    if (!W) return;
+    var s = findScene(state.sceneName);
+    if (!s || !s.img) return;
+    var key = s.name + '_' + W + 'x' + H;
+    if (key === scenePhotoKey) return;
+    scenePhotoKey = key; scenePhotoOK = false;
+    var img = new Image();
+    img.onload = function() {
+      var g = scenePhotoCv.getContext('2d');
+      var sc = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      var dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
+      g.clearRect(0, 0, W, H);
+      g.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      scenePhotoOK = true;
+    };
+    img.onerror = function() { scenePhotoOK = false; };
+    img.src = s.img;
+  }
+
   function sizeCanvases() {
     var zone = cv.parentElement.getBoundingClientRect();
     W = Math.max(200, Math.floor(zone.width));
     H = Math.max(200, Math.floor(zone.height));
-    var list = [cv, bgCv, fgCv, workCv];
+    scenePhotoKey = '';
+    var list = [cv, bgCv, fgCv, workCv, scenePhotoCv];
     for (var i = 0; i < list.length; i++) { list[i].width = W; list[i].height = H; }
     noiseCv.width = 128; noiseCv.height = 128;
     buildStaticLayers();
     buildNoise();
+    ensureScenePhoto();
   }
 
   function buildStaticLayers() {
@@ -677,7 +739,9 @@
     wc.clearRect(0, 0, W, H);
     wc.save();
     wc.filter = bgBlur > 0.4 ? 'blur(' + bgBlur.toFixed(1) + 'px)' : 'none';
-    if (userPhoto) { wc.drawImage(userPhoto, 0, 0); } else { wc.drawImage(bgCv, 0, 0); }
+    if (userPhoto) { wc.drawImage(userPhoto, 0, 0); }
+    else if (scenePhotoOK) { wc.drawImage(scenePhotoCv, 0, 0); }
+    else { wc.drawImage(bgCv, 0, 0); }
     wc.restore();
 
     var birdY = H * 0.42;
@@ -688,10 +752,12 @@
       drawBird(wc, gx, birdY + Math.sin(birdT * 2 + i) * 3, bs, i === 0 ? 1 : 0.28 / (i * 0.7 + 0.6));
     }
 
-    wc.save();
-    wc.filter = fgBlur > 0.4 ? 'blur(' + fgBlur.toFixed(1) + 'px)' : 'none';
-    wc.drawImage(fgCv, 0, 0);
-    wc.restore();
+    if (!(scenePhotoOK && !userPhoto)) {
+      wc.save();
+      wc.filter = fgBlur > 0.4 ? 'blur(' + fgBlur.toFixed(1) + 'px)' : 'none';
+      wc.drawImage(fgCv, 0, 0);
+      wc.restore();
+    }
 
     ctx.save();
     ctx.filter = 'brightness(' + bright.toFixed(3) + ')';
@@ -861,6 +927,7 @@
     $('chDesc').innerHTML = '<b>' + s.name + ' (EV ' + s.ev + ').</b> ' + s.blurb + ' Get the meter to <b>0</b>.';
     $('chResult').textContent = ''; $('chResult').className = 'ch-result';
     buildStaticLayers();
+    ensureScenePhoto();
     renderSceneChips();
   });
 
