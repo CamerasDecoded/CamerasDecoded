@@ -89,6 +89,8 @@
       rows: [
         { href: '/snapshot-library.html', icon: 'camera', title: 'Snapshots',    sub: 'Your saved cards' },
         { href: '/ai-workbench.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
+        { href: '/exposure-lab.html',          icon: 'practice', title: 'Exposure Lab', sub: 'Nail the exposure triangle' },
+        { href: '/darkroom-lab.html',          icon: 'sliders', title: 'Develop Lab', sub: 'Pro photo editor' },
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
         // Community cut for launch — returns as a post-launch web-app update.
         { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },

@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Exposure Lab — Cameras Decoded</title>
+<meta property="og:title" content="Exposure Lab — Cameras Decoded">
+<meta property="og:description" content="Master the exposure triangle: aperture, shutter, ISO. Nail the light, then develop the shot.">
+<meta property="og:image" content="https://camerasdecoded.com/media/og-exposure-lab.jpg">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #8deb00;
+    --green-dim: rgba(141, 235, 0, 0.08);
+    --green-glow: rgba(141, 235, 0, 0.18);
+    --dark: #08080a;
+    --card: rgba(14, 14, 17, 0.92);
+    --border: rgba(255, 255, 255, 0.07);
+    --text: #ffffff;
+    --text-dim: rgba(255, 255, 255, 0.55);
+    --text-faint: rgba(255, 255, 255, 0.32);
+    --mono: 'Space Mono', monospace;
+    --sans: 'Montserrat', sans-serif;
+    --amber: #ffb020;
+    --red: #ff5a5a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  /* Full-screen editor: suppress the injected site header + bottom nav chrome */
+  .floating-header, .cd-bn-nav, #bottomNavContainer { display: none !important; }
+  /* body-layout guard: design-system.css (via master-loader) forces flex centering
+     and body padding — this page owns its body layout, so force stretch */
+  body { align-items: stretch !important; justify-content: flex-start !important;
+         padding: 0 !important; margin: 0 !important; }
+  body {
+    background: var(--dark);
+    background-image:
+      radial-gradient(ellipse at 30% 15%, rgba(141, 235, 0, 0.05) 0%, transparent 55%),
+      radial-gradient(ellipse at 75% 85%, rgba(141, 235, 0, 0.03) 0%, transparent 50%),
+      radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 22px 22px;
+    color: var(--text);
+    font-family: var(--sans);
+    height: 100dvh;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    user-select: none; -webkit-user-select: none;
+  }
+  .hidden { display: none !important; }
+  button { font-family: inherit; }
+
+  /* ============ TOP BAR ============ */
+  .topbar {
+    flex-shrink: 0;
+    min-height: 54px;
+    display: flex; align-items: center; gap: 6px;
+    padding: max(8px, calc(env(safe-area-inset-top, 0px) + 4px)) 10px 8px;
+    border-bottom: 1px solid var(--border);
+    background: #08080a;
+  }
+  .tb-logo { display: flex; align-items: center; flex-shrink: 0; }
+  .tb-logo img { height: 22px; width: auto; opacity: 0.75; }
+  .tb-title {
+    flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .tb-title img { height: 22px; width: auto; max-width: 100%; }
+  .tb-title .tbfallback {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.24em;
+    color: var(--text-dim); text-transform: uppercase; white-space: nowrap;
+  }
+  .tb-title .tbfallback b { color: var(--green); }
+  .tb-btn {
+    flex-shrink: 0; background: none; border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text-dim); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
+    padding: 8px 10px; cursor: pointer; text-transform: uppercase; white-space: nowrap;
+  }
+  .tb-btn:active { background: rgba(255,255,255,0.07); color: var(--text); }
+  .tb-btn.accent { border-color: rgba(141,235,0,0.4); color: var(--green); background: rgba(141,235,0,0.08); }
+
+  /* ============ SCENE ZONE ============ */
+  .scene-zone {
+    flex: 1; min-height: 0; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; overflow: hidden;
+  }
+  #sceneCanvas {
+    width: 100%; height: 100%; display: block;
+    object-fit: cover;
+  }
+  .scene-chips {
+    position: absolute; top: 8px; left: 0; right: 0;
+    display: flex; gap: 6px; overflow-x: auto;
+    padding: 4px 12px; scrollbar-width: none;
+  }
+  .scene-chips::-webkit-scrollbar { display: none; }
+  .scene-chip {
+    flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-dim); background: rgba(0,0,0,0.62);
+    padding: 7px 11px; border-radius: 999px; border: 1px solid var(--border); cursor: pointer;
+  }
+  .scene-chip:active { background: rgba(255,255,255,0.08); }
+  .scene-chip.active { border-color: rgba(141,235,0,0.5); color: var(--green); background: rgba(141,235,0,0.1); }
+  .scene-chip svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+  /* ============ EV METER ============ */
+  .evbar {
+    flex-shrink: 0; padding: 8px 16px 2px;
+    border-top: 1px solid var(--border);
+    background: rgba(9, 9, 11, 0.94);
+  }
+  .evbar-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .evbar-label { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-faint); text-transform: uppercase; }
+  .evbar-state { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+  .evbar-state.good { color: var(--green); text-shadow: 0 0 12px rgba(141,235,0,0.4); }
+  .evbar-state.warn { color: var(--amber); }
+  .evbar-state.bad { color: var(--red); }
+  .evtrack {
+    position: relative; height: 22px;
+    background: linear-gradient(90deg, rgba(255,90,90,0.25), rgba(255,176,32,0.18) 30%, rgba(141,235,0,0.22) 50%, rgba(255,176,32,0.18) 70%, rgba(255,90,90,0.25));
+    border-radius: 11px; border: 1px solid var(--border);
+  }
+  .evtrack .tick {
+    position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.14);
+  }
+  .evtrack .zero {
+    position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--green);
+    left: 50%; box-shadow: 0 0 8px rgba(141,235,0,0.6);
+  }
+  .evneedle {
+    position: absolute; top: -4px; width: 4px; height: 30px;
+    background: #fff; border-radius: 2px;
+    box-shadow: 0 0 10px rgba(255,255,255,0.7);
+    transform: translateX(-50%); transition: left 0.12s ease-out;
+  }
+  .evscale {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 8px; color: var(--text-faint);
+    margin-top: 2px;
+  }
+
+  /* ============ CONTROL PANEL ============ */
+  .panel {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    background: rgba(9, 9, 11, 0.94);
+    padding: 10px 16px 6px;
+    min-height: 172px;
+  }
+  .bigslider-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0; }
+  .bigslider-label { font-size: 15px; font-weight: 700; }
+  .bigslider-val {
+    font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--green);
+    text-shadow: 0 0 14px rgba(141,235,0,0.35);
+  }
+  input[type=range].big {
+    width: 100%; height: 48px; -webkit-appearance: none; appearance: none;
+    background: transparent; cursor: pointer; display: block;
+  }
+  input[type=range].big::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, rgba(141,235,0,0.55), rgba(141,235,0,0.12));
+  }
+  input[type=range].big::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #0b0d0b; border: 2px solid var(--green); margin-top: -12px;
+    box-shadow: 0 0 16px rgba(141,235,0,0.45);
+  }
+  input[type=range].big::-moz-range-track {
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, rgba(141,235,0,0.55), rgba(141,235,0,0.12));
+  }
+  input[type=range].big::-moz-range-thumb {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #0b0d0b; border: 2px solid var(--green);
+    box-shadow: 0 0 16px rgba(141,235,0,0.45);
+  }
+  .why-box {
+    margin-top: 2px; padding: 8px 10px;
+    background: rgba(141,235,0,0.05); border: 1px solid rgba(141,235,0,0.14);
+    border-radius: 10px;
+    font-size: 12px; line-height: 1.45; color: var(--text-dim);
+    min-height: 52px;
+  }
+  .why-box b { color: var(--green); }
+  .fx-chips { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .fx-chip {
+    font-family: var(--mono); font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 4px 8px; border-radius: 7px; border: 1px solid var(--border); color: var(--text-faint);
+  }
+  .fx-chip.on { border-color: rgba(141,235,0,0.45); color: var(--green); background: rgba(141,235,0,0.07); }
+
+  /* ============ CHALLENGE PANEL ============ */
+  .ch-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .ch-title { font-size: 15px; font-weight: 700; }
+  .ch-score { font-family: var(--mono); font-size: 13px; color: var(--green); font-weight: 700; }
+  .ch-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin: 6px 0 10px; }
+  .ch-desc b { color: var(--text); }
+  .cd-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; border-radius: 14px; font-weight: 800; font-size: 13px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 13px; cursor: pointer; border: 1px solid rgba(141,235,0,0.4);
+    background: rgba(141,235,0,0.1); color: var(--green);
+  }
+  .cd-btn:active { background: rgba(141,235,0,0.2); }
+  .cd-btn.ghost { border-color: var(--border); background: transparent; color: var(--text-dim); margin-top: 8px; }
+  .ch-result {
+    margin-top: 8px; text-align: center; font-family: var(--mono); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.08em; min-height: 20px;
+  }
+  .ch-result.win { color: var(--green); text-shadow: 0 0 14px rgba(141,235,0,0.5); }
+
+  /* ============ DOCK ============ */
+  .dock {
+    flex-shrink: 0; display: flex;
+    border-top: 1px solid var(--border);
+    background: rgba(6, 6, 8, 0.97);
+    padding: 6px 2px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .dock-tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 8px 2px 6px; background: none; border: none; border-radius: 13px;
+    color: var(--text-faint); cursor: pointer;
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .dock-tab:active { background: rgba(255,255,255,0.04); }
+  .dock-tab svg { width: 22px; height: 22px; }
+  .dock-tab.active { color: var(--green); }
+  .dock-tab.active svg { filter: drop-shadow(0 0 9px rgba(141,235,0,0.55)); }
+</style>
+</head>
+<body>
+
+<!-- ============ TOP BAR ============ -->
+<div class="topbar">
+  <a href="/operator-dashboard.html" class="tb-logo" aria-label="Dashboard"><img src="/cameras-decoded-transparent-logo.png" alt="CD" onerror="this.style.display='none'"></a>
+  <div class="tb-title">
+    <img src="/custom-site-titles/exposure-lab.png?v=20261008a" alt="Exposure Lab" onerror="this.style.display='none';this.nextElementSibling.style.display='';">
+    <span class="tbfallback" style="display:none"><b>Exposure</b> Lab</span>
+  </div>
+  <button class="tb-btn" id="btnReset">Reset</button>
+  <button class="tb-btn accent" id="btnDevelop" aria-label="Develop this shot">Develop this shot</button>
+</div>
+
+<!-- ============ SCENE ============ -->
+<div class="scene-zone">
+  <canvas id="sceneCanvas"></canvas>
+  <div class="scene-chips" id="sceneChips"></div>
+</div>
+
+<!-- ============ EV METER ============ -->
+<div class="evbar">
+  <div class="evbar-head">
+    <span class="evbar-label">Exposure meter</span>
+    <span class="evbar-state good" id="evState">Nailed</span>
+  </div>
+  <div class="evtrack" id="evTrack">
+    <div class="zero"></div>
+    <div class="evneedle" id="evNeedle" style="left:50%;"></div>
+  </div>
+  <div class="evscale"><span>-3</span><span>-2</span><span>-1</span><span>0</span><span>+1</span><span>+2</span><span>+3</span></div>
+</div>
+
+<!-- ============ PANEL ============ -->
+<div class="panel" id="panel">
+  <!-- Aperture -->
+  <div id="tabAperture">
+    <div class="bigslider-head">
+      <span class="bigslider-label">Aperture</span>
+      <span class="bigslider-val" id="apVal">f/8</span>
+    </div>
+    <input type="range" class="big" id="apSlider" min="0" max="7" step="1" value="5">
+    <div class="why-box" id="apWhy"></div>
+    <div class="fx-chips">
+      <span class="fx-chip" id="chipDof">Depth of field</span>
+      <span class="fx-chip" id="chipApLight">Light intake</span>
+    </div>
+  </div>
+  <!-- Shutter -->
+  <div id="tabShutter" class="hidden">
+    <div class="bigslider-head">
+      <span class="bigslider-label">Shutter speed</span>
+      <span class="bigslider-val" id="shVal">1/500</span>
+    </div>
+    <input type="range" class="big" id="shSlider" min="0" max="12" step="1" value="9">
+    <div class="why-box" id="shWhy"></div>
+    <div class="fx-chips">
+      <span class="fx-chip" id="chipMotion">Motion freeze</span>
+      <span class="fx-chip" id="chipShLight">Light intake</span>
+    </div>
+  </div>
+  <!-- ISO -->
+  <div id="tabIso" class="hidden">
+    <div class="bigslider-head">
+      <span class="bigslider-label">ISO</span>
+      <span class="bigslider-val" id="isoVal">100</span>
+    </div>
+    <input type="range" class="big" id="isoSlider" min="0" max="6" step="1" value="0">
+    <div class="why-box" id="isoWhy"></div>
+    <div class="fx-chips">
+      <span class="fx-chip" id="chipNoise">Grain</span>
+      <span class="fx-chip" id="chipIsoLight">Sensitivity</span>
+    </div>
+  </div>
+  <!-- Challenge -->
+  <div id="tabChallenge" class="hidden">
+    <div class="ch-head">
+      <span class="ch-title">Nail the exposure</span>
+      <span class="ch-score" id="chScore">0 pts</span>
+    </div>
+    <div class="ch-desc" id="chDesc">Hit <b>New lighting scene</b> — dial in aperture, shutter and ISO until the meter reads <b>0</b>. Daylight is free; Pro unlocks every scene.</div>
+    <button class="cd-btn" id="btnNewScene">New lighting scene</button>
+    <button class="cd-btn ghost" id="btnDevelop2">Develop this shot</button>
+    <div class="ch-result" id="chResult"></div>
+  </div>
+</div>
+
+<!-- ============ DOCK ============ -->
+<div class="dock" id="dock">
+  <button class="dock-tab active" data-tab="aperture">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M12 3v5.5M12 15.5V21M3 12h5.5M15.5 12H21"/></svg>
+    <span>Aperture</span>
+  </button>
+  <button class="dock-tab" data-tab="shutter">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg>
+    <span>Shutter</span>
+  </button>
+  <button class="dock-tab" data-tab="iso">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 18V8l4 10V8M12 18v-4m0 0c0-2 1.5-3 3-3s3 1 3 3-1.5 3-3 3h-3m6 0l-2 4"/></svg>
+    <span>ISO</span>
+  </button>
+  <button class="dock-tab" data-tab="challenge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.8" fill="currentColor"/></svg>
+    <span>Nail it</span>
+  </button>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* ================= SCENES + PRO GATING ================= */
+  var SCENES = [
+    { name: 'Daylight', ev: 15, pro: false, blurb: 'Bright midday sun. Plenty of light — you can afford to be picky.' },
+    { name: 'Overcast', ev: 12, pro: true, blurb: 'Soft grey sky. Two stops less than sun — open up or slow down.' },
+    { name: 'Blue hour', ev: 9, pro: true, blurb: 'Dusk glow. Light is fading fast — every stop counts now.' },
+    { name: 'Indoor lamp', ev: 7, pro: true, blurb: 'Warm living-room lamp. Wide aperture or high ISO territory.' },
+    { name: 'Night street', ev: 5, pro: true, blurb: 'Streetlights only. This is where the triangle gets real — trade sharpness, freeze, and grain.' }
+  ];
+  var LOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+  function isProUser() {
+    try {
+      var t = (window.USER && window.USER.tier || '').toLowerCase();
+      return t === 'pro' || t === 'admin' || t === 'founding';
+    } catch (e) { return false; }
+  }
+  function showPaywall() {
+    if (window.CDPaywall && typeof window.CDPaywall.show === 'function') {
+      window.CDPaywall.show({ headline: 'Unlock every scene', sub: 'Pro opens Overcast, Blue hour, Indoor lamp and Night street.' });
+    }
+  }
+  function findScene(name) {
+    for (var i = 0; i < SCENES.length; i++) if (SCENES[i].name === name) return SCENES[i];
+    return SCENES[0];
+  }
+  function renderSceneChips() {
+    var wrap = $('sceneChips');
+    if (!wrap) return;
+    var pro = isProUser();
+    wrap.innerHTML = '';
+    SCENES.forEach(function(s) {
+      var locked = s.pro && !pro;
+      var b = document.createElement('button');
+      b.className = 'scene-chip' + (s.name === state.sceneName ? ' active' : '') + (locked ? ' locked' : '');
+      b.setAttribute('aria-label', s.name + (locked ? ' (Pro)' : ''));
+      b.innerHTML = (locked ? LOCK_SVG : '') + '<span>' + s.name + '</span>';
+      b.addEventListener('click', function() { selectScene(s.name); });
+      wrap.appendChild(b);
+    });
+  }
+  function selectScene(name) {
+    var s = findScene(name);
+    if (s.pro && !isProUser()) { showPaywall(); return; }
+    state.sceneEV = s.ev;
+    state.sceneName = s.name;
+    $('chDesc').innerHTML = '<b>' + s.name + ' (EV ' + s.ev + ').</b> ' + s.blurb + ' Get the meter to <b>0</b>.';
+    buildStaticLayers();
+    renderSceneChips();
+  }
+
+  /* ================= EXPOSURE MODEL ================= */
+  var FSTOPS = [1.4, 2, 2.8, 4, 5.6, 8, 11, 16];
+  var SHUTTERS = [
+    1/4000, 1/2000, 1/1000, 1/500, 1/250, 1/125, 1/60, 1/30, 1/15, 1/8, 1/4, 1/2, 1
+  ];
+  var SHUTTER_LABELS = ['1/4000','1/2000','1/1000','1/500','1/250','1/125','1/60','1/30','1/15','1/8','1/4','1/2','1"'];
+  var ISOS = [100, 200, 400, 800, 1600, 3200, 6400];
+
+  var state = {
+    ap: 5,
+    sh: 3,
+    iso: 0,
+    tab: 'aperture',
+    sceneEV: 15,
+    sceneName: 'Daylight',
+    challenge: false,
+    score: 0,
+    nailed: false
+  };
+
+  function cameraEV() {
+    var N = FSTOPS[state.ap];
+    var t = SHUTTERS[state.sh];
+    var iso = ISOS[state.iso];
+    return Math.log2(N * N / t) - Math.log2(iso / 100);
+  }
+  function exposureError() {
+    return state.sceneEV - cameraEV();
+  }
+
+  /* ================= XP ================= */
+  function localDateKey(d) {
+    d = d || new Date();
+    function p(n){ return String(n).padStart(2, '0'); }
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  function bankNailXP() {
+    var XP = 20;
+    var firstToday = false;
+    try {
+      var lk = 'cd_explab_nail_' + localDateKey();
+      if (!localStorage.getItem(lk)) { localStorage.setItem(lk, '1'); firstToday = true; }
+    } catch (e) {}
+    try {
+      var db = window.db, u = window.USER;
+      if (db && u && u.uid && firstToday && typeof firebase !== 'undefined') {
+        db.collection('game_sessions').add({
+          uid: u.uid, slotId: 'exp-lab-01', game: 'exposure-lab', version: 'v1',
+          score: 100, xp: XP, bankedDaily: true,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(function(){});
+      }
+    } catch (e) {}
+    try {
+      if (window.CDLedger) window.CDLedger.write({
+        type: 'arcade.shot.graded', surface: 'arcade',
+        xp: firstToday ? XP : 0, xpBanked: firstToday,
+        summary: 'Nailed the exposure in Exposure Lab',
+        skillTags: ['exposure', 'aperture', 'shutter', 'iso'],
+        detail: { slotId: 'exp-lab-01', score: 100 }
+      });
+    } catch (e) {}
+    try {
+      if (window.CDStreak && window.db && window.USER && window.USER.uid) {
+        window.CDStreak.touch(window.db, window.USER.uid);
+      }
+    } catch (e) {}
+    return firstToday;
+  }
+
+  /* ================= WHY TEXT ================= */
+  var AP_WHY = [
+    '<b>f/1.4 — wide open.</b> Paper-thin focus, creamy blurred background. Floods the sensor with light: great indoors, tricky in bright sun.',
+    '<b>f/2 — very wide.</b> Dreamy background separation. Still lets in a lot of light.',
+    '<b>f/2.8 — the portrait sweet spot.</b> Subject pops off a soft background. A workhorse aperture.',
+    '<b>f/4 — balanced.</b> Background still soft but recognizable. A solid all-rounder.',
+    '<b>f/5.6 — getting deep.</b> Most of the scene reads sharp. The classic "safe" aperture.',
+    '<b>f/8 — the sharp zone.</b> Nearly everything in focus, and most lenses are sharpest here.',
+    '<b>f/11 — deep focus.</b> Foreground to horizon sharp. Costs you 3 stops of light vs f/4.',
+    '<b>f/16 — pinhole territory.</b> Maximum depth, minimum light. You\'ll need slow shutter or high ISO to compensate.'
+  ];
+  var SH_WHY = [
+    '<b>1/4000 — frozen time.</b> Stops a hummingbird mid-wing. Needs a LOT of light — open up or raise ISO.',
+    '<b>1/2000 — sports speed.</b> Freezes sprinters and splashes. Bright daylight territory.',
+    '<b>1/1000 — action safe.</b> Freezes most motion. Your go-to for kids, pets, street.',
+    '<b>1/500 — the all-rounder.</b> Freezes walking, hand-holdable with most lenses.',
+    '<b>1/250 — careful.</b> Freezes slow motion. Safe handheld with normal lenses.',
+    '<b>1/125 — the edge.</b> Slowest most people can handhold. Moving subjects start to smear.',
+    '<b>1/60 — motion shows.</b> Panning territory. Handheld gets risky — brace yourself.',
+    '<b>1/30 — deliberate blur.</b> Flowing water starts to silk. Tripod strongly advised.',
+    '<b>1/15 — creative smear.</b> Light trails begin. Tripod essential.',
+    '<b>1/8 — long exposure lite.</b> Everything moving turns to ghosts.',
+    '<b>1/4 — silky.</b> Waterfalls go milky. Any shake ruins it — tripod only.',
+    '<b>1/2 — deep blur.</b> Crowds vanish, car lights streak.',
+    '<b>1 second — full long exposure.</b> Night skies, glassy lakes. Tripod + patience.'
+  ];
+  var ISO_WHY = [
+    '<b>ISO 100 — clean as glass.</b> Maximum quality, zero grain. Needs plenty of light.',
+    '<b>ISO 200 — still pristine.</b> One stop more sensitive, no visible cost.',
+    '<b>ISO 400 — the flexible friend.</b> Handles shade and overcast. Grain barely there.',
+    '<b>ISO 800 — indoors ready.</b> Slight grain in shadows if you pixel-peep.',
+    '<b>ISO 1600 — low-light workhorse.</b> Visible grain, but saves shots that matter.',
+    '<b>ISO 3200 — gritty.</b> Heavy grain, softer detail. Better noisy than blurry.',
+    '<b>ISO 6400 — emergency only.</b> The sensor is screaming. Use when the moment beats the quality.'
+  ];
+
+  /* ================= SCENE RENDERING ================= */
+  var cv = $('sceneCanvas');
+  var ctx = cv.getContext('2d');
+  var bgCv = document.createElement('canvas'), bgCtx = bgCv.getContext('2d');
+  var fgCv = document.createElement('canvas'), fgCtx = fgCv.getContext('2d');
+  var workCv = document.createElement('canvas'), workCtx = workCv.getContext('2d');
+  var noiseCv = document.createElement('canvas'), noiseCtx = noiseCv.getContext('2d');
+
+  var W = 0, H = 0, birdT = 0;
+
+  function sizeCanvases() {
+    var zone = cv.parentElement.getBoundingClientRect();
+    W = Math.max(200, Math.floor(zone.width));
+    H = Math.max(200, Math.floor(zone.height));
+    var list = [cv, bgCv, fgCv, workCv];
+    for (var i = 0; i < list.length; i++) { list[i].width = W; list[i].height = H; }
+    noiseCv.width = 128; noiseCv.height = 128;
+    buildStaticLayers();
+    buildNoise();
+  }
+
+  function buildStaticLayers() {
+    var g = bgCtx.createLinearGradient(0, 0, 0, H);
+    var pal = scenePalette();
+    g.addColorStop(0, pal.skyTop);
+    g.addColorStop(0.55, pal.skyMid);
+    g.addColorStop(0.78, pal.skyLow);
+    g.addColorStop(1, pal.ground);
+    bgCtx.fillStyle = g;
+    bgCtx.fillRect(0, 0, W, H);
+
+    var sunX = W * 0.72, sunY = H * 0.34, sunR = Math.min(W, H) * 0.09;
+    var sg = bgCtx.createRadialGradient(sunX, sunY, 0, sunX, sunY, sunR * 3);
+    sg.addColorStop(0, pal.sun);
+    sg.addColorStop(0.25, pal.sunGlow);
+    sg.addColorStop(1, 'rgba(0,0,0,0)');
+    bgCtx.fillStyle = sg;
+    bgCtx.fillRect(sunX - sunR * 3, sunY - sunR * 3, sunR * 6, sunR * 6);
+    bgCtx.fillStyle = pal.sun;
+    bgCtx.beginPath(); bgCtx.arc(sunX, sunY, sunR, 0, 7); bgCtx.fill();
+
+    ridge(bgCtx, H * 0.52, H * 0.16, pal.mtnFar, 7);
+    ridge(bgCtx, H * 0.62, H * 0.20, pal.mtnNear, 5);
+    bgCtx.fillStyle = pal.ground;
+    bgCtx.fillRect(0, H * 0.72, W, H * 0.28);
+    bgCtx.strokeStyle = 'rgba(255,255,255,0.05)'; bgCtx.lineWidth = 2;
+    for (var i = 0; i < 14; i++) {
+      var y = H * 0.76 + (i / 14) * H * 0.22;
+      bgCtx.beginPath(); bgCtx.moveTo(0, y); bgCtx.lineTo(W, y + (i % 3) * 4 - 4); bgCtx.stroke();
+    }
+
+    fgCtx.clearRect(0, 0, W, H);
+    for (var j = 0; j < 46; j++) {
+      var x = Math.random() * W;
+      var hgt = H * (0.04 + Math.random() * 0.09);
+      var lean = (Math.random() - 0.5) * 26;
+      fgCtx.strokeStyle = 'rgba(' + (20 + Math.random() * 30 | 0) + ',' + (60 + Math.random() * 40 | 0) + ',' + (25 + Math.random() * 20 | 0) + ',0.95)';
+      fgCtx.lineWidth = 2 + Math.random() * 2.5;
+      fgCtx.beginPath();
+      fgCtx.moveTo(x, H);
+      fgCtx.quadraticCurveTo(x + lean * 0.4, H - hgt * 0.6, x + lean, H - hgt);
+      fgCtx.stroke();
+    }
+    for (var k = 0; k < 7; k++) {
+      var fx = Math.random() * W, fy = H - Math.random() * H * 0.1;
+      fgCtx.fillStyle = ['#ff5a8a', '#ffd23e', '#ffffff'][k % 3];
+      for (var p = 0; p < 5; p++) {
+        var a = p / 5 * Math.PI * 2;
+        fgCtx.beginPath(); fgCtx.arc(fx + Math.cos(a) * 5, fy + Math.sin(a) * 5, 3.4, 0, 7); fgCtx.fill();
+      }
+      fgCtx.fillStyle = '#8deb00';
+      fgCtx.beginPath(); fgCtx.arc(fx, fy, 2.6, 0, 7); fgCtx.fill();
+    }
+  }
+
+  function ridge(c, baseY, amp, color, peaks) {
+    c.fillStyle = color;
+    c.beginPath();
+    c.moveTo(0, H);
+    c.lineTo(0, baseY);
+    var step = W / peaks;
+    for (var i = 0; i < peaks; i++) {
+      var px = i * step + step / 2;
+      var py = baseY - Math.random() * amp;
+      c.lineTo(px - step * 0.28, baseY - Math.random() * amp * 0.4);
+      c.lineTo(px, py);
+      c.lineTo(px + step * 0.28, baseY - Math.random() * amp * 0.4);
+    }
+    c.lineTo(W, baseY);
+    c.lineTo(W, H);
+    c.closePath(); c.fill();
+  }
+
+  function scenePalette() {
+    if (state.sceneName === 'Night street') return {
+      skyTop: '#04040c', skyMid: '#0a0a1e', skyLow: '#1a1030', ground: '#050508',
+      sun: '#f5f0ff', sunGlow: 'rgba(200,190,255,0.25)',
+      mtnFar: '#0c0c18', mtnNear: '#080810'
+    };
+    if (state.sceneName === 'Blue hour') return {
+      skyTop: '#060a24', skyMid: '#1a2350', skyLow: '#4a2a5a', ground: '#0a0a10',
+      sun: '#ffb060', sunGlow: 'rgba(255,150,80,0.3)',
+      mtnFar: '#141428', mtnNear: '#0c0c16'
+    };
+    if (state.sceneName === 'Overcast') return {
+      skyTop: '#3a4048', skyMid: '#565e68', skyLow: '#7a828c', ground: '#1c1e20',
+      sun: '#d8dce2', sunGlow: 'rgba(220,225,230,0.2)',
+      mtnFar: '#2c3036', mtnNear: '#1e2024'
+    };
+    if (state.sceneName === 'Indoor lamp') return {
+      skyTop: '#141008', skyMid: '#241a0e', skyLow: '#3a2812', ground: '#0c0906',
+      sun: '#ffd9a0', sunGlow: 'rgba(255,200,130,0.35)',
+      mtnFar: '#1c140c', mtnNear: '#120d08'
+    };
+    return {
+      skyTop: '#1a2a6c', skyMid: '#6a3a8c', skyLow: '#e85a4a', ground: '#101014',
+      sun: '#ffe9b0', sunGlow: 'rgba(255,210,140,0.35)',
+      mtnFar: '#232338', mtnNear: '#161624'
+    };
+  }
+
+  function buildNoise() {
+    var d = noiseCtx.createImageData(128, 128);
+    for (var i = 0; i < d.data.length; i += 4) {
+      var v = Math.random() * 255 | 0;
+      d.data[i] = d.data[i + 1] = d.data[i + 2] = v;
+      d.data[i + 3] = 255;
+    }
+    noiseCtx.putImageData(d, 0, 0);
+  }
+
+  function drawBird(c, x, y, s, alpha) {
+    c.save();
+    c.globalAlpha = alpha;
+    c.translate(x, y); c.scale(s, s);
+    c.fillStyle = '#0e0e14';
+    c.beginPath(); c.ellipse(0, 0, 16, 6, 0, 0, 7); c.fill();
+    var flap = Math.sin(birdT * 9) * 10;
+    c.beginPath();
+    c.moveTo(-4, -2); c.quadraticCurveTo(-20, -22 - flap, -34, -14 - flap);
+    c.quadraticCurveTo(-18, -8, -4, -2); c.fill();
+    c.beginPath();
+    c.moveTo(2, -2); c.quadraticCurveTo(16, -24 + flap, 30, -16 + flap);
+    c.quadraticCurveTo(16, -8, 2, -2); c.fill();
+    c.beginPath(); c.moveTo(-15, 0); c.lineTo(-24, -5); c.lineTo(-24, 5); c.closePath(); c.fill();
+    c.beginPath(); c.arc(15, -3, 5, 0, 7); c.fill();
+    c.fillStyle = '#8deb00';
+    c.beginPath(); c.arc(16.5, -4, 1.4, 0, 7); c.fill();
+    c.restore();
+  }
+
+  function render() {
+    if (!W) return;
+    var N = FSTOPS[state.ap];
+    var t = SHUTTERS[state.sh];
+    var isoIdx = state.iso;
+    var err = exposureError();
+
+    var apT = state.ap / 7;
+    var bgBlur = 16 * Math.pow(1 - apT, 1.6);
+    var fgBlur = 9 * Math.pow(1 - apT, 1.6);
+
+    var shT = state.sh / 12;
+    var ghosts = 1 + Math.round(shT * 9);
+    var spread = shT * 26;
+
+    var bright = Math.pow(2, err);
+    bright = Math.max(0.06, Math.min(4.5, bright));
+
+    var wc = workCtx;
+    wc.clearRect(0, 0, W, H);
+    wc.save();
+    wc.filter = bgBlur > 0.4 ? 'blur(' + bgBlur.toFixed(1) + 'px)' : 'none';
+    wc.drawImage(bgCv, 0, 0);
+    wc.restore();
+
+    var birdY = H * 0.42;
+    var birdX = W * 0.5 + Math.sin(birdT * 0.9) * W * 0.18;
+    var bs = Math.min(W, H) / 300;
+    for (var i = ghosts - 1; i >= 0; i--) {
+      var gx = birdX - i * spread * 0.9;
+      drawBird(wc, gx, birdY + Math.sin(birdT * 2 + i) * 3, bs, i === 0 ? 1 : 0.28 / (i * 0.7 + 0.6));
+    }
+
+    wc.save();
+    wc.filter = fgBlur > 0.4 ? 'blur(' + fgBlur.toFixed(1) + 'px)' : 'none';
+    wc.drawImage(fgCv, 0, 0);
+    wc.restore();
+
+    ctx.save();
+    ctx.filter = 'brightness(' + bright.toFixed(3) + ')';
+    ctx.drawImage(workCv, 0, 0);
+    ctx.restore();
+
+    var nT = isoIdx / 6;
+    if (nT > 0.02) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(0.42, nT * nT * 0.5);
+      ctx.globalCompositeOperation = 'overlay';
+      var pat = ctx.createPattern(noiseCv, 'repeat');
+      ctx.fillStyle = pat;
+      ctx.translate((Math.random() * 128) | 0, (Math.random() * 128) | 0);
+      ctx.fillRect(-128, -128, W + 256, H + 256);
+      ctx.restore();
+    }
+
+    if (err > 2.2) {
+      ctx.save(); ctx.globalAlpha = Math.min(0.35, (err - 2.2) * 0.2);
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.restore();
+    } else if (err < -2.2) {
+      ctx.save(); ctx.globalAlpha = Math.min(0.5, (-err - 2.2) * 0.25);
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
+    }
+
+    updateMeter(err);
+    updateChips(apT, shT, nT);
+  }
+
+  /* ================= EV METER + CHIPS ================= */
+  var evNeedle = $('evNeedle'), evState = $('evState');
+  function updateMeter(err) {
+    var cl = Math.max(-3, Math.min(3, err));
+    evNeedle.style.left = (50 + cl / 3 * 50) + '%';
+    var a = Math.abs(err);
+    if (a < 0.35) { evState.textContent = 'Nailed'; evState.className = 'evbar-state good'; }
+    else if (a < 1) { evState.textContent = err > 0 ? 'Over · ' + a.toFixed(1) : 'Under · ' + a.toFixed(1); evState.className = 'evbar-state warn'; }
+    else { evState.textContent = err > 0 ? 'Over · ' + a.toFixed(1) : 'Under · ' + a.toFixed(1); evState.className = 'evbar-state bad'; }
+
+    if (state.challenge && !state.nailed && a < 0.35) {
+      state.nailed = true;
+      var firstToday = bankNailXP();
+      var pts = 100;
+      state.score += pts;
+      $('chScore').textContent = state.score + ' pts';
+      var r = $('chResult');
+      r.textContent = 'NAILED IT · +' + pts + (firstToday ? ' · +20 XP' : '');
+      r.className = 'ch-result win';
+    } else if (state.challenge && state.nailed && a >= 0.35) {
+      state.nailed = false;
+      var r2 = $('chResult');
+      r2.textContent = '';
+      r2.className = 'ch-result';
+    }
+  }
+
+  function updateChips(apT, shT, nT) {
+    $('chipDof').classList.toggle('on', apT < 0.45);
+    $('chipApLight').classList.toggle('on', apT < 0.3);
+    $('chipMotion').classList.toggle('on', shT < 0.35);
+    $('chipShLight').classList.toggle('on', shT > 0.6);
+    $('chipNoise').classList.toggle('on', nT > 0.3);
+    $('chipIsoLight').classList.toggle('on', nT > 0.15);
+    $('chipDof').textContent = apT < 0.2 ? 'Creamy bokeh' : apT < 0.45 ? 'Soft background' : apT < 0.7 ? 'Mostly sharp' : 'Deep focus';
+    $('chipMotion').textContent = shT < 0.15 ? 'Frozen' : shT < 0.4 ? 'Mostly frozen' : shT < 0.65 ? 'Some smear' : 'Heavy blur';
+    $('chipNoise').textContent = nT < 0.1 ? 'Clean' : nT < 0.35 ? 'Fine grain' : nT < 0.65 ? 'Visible grain' : 'Heavy grain';
+  }
+
+  /* ================= UI WIRING ================= */
+  function refreshLabels() {
+    $('apVal').textContent = 'f/' + FSTOPS[state.ap];
+    $('shVal').textContent = SHUTTER_LABELS[state.sh];
+    $('isoVal').textContent = ISOS[state.iso];
+    $('apWhy').innerHTML = AP_WHY[state.ap];
+    $('shWhy').innerHTML = SH_WHY[state.sh];
+    $('isoWhy').innerHTML = ISO_WHY[state.iso];
+  }
+
+  $('apSlider').addEventListener('input', function(e) { state.ap = +e.target.value; refreshLabels(); });
+  $('shSlider').addEventListener('input', function(e) { state.sh = +e.target.value; refreshLabels(); });
+  $('isoSlider').addEventListener('input', function(e) { state.iso = +e.target.value; refreshLabels(); });
+
+  $('apVal').addEventListener('dblclick', function() { state.ap = 5; $('apSlider').value = 5; refreshLabels(); });
+  $('shVal').addEventListener('dblclick', function() { state.sh = 3; $('shSlider').value = 3; refreshLabels(); });
+  $('isoVal').addEventListener('dblclick', function() { state.iso = 0; $('isoSlider').value = 0; refreshLabels(); });
+
+  var tabs = ['aperture', 'shutter', 'iso', 'challenge'];
+  document.querySelectorAll('.dock-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.dock-tab').forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      state.tab = tab.dataset.tab;
+      tabs.forEach(function(t) { $('tab' + t[0].toUpperCase() + t.slice(1)).classList.add('hidden'); });
+      $('tab' + state.tab[0].toUpperCase() + state.tab.slice(1)).classList.remove('hidden');
+    });
+  });
+
+  $('btnReset').addEventListener('click', function() {
+    state.ap = 5; state.sh = 3; state.iso = 0;
+    state.sceneEV = 15; state.sceneName = 'Daylight'; state.challenge = false;
+    $('apSlider').value = 5; $('shSlider').value = 3; $('isoSlider').value = 0;
+    $('chResult').textContent = ''; $('chResult').className = 'ch-result';
+    $('chDesc').innerHTML = 'Hit <b>New lighting scene</b> — dial in aperture, shutter and ISO until the meter reads <b>0</b>. Daylight is free; Pro unlocks every scene.';
+    buildStaticLayers();
+    renderSceneChips();
+    refreshLabels();
+  });
+
+  /* ================= SHOOT → DEVELOP HANDOFF ================= */
+  function developThisShot() {
+    try {
+      var maxW = 1024;
+      var sc = Math.min(1, maxW / cv.width);
+      var c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(cv.width * sc));
+      c.height = Math.max(1, Math.round(cv.height * sc));
+      c.getContext('2d').drawImage(cv, 0, 0, c.width, c.height);
+      localStorage.setItem('cd_develop_handoff', c.toDataURL('image/png'));
+    } catch (e) {}
+    location.href = '/darkroom-lab.html?handoff=1';
+  }
+  $('btnDevelop').addEventListener('click', developThisShot);
+  $('btnDevelop2').addEventListener('click', developThisShot);
+
+  /* ================= CHALLENGE ================= */
+  $('btnNewScene').addEventListener('click', function() {
+    var pool = isProUser() ? SCENES : SCENES.filter(function(s) { return !s.pro; });
+    var s = pool[Math.floor(Math.random() * pool.length)];
+    state.sceneEV = s.ev; state.sceneName = s.name;
+    state.challenge = true; state.nailed = false;
+    $('chDesc').innerHTML = '<b>' + s.name + ' (EV ' + s.ev + ').</b> ' + s.blurb + ' Get the meter to <b>0</b>.';
+    $('chResult').textContent = ''; $('chResult').className = 'ch-result';
+    buildStaticLayers();
+    renderSceneChips();
+  });
+
+  (function() {
+    var track = $('evTrack');
+    for (var i = 1; i < 6; i++) {
+      var d = document.createElement('div');
+      d.className = 'tick';
+      d.style.left = (i / 6 * 100) + '%';
+      track.appendChild(d);
+    }
+  })();
+
+  /* ================= TIER SYNC ================= */
+  var tierChecks = 0;
+  var tierTimer = setInterval(function() {
+    renderSceneChips();
+    if (isProUser() || ++tierChecks > 20) { clearInterval(tierTimer); }
+  }, 250);
+
+  /* ================= BOOT + LOOP ================= */
+  function frame(t) {
+    birdT = t / 1000;
+    render();
+    requestAnimationFrame(frame);
+  }
+  window.addEventListener('resize', function() { sizeCanvases(); });
+  sizeCanvases();
+  refreshLabels();
+  renderSceneChips();
+  requestAnimationFrame(frame);
+})();
+</script>
+<script src="/scripts/master-loader.js?v=20261008b"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="/scripts/firebase-init.js?v=20261008a"></script>
+<script src="/scripts/user-state.js?v=20261008a"></script>
+<script src="/scripts/ledger.js?v=20261008a"></script>
+<script src="/scripts/ptr.js?v=20261008a"></script>
+</body>
+</html>

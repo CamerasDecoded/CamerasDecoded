@@ -610,7 +610,7 @@
 </div>
 
 
-<script src="/scripts/master-loader.js?v=20261007a"></script>
+<script src="/scripts/master-loader.js?v=20261008b"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -1427,6 +1427,26 @@
   renderPanel();
   renderLearnLock();
   updateCompareUI();
+  // Shoot → Develop handoff: load the Exposure Lab capture if present
+  (function() {
+    try {
+      var q = new URLSearchParams(location.search);
+      if (q.get('handoff') !== '1') return;
+      var d = localStorage.getItem('cd_develop_handoff');
+      localStorage.removeItem('cd_develop_handoff');
+      if (!d) return;
+      var img = new Image();
+      img.onload = function() {
+        try {
+          var c = document.createElement('canvas');
+          c.width = img.naturalWidth; c.height = img.naturalHeight;
+          c.getContext('2d').drawImage(img, 0, 0);
+          setPhoto(c.getContext('2d').getImageData(0, 0, c.width, c.height));
+        } catch (e) {}
+      };
+      img.src = d;
+    } catch (e) {}
+  })();
   (async () => {
     try {
       const mod = await import('/scripts/wasm/cd_wasm.js?v=20261008a');
