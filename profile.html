@@ -20,6 +20,7 @@
   <script src="/scripts/badges.js?v=20261008b"></script>
   <script src="/scripts/gear-awards.js?v=20261001a"></script>
   <script src="/scripts/gear-share.js"></script>
+  <script src="/scripts/social.js?v=20261009a"></script>
 
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="/header.js?v=20261002a"></script>
@@ -103,6 +104,51 @@
       border-color: rgba(232,193,90,.45);
       background: rgba(232,193,90,.08);
     }
+
+    /* ===== PUBLIC PROFILE VIEW (?u=) ===== */
+    #publicProfileView { display: none; }
+    .pp-card {
+      background: rgba(255,255,255,.02);
+      border: 1px solid var(--border-dim);
+      border-radius: 14px;
+      padding: 28px 22px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .pp-avatar {
+      width: 96px; height: 96px; border-radius: 50%;
+      margin: 0 auto 14px; overflow: hidden;
+      border: 2px solid rgba(141,235,0,.4);
+      box-shadow: 0 0 30px rgba(141,235,0,.15);
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(141,235,0,.05);
+      font-size: 36px; color: #555;
+    }
+    .pp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .pp-name { font-size: 22px; font-weight: 800; margin: 0 0 4px; }
+    .pp-username { font-family: var(--mono); font-size: 12px; color: var(--text-faint); margin: 0 0 16px; }
+    .pp-stats { display: flex; justify-content: center; gap: 28px; margin-bottom: 20px; }
+    .pp-stat { text-align: center; }
+    .pp-stat b { display: block; font-size: 20px; font-weight: 800; color: var(--green); }
+    .pp-stat span { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; color: var(--text-faint); text-transform: uppercase; }
+    .pp-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .pp-btn {
+      padding: 11px 24px; border-radius: 10px; cursor: pointer;
+      font-family: var(--mono); font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+      border: 1px solid var(--green); color: var(--green); background: transparent;
+      transition: all .2s ease; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .pp-btn:hover { background: rgba(141,235,0,.08); }
+    .pp-btn.following { background: rgba(141,235,0,.12); }
+    .pp-btn.liked { border-color: var(--green); color: var(--green); background: rgba(141,235,0,.1); }
+    .pp-btn .sig-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+      box-shadow: 0 0 10px var(--green);
+      animation: sigPulse 1.6s ease-in-out infinite;
+    }
+    .pp-btn.liked .sig-dot { animation: none; box-shadow: 0 0 14px var(--green); }
+    @keyframes sigPulse { 0%,100% { opacity: .5; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
+    @media (prefers-reduced-motion: reduce) { .pp-btn .sig-dot { animation: none; } }
 
     .header-actions {
       display: flex;
@@ -863,6 +909,7 @@
       </div>
       <div class="header-actions">
         <a href="operator-dashboard.html" id="dashboardLink" class="btn">Dashboard</a>
+        <button type="button" class="btn" id="shareProfileBtn" title="Share profile"><i class="fas fa-share-alt"></i> Share</button>
       </div>
     </div>
 
@@ -870,6 +917,26 @@
     <div id="loadingState" class="loading-state">
       <div class="spinner"></div>
       <p>Loading your signal...</p>
+    </div>
+
+    <!-- ===== PUBLIC PROFILE VIEW (?u=) ===== -->
+    <div id="publicProfileView">
+      <div class="pp-card">
+        <div class="pp-avatar" id="ppAvatar"><i class="fas fa-user"></i></div>
+        <h2 class="pp-name" id="ppName">—</h2>
+        <p class="pp-username" id="ppUsername">—</p>
+        <div class="pp-stats">
+          <div class="pp-stat"><b id="ppBadges">0</b><span>Badges</span></div>
+          <div class="pp-stat"><b id="ppStreak">0</b><span>Streak</span></div>
+          <div class="pp-stat"><b id="ppFollowers">0</b><span>Followers</span></div>
+          <div class="pp-stat"><b id="ppLikes">0</b><span>Signals</span></div>
+        </div>
+        <div class="pp-actions">
+          <button type="button" class="pp-btn" id="ppFollowBtn">Follow</button>
+          <button type="button" class="pp-btn" id="ppLikeBtn"><span class="sig-dot"></span><span id="ppLikeLabel">Signal</span></button>
+          <button type="button" class="pp-btn" id="ppShareBtn"><i class="fas fa-share-alt"></i> Share</button>
+        </div>
+      </div>
     </div>
 
     <!-- ===== PROFILE CONTENT ===== -->
@@ -1891,8 +1958,104 @@
       });
     }
 
+    // ---- Public profile view (?u=) ----
+    // When ?u=<uid> names someone else, render a read-only public card with
+    // Follow / Signal / Share. Works signed-out (publicProfiles is public read).
+    var publicUid = (function () {
+      try { return new URLSearchParams(location.search).get('u'); } catch (e) { return null; }
+    })();
+
+    function renderPublicView(info, viewerUid) {
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('profileContent').style.display = 'none';
+      var pv = document.getElementById('publicProfileView');
+      pv.style.display = 'block';
+      document.getElementById('ppName').textContent = info.displayName || info.username || 'Operator';
+      document.getElementById('ppUsername').textContent = info.username ? '@' + info.username : '';
+      var av = document.getElementById('ppAvatar');
+      if (info.avatarUrl) {
+        av.innerHTML = '<img src="' + info.avatarUrl + '" alt="Avatar" />';
+      }
+      document.getElementById('ppBadges').textContent = info.badgeCount || 0;
+      document.getElementById('ppStreak').textContent = info.streakDays || 0;
+      document.getElementById('ppFollowers').textContent = info.followerCount || 0;
+      document.getElementById('ppLikes').textContent = info.likeCount || 0;
+
+      var followBtn = document.getElementById('ppFollowBtn');
+      var likeBtn = document.getElementById('ppLikeBtn');
+      var likeLabel = document.getElementById('ppLikeLabel');
+
+      // Signed-out viewers get read-only (buttons prompt sign-in).
+      function needAuth() {
+        if (!viewerUid) { window.location.href = 'login.html'; return true; }
+        return false;
+      }
+
+      if (viewerUid && viewerUid !== info.uid && window.CDSocial) {
+        window.CDSocial.isFollowing(info.uid).then(function (f) {
+          followBtn.textContent = f ? 'Following' : 'Follow';
+          followBtn.classList.toggle('following', f);
+        });
+        window.CDSocial.hasLiked(info.uid).then(function (l) {
+          likeLabel.textContent = l ? 'Signaled' : 'Signal';
+          likeBtn.classList.toggle('liked', l);
+        });
+      } else if (!viewerUid) {
+        followBtn.textContent = 'Follow';
+        likeLabel.textContent = 'Signal';
+      } else {
+        // Own profile via ?u= — hide follow/like, keep share.
+        followBtn.style.display = 'none';
+        likeBtn.style.display = 'none';
+      }
+
+      followBtn.onclick = function () {
+        if (needAuth() || !window.CDSocial) return;
+        window.CDSocial.isFollowing(info.uid).then(function (f) {
+          var p = f ? window.CDSocial.unfollow(info.uid) : window.CDSocial.follow(info.uid);
+          p.then(function () {
+            followBtn.textContent = f ? 'Follow' : 'Following';
+            followBtn.classList.toggle('following', !f);
+            var c = document.getElementById('ppFollowers');
+            c.textContent = Math.max(0, parseInt(c.textContent || '0', 10) + (f ? -1 : 1));
+          }).catch(function () { window.CDSocial.toast('Could not update follow'); });
+        });
+      };
+
+      likeBtn.onclick = function () {
+        if (needAuth() || !window.CDSocial) return;
+        window.CDSocial.toggleLike(info.uid).then(function (liked) {
+          likeLabel.textContent = liked ? 'Signaled' : 'Signal';
+          likeBtn.classList.toggle('liked', liked);
+          var c = document.getElementById('ppLikes');
+          c.textContent = Math.max(0, parseInt(c.textContent || '0', 10) + (liked ? 1 : -1));
+        }).catch(function () { window.CDSocial.toast('Could not signal'); });
+      };
+
+      document.getElementById('ppShareBtn').onclick = function () {
+        if (window.CDSocial) window.CDSocial.shareProfile(info);
+      };
+    }
+
     // ---- Auth listener ----
     auth.onAuthStateChanged(async (user) => {
+      var viewerUid = user ? user.uid : null;
+
+      // Public view takes precedence — works signed-out.
+      if (publicUid && (!viewerUid || publicUid !== viewerUid)) {
+        try {
+          var info = window.CDSocial ? await window.CDSocial.getPublicProfile(publicUid) : null;
+          if (!info) {
+            document.getElementById('loadingState').innerHTML = '<p>Profile not found.</p>';
+            return;
+          }
+          renderPublicView(info, viewerUid);
+        } catch (err) {
+          document.getElementById('loadingState').innerHTML = '<p>Could not load profile.</p>';
+        }
+        return;
+      }
+
       if (!user) {
         window.location.href = 'login.html';
         return;
@@ -1903,6 +2066,23 @@
       try {
         const data = await getUserData(user);
         renderProfile(data);
+        // Keep the public card in sync + wire the share button.
+        if (window.CDSocial) {
+          window.CDSocial.syncPublicProfile(data);
+          var shareBtn = document.getElementById('shareProfileBtn');
+          if (shareBtn) {
+            var badges = data.badges || {};
+            shareBtn.onclick = function () {
+              window.CDSocial.shareProfile({
+                uid: user.uid,
+                displayName: data.displayName || data.name,
+                username: data.username,
+                badgeCount: Object.keys(badges).length,
+                streakDays: (data.dailyStreak && data.dailyStreak.count) || data.streak || 0
+              });
+            };
+          }
+        }
       } catch (err) {
         console.error('Error loading profile:', err);
         document.getElementById('loadingState').innerHTML = `<p style="color:#ff4a4a;">Error: ${err.message}</p>`;
@@ -1911,6 +2091,7 @@
       userDocRef.onSnapshot((doc) => {
         if (doc.exists) {
           renderProfile(doc.data());
+          if (window.CDSocial) window.CDSocial.syncPublicProfile(doc.data());
         }
       }, (err) => {
         console.warn('Profile listener error:', err);
