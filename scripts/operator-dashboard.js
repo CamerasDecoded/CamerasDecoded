@@ -951,13 +951,19 @@
 
     const logDays = $('logDays');
     if (logDays) {
-      const dayNames = ['S','M','T','W','T','F','S'];
+      // Proper week structure: current week Monday-first (M T W T F S S).
+      const dayNames = ['M','T','W','T','F','S','S'];
+      const now = new Date();
+      const dowMon = (now.getDay() + 6) % 7; // 0 = Monday
+      const monday = new Date(now); monday.setDate(now.getDate() - dowMon);
+      const todayStr = cdTodayKey(now);
       let html = '';
-      for (let i = 6; i >= 0; i--) {
-        const dt = new Date(); dt.setDate(dt.getDate() - i);
+      for (let i = 0; i < 7; i++) {
+        const dt = new Date(monday); dt.setDate(monday.getDate() + i);
         const key = cdTodayKey(dt);
         const ok = Array.isArray(log) && log.includes(key);
-        html += `<span class="log-day${ok ? ' complete' : ''}">${dayNames[dt.getDay()]}</span>`;
+        const isFuture = key > todayStr;
+        html += `<span class="log-day${ok ? ' complete' : ''}${isFuture ? ' future' : ''}">${dayNames[i]}</span>`;
       }
       logDays.innerHTML = html;
     }
