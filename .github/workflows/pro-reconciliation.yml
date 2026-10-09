@@ -1,0 +1,82 @@
+name: Pro Subscription Reconciliation
+
+# Daily check: compares active Stripe subscriptions against Firestore
+# `users` tier flags and reports mismatches.
+#
+#   CANCELLED BUT STILL PRO — tier == 'pro' in Firestore but no active
+#       Stripe subscription (cancelled/failed payment, keeps Pro access).
+#   PAYING BUT NOT PRO — active Stripe subscription but tier != 'pro'
+#       in Firestore (paid but never activated — needs admin approval).
+#
+# Matching is on email (Stripe customer email <-> users.email).
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   STRIPE_SECRET_KEY      — Stripe secret key (NOT yet added as of
+#                            2026-10-09; add before first scheduled run).
+#   FIREBASE_SERVICE_ACCOUNT — whole service-account JSON (already exists;
+#                            same secret the arena/launch-qa workflows use).
+#
+# Reading the report: each run uploads REPORT.md as an artifact
+# (90-day retention). A ::warning:: annotation is raised when any
+# mismatch is found. Manual trigger available via workflow_dispatch.
+
+on:
+  schedule:
+    # Daily at 12:00 UTC (7am CDT)
+    - cron: '0 12 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install stripe firebase-admin
+
+      - name: Run reconciliation
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          RECONCILIATION_REPORT_PATH: /tmp/pro-reconciliation/REPORT.md
+        run: |
+          mkdir -p /tmp/pro-reconciliation
+          python3 ${{ github.workspace }}/tools/pro-reconciliation/reconcile.py 2>&1 | tail -80
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pro-reconciliation-${{ github.run_number }}
+          path: /tmp/pro-reconciliation/REPORT.md
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Flag mismatches
+        if: always()
+        run: |
+          REPORT=/tmp/pro-reconciliation/REPORT.md
+          if [ ! -f "$REPORT" ]; then
+            echo "::error::Reconciliation report was not produced"
+            exit 1
+          fi
+          if grep -q "^- \[CANCELLED\]" "$REPORT"; then
+            echo "::warning::Cancelled-but-still-Pro users found - download the artifact for details"
+            grep "^- \[CANCELLED\]" "$REPORT" | head -20
+          fi
+          if grep -q "^- \[UNACTIVATED\]" "$REPORT"; then
+            echo "::warning::Paying-but-not-Pro users found - download the artifact for details"
+            grep "^- \[UNACTIVATED\]" "$REPORT" | head -20
+          fi
+          if ! grep -qE "^- \[(CANCELLED|UNACTIVATED)\]" "$REPORT"; then
+            echo "No mismatches this run."
+          fi
