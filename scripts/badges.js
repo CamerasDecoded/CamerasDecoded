@@ -92,15 +92,19 @@
 
   /* ================================================================
      BADGE STING — one celebratory moment per new earn.
-     Rarity-scaled celebrations: common gets a spin-in + particle
-     puff; rare adds glow burst + rotating light rays; legendary
-     opens with Cynetis-7 in proud state (via CDCompanion), then the
-     sting sheet drops in with confetti + vignette flash.
+     Full-screen premium overlay: confetti rain + badge-center
+     burst, large badge art with spring pop-in, rarity halo/rays,
+     "Badge earned!" headline, rarity pill, and a Share row
+     (Web Share API with clipboard fallback).
+     Rarity scaling: common gets a short rain + particle puff;
+     rare adds rotating light rays + longer rain; legendary opens
+     with Cynetis-7 in proud state (via CDCompanion), then the
+     overlay drops in with gold confetti.
      Plays the sting sound (CDSfx 'perfect') and a haptic
      (CDHaptics), both guarded — pages without sfx.js/haptics.js
      get the visual only. Earns are queued so back-to-back badges
-     celebrate in sequence. Never throws; never blocks the awarding
-     flow.
+     celebrate in sequence. Respects prefers-reduced-motion.
+     Never throws; never blocks the awarding flow.
      ================================================================ */
   var stingQueue = [];
   var stingActive = false; // true while a legendary Cynetis-7 intro is playing
@@ -140,50 +144,65 @@
   function injectStingCss() {
     if (typeof document === 'undefined' || document.getElementById('cdbs-css')) return;
     var css = [
-      '@keyframes cdbsFade{from{opacity:0}}',
-      '@keyframes cdbsSheetSpring{0%{transform:translateY(60px);opacity:0}100%{transform:translateY(0);opacity:1}}',
-      '@keyframes cdbsFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}',
-      '@keyframes cdbsBadgeSpinIn{0%{opacity:0;transform:rotate(-360deg) scale(0)}100%{opacity:1;transform:rotate(0) scale(1)}}',
-      '@keyframes cdbsBadgeDrop{0%{opacity:0;transform:translateY(-40vh) scale(1)}55%{opacity:1;transform:translateY(0) scale(1.12)}78%{transform:translateY(-18px) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1)}}',
-      '@keyframes cdbsRaysSpin{to{transform:rotate(360deg)}}',
-      '@keyframes cdbsGlowBurst{0%{opacity:0;transform:scale(.4)}35%{opacity:1;transform:scale(1.15)}100%{opacity:0;transform:scale(1.5)}}',
-      '@keyframes cdbsPillPulse{0%,100%{box-shadow:0 0 14px rgba(212,175,55,.35)}50%{box-shadow:0 0 26px rgba(212,175,55,.65)}}',
-      '@keyframes cdbsVigFlash{0%{opacity:0}18%{opacity:1}100%{opacity:0}}',
-      '@keyframes cdbsSheetOut{to{transform:translateY(40px);opacity:0}}',
-      '.cdbs-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.62);opacity:0}',
-      '.cdbs-wrap.cdbs-in .cdbs-backdrop{animation:cdbsFade .3s ease forwards}',
-      '.cdbs-sheet-inner{transform:translateY(60px);opacity:0}',
-      '.cdbs-wrap.cdbs-in .cdbs-sheet-inner{animation:cdbsSheetSpring .55s cubic-bezier(0.34,1.3,0.64,1) forwards}',
-      '.cdbs-kicker,.cdbs-badge-name,.cdbs-badge-desc,.cdbs-pill,.cdbs-buttons{opacity:0}',
-      '.cdbs-wrap.cdbs-in .cdbs-kicker{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .35s forwards}',
-      '.cdbs-wrap.cdbs-in .cdbs-badge-name{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .55s forwards}',
-      '.cdbs-wrap.cdbs-in .cdbs-badge-desc{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .65s forwards}',
-      '.cdbs-wrap.cdbs-in .cdbs-pill{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .75s forwards}',
-      '.cdbs-wrap.cdbs-in .cdbs-pill.cdbs-legendary{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .75s forwards,cdbsPillPulse 2s ease-in-out 1.2s infinite}',
-      '.cdbs-wrap.cdbs-in .cdbs-buttons{animation:cdbsFadeUp .4s cubic-bezier(0.22,1,0.36,1) .85s forwards}',
-      '.cdbs-badge-zone{position:relative;width:150px;height:150px;margin:0 auto 14px}',
-      '.cdbs-rays{position:absolute;inset:-46px;border-radius:50%;opacity:0;pointer-events:none;',
-      ' background:repeating-conic-gradient(from 0deg,rgba(141,235,0,.14) 0deg 7deg,transparent 7deg 22deg);',
+      '@keyframes cdbcFade{from{opacity:0}to{opacity:1}}',
+      '@keyframes cdbcCardIn{0%{opacity:0;transform:scale(.92) translateY(18px)}100%{opacity:1;transform:none}}',
+      '@keyframes cdbcBadgePop{0%{opacity:0;transform:scale(.3) rotate(-14deg)}60%{opacity:1;transform:scale(1.12) rotate(3deg)}100%{opacity:1;transform:scale(1) rotate(0)}}',
+      '@keyframes cdbcRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}',
+      '@keyframes cdbcRaysSpin{to{transform:rotate(360deg)}}',
+      '@keyframes cdbcHaloPulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:.9;transform:scale(1.08)}}',
+      '@keyframes cdbcPillPulse{0%,100%{box-shadow:0 0 12px rgba(212,175,55,.35)}50%{box-shadow:0 0 26px rgba(212,175,55,.7)}}',
+      '.cdbc-wrap{position:fixed;inset:0;z-index:99990;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;transition:opacity .3s ease;pointer-events:none}',
+      '.cdbc-wrap.cdbc-in{opacity:1;pointer-events:auto}',
+      '.cdbc-wrap.cdbc-out{opacity:0 !important;pointer-events:none}',
+      '.cdbc-backdrop{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 36%,rgba(141,235,0,.13),rgba(4,4,6,.94) 72%)}',
+      '.cdbc-card{position:relative;text-align:center;max-width:400px;width:100%;opacity:0}',
+      '.cdbc-wrap.cdbc-in .cdbc-card{animation:cdbcCardIn .5s cubic-bezier(.22,1,.36,1) .05s forwards}',
+      '.cdbc-kicker{font-size:11px;letter-spacing:4px;font-weight:800;color:#8deb00;margin-bottom:18px;opacity:0}',
+      '.cdbc-wrap.cdbc-in .cdbc-kicker{animation:cdbcRise .45s ease .3s forwards}',
+      '.cdbc-badge-zone{position:relative;width:210px;height:210px;margin:0 auto 20px}',
+      '.cdbc-rays{position:absolute;inset:-42px;border-radius:50%;opacity:0;pointer-events:none;',
+      ' background:repeating-conic-gradient(from 0deg,rgba(141,235,0,.16) 0deg 6deg,transparent 6deg 20deg);',
       ' -webkit-mask:radial-gradient(circle,#000 0%,transparent 68%);mask:radial-gradient(circle,#000 0%,transparent 68%)}',
-      '.cdbs-wrap[data-rarity="rare"].cdbs-in .cdbs-rays,.cdbs-wrap[data-rarity="legendary"].cdbs-in .cdbs-rays{opacity:1;animation:cdbsRaysSpin 14s linear infinite}',
-      '.cdbs-glow-burst{position:absolute;inset:-30px;border-radius:50%;opacity:0;pointer-events:none;',
-      ' background:radial-gradient(circle,rgba(141,235,0,.55),rgba(141,235,0,0) 65%)}',
-      '.cdbs-wrap[data-rarity="rare"].cdbs-in .cdbs-glow-burst,.cdbs-wrap[data-rarity="legendary"].cdbs-in .cdbs-glow-burst{animation:cdbsGlowBurst .9s cubic-bezier(0.22,1,0.36,1) .15s}',
-      '.cdbs-badge-art{position:absolute;inset:15px;width:120px;height:120px;object-fit:contain;opacity:0}',
-      '.cdbs-wrap[data-rarity="common"].cdbs-in .cdbs-badge-art{animation:cdbsBadgeSpinIn .8s cubic-bezier(0.34,1.3,0.64,1) .2s forwards;filter:drop-shadow(0 6px 22px rgba(141,235,0,.25))}',
-      '.cdbs-wrap[data-rarity="rare"].cdbs-in .cdbs-badge-art{animation:cdbsBadgeSpinIn .9s cubic-bezier(0.34,1.3,0.64,1) .2s forwards;filter:drop-shadow(0 6px 22px rgba(141,235,0,.35))}',
-      '.cdbs-wrap[data-rarity="legendary"].cdbs-in .cdbs-badge-art{animation:cdbsBadgeDrop 1s cubic-bezier(0.22,1,0.36,1) forwards;filter:drop-shadow(0 10px 30px rgba(212,175,55,.5))}',
-      '.cdbs-vignette{position:absolute;inset:0;pointer-events:none;opacity:0;',
-      ' background:radial-gradient(ellipse at center,transparent 55%,rgba(141,235,0,.28) 100%)}',
-      '.cdbs-vignette.cdbs-flash{animation:cdbsVigFlash 1.6s cubic-bezier(0.22,1,0.36,1)}',
-      '.cdbs-wrap.cdbs-out .cdbs-backdrop{animation:cdbsFade .25s ease reverse forwards}',
-      '.cdbs-wrap.cdbs-out .cdbs-sheet-inner{animation:cdbsSheetOut .25s ease forwards}',
+      '.cdbc-wrap[data-rarity="rare"].cdbc-in .cdbc-rays,.cdbc-wrap[data-rarity="legendary"].cdbc-in .cdbc-rays{opacity:1;animation:cdbcRaysSpin 16s linear infinite}',
+      '.cdbc-halo{position:absolute;inset:4px;border-radius:50%;pointer-events:none;opacity:0;',
+      ' background:radial-gradient(circle,rgba(141,235,0,.35),rgba(141,235,0,0) 68%)}',
+      '.cdbc-wrap[data-rarity="legendary"] .cdbc-halo{background:radial-gradient(circle,rgba(212,175,55,.45),rgba(212,175,55,0) 68%)}',
+      '.cdbc-wrap.cdbc-in .cdbc-halo{animation:cdbcHaloPulse 2.6s ease-in-out .5s infinite}',
+      '.cdbc-badge-art{position:absolute;inset:20px;width:170px;height:170px;object-fit:contain;opacity:0}',
+      '.cdbc-wrap.cdbc-in .cdbc-badge-art{animation:cdbcBadgePop .7s cubic-bezier(.34,1.4,.64,1) .15s forwards}',
+      '.cdbc-wrap[data-rarity="common"].cdbc-in .cdbc-badge-art{filter:drop-shadow(0 8px 28px rgba(141,235,0,.3))}',
+      '.cdbc-wrap[data-rarity="rare"].cdbc-in .cdbc-badge-art{filter:drop-shadow(0 8px 34px rgba(141,235,0,.45))}',
+      '.cdbc-wrap[data-rarity="legendary"].cdbc-in .cdbc-badge-art{filter:drop-shadow(0 10px 42px rgba(212,175,55,.55))}',
+      '.cdbc-badge-fallback{display:flex;align-items:center;justify-content:center;font-size:84px}',
+      '.cdbc-badge-fallback i{font-size:84px}',
+      '.cdbc-headline{font-size:28px;font-weight:800;color:#fff;letter-spacing:-.01em;margin-bottom:6px;opacity:0}',
+      '.cdbc-wrap.cdbc-in .cdbc-headline{animation:cdbcRise .45s ease .45s forwards}',
+      '.cdbc-name{font-size:16px;font-weight:700;color:#8deb00;margin-bottom:8px;opacity:0}',
+      '.cdbc-wrap.cdbc-in .cdbc-name{animation:cdbcRise .45s ease .55s forwards}',
+      '.cdbc-desc{font-size:13.5px;line-height:1.55;color:rgba(255,255,255,.6);max-width:32ch;margin:0 auto 16px;opacity:0}',
+      '.cdbc-wrap.cdbc-in .cdbc-desc{animation:cdbcRise .45s ease .65s forwards}',
+      '.cdbc-pill{display:inline-block;font-size:11px;font-weight:800;letter-spacing:3px;border-radius:999px;padding:7px 18px;margin-bottom:24px;opacity:0}',
+      '.cdbc-wrap.cdbc-in .cdbc-pill{animation:cdbcRise .45s ease .75s forwards}',
+      '.cdbc-pill.cdbc-common{color:#b6ff45;border:1px solid rgba(141,235,0,.5);background:rgba(141,235,0,.08)}',
+      '.cdbc-pill.cdbc-rare{color:#8deb00;border:1px solid #8deb00;background:rgba(141,235,0,.12)}',
+      '.cdbc-pill.cdbc-legendary{color:#d4af37;border:1px solid #d4af37;background:rgba(212,175,55,.1)}',
+      '.cdbc-wrap.cdbc-in .cdbc-pill.cdbc-legendary{animation:cdbcRise .45s ease .75s forwards,cdbcPillPulse 2.2s ease-in-out 1.2s infinite}',
+      '.cdbc-share-label{font-size:12px;letter-spacing:2px;font-weight:700;color:rgba(255,255,255,.55);margin-bottom:10px;opacity:0}',
+      '.cdbc-wrap.cdbc-in .cdbc-share-label{animation:cdbcRise .45s ease .85s forwards}',
+      '.cdbc-actions{display:flex;gap:10px;opacity:0}',
+      '.cdbc-wrap.cdbc-in .cdbc-actions{animation:cdbcRise .45s ease .95s forwards}',
+      '.cdbc-btn{flex:1;padding:15px 10px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;border:none;font-family:inherit}',
+      '.cdbc-share{background:#8deb00;color:#060606}',
+      '.cdbc-share:active{transform:scale(.97)}',
+      '.cdbc-dismiss{background:rgba(255,255,255,.06);color:#ddd;border:1px solid rgba(255,255,255,.14)}',
       '@media (prefers-reduced-motion: reduce){',
-      ' .cdbs-wrap.cdbs-in .cdbs-backdrop{animation:cdbsFade .25s ease forwards}',
-      ' .cdbs-wrap.cdbs-in .cdbs-sheet-inner{animation:cdbsSheetSpring .3s ease forwards}',
-      ' .cdbs-wrap.cdbs-in .cdbs-kicker,.cdbs-wrap.cdbs-in .cdbs-badge-name,.cdbs-wrap.cdbs-in .cdbs-badge-desc,.cdbs-wrap.cdbs-in .cdbs-pill,.cdbs-wrap.cdbs-in .cdbs-buttons{animation:cdbsFade .3s ease .1s forwards}',
-      ' .cdbs-wrap.cdbs-in .cdbs-badge-art{animation:cdbsFade .3s ease .1s forwards !important;filter:none}',
-      ' .cdbs-rays,.cdbs-glow-burst,.cdbs-vignette{display:none !important}',
+      ' .cdbc-wrap{transition:none}',
+      ' .cdbc-wrap.cdbc-in .cdbc-card{animation:cdbcFade .25s ease .05s forwards}',
+      ' .cdbc-wrap.cdbc-in .cdbc-kicker,.cdbc-wrap.cdbc-in .cdbc-headline,.cdbc-wrap.cdbc-in .cdbc-name,',
+      ' .cdbc-wrap.cdbc-in .cdbc-desc,.cdbc-wrap.cdbc-in .cdbc-pill,.cdbc-wrap.cdbc-in .cdbc-share-label,',
+      ' .cdbc-wrap.cdbc-in .cdbc-actions{animation:cdbcFade .25s ease .1s forwards}',
+      ' .cdbc-wrap.cdbc-in .cdbc-badge-art{animation:cdbcFade .25s ease .1s forwards !important;filter:none}',
+      ' .cdbc-rays,.cdbc-halo{display:none !important}',
       '}'
     ].join('\n');
     var el = document.createElement('style');
@@ -269,10 +288,40 @@
     }
   }
 
+  /* Confetti rain: pieces fall from the top across the full width. */
+  function fxRain(n, colors, spreadMs) {
+    if (reduceMotionOn()) return;
+    fxInit();
+    if (!fxCtx) return;
+    spreadMs = spreadMs || 1400;
+    var per = Math.max(1, Math.round(n / 14));
+    var ticks = 0, total = Math.ceil(spreadMs / 100);
+    var iv = setInterval(function () {
+      ticks++;
+      var w = window.innerWidth || 390;
+      for (var i = 0; i < per; i++) {
+        fxParts.push({
+          x: Math.random() * w,
+          y: -20 - Math.random() * 50,
+          vx: (Math.random() - 0.5) * 1.8,
+          vy: 2.2 + Math.random() * 3.4,
+          life: 1, decay: 0.0035 + Math.random() * 0.004,
+          size: 5 + Math.random() * 7,
+          color: colors[(Math.random() * colors.length) | 0],
+          confetti: true,
+          rot: Math.random() * Math.PI * 2,
+          vr: (Math.random() - 0.5) * 0.25,
+          grav: 0.05
+        });
+      }
+      if (!fxRaf) fxTick();
+      if (ticks >= total) clearInterval(iv);
+    }, 100);
+  }
+
   function badgeZoneCenter() {
     try {
-      var el = document.querySelector('#cd-badge-sting .cdbs-badge-zone') ||
-               document.querySelector('.cdbs-wrap .cdbs-badge-zone');
+      var el = document.querySelector('#cd-badge-sting .cdbc-badge-zone');
       if (!el) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
       var r = el.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -330,6 +379,46 @@
     }
   }
 
+  /* Share the earn: native Web Share API, clipboard fallback. */
+  function shareBadge(badgeId, d) {
+    var btn = null;
+    try { btn = document.getElementById('cdbcShareBtn'); } catch (e) {}
+    function done(label) {
+      try { if (btn) { btn.textContent = label; btn.disabled = true; } } catch (e) {}
+    }
+    var name = (d && d.name) || badgeId;
+    var text = "I just earned the '" + name + "' badge on Cameras Decoded!";
+    var origin = 'https://camerasdecoded.com';
+    try {
+      if (window.location && window.location.origin) origin = window.location.origin;
+    } catch (e) {}
+    var url = origin + '/';
+    try {
+      if (window.navigator && typeof window.navigator.share === 'function') {
+        window.navigator.share({ title: 'Cameras Decoded', text: text, url: url })
+          .then(function () { done('Shared!'); }, function () {});
+        return;
+      }
+    } catch (e) {}
+    var full = text + ' ' + url;
+    try {
+      if (window.navigator && window.navigator.clipboard && window.navigator.clipboard.writeText) {
+        window.navigator.clipboard.writeText(full).then(
+          function () { done('Copied!'); },
+          function () { done('Copy failed'); });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = full;
+        ta.style.cssText = 'position:fixed;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done('Copied!'); }
+        catch (e) { done('Copy failed'); }
+        try { ta.remove(); } catch (e) {}
+      }
+    } catch (e) { done('Copy failed'); }
+  }
+
   function showStingSheet(badgeId) {
     var d = stingDefs()[badgeId];
     if (!d) { nextSting(); return; }
@@ -340,110 +429,90 @@
       if (!rm) fxInit();
 
       var GREEN = '#8DEB00';
-      var GREEN_SOFT = '#B6FF45';
       var GOLD = '#d4af37';
       var rarity = d.rarity || 'common';
-      var accent = rarity === 'legendary' ? GOLD : (rarity === 'rare' ? GREEN : '#999');
+      var accent = rarity === 'legendary' ? GOLD : (rarity === 'rare' ? GREEN : '#b6ff45');
       var isGear = badgeId.indexOf('gear-') === 0 || badgeId.indexOf('glass-') === 0;
       var kicker = rarity === 'legendary' ? 'LEGENDARY EARNED' : (isGear ? 'GEAR ACQUIRED' : 'BADGE EARNED');
-      var shareable = !!(d.art && window.CDGearShare && typeof window.CDGearShare.card === 'function');
 
       var artHtml;
       if (d.art) {
-        artHtml = '<img class="cdbs-badge-art" src="' + d.art + '" alt="">';
+        artHtml = '<img class="cdbc-badge-art" src="' + d.art + '" alt="' + escapeHtml(d.name || badgeId) + ' badge">';
       } else if (d.icon) {
-        artHtml = '<div class="cdbs-badge-art" style="font-size:52px;line-height:120px;color:' + accent + ';text-align:center;"><i class="fa ' + escapeHtml(d.icon) + '"></i></div>';
+        artHtml = '<div class="cdbc-badge-art cdbc-badge-fallback" style="color:' + accent + '"><i class="fa ' + escapeHtml(d.icon) + '"></i></div>';
       } else {
-        artHtml = '<div class="cdbs-badge-art" style="font-size:52px;line-height:120px;text-align:center;">' + escapeHtml(d.emoji || '') + '</div>';
+        artHtml = '<div class="cdbc-badge-art cdbc-badge-fallback">' + escapeHtml(d.emoji || '') + '</div>';
       }
-
-      var pillHtml = d.rarity
-        ? '<div class="cdbs-pill cdbs-' + escapeHtml(rarity) + '" style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:2px;color:' + accent +
-          ';border:1px solid ' + accent + ';border-radius:20px;padding:5px 14px;margin-bottom:18px;">' +
-          escapeHtml(rarity.toUpperCase()) + '</div>'
-        : '<div style="margin-bottom:18px;"></div>';
-
-      var buttonsHtml = shareable
-        ? '<div class="cdbs-buttons" style="display:flex;gap:10px;">' +
-          '<button type="button" id="cdStingShareBtn" style="flex:1;padding:14px;border:none;border-radius:12px;background:' + GREEN + ';color:#000;font-weight:800;font-size:15px;cursor:pointer;">Share</button>' +
-          '<button type="button" id="cdStingDismissBtn" style="flex:1;padding:14px;border:1px solid #2a2a2a;border-radius:12px;background:transparent;color:#bbb;font-weight:700;font-size:15px;cursor:pointer;">Not now</button>' +
-          '</div>'
-        : '<div class="cdbs-buttons"><button type="button" id="cdStingDismissBtn" style="width:100%;padding:14px;border:none;border-radius:12px;background:' + GREEN + ';color:#000;font-weight:800;font-size:15px;cursor:pointer;">Keep going</button></div>';
 
       var wrap = document.createElement('div');
       wrap.id = 'cd-badge-sting';
-      wrap.className = 'cdbs-wrap';
+      wrap.className = 'cdbc-wrap';
       wrap.setAttribute('data-rarity', rarity);
       wrap.setAttribute('role', 'dialog');
-      wrap.setAttribute('aria-label', kicker);
-      wrap.style.cssText = 'position:fixed;inset:0;z-index:99990;display:flex;align-items:flex-end;justify-content:center;';
+      wrap.setAttribute('aria-modal', 'true');
+      wrap.setAttribute('aria-label', kicker + ': ' + (d.name || badgeId));
 
       wrap.innerHTML =
-        '<div class="cdbs-backdrop"></div>' +
-        '<div class="cdbs-sheet" style="position:relative;width:100%;display:flex;justify-content:center;pointer-events:none;">' +
-          '<div class="cdbs-sheet-inner" style="pointer-events:auto;width:100%;max-width:520px;background:#0c0c0c;border:1px solid #1e1e1e;border-bottom:none;border-radius:20px 20px 0 0;padding:28px 24px calc(24px + env(safe-area-inset-bottom));text-align:center;">' +
-            '<div class="cdbs-kicker" style="font-size:11px;letter-spacing:3px;color:' + GREEN + ';font-weight:700;margin-bottom:14px;">' + kicker + '</div>' +
-            '<div class="cdbs-badge-zone">' +
-              '<div class="cdbs-rays"></div>' +
-              '<div class="cdbs-glow-burst"></div>' +
-              artHtml +
-            '</div>' +
-            '<div class="cdbs-badge-name" style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;">' + escapeHtml(d.name || badgeId) + '</div>' +
-            '<div class="cdbs-badge-desc" style="font-size:13px;color:#888;margin-bottom:12px;">' + escapeHtml(d.desc || '') + '</div>' +
-            pillHtml +
-            buttonsHtml +
+        '<div class="cdbc-backdrop"></div>' +
+        '<div class="cdbc-card">' +
+          '<div class="cdbc-kicker">' + kicker + '</div>' +
+          '<div class="cdbc-badge-zone">' +
+            '<div class="cdbc-rays"></div>' +
+            '<div class="cdbc-halo"></div>' +
+            artHtml +
           '</div>' +
-        '</div>' +
-        '<div class="cdbs-vignette"></div>';
+          '<div class="cdbc-headline">Badge earned!</div>' +
+          '<div class="cdbc-name">' + escapeHtml(d.name || badgeId) + '</div>' +
+          '<div class="cdbc-desc">' + escapeHtml(d.desc || '') + '</div>' +
+          '<div class="cdbc-pill cdbc-' + escapeHtml(rarity) + '">' + escapeHtml(rarity.toUpperCase()) + '</div>' +
+          '<div class="cdbc-share-label">SHARE YOUR BADGE</div>' +
+          '<div class="cdbc-actions">' +
+            '<button type="button" id="cdbcShareBtn" class="cdbc-btn cdbc-share">Share</button>' +
+            '<button type="button" id="cdbcDismissBtn" class="cdbc-btn cdbc-dismiss">Keep going</button>' +
+          '</div>' +
+        '</div>';
 
       var closed = false;
       function close() {
         if (closed) return;
         closed = true;
-        // Drop the id immediately so the queued next sting doesn't see a stale element
         try { wrap.removeAttribute('id'); } catch (e) {}
         try {
-          if (rm) {
-            wrap.remove();
-          } else {
-            wrap.classList.remove('cdbs-in');
-            wrap.classList.add('cdbs-out');
-            setTimeout(function () { try { wrap.remove(); } catch (e) {} }, 260);
-          }
+          wrap.classList.add('cdbc-out');
+          setTimeout(function () { try { wrap.remove(); } catch (e) {} }, 340);
         } catch (e) {}
+        try { document.removeEventListener('keydown', onKey); } catch (e) {}
         nextSting();
       }
-      wrap.addEventListener('click', function (ev) { if (ev.target === wrap || ev.target.classList.contains('cdbs-backdrop')) close(); });
-      var dismissBtn = wrap.querySelector('#cdStingDismissBtn');
-      if (dismissBtn) dismissBtn.addEventListener('click', close);
-      var shareBtn = wrap.querySelector('#cdStingShareBtn');
-      if (shareBtn) shareBtn.addEventListener('click', function () {
-        close();
-        try { window.CDGearShare.card(badgeId); } catch (e) {}
+      function onKey(ev) {
+        try { if (ev && ev.key === 'Escape') close(); } catch (e) {}
+      }
+      wrap.addEventListener('click', function (ev) {
+        try { if (ev.target === wrap || (ev.target.classList && ev.target.classList.contains('cdbc-backdrop'))) close(); } catch (e) {}
       });
+      var dismissBtn = wrap.querySelector('#cdbcDismissBtn');
+      if (dismissBtn) dismissBtn.addEventListener('click', close);
+      var shareBtn = wrap.querySelector('#cdbcShareBtn');
+      if (shareBtn) shareBtn.addEventListener('click', function () { shareBadge(badgeId, d); });
+      try { document.addEventListener('keydown', onKey); } catch (e) {}
       document.body.appendChild(wrap);
-      // Trigger entrance animations on the next frame
       requestAnimationFrame(function () {
-        try { wrap.classList.add('cdbs-in'); } catch (e) {}
+        try { wrap.classList.add('cdbc-in'); } catch (e) {}
       });
       playStingFeedback(rarity);
 
-      // Rarity-scaled particle celebrations, timed to the badge entrance
+      /* Celebration: confetti rain + badge-center burst, scaled by rarity. */
       if (!rm) {
         var colors = rarity === 'legendary' ? FX_GOLDS : FX_GREENS;
         if (rarity === 'common') {
-          setTimeout(function () { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 12, colors, false); }, 450);
+          fxRain(70, colors, 1200);
+          setTimeout(function () { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 14, colors, false); }, 450);
         } else if (rarity === 'rare') {
-          setTimeout(function () { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 24, colors, false); }, 500);
-        } else if (rarity === 'legendary') {
-          setTimeout(function () {
-            var c = badgeZoneCenter();
-            fxSpawn(c.x, c.y, 46, colors, true);
-            try {
-              var v = wrap.querySelector('.cdbs-vignette');
-              if (v) v.classList.add('cdbs-flash');
-            } catch (e) {}
-          }, 700);
+          fxRain(120, colors, 1800);
+          setTimeout(function () { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 26, colors, false); }, 500);
+        } else {
+          fxRain(200, colors, 2600);
+          setTimeout(function () { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 50, colors, true); }, 650);
         }
       }
     } catch (e) {
