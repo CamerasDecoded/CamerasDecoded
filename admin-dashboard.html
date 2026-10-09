@@ -1162,9 +1162,13 @@
         document.getElementById('foundingStatus').textContent = 'Founding Decoder: counter unavailable';
       });
     }
+    var proRequestsUnsub = null;
     function loadProRequests() {
       loadFoundingStatus();
-      db.collection('proRequests').where('status', '==', 'pending')
+      // Detach any prior listener before re-attaching (avoids duplicate
+      // listeners if this is called more than once).
+      try { if (proRequestsUnsub) proRequestsUnsub(); } catch (e) {}
+      proRequestsUnsub = db.collection('proRequests').where('status', '==', 'pending')
         .orderBy('createdAt', 'asc').limit(50)
         .onSnapshot(renderProRequests, function (err) {
           console.error('Pro requests listener error:', err);
@@ -1247,7 +1251,7 @@
           userPatch.foundingDecoderNum = foundingNum;
           userPatch.foundingDecoderAt = firebase.firestore.FieldValue.serverTimestamp();
         }
-        batch.update(db.collection('users').doc(uid), userPatch);
+        batch.set(db.collection('users').doc(uid), userPatch, { merge: true });
         var reqPatch = {
           status: 'active',
           fulfilledAt: firebase.firestore.FieldValue.serverTimestamp(),
