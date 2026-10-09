@@ -135,6 +135,18 @@
     .pp-tappable:hover { background: rgba(141,235,0,.06); }
     .pp-tappable:active { background: rgba(141,235,0,.12); }
     .pp-tappable:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+    /* ===== OWN-PROFILE SOCIAL STATS STRIP ===== */
+    .op-stats {
+      display: flex; justify-content: center; gap: 32px;
+      background: rgba(255,255,255,.02);
+      border: 1px solid var(--border-dim);
+      border-radius: 14px;
+      padding: 18px 16px;
+      margin-bottom: 16px;
+    }
+    .op-stats .pp-stat b { font-size: 22px; }
+    @media (max-width: 640px) { .op-stats { gap: 24px; padding: 14px 12px; } }
     .pp-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
     .pp-btn {
       padding: 11px 24px; border-radius: 10px; cursor: pointer;
@@ -946,6 +958,13 @@
 
     <!-- ===== PROFILE CONTENT ===== -->
     <div id="profileContent" style="display:none;">
+
+      <!-- Social stats (tappable → bottom-sheet lists) -->
+      <div class="op-stats" id="opStats">
+        <div class="pp-stat pp-tappable" id="opFollowersStat" role="button" tabindex="0" aria-label="View followers"><b id="opFollowers">0</b><span>Followers</span></div>
+        <div class="pp-stat pp-tappable" id="opFollowingStat" role="button" tabindex="0" aria-label="View following"><b id="opFollowing">0</b><span>Following</span></div>
+        <div class="pp-stat pp-tappable" id="opSignalsStat" role="button" tabindex="0" aria-label="View signals"><b id="opSignals">0</b><span>Signals</span></div>
+      </div>
 
       <!-- Avatar Card -->
       <div class="card avatar-card chasing-border" id="avatarCard">
@@ -2116,6 +2135,34 @@
               });
             };
           }
+          // Own-profile social stats strip: populate counts + bind tappable lists.
+          window.CDSocial.getPublicProfile(user.uid).then(function (info) {
+            if (!info) return;
+            document.getElementById('opFollowers').textContent = info.followerCount || 0;
+            document.getElementById('opFollowing').textContent = info.followingCount || 0;
+            document.getElementById('opSignals').textContent = info.likeCount || 0;
+          }).catch(function () {});
+          var ownName = data.displayName || data.username || 'Operator';
+          function bindOwnStat(id, fetchUids, sheetTitle, emptyTitle, emptySub) {
+            var el = document.getElementById(id);
+            if (!el || el.dataset.cdsBound) return;
+            el.dataset.cdsBound = '1';
+            function open() {
+              fetchUids(user.uid).then(function (uids) {
+                window.CDSocial.openUserList({ title: sheetTitle, emptyTitle: emptyTitle, emptySub: emptySub, uids: uids });
+              });
+            }
+            el.addEventListener('click', open);
+            el.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+            });
+          }
+          bindOwnStat('opFollowersStat', window.CDSocial.getFollowers, 'Followers',
+            'No followers yet', 'Share your profile to grow the circle.');
+          bindOwnStat('opFollowingStat', window.CDSocial.getFollowingOf, 'Following',
+            'Not following anyone yet', 'Find photographers who inspire you in the Arena.');
+          bindOwnStat('opSignalsStat', window.CDSocial.getLikers, 'Signals',
+            'No signals yet', 'Nobody has signaled your profile yet.');
         }
       } catch (err) {
         console.error('Error loading profile:', err);
