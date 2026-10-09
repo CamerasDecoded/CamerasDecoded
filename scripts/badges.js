@@ -154,6 +154,9 @@
       '.cdbc-wrap{position:fixed;inset:0;z-index:99990;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;transition:opacity .3s ease;pointer-events:none}',
       '.cdbc-wrap.cdbc-in{opacity:1;pointer-events:auto}',
       '.cdbc-wrap.cdbc-out{opacity:0 !important;pointer-events:none}',
+      '.cdbc-card{position:relative}',
+      '.cdbc-x{position:absolute;top:10px;right:12px;background:none;border:none;color:#8a8a8f;font-size:28px;line-height:1;cursor:pointer;padding:6px;z-index:5}',
+      '.cdbc-x:hover,.cdbc-x:focus-visible{color:#fff;outline:none}',
       '.cdbc-backdrop{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 36%,rgba(141,235,0,.13),rgba(4,4,6,.94) 72%)}',
       '.cdbc-card{position:relative;text-align:center;max-width:400px;width:100%;opacity:0}',
       '.cdbc-wrap.cdbc-in .cdbc-card{animation:cdbcCardIn .5s cubic-bezier(.22,1,.36,1) .05s forwards}',
@@ -455,6 +458,7 @@
       wrap.innerHTML =
         '<div class="cdbc-backdrop"></div>' +
         '<div class="cdbc-card">' +
+          '<button type="button" class="cdbc-x" aria-label="Close">&times;</button>' +
           '<div class="cdbc-kicker">' + kicker + '</div>' +
           '<div class="cdbc-badge-zone">' +
             '<div class="cdbc-rays"></div>' +
@@ -492,6 +496,8 @@
       });
       var dismissBtn = wrap.querySelector('#cdbcDismissBtn');
       if (dismissBtn) dismissBtn.addEventListener('click', close);
+      var xBtn = wrap.querySelector('.cdbc-x');
+      if (xBtn) xBtn.addEventListener('click', close);
       var shareBtn = wrap.querySelector('#cdbcShareBtn');
       if (shareBtn) shareBtn.addEventListener('click', function () { shareBadge(badgeId, d); });
       try { document.addEventListener('keydown', onKey); } catch (e) {}
@@ -501,20 +507,39 @@
       });
       playStingFeedback(rarity);
 
-      /* Celebration: confetti rain + badge-center burst, scaled by rarity. */
-      if (!rm) {
+      /* Celebration: confetti rain + badge-center burst, scaled by rarity.
+         Loops until dismissed — stays alive on the shelf replay too. */
+      var rainTimer = null;
+      function celebrate() {
+        if (rm || closed) return;
         var colors = rarity === 'legendary' ? FX_GOLDS : FX_GREENS;
         if (rarity === 'common') {
           fxRain(70, colors, 1200);
-          setTimeout(function () { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 14, colors, false); }, 450);
+          setTimeout(function () { if (!closed) { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 14, colors, false); } }, 450);
         } else if (rarity === 'rare') {
           fxRain(120, colors, 1800);
-          setTimeout(function () { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 26, colors, false); }, 500);
+          setTimeout(function () { if (!closed) { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 26, colors, false); } }, 500);
         } else {
           fxRain(200, colors, 2600);
-          setTimeout(function () { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 50, colors, true); }, 650);
+          setTimeout(function () { if (!closed) { var c = badgeZoneCenter(); fxSpawn(c.x, c.y, 50, colors, true); } }, 650);
         }
       }
+      celebrate();
+      if (!rm) {
+        rainTimer = setInterval(function () {
+          if (closed || !document.getElementById('cd-badge-sting')) {
+            try { clearInterval(rainTimer); } catch (e) {}
+            return;
+          }
+          celebrate();
+        }, 3200);
+      }
+      /* Stop the loop when the sheet closes. */
+      var _close = close;
+      close = function () {
+        try { clearInterval(rainTimer); } catch (e) {}
+        _close();
+      };
     } catch (e) {
       stingActive = false;
       nextSting();
@@ -523,5 +548,5 @@
 
   function defs() { return DEFS; }
 
-  window.CDBadges = { defs: defs, award: award };
+  window.CDBadges = { defs: defs, award: award, replay: queueSting };
 })();

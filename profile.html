@@ -17,7 +17,7 @@
   <script src="/scripts/firebase-init.js"></script>
 
   <!-- ===== SHARED BADGE DEFINITIONS (single source of truth for badge copy) ===== -->
-  <script src="/scripts/badges.js?v=20261008a"></script>
+  <script src="/scripts/badges.js?v=20261008b"></script>
   <script src="/scripts/gear-awards.js?v=20261001a"></script>
   <script src="/scripts/gear-share.js"></script>
 
@@ -750,6 +750,8 @@
       opacity: 0.55;
     }
     .badge-tile.locked:hover { transform: none; box-shadow: none; }
+    .badge-tile[data-replay-badge] { cursor: pointer; }
+    .badge-tile[data-replay-badge]:focus-visible { outline: 2px solid rgba(141,235,0,0.6); outline-offset: 2px; }
     .badge-emoji { font-size: 30px; line-height: 1; display: block; margin-bottom: 10px; }
     .badge-tile.locked .badge-emoji { filter: grayscale(1); }
     .badge-art { width: 64px; height: 64px; object-fit: contain; display: block; margin: 0 auto 10px; }
@@ -1522,7 +1524,8 @@
           ? '<button type="button" class="badge-share-btn" data-share-badge="' + id + '">Share</button>'
           : '';
         html +=
-          '<div class="badge-tile' + (isEarned ? '' : ' locked') + rarityCls + '">' +
+          '<div class="badge-tile' + (isEarned ? '' : ' locked') + rarityCls + '"' +
+            (isEarned ? ' data-replay-badge="' + id + '" role="button" tabindex="0" aria-label="Replay ' + b.name.replace(/"/g, '') + ' celebration"' : '') + '>' +
             artHtml +
             '<div class="badge-name">' + b.name + '</div>' +
             '<div class="badge-desc">' + b.desc + '</div>' +
@@ -1534,6 +1537,19 @@
         btn.addEventListener('click', function (ev) {
           ev.stopPropagation();
           if (window.CDGearShare) window.CDGearShare.card(btn.getAttribute('data-share-badge'));
+        });
+      });
+      grid.querySelectorAll('[data-replay-badge]').forEach(function (tile) {
+        var bid = tile.getAttribute('data-replay-badge');
+        function replay(ev) {
+          if (ev) ev.stopPropagation();
+          try {
+            if (window.CDBadges && typeof window.CDBadges.replay === 'function') window.CDBadges.replay(bid);
+          } catch (e) {}
+        }
+        tile.addEventListener('click', replay);
+        tile.addEventListener('keydown', function (ev) {
+          if (ev && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); replay(ev); }
         });
       });
     }
