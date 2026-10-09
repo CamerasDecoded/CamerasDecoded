@@ -26,7 +26,7 @@
   /* body-layout guard: design-system.css (via master-loader) forces flex centering —
      this page owns its body layout, so force stretch */
   body { align-items: stretch !important; }
-  html, body { height: 100%; }
+  html, body { height: 100%; overscroll-behavior: none !important; }
   html { scrollbar-width: none; }
   html::-webkit-scrollbar { display: none; }
   body {
@@ -263,6 +263,9 @@
   input[type=range].big {
     width: 100%; height: 46px; -webkit-appearance: none; appearance: none;
     background: transparent; cursor: pointer; display: block;
+    /* block iOS Safari edge-swipe back/forward nav on slider drags;
+       thumb drag is a native control interaction and is unaffected */
+    touch-action: pan-y;
   }
   input[type=range].big::-webkit-slider-runnable-track {
     height: 6px; border-radius: 3px;
@@ -1066,6 +1069,7 @@
 
   /* ================= presets ================= */
   const PRESETS = [
+    { name: 'None', desc: 'Clear any preset \u2014 back to the unedited original.', s: {}, none: true },
     { name: 'Golden Hour', desc: 'Warms highlights, lifts shadows. <em>See how temperature shapes mood.</em>',
       s: { temp: 7500, highlights: -15, shadows: 20, vibrance: 15 } },
     { name: 'Crisp Landscape', desc: 'Dehaze cuts atmosphere, clarity adds bite. <em>Depth without HDR.</em>',
@@ -1118,7 +1122,13 @@
       el.addEventListener('click', () => {
         if (!wasm || !original) return;
         pushHistory();
-        applyPreset(p.s);
+        if (p.none) {
+          resetSettings();
+          scheduleRender();
+          statusEl.textContent = 'Preset cleared \u2014 back to the original';
+        } else {
+          applyPreset(p.s);
+        }
         document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('active'));
         el.classList.add('active');
       });
