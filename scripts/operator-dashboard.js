@@ -932,8 +932,14 @@
   ];
 
   function renderChallenge() {
-    const u = vm.raw;
+    const u = vm.raw || {};
     const log = u.challengeLog || u.dailyChallengeLog || [];
+    // Active-day lookup: challenge log merged with xpByDay ledger so the
+    // circles reflect real activity even when the challenge log is sparse.
+    const _ledger = (u.xpByDay) || {};
+    const _activeDays = new Set();
+    if (Array.isArray(log)) log.forEach((k) => _activeDays.add(k));
+    Object.keys(_ledger).forEach((k) => { if (typeof _ledger[k] === 'number' && _ledger[k] > 0) _activeDays.add(k); });
     const todayKey = cdTodayKey();
     const done = Array.isArray(log) && log.includes(todayKey);
     const dayIdx = Math.floor(Date.now() / 86400000) % CHALLENGES.length;
@@ -961,7 +967,7 @@
       for (let i = 0; i < 7; i++) {
         const dt = new Date(monday); dt.setDate(monday.getDate() + i);
         const key = cdTodayKey(dt);
-        const ok = Array.isArray(log) && log.includes(key);
+        const ok = _activeDays.has(key);
         const isFuture = key > todayStr;
         html += `<span class="log-day${ok ? ' complete' : ''}${isFuture ? ' future' : ''}">${dayNames[i]}</span>`;
       }
