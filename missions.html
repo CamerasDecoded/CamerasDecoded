@@ -340,6 +340,16 @@ button{font-family:inherit;cursor:pointer}
 }
 .am-feed-head h3{font:800 16px var(--font-b);letter-spacing:-.01em}
 .am-feed-head .cnt{font:700 12px var(--font-d);color:var(--muted-2)}
+.am-feed-filter{
+  display:flex;align-items:center;gap:8px;
+  font:700 11px var(--font-d);letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--muted-2);background:transparent;border:1px solid var(--border);
+  border-radius:20px;padding:6px 14px;cursor:pointer;transition:all .2s ease;
+}
+.am-feed-filter:hover{border-color:rgba(141,235,0,.4)}
+.am-feed-filter.active{color:#8deb00;border-color:#8deb00;background:rgba(141,235,0,.08)}
+.am-feed-filter .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5}
+.am-feed-filter.active .dot{opacity:1;box-shadow:0 0 8px #8deb00}
 .am-grid{display:flex;gap:10px;align-items:flex-start}
 .am-grid .am-col{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:10px}
 @media(min-width:720px){.am-grid{gap:14px}.am-grid .am-col{gap:14px}}
@@ -639,6 +649,7 @@ button{font-family:inherit;cursor:pointer}
       <div class="am-submit" id="amSubmitDaily"></div>
       <div class="am-feed-head">
         <h3>Today's shots</h3>
+        <button type="button" class="am-feed-filter" id="amFilterDaily" aria-pressed="false"><span class="dot"></span>Following</button>
         <span class="cnt" id="amCntDaily"></span>
       </div>
       <div class="am-grid" id="amGridDaily"></div>
@@ -673,6 +684,7 @@ button{font-family:inherit;cursor:pointer}
       <div class="am-submit" id="amSubmitMission"></div>
       <div class="am-feed-head">
         <h3>This week's shots</h3>
+        <button type="button" class="am-feed-filter" id="amFilterMission" aria-pressed="false"><span class="dot"></span>Following</button>
         <span class="cnt" id="amCntMission"></span>
       </div>
       <div class="am-grid" id="amGridMission"></div>
@@ -825,8 +837,8 @@ button{font-family:inherit;cursor:pointer}
     var user = null;
     var myScore = { score: 0, tier: 0 };
     var lanes = {
-      mission: { lane: 'mission', round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, fallback: false, empty: false },
-      daily:   { lane: 'daily',   round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, fallback: false, empty: false }
+      mission: { lane: 'mission', round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, fallback: false, empty: false, followingOnly: false, followingUids: null },
+      daily:   { lane: 'daily',   round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, fallback: false, empty: false, followingOnly: false, followingUids: null }
     };
     var activeTab = 'daily';
     var countTimer = null;
@@ -917,6 +929,12 @@ button{font-family:inherit;cursor:pointer}
       order.forEach(function (n) {
         var tab = el('amTab' + cap(n));
         if (tab) tab.addEventListener('click', function () { if (!suppressClick) setTab(n); });
+      });
+      /* Following filter toggles (Daily + Mission lanes). */
+      ['daily', 'mission'].forEach(function (laneKey) {
+        var btn = el('amFilter' + cap(laneKey));
+        if (!btn) return;
+        btn.addEventListener('click', function () { toggleFollowingFilter(laneKey); });
       });
       /* slide-to-switch: drag the pill across the bar, release to switch (tap still works) */
       var nav = document.querySelector('.am-tabs');
@@ -1505,6 +1523,39 @@ button{font-family:inherit;cursor:pointer}
       return obs;
     }
 
+    /* ---------- following filter ---------- */
+    // Toggles the "Following" feed filter for a lane. Loads the viewer's
+    // following list on first activation, then re-renders. Signed-out users
+    // are sent to login — the filter needs an account.
+    function toggleFollowingFilter(laneKey) {
+      var st = lanes[laneKey];
+      var btn = el('amFilter' + cap(laneKey));
+      if (!st || !btn) return;
+      if (!user) { window.location.href = 'login.html'; return; }
+      if (st.followingOnly) {
+        st.followingOnly = false;
+        btn.classList.remove('active');
+        btn.setAttribute('aria-pressed', 'false');
+        renderFeed(laneKey);
+        return;
+      }
+      function activate(uids) {
+        st.followingUids = uids;
+        st.followingOnly = true;
+        btn.classList.add('active');
+        btn.setAttribute('aria-pressed', 'true');
+        renderFeed(laneKey);
+      }
+      if (st.followingUids) { activate(st.followingUids); return; }
+      if (window.CDSocial) {
+        window.CDSocial.getFollowing().then(function (uids) {
+          activate(uids || []);
+        }).catch(function () { activate([]); });
+      } else {
+        activate([]);
+      }
+    }
+
     function renderFeed(laneKey) {
       var st = lanes[laneKey];
       var grid = el('amGrid' + cap(laneKey));
@@ -1516,11 +1567,23 @@ button{font-family:inherit;cursor:pointer}
       var obs = (!reduced && typeof IntersectionObserver !== 'undefined') ? makeRevealObs() : null;
       revealObsByGrid[gid] = obs;
       var list = st.entries.slice();
+      /* Following filter: show only entries from followed users. */
+      if (st.followingOnly && st.followingUids) {
+        var allowed = {};
+        for (var fi = 0; fi < st.followingUids.length; fi++) allowed[st.followingUids[fi]] = true;
+        // Always include the viewer's own entry.
+        if (user) allowed[user.uid] = true;
+        list = list.filter(function (e) { return !!allowed[e.uid]; });
+      }
       if (!list.length) {
+        var emptyBig = st.followingOnly ? 'No shots from your circle yet'
+          : (st.phase === 'open' ? 'The floor is yours' : 'A quiet round');
+        var emptySub = st.followingOnly
+          ? 'Follow photographers to see their entries here.'
+          : (st.phase === 'open' ? 'No one\u2019s posted yet. First shot sets the tone — make it yours.' : 'Nobody entered this one. The next round opens soon — be ready.');
         grid.innerHTML = '<div class="am-empty">' +
           '<img src="/media/sting/' + (st.phase === 'open' ? 'fb-02' : 'fb-09') + '.jpg?v=20261001a" alt="" loading="lazy" decoding="async"/>' +
-          '<div class="ecopy"><span class="big">' + (st.phase === 'open' ? 'The floor is yours' : 'A quiet round') + '</span>' +
-          (st.phase === 'open' ? 'No one\u2019s posted yet. First shot sets the tone — make it yours.' : 'Nobody entered this one. The next round opens soon — be ready.') + '</div></div>';
+          '<div class="ecopy"><span class="big">' + emptyBig + '</span>' + emptySub + '</div></div>';
         return;
       }
       if (st.phase === 'closed') {
@@ -1846,5 +1909,6 @@ button{font-family:inherit;cursor:pointer}
   </script>
   <script src="/scripts/ptr.js?v=20261004a"></script>
   <script src="/scripts/cd-companion.js?v=20251007a"></script>
+  <script src="/scripts/social.js?v=20261009a"></script>
 </body>
 </html><!-- pages rebuild trigger -->

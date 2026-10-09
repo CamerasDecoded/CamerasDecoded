@@ -1517,6 +1517,10 @@
       });
     });
 
+    $('inviteFriendsBtn')?.addEventListener('click', () => {
+      if (window.CDSocial) window.CDSocial.invite();
+    });
+
     const diff = $('diffSelect'), launch = $('quizLaunchBtn');
     if (diff && launch) {
       const update = () => { launch.href = `/quiz-full.html?difficulty=${diff.value}`; };
