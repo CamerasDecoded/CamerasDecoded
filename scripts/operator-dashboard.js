@@ -1835,9 +1835,84 @@
     $('calNext').disabled = cur >= b.maxY * 12 + b.maxM;
 
     const streak = (vm.stats && vm.stats.streak) || 0;
+    renderStreakHero(active, streak, tKey);
     $('streakCalSummary').innerHTML = `<b style="color:var(--green-2)">${monthActive}</b> active day${monthActive === 1 ? '' : 's'} in ${escHtml(monthName)} · <b style="color:var(--green-2)">${streak}</b>-day streak`;
     // One loud CTA, only when today is still unmarked.
     $('streakCalCta').hidden = active.has(tKey);
+  }
+
+  // Streak hero: big count, progress to the next milestone (7 / 30 / 100),
+  // longest recorded run, and chain messaging. Display-only — the counting
+  // itself lives in CDStreak.touch() and the legacy advanceStreak() paths.
+  var STREAK_MILESTONES = [7, 30, 100];
+  function longestActiveRun(active) {
+    var days = Array.from(active || []).filter(function (k) { return /^\d{4}-\d{2}-\d{2}$/.test(k); }).sort();
+    var best = 0, run = 0, prev = null;
+    days.forEach(function (k) {
+      var d = new Date(k + 'T12:00:00').getTime();
+      if (prev !== null && d - prev === 864e5) run += 1;
+      else run = 1;
+      if (run > best) best = run;
+      prev = d;
+    });
+    return best;
+  }
+  function renderStreakHero(active, streak, tKey) {
+    var hero = $('streakHero');
+    if (!hero) return;
+    streak = streak || 0;
+    var secured = active && active.has(tKey);
+    var next = STREAK_MILESTONES.filter(function (m) { return streak < m; })[0] || null;
+    var prevMark = 0;
+    STREAK_MILESTONES.forEach(function (m) { if (streak >= m) prevMark = m; });
+    var span = next ? (next - prevMark) : 1;
+    var pct = next ? Math.min(100, Math.max(0, ((streak - prevMark) / span) * 100)) : 100;
+    var best = longestActiveRun(active);
+
+    var ticks = (function () {
+      var marks = [];
+      if (prevMark > 0) marks.push({ m: prevMark, left: 0, hit: true });
+      if (next) {
+        marks.push({ m: next, left: 100, hit: false });
+      } else {
+        // Past 100: all milestones hit, spread across the full bar.
+        marks = [{ m: 7, left: 0, hit: true }, { m: 30, left: 50, hit: true }, { m: 100, left: 100, hit: true }];
+      }
+      return marks.map(function (t) {
+        var left = Math.max(7, Math.min(93, t.left));
+        return '<span class="streak-tick' + (t.hit ? ' hit' : '') + '" style="left:' + left.toFixed(1) + '%">' + t.m + '</span>';
+      }).join('');
+    })();
+
+    var msg;
+    if (streak === 0) {
+      msg = secured
+        ? '<b>Day one is on the board.</b> Come back tomorrow to start the chain.'
+        : 'No chain yet — <b>today is still open.</b> One drill, one lesson, one mission keeps it alive.';
+    } else if (secured) {
+      msg = next
+        ? '<b>Today\'s secured.</b> <span class="chain">' + (next - streak) + ' day' + (next - streak === 1 ? '' : 's') + ' to the ' + next + '-day milestone.</span>'
+        : '<b>Today\'s secured.</b> <span class="chain">100 days. Legendary. Don\'t break the chain.</span>';
+    } else {
+      msg = '<b>Don\'t break the chain.</b> <span class="chain">Today\'s still open — one session keeps it alive.</span>';
+    }
+
+    hero.innerHTML =
+      '<div class="streak-hero-top">' +
+        '<div class="streak-flame' + (streak > 0 ? '' : ' cold') + '" aria-hidden="true">' +
+          '<img src="/media/icons/streak-bolt.png?v=20261004b" alt="">' +
+        '</div>' +
+        '<div class="streak-hero-nums">' +
+          '<div class="streak-hero-count">' + streak + '<small>' + (streak === 1 ? 'day' : 'days') + '</small></div>' +
+          '<div class="streak-hero-label">Current streak</div>' +
+        '</div>' +
+        '<div class="streak-hero-best"><strong>' + best + '</strong><span>Longest run</span></div>' +
+      '</div>' +
+      '<div class="streak-progress" aria-hidden="true">' +
+        '<div class="streak-progress-track"><div class="streak-progress-fill" style="width:' + pct.toFixed(1) + '%"></div></div>' +
+        '<div class="streak-progress-ticks">' + ticks + '</div>' +
+      '</div>' +
+      '<p class="streak-msg' + (secured ? '' : ' today-open') + '">' + msg + '</p>';
   }
 
   // ---------- XP breakdown ----------
