@@ -2,10 +2,7 @@
  *
  * The SINGLE WRITER for round state, Signal Scores, the hall of fame, and
  * the 24h image sweep. No Cloud Functions (Spark tier), no client-side close
- * path. Runs twice daily at 00:05 UTC (7:05 PM CDT: submissions close, voting
- * opens) and 04:05 UTC (11:05 PM CDT: voting closes, winner crowned).
- * Cron is UTC-only on GitHub; all round dates/IDs and phase times are
- * America/Chicago per user directive (votingAt 7 PM, closesAt 11 PM Chicago).
+ * path. Runs twice daily at 00:05 and 18:05 UTC.
  *
  * Env:
  *   SERVICE_ACCOUNT_JSON — Firebase service-account JSON (repo secret
@@ -38,69 +35,30 @@ const RESULTS_TTL_MS = 7 * 24 * 3600 * 1000; // 7d for results broadcasts
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 const loud = (...a) => console.log(new Date().toISOString(), "!!!", ...a);
 
-/* ---------- date helpers (America/Chicago — user directive: Chicago for all) ---------- */
+/* ---------- date helpers (all UTC) ---------- */
 
-const CHICAGO_TZ = "America/Chicago";
-
-function chicagoParts(date) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: CHICAGO_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const get = (t) => parts.find((p) => p.type === t).value;
-  return { y: +get("year"), m: +get("month"), d: +get("day") };
-}
-
-/** yyyy-MM-dd in America/Chicago (matches the client's ymdChicago). */
 function ymd(date) {
-  const { y, m, d } = chicagoParts(date);
-  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  return date.toISOString().slice(0, 10); // yyyy-MM-dd in UTC
 }
 
-/** Offset of America/Chicago from UTC at the given instant, in ms. */
-function chicagoOffsetMs(date) {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: CHICAGO_TZ,
-    hour12: false,
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-  });
-  const parts = fmt.formatToParts(date);
-  const get = (t) => parts.find((p) => p.type === t).value;
-  const asUtc = Date.UTC(+get("year"), +get("month") - 1, +get("day"),
-    (+get("hour")) % 24, +get("minute"), +get("second"));
-  return asUtc - date.getTime();
+function utcMidnight(date) {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
 }
 
-/** Midnight in America/Chicago on the date's Chicago calendar day, as a UTC instant. */
-function chicagoMidnight(date) {
-  const { y, m, d } = chicagoParts(date);
-  const guessUtc = Date.UTC(y, m - 1, d, 0, 0, 0);
-  return new Date(guessUtc - chicagoOffsetMs(new Date(guessUtc)));
-}
-
-/** 0=Sunday..6=Saturday in America/Chicago. */
-function chicagoWeekday(date) {
-  const name = new Intl.DateTimeFormat("en-US", { timeZone: CHICAGO_TZ, weekday: "short" }).format(date);
-  return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[name];
-}
-
-/** ISO week number (1-53) for a Chicago calendar date. */
+/** ISO week number (1-53) for a UTC date. */
 function isoWeek(date) {
-  const { y, m, d } = chicagoParts(date);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  const dayNum = dt.getUTCDay() || 7;
-  dt.setUTCDate(dt.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
-  return Math.ceil(((dt - yearStart) / 86400000 + 1) / 7);
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
 
 function missionRoundId(date) {
-  const { y } = chicagoParts(date);
   const w = String(isoWeek(date)).padStart(2, "0");
-  return `m-${y}-W${w}`;
+  return `m-${date.getUTCFullYear()}-W${w}`;
 }
 
 /** "Operator #A3F9" style alias: 4-char base36 hash of the uid. */
@@ -308,9 +266,9 @@ async function openNextRounds(db, now) {
       );
     } else {
       const text = (promptSnap.data() || {}).text || "";
-      const opensAt = chicagoMidnight(now);
-      const votingAt = new Date(opensAt.getTime() + 19 * 3600000); // 7 PM Chicago: submissions close
-      const closesAt = new Date(opensAt.getTime() + 23 * 3600000); // 11 PM Chicago: voting closes
+      const opensAt = utcMidnight(now);
+      const votingAt = new Date(opensAt.getTime() + 18 * 3600000);
+      const closesAt = new Date(opensAt.getTime() + 24 * 3600000);
       await challengeRef.set({
         lane: "challenge",
         title: text.length > 80 ? text.slice(0, 77) + "…" : text,
@@ -333,7 +291,7 @@ async function openNextRounds(db, now) {
   }
 
   // --- mission: Mondays only, oldest unused arenaBriefQueue doc ---
-  if (chicagoWeekday(now) === 1) {
+  if (now.getUTCDay() === 1) {
     const mId = missionRoundId(now);
     const mRef = db.collection("arenaRounds").doc(mId);
     if ((await mRef.get()).exists) {
@@ -353,9 +311,9 @@ async function openNextRounds(db, now) {
       } else {
         const qd = q.docs[0];
         const b = qd.data() || {};
-        const opensAt = chicagoMidnight(now);                       // Mon 00:00 Chicago
-        const votingAt = new Date(opensAt.getTime() + 5 * 86400000); // Sat 00:00 Chicago
-        const closesAt = new Date(opensAt.getTime() + 7 * 86400000); // next Mon 00:00 Chicago
+        const opensAt = utcMidnight(now);                       // Mon 00:00
+        const votingAt = new Date(opensAt.getTime() + 5 * 86400000); // Sat 00:00
+        const closesAt = new Date(opensAt.getTime() + 7 * 86400000); // next Mon 00:00
         await mRef.set({
           lane: "mission",
           title: b.title || "",
