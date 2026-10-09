@@ -1423,6 +1423,26 @@
     $('exFeedback').textContent = fb;
   });
 
+  /* Sample photo: real photo by default; procedural fallback if it fails to load */
+  function loadSamplePhoto() {
+    var img = new Image();
+    img.onload = function() {
+      try {
+        var maxW = 1280;
+        var scale = Math.min(1, maxW / img.naturalWidth);
+        var w = Math.max(1, Math.round(img.naturalWidth * scale));
+        var h = Math.max(1, Math.round(img.naturalHeight * scale));
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        resetSettings();
+        setPhoto(c.getContext('2d').getImageData(0, 0, w, h));
+      } catch (e) { setPhoto(makeSample(false)); }
+    };
+    img.onerror = function() { setPhoto(makeSample(false)); };
+    img.src = '/media/darkroom-lab/sample.jpg?v=20261008a';
+  }
+
   /* ================= boot ================= */
   renderPanel();
   renderLearnLock();
@@ -1478,7 +1498,7 @@
       statusEl.textContent = 'WASM failed';
       return;
     }
-    setPhoto(makeSample(false));
+    loadSamplePhoto();
   })();
   window.addEventListener('resize', () => { if (original) fitCanvases(); });
 </script>
