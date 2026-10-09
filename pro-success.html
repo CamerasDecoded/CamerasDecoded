@@ -125,6 +125,13 @@
       <a class="success-cta" href="/operator-dashboard.html">Enter the dashboard</a>
     </div>
 
+    <div id="signinView" hidden>
+      <div class="success-orb pending"><i class="fas fa-user-lock"></i></div>
+      <h1 class="success-title">One more step.</h1>
+      <p class="success-sub">Your payment went through. Sign in to link it to your account and activate Pro — no need to pay again.</p>
+      <a class="success-cta" href="/login.html">Sign in to activate Pro</a>
+    </div>
+
     <div id="slowView" hidden>
       <div class="success-orb pending"><i class="fas fa-clock"></i></div>
       <h1 class="success-title">Almost there.</h1>
@@ -138,7 +145,7 @@
       'use strict';
 
       function show(id) {
-        ['pendingView', 'welcomeView', 'slowView'].forEach(function (v) {
+        ['pendingView', 'welcomeView', 'slowView', 'signinView'].forEach(function (v) {
           document.getElementById(v).hidden = (v !== id);
         });
       }
@@ -156,15 +163,11 @@
         return 'monthly';
       }
 
-      async function boot() {
-        var auth = window.auth;
-        var wait = 0;
-        while (!auth.currentUser && wait < 50) {
-          await new Promise(function (r) { setTimeout(r, 100); });
-          wait++;
-        }
-        var user = auth.currentUser;
-        if (!user) { window.location.href = '/login.html'; return; }
+      var proceeded = false;
+
+      async function proceed(user) {
+        if (proceeded) return;
+        proceeded = true;
 
         var params = new URLSearchParams(location.search);
         var paid = params.get('paid') === '1';
@@ -202,6 +205,36 @@
           var pendingHidden = document.getElementById('pendingView').hidden;
           if (welcomeHidden && !pendingHidden) show('slowView');
         }, 60000);
+      }
+
+      function showSigninView() {
+        // Signed out after the Stripe redirect (common on iOS — Stripe can
+        // open in a different browser context, losing the Firebase session).
+        // Don't lose the payment context: stash a return URL so login.html
+        // sends the buyer straight back here, then auto-file the upgrade
+        // request the moment auth state appears.
+        try {
+          sessionStorage.setItem('cd_post_login_redirect', '/pro-success.html' + location.search);
+        } catch (e) {}
+        show('signinView');
+        var auth = window.auth;
+        if (auth && auth.onAuthStateChanged) {
+          auth.onAuthStateChanged(function (u) {
+            if (u) proceed(u);
+          });
+        }
+      }
+
+      async function boot() {
+        var auth = window.auth;
+        var wait = 0;
+        while (!auth.currentUser && wait < 50) {
+          await new Promise(function (r) { setTimeout(r, 100); });
+          wait++;
+        }
+        var user = auth.currentUser;
+        if (!user) { showSigninView(); return; }
+        proceed(user);
       }
 
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
