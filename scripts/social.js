@@ -5,6 +5,8 @@
  *   invite() — share sheet with the user's referral link (?ref=CODE)
  *   ensureReferralCode() — returns the user's referral code, generating one if missing
  *   follow(targetUid) / unfollow(targetUid) / isFollowing(targetUid) / getFollowing()
+ *   getFollowingOf(uid) / getFollowers(uid) / getLikers(uid) — public list queries
+ *   openUserList({title, emptyTitle, emptySub, uids}) — bottom-sheet user list
  *   getFollowerCount(uid) / getFollowingCount(uid)
  *   toggleLike(targetUid) / hasLiked(targetUid) / getLikeCount(uid)
  *   getPublicProfile(uid) — public read, works signed-out
@@ -286,7 +288,11 @@
 
   // Returns array of target UIDs the current user follows.
   function getFollowing() {
-    var uid = currentUid();
+    return getFollowingOf(currentUid());
+  }
+
+  // Returns array of target UIDs that the given uid follows. Public read.
+  function getFollowingOf(uid) {
     var d = db();
     if (!uid || !d) return Promise.resolve([]);
     return d.collection('follows').where('followerUid', '==', uid).get()
@@ -298,6 +304,149 @@
         });
         return out;
       }).catch(function () { return []; });
+  }
+
+  // Returns array of follower UIDs for the given uid. Public read.
+  function getFollowers(uid) {
+    var d = db();
+    if (!uid || !d) return Promise.resolve([]);
+    return d.collection('follows').where('targetUid', '==', uid).get()
+      .then(function (qs) {
+        var out = [];
+        qs.forEach(function (doc) {
+          var f = doc.data().followerUid;
+          if (f) out.push(f);
+        });
+        return out;
+      }).catch(function () { return []; });
+  }
+
+  // Returns array of liker UIDs for the given profile uid. Public read.
+  function getLikers(uid) {
+    var d = db();
+    if (!uid || !d) return Promise.resolve([]);
+    return d.collection('profileLikes').where('targetUid', '==', uid).get()
+      .then(function (qs) {
+        var out = [];
+        qs.forEach(function (doc) {
+          var l = doc.data().likerUid;
+          if (l) out.push(l);
+        });
+        return out;
+      }).catch(function () { return []; });
+  }
+
+  /* ---------- user list bottom sheet ---------- */
+
+  var LIST_CSS =
+    '.cds-ulist{margin:0 -20px;max-height:56dvh;overflow-y:auto;-webkit-overflow-scrolling:touch}' +
+    '.cds-urow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;' +
+    'padding:12px 20px;background:none;border:0;border-bottom:1px solid rgba(255,255,255,.06);' +
+    'cursor:pointer;font-family:Montserrat,sans-serif}' +
+    '.cds-urow:last-child{border-bottom:0}' +
+    '.cds-urow:active{background:rgba(141,235,0,.06)}' +
+    '.cds-uavatar{width:48px;height:48px;border-radius:50%;flex:none;overflow:hidden;' +
+    'border:1px solid rgba(141,235,0,.35);background:rgba(141,235,0,.05);' +
+    'display:flex;align-items:center;justify-content:center;color:#555;font-size:18px}' +
+    '.cds-uavatar img{width:100%;height:100%;object-fit:cover}' +
+    '.cds-umeta{flex:1;min-width:0}' +
+    '.cds-uname{display:block;font-size:15px;font-weight:800;color:#fff;white-space:nowrap;' +
+    'overflow:hidden;text-overflow:ellipsis}' +
+    '.cds-uuser{display:block;font-family:"Space Mono",monospace;font-size:11px;color:rgba(255,255,255,.45);' +
+    'margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.cds-uact{flex:none;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:1.5px;' +
+    'text-transform:uppercase;color:' + NEON + ';border:1px solid rgba(141,235,0,.3);' +
+    'border-radius:8px;padding:8px 12px;background:transparent;cursor:pointer}' +
+    '.cds-uact:active{background:rgba(141,235,0,.1)}' +
+    '.cds-uempty{padding:28px 20px;text-align:center}' +
+    '.cds-uempty .cds-uempty-t{font-size:15px;font-weight:700;color:#fff;margin-bottom:6px}' +
+    '.cds-uempty .cds-uempty-s{font-family:"Space Mono",monospace;font-size:11px;' +
+    'color:rgba(255,255,255,.45);line-height:1.7}' +
+    '.cds-uload{display:flex;align-items:center;justify-content:center;padding:32px}' +
+    '.cds-spin{width:28px;height:28px;border-radius:50%;' +
+    'border:2px solid rgba(141,235,0,.2);border-top-color:' + NEON + ';' +
+    'animation:cdsSpin .7s linear infinite}' +
+    '@keyframes cdsSpin{to{transform:rotate(360deg)}}' +
+    '@media (prefers-reduced-motion:reduce){.cds-spin{animation:none}}';
+
+  function ensureListCSS() {
+    ensureCSS();
+    if (document.getElementById('cds-list-css')) return;
+    var s = document.createElement('style');
+    s.id = 'cds-list-css';
+    s.textContent = LIST_CSS;
+    document.head.appendChild(s);
+  }
+
+  // Opens a bottom sheet listing user profiles. opts: {title, emptyTitle, emptySub, uids}
+  // Rows navigate to profile.html?u={uid} on tap.
+  function openUserList(opts) {
+    ensureListCSS();
+    closeSheet();
+    var title = opts.title || 'People';
+    _backdrop = document.createElement('div');
+    _backdrop.className = 'cds-backdrop';
+    _backdrop.innerHTML =
+      '<div class="cds-sheet" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">' +
+      '<div class="cds-grip"></div>' +
+      '<button class="cds-close" aria-label="Close">&times;</button>' +
+      '<div class="cds-eyebrow">' + esc(title) + '</div>' +
+      '<div class="cds-ulist" data-list><div class="cds-uload"><div class="cds-spin"></div></div></div>' +
+      '</div>';
+    document.body.appendChild(_backdrop);
+    requestAnimationFrame(function () { _backdrop.classList.add('cds-open'); });
+    _backdrop.querySelector('.cds-close').addEventListener('click', closeSheet);
+    _backdrop.addEventListener('click', function (e) {
+      if (e.target === _backdrop) closeSheet();
+    });
+
+    var listEl = _backdrop.querySelector('[data-list]');
+    var uids = opts.uids || [];
+    if (!uids.length) {
+      listEl.innerHTML =
+        '<div class="cds-uempty"><div class="cds-uempty-t">' + esc(opts.emptyTitle || 'Nothing here yet') + '</div>' +
+        '<div class="cds-uempty-s">' + esc(opts.emptySub || '') + '</div></div>';
+      return;
+    }
+    // Resolve public cards in parallel; keep input order, drop missing.
+    var selfUid = currentUid();
+    Promise.all(uids.map(function (u) { return getPublicProfile(u); })).then(function (cards) {
+      var rows = '';
+      cards.forEach(function (c, i) {
+        if (!c) return;
+        var name = c.displayName || c.username || 'Operator';
+        var user = c.username ? '@' + c.username : 'operator';
+        var av = c.avatarUrl
+          ? '<img src="' + esc(c.avatarUrl) + '" alt="" loading="lazy" />'
+          : '<i class="fas fa-user"></i>';
+        var isSelf = selfUid && c.uid === selfUid;
+        rows +=
+          '<button type="button" class="cds-urow" data-uid="' + esc(c.uid) + '">' +
+          '<span class="cds-uavatar">' + av + '</span>' +
+          '<span class="cds-umeta"><span class="cds-uname">' + esc(name) + '</span>' +
+          '<span class="cds-uuser">' + esc(user) + '</span></span>' +
+          (isSelf ? '' : '<span class="cds-uact">View</span>') +
+          '</button>';
+      });
+      if (!rows) {
+        listEl.innerHTML =
+          '<div class="cds-uempty"><div class="cds-uempty-t">' + esc(opts.emptyTitle || 'Nothing here yet') + '</div>' +
+          '<div class="cds-uempty-s">' + esc(opts.emptySub || '') + '</div></div>';
+        return;
+      }
+      listEl.innerHTML = rows;
+      Array.prototype.forEach.call(listEl.querySelectorAll('.cds-urow'), function (row) {
+        row.addEventListener('click', function () {
+          var u = row.getAttribute('data-uid');
+          closeSheet();
+          window.location.href = profileUrl(u);
+        });
+      });
+    }).catch(function () {
+      listEl.innerHTML =
+        '<div class="cds-uempty"><div class="cds-uempty-t">Couldn\'t load</div>' +
+        '<div class="cds-uempty-s">Check your connection and try again.</div></div>';
+    });
   }
 
   /* ---------- profile likes ("signals") ---------- */
@@ -392,6 +541,10 @@
     unfollow: unfollow,
     isFollowing: isFollowing,
     getFollowing: getFollowing,
+    getFollowingOf: getFollowingOf,
+    getFollowers: getFollowers,
+    getLikers: getLikers,
+    openUserList: openUserList,
     hasLiked: hasLiked,
     toggleLike: toggleLike,
     getPublicProfile: getPublicProfile,
