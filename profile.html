@@ -131,6 +131,10 @@
     .pp-stat { text-align: center; }
     .pp-stat b { display: block; font-size: 20px; font-weight: 800; color: var(--green); }
     .pp-stat span { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; color: var(--text-faint); text-transform: uppercase; }
+    .pp-tappable { cursor: pointer; border-radius: 8px; padding: 4px 6px; margin: -4px -6px; transition: background .15s ease; }
+    .pp-tappable:hover { background: rgba(141,235,0,.06); }
+    .pp-tappable:active { background: rgba(141,235,0,.12); }
+    .pp-tappable:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
     .pp-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
     .pp-btn {
       padding: 11px 24px; border-radius: 10px; cursor: pointer;
@@ -928,8 +932,9 @@
         <div class="pp-stats">
           <div class="pp-stat"><b id="ppBadges">0</b><span>Badges</span></div>
           <div class="pp-stat"><b id="ppStreak">0</b><span>Streak</span></div>
-          <div class="pp-stat"><b id="ppFollowers">0</b><span>Followers</span></div>
-          <div class="pp-stat"><b id="ppLikes">0</b><span>Signals</span></div>
+          <div class="pp-stat pp-tappable" id="ppFollowersStat" role="button" tabindex="0" aria-label="View followers"><b id="ppFollowers">0</b><span>Followers</span></div>
+          <div class="pp-stat pp-tappable" id="ppFollowingStat" role="button" tabindex="0" aria-label="View following"><b id="ppFollowing">0</b><span>Following</span></div>
+          <div class="pp-stat pp-tappable" id="ppLikesStat" role="button" tabindex="0" aria-label="View signals"><b id="ppLikes">0</b><span>Signals</span></div>
         </div>
         <div class="pp-actions">
           <button type="button" class="pp-btn" id="ppFollowBtn">Follow</button>
@@ -1979,7 +1984,36 @@
       document.getElementById('ppBadges').textContent = info.badgeCount || 0;
       document.getElementById('ppStreak').textContent = info.streakDays || 0;
       document.getElementById('ppFollowers').textContent = info.followerCount || 0;
+      document.getElementById('ppFollowing').textContent = info.followingCount || 0;
       document.getElementById('ppLikes').textContent = info.likeCount || 0;
+
+      // Tappable stat lists (Facebook-style rows in a bottom sheet).
+      var profileName = info.displayName || info.username || 'Operator';
+      function bindStat(id, fetchUids, sheetTitle, emptyTitle, emptySub) {
+        var el = document.getElementById(id);
+        if (!el || el.dataset.cdsBound) return;
+        el.dataset.cdsBound = '1';
+        function open() {
+          fetchUids(info.uid).then(function (uids) {
+            window.CDSocial.openUserList({
+              title: sheetTitle,
+              emptyTitle: emptyTitle,
+              emptySub: emptySub,
+              uids: uids
+            });
+          });
+        }
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+        });
+      }
+      bindStat('ppFollowersStat', window.CDSocial.getFollowers, 'Followers',
+        'No followers yet', profileName + ' hasn\u2019t picked up any followers yet. Share the profile to grow the circle.');
+      bindStat('ppFollowingStat', window.CDSocial.getFollowingOf, 'Following',
+        'Not following anyone yet', profileName + ' isn\u2019t following anyone yet.');
+      bindStat('ppLikesStat', window.CDSocial.getLikers, 'Signals',
+        'No signals yet', 'Nobody has signaled this profile yet. Be the first.');
 
       var followBtn = document.getElementById('ppFollowBtn');
       var likeBtn = document.getElementById('ppLikeBtn');
