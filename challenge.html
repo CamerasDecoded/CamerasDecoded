@@ -104,6 +104,7 @@
     }
     .dot.hit { border-color:var(--green); background:var(--green-dim); color:var(--green); }
     .dot.today { border-color:#fff; color:#fff; }
+    .dot.future { opacity:.32; }
 
     /* ===== BRIEF CARD ===== */
     .brief-card {
@@ -451,14 +452,19 @@
       $('streakStrip').style.display = 'flex';
       $('streakNum').textContent = done ? Math.max(streak, 1) : streak;
 
-      const names = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+      const names = ['M','T','W','T','F','S','S'];
       let html = '';
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(); d.setDate(d.getDate() - i);
-        const key = d.toISOString().slice(0, 10);
-        const isToday = i === 0;
+      const _now = new Date();
+      const _dowMon = (_now.getDay() + 6) % 7; // 0 = Monday
+      const _monday = new Date(_now); _monday.setDate(_now.getDate() - _dowMon);
+      const _todayKey = _now.getFullYear() + '-' + String(_now.getMonth() + 1).padStart(2, '0') + '-' + String(_now.getDate()).padStart(2, '0');
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(_monday); d.setDate(_monday.getDate() + i);
+        const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const isToday = i === _dowMon;
+        const isFuture = key > _todayKey;
         const hit = Array.isArray(log) && log.includes(key);
-        html += `<div class="dot${hit ? ' hit' : ''}${isToday ? ' today' : ''}">${names[d.getDay()]}</div>`;
+        html += `<div class="dot${hit ? ' hit' : ''}${isToday ? ' today' : ''}${isFuture ? ' future' : ''}">${names[i]}</div>`;
       }
       $('weekDots').innerHTML = html;
 
