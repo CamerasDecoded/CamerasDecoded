@@ -137,16 +137,13 @@
     .pp-tappable:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 
     /* ===== OWN-PROFILE SOCIAL STATS STRIP ===== */
-    .op-stats {
+    .card.op-stats {
       display: flex; justify-content: center; gap: 32px;
-      background: rgba(255,255,255,.02);
-      border: 1px solid var(--border-dim);
-      border-radius: 14px;
       padding: 18px 16px;
       margin-bottom: 16px;
     }
-    .op-stats .pp-stat b { font-size: 22px; }
-    @media (max-width: 640px) { .op-stats { gap: 24px; padding: 14px 12px; } }
+    .card.op-stats .pp-stat b { font-size: 22px; }
+    @media (max-width: 640px) { .card.op-stats { gap: 24px; padding: 14px 12px; } }
     .pp-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
     .pp-btn {
       padding: 11px 24px; border-radius: 10px; cursor: pointer;
@@ -960,7 +957,7 @@
     <div id="profileContent" style="display:none;">
 
       <!-- Social stats (tappable → bottom-sheet lists) -->
-      <div class="op-stats" id="opStats">
+      <div class="card op-stats" id="opStats">
         <div class="pp-stat pp-tappable" id="opFollowersStat" role="button" tabindex="0" aria-label="View followers"><b id="opFollowers">0</b><span>Followers</span></div>
         <div class="pp-stat pp-tappable" id="opFollowingStat" role="button" tabindex="0" aria-label="View following"><b id="opFollowing">0</b><span>Following</span></div>
         <div class="pp-stat pp-tappable" id="opSignalsStat" role="button" tabindex="0" aria-label="View signals"><b id="opSignals">0</b><span>Signals</span></div>
@@ -2038,9 +2035,13 @@
       var likeBtn = document.getElementById('ppLikeBtn');
       var likeLabel = document.getElementById('ppLikeLabel');
 
-      // Signed-out viewers get read-only (buttons prompt sign-in).
-      function needAuth() {
-        if (!viewerUid) { window.location.href = 'login.html'; return true; }
+      // Signed-out viewers get a brief prompt, then redirect.
+      function needAuth(msg) {
+        if (!viewerUid) {
+          if (window.CDSocial) window.CDSocial.toast(msg || 'Sign in to continue');
+          setTimeout(function () { window.location.href = 'login.html'; }, 1400);
+          return true;
+        }
         return false;
       }
 
@@ -2063,7 +2064,7 @@
       }
 
       followBtn.onclick = function () {
-        if (needAuth() || !window.CDSocial) return;
+        if (needAuth('Sign in to follow operators') || !window.CDSocial) return;
         window.CDSocial.isFollowing(info.uid).then(function (f) {
           var p = f ? window.CDSocial.unfollow(info.uid) : window.CDSocial.follow(info.uid);
           p.then(function () {
@@ -2076,7 +2077,7 @@
       };
 
       likeBtn.onclick = function () {
-        if (needAuth() || !window.CDSocial) return;
+        if (needAuth('Sign in to signal operators') || !window.CDSocial) return;
         window.CDSocial.toggleLike(info.uid).then(function (liked) {
           likeLabel.textContent = liked ? 'Signaled' : 'Signal';
           likeBtn.classList.toggle('liked', liked);
