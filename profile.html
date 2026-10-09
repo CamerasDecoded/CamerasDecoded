@@ -165,6 +165,15 @@
     .pf-item .pf-move button { width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,.7); border: 1px solid var(--border-dim); color: var(--green); font-size: 12px; cursor: pointer; }
     .pf-pro-upsell { text-align: center; padding: 20px 12px; }
     .pf-pro-upsell p { color: var(--text-dim); font-size: 13px; margin: 0 0 12px; }
+    /* Portfolio teaser (non-Pro preview) */
+    .pf-teaser-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .pf-teaser-item { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-dim); background: rgba(255,255,255,.02); }
+    .pf-teaser-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pf-teaser-tint { position: absolute; inset: 0; background: rgba(4,6,4,.62); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+    .pf-teaser-tint svg { width: 22px; height: 22px; color: var(--green); }
+    .pf-teaser-tag { font-family: var(--mono); font-size: 8px; letter-spacing: 2px; color: var(--green); text-transform: uppercase; }
+    .pf-teaser-copy { text-align: center; padding: 16px 8px 4px; }
+    .pf-teaser-copy p { color: var(--text-dim); font-size: 13px; margin: 0 0 12px; line-height: 1.5; }
     .pf-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.94); z-index: 10000; display: none; align-items: center; justify-content: center; flex-direction: column; }
     .pf-lightbox.open { display: flex; }
     .pf-lightbox img { max-width: 94vw; max-height: 80vh; border-radius: 12px; border: 1px solid var(--border-dim); }
@@ -2059,6 +2068,69 @@
       } catch (e) { pfItems = []; }
     }
 
+    /* Portfolio teaser: user's own Arena entries as a preview.
+       Entries live at arenaRounds/{roundId}/entries/{uid} (doc ID = uid). */
+    var pfTeaserUrls = [];
+    var PF_TEASER_FALLBACK = [
+      "https://images.pexels.com/photos/10029667/pexels-photo-10029667.jpeg?w=600",
+      "https://images.pexels.com/photos/378570/pexels-photo-378570.jpeg?auto=compress&cs=tinysrgb&w=600",
+      "https://images.pexels.com/photos/16918439/pexels-photo-16918439.jpeg?auto=compress&cs=tinysrgb&w=600",
+      "https://images.pexels.com/photos/18709054/pexels-photo-18709054/free-photo-of-ferfi-kezek-dolgozo-kezmuves.jpeg?w=600"
+    ];
+
+    async function pfLoadTeaserEntries(uid) {
+      pfTeaserUrls = [];
+      try {
+        var roundsSnap = await db.collection('arenaRounds')
+          .orderBy(firebase.firestore.FieldPath.documentId(), 'desc').limit(12).get();
+        var checks = [];
+        roundsSnap.forEach(function (rd) {
+          checks.push(
+            rd.ref.collection('entries').doc(uid).get().then(function (es) {
+              if (es.exists) {
+                var v = es.data() || {};
+                if (v.imgUrl) pfTeaserUrls.push(v.imgUrl);
+              }
+            }).catch(function () {})
+          );
+        });
+        await Promise.all(checks);
+        pfTeaserUrls = pfTeaserUrls.slice(0, 6);
+      } catch (e) { pfTeaserUrls = []; }
+      if (!pfTeaserUrls.length) pfTeaserUrls = PF_TEASER_FALLBACK.slice();
+    }
+
+    function pfTeaserTile(url) {
+      var d = document.createElement('div');
+      d.className = 'pf-teaser-item';
+      var img = document.createElement('img');
+      img.src = url; img.alt = 'Sample portfolio photo'; img.loading = 'lazy';
+      d.appendChild(img);
+      var tint = document.createElement('div');
+      tint.className = 'pf-teaser-tint';
+      tint.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span class="pf-teaser-tag">Sample</span>';
+      d.appendChild(tint);
+      return d;
+    }
+
+    function pfTeaserCTA(text, subtext) {
+      var wrap = document.createElement('div');
+      wrap.className = 'pf-teaser-copy';
+      var p = document.createElement('p');
+      p.textContent = subtext;
+      wrap.appendChild(p);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pp-btn chasing-border';
+      btn.textContent = text;
+      btn.onclick = function () {
+        if (window.CDPaywall && window.CDPaywall.show) window.CDPaywall.show();
+        else window.location.href = '/pro-checkout.html';
+      };
+      wrap.appendChild(btn);
+      return wrap;
+    }
+
     function pfRenderOwn() {
       var grid = document.getElementById('pfGrid');
       var count = document.getElementById('pfCount');
@@ -2072,10 +2144,21 @@
       grid.classList.toggle('pf-editing', pfEditing);
 
       if (!isPro) {
-        upsell.style.display = 'block';
         editBar.style.display = 'none';
-        // Free users see existing items (if any) but no add/edit
-        pfItems.forEach(function (it, i) { grid.appendChild(pfTile(it, i, false)); });
+        if (!pfItems.length) {
+          // Teaser: preview built from the user's own Arena entries
+          upsell.style.display = 'none';
+          count.textContent = 'Preview';
+          var tg = document.createElement('div');
+          tg.className = 'pf-teaser-grid';
+          pfTeaserUrls.forEach(function (u) { tg.appendChild(pfTeaserTile(u)); });
+          grid.appendChild(tg);
+          grid.appendChild(pfTeaserCTA('Unlock with Pro',
+            'Your shots, showcased like this. Unlock with Pro to build your portfolio.'));
+        } else {
+          upsell.style.display = 'block';
+          pfItems.forEach(function (it, i) { grid.appendChild(pfTile(it, i, false)); });
+        }
         return;
       }
       upsell.style.display = 'none';
@@ -2227,19 +2310,32 @@
       firebase.auth().onAuthStateChanged(async function (user) {
         if (user && document.getElementById('pfGrid')) {
           await pfLoad(user.uid);
+          if (!pfIsPro() && !pfItems.length) await pfLoadTeaserEntries(user.uid);
           pfRenderOwn();
         }
       });
     }
 
-    async function pfRenderPublic(uid) {
+    async function pfRenderPublic(uid, displayName) {
       var card = document.getElementById('ppPortfolioCard');
       var grid = document.getElementById('ppPfGrid');
       if (!card || !grid) return;
       await pfLoad(uid);
-      if (!pfItems.length) { card.style.display = 'none'; return; }
-      card.style.display = 'block';
       grid.innerHTML = '';
+      if (!pfItems.length) {
+        // Teaser: this operator's Arena entries as a portfolio preview
+        await pfLoadTeaserEntries(uid);
+        var tg = document.createElement('div');
+        tg.className = 'pf-teaser-grid';
+        pfTeaserUrls.forEach(function (u) { tg.appendChild(pfTeaserTile(u)); });
+        grid.appendChild(tg);
+        var name = displayName || 'this operator';
+        grid.appendChild(pfTeaserCTA('Unlock with Pro',
+          'A preview of ' + name + '\u2019s best work. Want a showcase like this?'));
+        card.style.display = 'block';
+        return;
+      }
+      card.style.display = 'block';
       pfItems.forEach(function (it, i) {
         var d = document.createElement('div');
         d.className = 'pf-item';
@@ -2276,7 +2372,7 @@
       document.getElementById('ppLikes').textContent = info.likeCount || 0;
 
       // Portfolio showcase (public read)
-      pfRenderPublic(info.uid);
+      pfRenderPublic(info.uid, info.displayName || info.username);
 
       // Tappable stat lists (Facebook-style rows in a bottom sheet).
       var profileName = info.displayName || info.username || 'Operator';
