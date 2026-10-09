@@ -144,6 +144,34 @@
     }
     .card.op-stats .pp-stat b { font-size: 22px; }
     @media (max-width: 640px) { .card.op-stats { gap: 24px; padding: 14px 12px; } }
+
+    /* ===== PORTFOLIO SHOWCASE ===== */
+    .pf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .pf-item { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-dim); background: rgba(255,255,255,.02); cursor: pointer; }
+    .pf-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pf-item:active { transform: scale(.97); }
+    .pf-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 1px dashed rgba(141,235,0,.4); color: var(--green); font-family: var(--mono); font-size: 11px; cursor: pointer; min-height: 100px; }
+    .pf-add i { font-size: 24px; }
+    .pf-add:active { background: rgba(141,235,0,.08); }
+    .pf-count { font-family: var(--mono); font-size: 10px; color: var(--text-faint); letter-spacing: 1px; }
+    .pf-editbar { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .pf-editing .pf-item { cursor: default; }
+    .pf-item .pf-del { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,.7); border: 1px solid rgba(255,80,80,.6); color: #ff8080; display: none; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; z-index: 2; }
+    .pf-editing .pf-item .pf-del { display: flex; }
+    .pf-item .pf-move { position: absolute; bottom: 6px; display: none; gap: 4px; z-index: 2; }
+    .pf-editing .pf-item .pf-move { display: flex; }
+    .pf-item .pf-move.left { left: 6px; }
+    .pf-item .pf-move.right { right: 6px; }
+    .pf-item .pf-move button { width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,.7); border: 1px solid var(--border-dim); color: var(--green); font-size: 12px; cursor: pointer; }
+    .pf-pro-upsell { text-align: center; padding: 20px 12px; }
+    .pf-pro-upsell p { color: var(--text-dim); font-size: 13px; margin: 0 0 12px; }
+    .pf-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.94); z-index: 10000; display: none; align-items: center; justify-content: center; flex-direction: column; }
+    .pf-lightbox.open { display: flex; }
+    .pf-lightbox img { max-width: 94vw; max-height: 80vh; border-radius: 12px; border: 1px solid var(--border-dim); }
+    .pf-lb-bar { display: flex; align-items: center; gap: 16px; margin-top: 16px; }
+    .pf-lb-bar button { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.06); border: 1px solid var(--border-dim); color: var(--green); font-size: 18px; cursor: pointer; }
+    .pf-lb-count { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+    .pf-lb-close { position: absolute; top: max(16px, env(safe-area-inset-top)); right: 16px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.06); border: 1px solid var(--border-dim); color: #fff; font-size: 18px; cursor: pointer; }
     .pp-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
     .pp-btn {
       padding: 11px 24px; border-radius: 10px; cursor: pointer;
@@ -951,6 +979,10 @@
           <button type="button" class="pp-btn" id="ppShareBtn"><i class="fas fa-share-alt"></i> Share</button>
         </div>
       </div>
+      <div class="pp-card" id="ppPortfolioCard" style="display:none;margin-top:12px;">
+        <h3 style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin:0 0 4px;">Portfolio</h3>
+        <div class="pf-grid" id="ppPfGrid"></div>
+      </div>
     </div>
 
     <!-- ===== PROFILE CONTENT ===== -->
@@ -961,6 +993,28 @@
         <div class="pp-stat pp-tappable" id="opFollowersStat" role="button" tabindex="0" aria-label="View followers"><b id="opFollowers">0</b><span>Followers</span></div>
         <div class="pp-stat pp-tappable" id="opFollowingStat" role="button" tabindex="0" aria-label="View following"><b id="opFollowing">0</b><span>Following</span></div>
         <div class="pp-stat pp-tappable" id="opSignalsStat" role="button" tabindex="0" aria-label="View signals"><b id="opSignals">0</b><span>Signals</span></div>
+      </div>
+
+      <!-- Portfolio showcase (Pro) -->
+      <div class="card" id="portfolioCard">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <img src="/custom-site-titles/portfolio.png" alt="Portfolio" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
+            <span class="title-fallback" hidden>Portfolio</span>
+          </div>
+          <span class="pf-count" id="pfCount">0 / 10</span>
+        </div>
+        <div id="pfBody">
+          <div class="pf-grid" id="pfGrid"></div>
+          <div class="pf-editbar" id="pfEditBar" style="display:none;">
+            <button type="button" class="pp-btn" id="pfEditToggle">Edit</button>
+          </div>
+          <div class="pf-pro-upsell" id="pfUpsell" style="display:none;">
+            <p>Showcase up to 10 of your best shots on your profile.</p>
+            <button type="button" class="pp-btn chasing-border" id="pfUnlockBtn">Unlock with Pro</button>
+          </div>
+          <input type="file" id="pfFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" />
+        </div>
       </div>
 
       <!-- Avatar Card -->
@@ -1704,6 +1758,7 @@
         setupSaveProfile();
         setupSaveModal();
         setupCopyReferral();
+        setupPortfolio();
       }
     }
 
@@ -1979,6 +2034,223 @@
       });
     }
 
+    /* ============ PORTFOLIO SHOWCASE (Pro) ============ */
+    var PF_MAX = 10;
+    var pfItems = []; // {id, url, order}
+    var pfEditing = false;
+    var pfLbIndex = 0;
+
+    function pfIsPro() {
+      return !!(window.USER && window.USER.tier === 'pro');
+    }
+
+    function pfCollection(uid) {
+      return db.collection('users').doc(uid).collection('portfolio');
+    }
+
+    async function pfLoad(uid) {
+      try {
+        var snap = await pfCollection(uid).orderBy('order').get();
+        pfItems = [];
+        snap.forEach(function (d) {
+          var v = d.data() || {};
+          if (v.url) pfItems.push({ id: d.id, url: v.url, order: v.order || 0 });
+        });
+      } catch (e) { pfItems = []; }
+    }
+
+    function pfRenderOwn() {
+      var grid = document.getElementById('pfGrid');
+      var count = document.getElementById('pfCount');
+      var editBar = document.getElementById('pfEditBar');
+      var upsell = document.getElementById('pfUpsell');
+      var card = document.getElementById('portfolioCard');
+      if (!grid) return;
+      var isPro = pfIsPro();
+      count.textContent = pfItems.length + ' / ' + PF_MAX;
+      grid.innerHTML = '';
+      grid.classList.toggle('pf-editing', pfEditing);
+
+      if (!isPro) {
+        upsell.style.display = 'block';
+        editBar.style.display = 'none';
+        // Free users see existing items (if any) but no add/edit
+        pfItems.forEach(function (it, i) { grid.appendChild(pfTile(it, i, false)); });
+        return;
+      }
+      upsell.style.display = 'none';
+      pfItems.forEach(function (it, i) { grid.appendChild(pfTile(it, i, true)); });
+      if (pfItems.length < PF_MAX) {
+        var add = document.createElement('div');
+        add.className = 'pf-item pf-add';
+        add.setAttribute('role', 'button');
+        add.setAttribute('aria-label', 'Add photo');
+        add.innerHTML = '<i class="fas fa-plus"></i><span>Add</span>';
+        add.onclick = function () { document.getElementById('pfFileInput').click(); };
+        grid.appendChild(add);
+      }
+      editBar.style.display = pfItems.length ? 'flex' : 'none';
+      document.getElementById('pfEditToggle').textContent = pfEditing ? 'Done' : 'Edit';
+    }
+
+    function pfTile(it, idx, isOwner) {
+      var d = document.createElement('div');
+      d.className = 'pf-item';
+      var img = document.createElement('img');
+      img.src = it.url; img.alt = 'Portfolio photo'; img.loading = 'lazy';
+      d.appendChild(img);
+      if (isOwner && pfEditing) {
+        var del = document.createElement('button');
+        del.className = 'pf-del'; del.innerHTML = '&times;'; del.setAttribute('aria-label', 'Delete');
+        del.onclick = function (e) { e.stopPropagation(); pfDelete(it); };
+        d.appendChild(del);
+        var mvL = document.createElement('div');
+        mvL.className = 'pf-move left';
+        mvL.innerHTML = '<button aria-label="Move left">&#8249;</button>';
+        mvL.firstChild.onclick = function (e) { e.stopPropagation(); pfMove(idx, -1); };
+        d.appendChild(mvL);
+        var mvR = document.createElement('div');
+        mvR.className = 'pf-move right';
+        mvR.innerHTML = '<button aria-label="Move right">&#8250;</button>';
+        mvR.firstChild.onclick = function (e) { e.stopPropagation(); pfMove(idx, 1); };
+        d.appendChild(mvR);
+      } else {
+        d.onclick = function () { pfOpenLightbox(idx); };
+      }
+      return d;
+    }
+
+    async function pfDelete(it) {
+      if (!confirm('Delete this photo from your portfolio?')) return;
+      try {
+        await pfCollection(currentUser.uid).doc(it.id).delete();
+        await pfReloadOwn();
+        cdToast('Photo deleted');
+      } catch (e) { cdToast('Delete failed', 'error'); }
+    }
+
+    async function pfMove(idx, dir) {
+      var j = idx + dir;
+      if (j < 0 || j >= pfItems.length) return;
+      var a = pfItems[idx], b = pfItems[j];
+      pfItems[idx] = b; pfItems[j] = a;
+      try {
+        var batch = db.batch();
+        pfItems.forEach(function (it, i) {
+          batch.update(pfCollection(currentUser.uid).doc(it.id), { order: i });
+        });
+        await batch.commit();
+        pfRenderOwn();
+      } catch (e) { cdToast('Reorder failed', 'error'); await pfReloadOwn(); }
+    }
+
+    async function pfReloadOwn() {
+      if (!currentUser) return;
+      await pfLoad(currentUser.uid);
+      pfRenderOwn();
+    }
+
+    function pfOpenLightbox(idx) {
+      pfLbIndex = idx;
+      pfLbShow();
+      document.getElementById('pfLightbox').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function pfLbShow() {
+      var it = pfItems[pfLbIndex];
+      if (!it) return;
+      document.getElementById('pfLbImg').src = it.url;
+      document.getElementById('pfLbCount').textContent = (pfLbIndex + 1) + ' / ' + pfItems.length;
+    }
+    function pfLbClose() {
+      document.getElementById('pfLightbox').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    function pfLbStep(d) {
+      pfLbIndex = (pfLbIndex + d + pfItems.length) % pfItems.length;
+      pfLbShow();
+    }
+
+    function setupPortfolio() {
+      // Lightbox controls (global, shared by own + public views)
+      document.getElementById('pfLbClose').onclick = pfLbClose;
+      document.getElementById('pfLbPrev').onclick = function (e) { e.stopPropagation(); pfLbStep(-1); };
+      document.getElementById('pfLbNext').onclick = function (e) { e.stopPropagation(); pfLbStep(1); };
+      document.getElementById('pfLightbox').onclick = function (e) { if (e.target.id === 'pfLightbox') pfLbClose(); };
+      document.addEventListener('keydown', function (e) {
+        if (!document.getElementById('pfLightbox').classList.contains('open')) return;
+        if (e.key === 'Escape') pfLbClose();
+        if (e.key === 'ArrowLeft') pfLbStep(-1);
+        if (e.key === 'ArrowRight') pfLbStep(1);
+      });
+
+      // Edit toggle
+      var et = document.getElementById('pfEditToggle');
+      if (et) et.onclick = function () { pfEditing = !pfEditing; pfRenderOwn(); };
+
+      // Pro upsell
+      var ub = document.getElementById('pfUnlockBtn');
+      if (ub) ub.onclick = function () {
+        if (window.CDPaywall && window.CDPaywall.show) window.CDPaywall.show();
+        else window.location.href = '/pro-checkout.html';
+      };
+
+      // Upload
+      var fi = document.getElementById('pfFileInput');
+      if (fi) fi.addEventListener('change', async function () {
+        var file = fi.files[0];
+        fi.value = '';
+        if (!file) return;
+        if (!pfIsPro()) { if (window.CDPaywall && window.CDPaywall.show) window.CDPaywall.show(); return; }
+        if (pfItems.length >= PF_MAX) { cdToast('Portfolio is full (10 photos max)', 'error'); return; }
+        if (file.size > 5 * 1024 * 1024) { cdToast('Max 5MB per photo', 'error'); return; }
+        if (!/image\/(jpeg|png|gif|webp)/.test(file.type)) { cdToast('JPG, PNG, GIF or WebP only', 'error'); return; }
+        cdToast('Uploading...');
+        try {
+          var formData = new FormData();
+          formData.append('image', file);
+          var res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_API_KEY, { method: 'POST', body: formData });
+          var json = await res.json();
+          if (!json.success) throw new Error('Upload failed');
+          var order = pfItems.length ? Math.max.apply(null, pfItems.map(function (x) { return x.order; })) + 1 : 0;
+          await pfCollection(currentUser.uid).add({
+            url: json.data.url,
+            order: order,
+            uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          await pfReloadOwn();
+          cdToast('Added to portfolio');
+        } catch (err) { cdToast('Upload failed: ' + err.message, 'error'); }
+      });
+
+      // Load own portfolio when signed in
+      firebase.auth().onAuthStateChanged(async function (user) {
+        if (user && document.getElementById('pfGrid')) {
+          await pfLoad(user.uid);
+          pfRenderOwn();
+        }
+      });
+    }
+
+    async function pfRenderPublic(uid) {
+      var card = document.getElementById('ppPortfolioCard');
+      var grid = document.getElementById('ppPfGrid');
+      if (!card || !grid) return;
+      await pfLoad(uid);
+      if (!pfItems.length) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+      grid.innerHTML = '';
+      pfItems.forEach(function (it, i) {
+        var d = document.createElement('div');
+        d.className = 'pf-item';
+        var img = document.createElement('img');
+        img.src = it.url; img.alt = 'Portfolio photo'; img.loading = 'lazy';
+        d.appendChild(img);
+        d.onclick = function () { pfOpenLightbox(i); };
+        grid.appendChild(d);
+      });
+    }
+
     // ---- Public profile view (?u=) ----
     // When ?u=<uid> names someone else, render a read-only public card with
     // Follow / Signal / Share. Works signed-out (publicProfiles is public read).
@@ -2002,6 +2274,9 @@
       document.getElementById('ppFollowers').textContent = info.followerCount || 0;
       document.getElementById('ppFollowing').textContent = info.followingCount || 0;
       document.getElementById('ppLikes').textContent = info.likeCount || 0;
+
+      // Portfolio showcase (public read)
+      pfRenderPublic(info.uid);
 
       // Tappable stat lists (Facebook-style rows in a bottom sheet).
       var profileName = info.displayName || info.username || 'Operator';
@@ -2202,5 +2477,15 @@
     document.addEventListener('DOMContentLoaded', updateCartUI);
   </script>
 <script src="/scripts/ptr.js"></script>
+<!-- Portfolio lightbox -->
+<div class="pf-lightbox" id="pfLightbox" role="dialog" aria-label="Photo viewer">
+  <button type="button" class="pf-lb-close" id="pfLbClose" aria-label="Close">&times;</button>
+  <img id="pfLbImg" src="" alt="Portfolio photo" />
+  <div class="pf-lb-bar">
+    <button type="button" id="pfLbPrev" aria-label="Previous">&#8249;</button>
+    <span class="pf-lb-count" id="pfLbCount">1 / 1</span>
+    <button type="button" id="pfLbNext" aria-label="Next">&#8250;</button>
+  </div>
+</div>
 </body>
 </html>
