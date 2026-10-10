@@ -1866,6 +1866,13 @@ var _pfProCache = null;
           _pfProCache = true;
           if (typeof pfRenderOwn === 'function') pfRenderOwn();
           if (typeof setupSelectedWork === 'function') setupSelectedWork();
+          // Re-render Business Toolkit via its own renderer (now uses pfIsPro)
+          try {
+            if (typeof bizRenderCard === 'function' && window.auth.currentUser) {
+              __bizProAttempts = 0;
+              bizRenderCard(window.auth.currentUser.uid);
+            }
+          } catch (e3) {}
           var bizPro = document.getElementById('bizCardPro');
           if (bizPro) bizPro.style.display = 'block';
           var bizLock = document.getElementById('bizCardLocked');
@@ -2144,6 +2151,8 @@ var _pfProCache = null;
     /* ============ BUSINESS TOOLKIT CARD (Pro) ============ */
     /* Pro gate (race-safe): immediate check + event + exponential backoff */
     function bizEvalPro() {
+      // Use the same 3-layer check as pfIsPro (includes Firestore-confirmed cache)
+      if (typeof pfIsPro === 'function') return pfIsPro();
       var pro = false;
       try { pro = window.USER && String(window.USER.tier || '').toLowerCase() === 'pro'; } catch (e) {}
       if (!pro && window.CDPaywall && window.CDPaywall.isPro) { try { pro = window.CDPaywall.isPro(); } catch (e) {} }
