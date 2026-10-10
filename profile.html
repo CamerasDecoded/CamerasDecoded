@@ -1773,7 +1773,17 @@
       document.getElementById('profileContent').style.display = 'block';
 
       // Business toolkit card (Pro-gated)
-      if (currentUser) bizRenderCard(currentUser.uid);
+      if (currentUser) {
+        __bizProAttempts = 0;
+        bizRenderCard(currentUser.uid);
+        bizReCheckPro(currentUser.uid);
+        if (!window._bizUserStateListener) {
+          window._bizUserStateListener = true;
+          document.addEventListener('userStateReady', function () {
+            if (currentUser) { __bizProAttempts = 0; bizRenderCard(currentUser.uid); }
+          });
+        }
+      }
 
       // Attach event listeners (only once)
       if (!window._profileListenersAttached) {
@@ -2336,8 +2346,27 @@
     }
 
     /* ============ BUSINESS TOOLKIT CARD (Pro) ============ */
+    /* Pro gate (race-safe): immediate check + event + exponential backoff */
+    function bizEvalPro() {
+      var pro = false;
+      try { pro = window.USER && String(window.USER.tier || '').toLowerCase() === 'pro'; } catch (e) {}
+      if (!pro && window.CDPaywall && window.CDPaywall.isPro) { try { pro = window.CDPaywall.isPro(); } catch (e) {} }
+      return !!pro;
+    }
     function bizIsPro() {
-      return !!(window.USER && window.USER.tier === 'pro');
+      return bizEvalPro();
+    }
+    var __bizProAttempts = 0;
+    function bizReCheckPro(uid) {
+      // Re-check with backoff in case user-state loads after initial render
+      var card = document.getElementById('businessCard');
+      if (!card || card.style.display === 'none' || !uid) return;
+      if (bizEvalPro()) { bizRenderCard(uid); return; }
+      var delays = [500, 1000, 2000, 4000];
+      if (__bizProAttempts < delays.length) {
+        var d = delays[__bizProAttempts++];
+        setTimeout(function () { bizReCheckPro(uid); }, d);
+      }
     }
 
     async function bizRenderCard(uid) {

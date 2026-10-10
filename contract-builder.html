@@ -582,17 +582,30 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
-function checkPro() {
+/* Pro gate (race-safe: immediate check + event + exponential backoff) */
+function evalPro() {
   var pro = false;
   try { pro = window.USER && String(window.USER.tier || '').toLowerCase() === 'pro'; } catch (e) {}
   // Also check paywall helper
   if (!pro && window.CDPaywall && window.CDPaywall.isPro) { try { pro = window.CDPaywall.isPro(); } catch (e) {} }
+  return !!pro;
+}
+var __proAttempts = 0;
+function checkPro() {
+  var pro = evalPro();
   CB.isPro = pro;
   document.getElementById('proGate').classList.toggle('hidden', pro);
   document.getElementById('builder').classList.toggle('hidden', !pro);
   document.getElementById('myContracts').classList.toggle('hidden', !pro);
-  if (pro) showStep(1);
+  if (pro) { showStep(1); return; }
+  // Not pro yet — retry with exponential backoff (user-state may still be loading)
+  var delays = [500, 1000, 2000, 4000];
+  if (__proAttempts < delays.length) {
+    var d = delays[__proAttempts++];
+    setTimeout(checkPro, d);
+  }
 }
+document.addEventListener('userStateReady', checkPro);
 
 /* ================= TEMPLATES ================= */
 function renderTemplates() {
