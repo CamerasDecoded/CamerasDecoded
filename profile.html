@@ -1818,6 +1818,7 @@
         setupPortfolio();
         setupBusinessCard();
         setupSelectedWork();
+        pfRefreshPro();
       }
     }
 
@@ -2099,8 +2100,34 @@
     var pfEditing = false;
     var pfLbIndex = 0;
 
+    var _pfProCache = null;
     function pfIsPro() {
-      return !!(window.USER && window.USER.tier === 'pro');
+      if (_pfProCache === true) return true;
+      try { if (window.USER && String(window.USER.tier || '').toLowerCase() === 'pro') return true; } catch (e) {}
+      try { if (window.CDPaywall && window.CDPaywall.isPro && window.CDPaywall.isPro()) return true; } catch (e) {}
+      return false;
+    }
+    // Authoritative Pro refresh: reads tier directly from Firestore (window.USER
+    // is unreliable) and re-renders Pro-gated sections if Pro is confirmed.
+    async function pfRefreshPro() {
+      try {
+        if (!window.auth || !window.auth.currentUser || !window.db) return;
+        if (_pfProCache === true) return;
+        var snap = await window.db.collection('users').doc(window.auth.currentUser.uid).get();
+        var tier = 'free';
+        try { if (snap && snap.exists) tier = String((snap.data() || {}).tier || 'free').toLowerCase(); } catch (e2) {}
+        if (tier === 'pro') {
+          _pfProCache = true;
+          if (typeof pfRenderOwn === 'function') pfRenderOwn();
+          if (typeof setupSelectedWork === 'function') setupSelectedWork();
+          var bizPro = document.getElementById('bizCardPro');
+          if (bizPro) bizPro.style.display = 'block';
+          var bizLock = document.getElementById('bizCardLocked');
+          if (bizLock) bizLock.style.display = 'none';
+          var bc = document.getElementById('businessCard');
+          if (bc) bc.style.display = 'block';
+        }
+      } catch (e) {}
     }
 
     function pfCollection(uid) {
@@ -2479,12 +2506,8 @@
     async function setupSelectedWork() {
       var card = document.getElementById('selectedWorkCard');
       if (!card || !window.auth || !window.auth.currentUser) return;
-      // Pro-only, same gate as portfolio
-      var isPro = false;
-      try {
-        if (window.CDPaywall && window.CDPaywall.isPro) isPro = window.CDPaywall.isPro();
-      } catch (e) {}
-      if (!isPro) return;
+      // Pro-only, same gate as portfolio (pfIsPro checks USER + paywall + cache)
+      if (typeof pfIsPro === 'function' ? !pfIsPro() : true) return;
       var uid = window.auth.currentUser.uid;
       var docs = await swLoad(uid);
       document.getElementById('swCount').textContent = docs.length + ' / 6';
