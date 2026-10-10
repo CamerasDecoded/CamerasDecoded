@@ -1309,7 +1309,7 @@
       if (label) label.textContent = open ? 'Show less' : 'Show more';
       if (open) {
         const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        ['.protocol-section', '.referral-card', '.quiz-card', '.ambassador-card'].forEach((sel, i) => {
+        ['.protocol-section', '.referral-card', '.quiz-card', '.ambassador-card', '.business-hub'].forEach((sel, i) => {
           const el = document.querySelector(sel);
           if (!el) return;
           if (reduce) { el.classList.add('in'); return; }
