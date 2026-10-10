@@ -72,8 +72,14 @@
         if (p > 1 && dur > 0 && p < dur - 2) el.currentTime = p;
       } catch (e) {}
     });
-    setInterval(savePos, 5000);
+    setInterval(savePos, 2000);
     window.addEventListener('pagehide', savePos);
+    window.addEventListener('beforeunload', savePos);
+    // visibilitychange fires reliably on iOS when navigating away —
+    // pagehide alone is not enough.
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') savePos();
+    });
     return el;
   }
 
