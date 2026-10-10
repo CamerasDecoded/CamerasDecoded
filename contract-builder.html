@@ -582,28 +582,44 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
-/* Pro gate (race-safe: immediate check + event + exponential backoff) */
+/* Pro gate (tier read directly from Firestore — window.USER is unreliable) */
 function evalPro() {
-  var pro = false;
-  try { pro = window.USER && String(window.USER.tier || '').toLowerCase() === 'pro'; } catch (e) {}
-  // Also check paywall helper
-  if (!pro && window.CDPaywall && window.CDPaywall.isPro) { try { pro = window.CDPaywall.isPro(); } catch (e) {} }
-  return !!pro;
+  return new Promise(function (resolve) {
+    // Fast paths: in-memory user state or paywall helper
+    try { if (window.USER && String(window.USER.tier || '').toLowerCase() === 'pro') return resolve(true); } catch (e) {}
+    try { if (window.CDPaywall && window.CDPaywall.isPro && window.CDPaywall.isPro()) return resolve(true); } catch (e) {}
+    // Authoritative: read tier directly from users/{uid}
+    try {
+      if (typeof firebase === 'undefined' || !firebase.auth || !window.db) return resolve(false);
+      var auth = firebase.auth();
+      var finish = function (user) {
+        if (!user || !window.db) return resolve(false);
+        window.db.collection('users').doc(user.uid).get().then(function (snap) {
+          var tier = 'free';
+          try { if (snap && snap.exists) tier = String((snap.data() || {}).tier || 'free'); } catch (e2) {}
+          resolve(tier.toLowerCase() === 'pro');
+        }).catch(function () { resolve(false); });
+      };
+      if (auth.currentUser) { finish(auth.currentUser); return; }
+      var unsub = auth.onAuthStateChanged(function (user) { try { unsub(); } catch (e) {} finish(user); });
+    } catch (e) { resolve(false); }
+  });
 }
 var __proAttempts = 0;
 function checkPro() {
-  var pro = evalPro();
-  CB.isPro = pro;
-  document.getElementById('proGate').classList.toggle('hidden', pro);
-  document.getElementById('builder').classList.toggle('hidden', !pro);
-  document.getElementById('myContracts').classList.toggle('hidden', !pro);
-  if (pro) { showStep(1); return; }
-  // Not pro yet — retry with exponential backoff (user-state may still be loading)
-  var delays = [500, 1000, 2000, 4000];
-  if (__proAttempts < delays.length) {
-    var d = delays[__proAttempts++];
-    setTimeout(checkPro, d);
-  }
+  evalPro().then(function (pro) {
+    CB.isPro = pro;
+    document.getElementById('proGate').classList.toggle('hidden', pro);
+    document.getElementById('builder').classList.toggle('hidden', !pro);
+    document.getElementById('myContracts').classList.toggle('hidden', !pro);
+    if (pro) { showStep(1); return; }
+    // Not pro yet — retry with exponential backoff (auth / user-state may still be loading)
+    var delays = [500, 1000, 2000, 4000];
+    if (__proAttempts < delays.length) {
+      var d = delays[__proAttempts++];
+      setTimeout(checkPro, d);
+    }
+  });
 }
 document.addEventListener('userStateReady', checkPro);
 
