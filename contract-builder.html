@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Contract Builder — Cameras Decoded</title>
+<meta name="description" content="Build professional photography contracts — portrait sessions, weddings, model releases. Pro feature.">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="/scripts/master-loader.js?v=20261008b"></script>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<style>
+  :root {
+    --green: #8deb00;
+    --green-dim: rgba(141, 235, 0, 0.08);
+    --green-glow: rgba(141, 235, 0, 0.18);
+    --dark: #08080a;
+    --card: rgba(14, 14, 17, 0.92);
+    --border: rgba(255, 255, 255, 0.07);
+    --border-dim: rgba(255, 255, 255, 0.04);
+    --text: #ffffff;
+    --text-dim: rgba(255, 255, 255, 0.55);
+    --text-faint: rgba(255, 255, 255, 0.32);
+    --mono: 'Space Mono', monospace;
+    --sans: 'Montserrat', sans-serif;
+    --gold: #d4af37;
+    --red: #ff4a4a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { scrollbar-width: none; }
+  html::-webkit-scrollbar { display: none; }
+  body {
+    background: var(--dark);
+    background-image:
+      radial-gradient(ellipse at 30% 15%, rgba(141, 235, 0, 0.05) 0%, transparent 55%),
+      radial-gradient(ellipse at 75% 85%, rgba(141, 235, 0, 0.03) 0%, transparent 50%),
+      radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 22px 22px;
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100dvh;
+    padding: 0 !important;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 80px) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 100px) !important;
+    display: block !important;
+    justify-content: normal !important;
+    align-items: normal !important;
+  }
+  .hidden { display: none !important; }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* ============ HEADER ============ */
+  .cb-header {
+    max-width: 560px; margin: 0 auto; padding: 0 20px 16px;
+  }
+  .cb-title {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 6px;
+  }
+  .cb-title img {
+    height: 40px; width: auto; max-width: 280px; object-fit: contain;
+  }
+  .cb-title-fallback {
+    font-family: var(--mono); font-size: 20px; font-weight: 700;
+    letter-spacing: 0.12em; color: var(--green);
+    text-shadow: 0 0 18px rgba(141, 235, 0, 0.4);
+  }
+  .cb-subtitle {
+    font-size: 13px; color: var(--text-dim); line-height: 1.5;
+  }
+
+  /* ============ PROGRESS ============ */
+  .cb-progress {
+    max-width: 560px; margin: 0 auto; padding: 0 20px 20px;
+    display: flex; gap: 6px;
+  }
+  .cb-progress .seg {
+    flex: 1; height: 3px; border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    transition: background 0.3s;
+  }
+  .cb-progress .seg.done { background: var(--green); box-shadow: 0 0 8px rgba(141, 235, 0, 0.4); }
+  .cb-progress .seg.now { background: rgba(141, 235, 0, 0.45); }
+
+  /* ============ STEPS ============ */
+  .cb-step {
+    max-width: 560px; margin: 0 auto; padding: 0 20px;
+    display: none;
+  }
+  .cb-step.active { display: block; animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .cb-step-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    color: var(--green); margin-bottom: 8px;
+  }
+  .cb-step h2 {
+    font-size: 22px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.01em;
+  }
+  .cb-step .hint {
+    font-size: 13px; color: var(--text-dim); margin-bottom: 20px; line-height: 1.5;
+  }
+
+  /* ============ TEMPLATE CARDS ============ */
+  .cb-templates { display: flex; flex-direction: column; gap: 12px; }
+  .cb-tpl {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 18px; cursor: pointer; transition: border-color 0.2s, transform 0.15s;
+    display: flex; gap: 14px; align-items: flex-start; text-align: left; width: 100%;
+    color: var(--text);
+  }
+  .cb-tpl:active { transform: scale(0.99); }
+  .cb-tpl.sel { border-color: var(--green); box-shadow: 0 0 0 1px var(--green), 0 0 24px rgba(141, 235, 0, 0.12); }
+  .cb-tpl .icon {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    background: var(--green-dim); border: 1px solid rgba(141, 235, 0, 0.25);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--green); font-size: 20px;
+  }
+  .cb-tpl .tt { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+  .cb-tpl .td { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+
+  /* ============ FORM FIELDS ============ */
+  .cb-field { margin-bottom: 16px; }
+  .cb-field label {
+    display: block; font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 7px;
+    text-transform: uppercase;
+  }
+  .cb-field input, .cb-field textarea, .cb-field select {
+    width: 100%; background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 13px 14px; color: var(--text); font-family: var(--sans); font-size: 15px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .cb-field input:focus, .cb-field textarea:focus, .cb-field select:focus {
+    border-color: var(--green);
+  }
+  .cb-field textarea { min-height: 88px; resize: vertical; }
+  .cb-field .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* ============ CLAUSE TOGGLES ============ */
+  .cb-clause {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 15px 16px; margin-bottom: 10px;
+    display: flex; gap: 12px; align-items: flex-start; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .cb-clause.on { border-color: rgba(141, 235, 0, 0.4); }
+  .cb-clause .sw {
+    width: 46px; height: 26px; border-radius: 13px; flex-shrink: 0; margin-top: 2px;
+    background: rgba(255, 255, 255, 0.1); position: relative; transition: background 0.2s;
+  }
+  .cb-clause .sw::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 20px; height: 20px; border-radius: 50%; background: #888;
+    transition: left 0.2s, background 0.2s;
+  }
+  .cb-clause.on .sw { background: rgba(141, 235, 0, 0.35); }
+  .cb-clause.on .sw::after { left: 23px; background: var(--green); box-shadow: 0 0 10px rgba(141, 235, 0, 0.5); }
+  .cb-clause .ct { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+  .cb-clause .cd { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
+  .cb-clause .cbody {
+    display: none; margin-top: 10px; font-size: 12.5px; color: var(--text-dim);
+    line-height: 1.6; border-top: 1px solid var(--border-dim); padding-top: 10px;
+  }
+  .cb-clause.on .cbody { display: block; }
+  .cb-clause .cbody textarea {
+    width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border-dim);
+    border-radius: 8px; padding: 10px; color: var(--text); font-size: 12.5px;
+    font-family: var(--sans); min-height: 64px; resize: vertical; margin-top: 8px;
+  }
+
+  /* ============ NAV BUTTONS ============ */
+  .cb-nav {
+    display: flex; gap: 12px; margin-top: 24px;
+  }
+  .cb-btn {
+    flex: 1; padding: 15px; border-radius: 14px; font-size: 15px; font-weight: 700;
+    border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04);
+    color: var(--text); transition: transform 0.15s;
+  }
+  .cb-btn:active { transform: scale(0.98); }
+  .cb-btn.primary {
+    background: var(--green); border-color: var(--green); color: #0a0f00;
+    position: relative;
+  }
+  /* chase border on the single primary CTA */
+  .cb-btn.primary::before {
+    content: ''; position: absolute; inset: -2px; border-radius: 16px;
+    padding: 2px; background: conic-gradient(from var(--a, 0deg), transparent 0 70%, var(--green) 85%, transparent 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    animation: chase 2.4s linear infinite; pointer-events: none;
+  }
+  @property --a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+  @keyframes chase { to { --a: 360deg; } }
+  .cb-btn:disabled { opacity: 0.35; pointer-events: none; }
+  .cb-btn.ghost { flex: 0 0 auto; padding: 15px 20px; }
+
+  /* ============ REVIEW ============ */
+  .cb-review {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 18px; margin-bottom: 12px;
+  }
+  .cb-review h3 {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+    color: var(--green); margin-bottom: 10px; text-transform: uppercase;
+  }
+  .cb-review .kv { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13.5px; }
+  .cb-review .kv .k { color: var(--text-dim); flex-shrink: 0; }
+  .cb-review .kv .v { text-align: right; font-weight: 600; word-break: break-word; }
+  .cb-review .clauses-list { font-size: 13px; color: var(--text-dim); line-height: 1.7; }
+  .cb-review .clauses-list b { color: var(--text); }
+
+  /* ============ SIGNATURE PAD ============ */
+  .cb-sigpad {
+    background: #fff; border-radius: 14px; margin-bottom: 10px;
+    touch-action: none; cursor: crosshair; display: block; width: 100%;
+  }
+  .cb-sig-actions { display: flex; gap: 10px; margin-bottom: 16px; }
+  .cb-sig-actions button {
+    flex: 1; padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-dim);
+  }
+
+  /* ============ SHARE LINK ============ */
+  .cb-share {
+    background: var(--green-dim); border: 1px solid rgba(141, 235, 0, 0.25);
+    border-radius: 14px; padding: 16px; margin-top: 16px;
+  }
+  .cb-share .t { font-weight: 700; font-size: 14px; margin-bottom: 6px; color: var(--green); }
+  .cb-share .d { font-size: 13px; color: var(--text-dim); line-height: 1.5; margin-bottom: 12px; }
+  .cb-share .linkrow { display: flex; gap: 8px; }
+  .cb-share input {
+    flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+    border-radius: 10px; padding: 11px 12px; color: var(--text);
+    font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cb-share button {
+    padding: 11px 18px; border-radius: 10px; background: var(--green);
+    border: none; color: #0a0f00; font-weight: 700; font-size: 13px; flex-shrink: 0;
+  }
+
+  /* ============ PRO GATE ============ */
+  .cb-progate {
+    max-width: 560px; margin: 0 auto; padding: 40px 20px; text-align: center;
+  }
+  .cb-progate .lock {
+    width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 20px;
+    background: var(--green-dim); border: 1px solid rgba(141, 235, 0, 0.3);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--green); font-size: 28px;
+  }
+  .cb-progate h2 { font-size: 22px; font-weight: 800; margin-bottom: 10px; }
+  .cb-progate p { font-size: 14px; color: var(--text-dim); line-height: 1.6; margin-bottom: 24px; }
+  .cb-progate .feat-list {
+    text-align: left; max-width: 340px; margin: 0 auto 28px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .cb-progate .feat-list .f {
+    display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--text-dim);
+  }
+  .cb-progate .feat-list .f i { color: var(--green); margin-top: 2px; font-style: normal; }
+
+  /* ============ MY CONTRACTS ============ */
+  .cb-my { max-width: 560px; margin: 0 auto; padding: 0 20px 20px; }
+  .cb-my h3 {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em;
+    color: var(--text-dim); margin-bottom: 12px; text-transform: uppercase;
+  }
+  .cb-contract {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 15px 16px; margin-bottom: 10px; display: flex;
+    align-items: center; gap: 12px; cursor: pointer;
+  }
+  .cb-contract .ci {
+    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+    background: var(--green-dim); display: flex; align-items: center;
+    justify-content: center; color: var(--green); font-size: 18px;
+  }
+  .cb-contract .cn { font-weight: 700; font-size: 14px; }
+  .cb-contract .cm { font-size: 12px; color: var(--text-dim); font-family: var(--mono); margin-top: 2px; }
+  .cb-contract .st {
+    margin-left: auto; font-size: 11px; font-family: var(--mono); padding: 4px 10px;
+    border-radius: 20px; flex-shrink: 0; letter-spacing: 0.06em;
+  }
+  .cb-contract .st.draft { background: rgba(255,255,255,0.06); color: var(--text-dim); }
+  .cb-contract .st.signed { background: rgba(141,235,0,0.12); color: var(--green); }
+  .cb-contract .st.sent { background: rgba(212,175,55,0.12); color: var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="cb-header">
+  <div class="cb-title">
+    <img src="/custom-site-titles/contract-builder.png?v=20261009a" alt="Contract Builder"
+      onerror="this.style.display='none';document.getElementById('cbTitleFb').hidden=false;">
+    <span class="cb-title-fallback" id="cbTitleFb" hidden>CONTRACT BUILDER</span>
+  </div>
+  <div class="cb-subtitle">Professional photography contracts, built step by step. Pick a template, fill in the details, generate a clean PDF.</div>
+</div>
+
+<!-- PRO GATE (shown to non-Pro users) -->
+<div class="cb-progate hidden" id="proGate">
+  <div class="lock"><i class="fas fa-file-contract"></i></div>
+  <h2>Contracts are a Pro feature</h2>
+  <p>Build unlimited client contracts with guided templates, e-signatures, and clean PDF output.</p>
+  <div class="feat-list">
+    <div class="f"><i class="fas fa-check"></i><span>Portrait, wedding &amp; model release templates</span></div>
+    <div class="f"><i class="fas fa-check"></i><span>Guided builder — no legal guesswork</span></div>
+    <div class="f"><i class="fas fa-check"></i><span>Client e-signature via share link</span></div>
+    <div class="f"><i class="fas fa-check"></i><span>Business info saved for reuse</span></div>
+  </div>
+  <button class="cb-btn primary" id="proGateBtn" style="max-width:320px;margin:0 auto;display:block;">Unlock with Pro</button>
+</div>
+
+<!-- BUILDER (Pro users) -->
+<div id="builder" class="hidden">
+  <div class="cb-progress" id="progress">
+    <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+    <div class="seg"></div><div class="seg"></div><div class="seg"></div>
+  </div>
+
+  <!-- STEP 1: Template -->
+  <div class="cb-step" data-step="1">
+    <div class="cb-step-label">STEP 1 OF 6</div>
+    <h2>Pick a template</h2>
+    <div class="hint">Choose the contract type. You can customize every clause later.</div>
+    <div class="cb-templates" id="tplList"></div>
+    <div class="cb-nav">
+      <button class="cb-btn primary" id="s1next" disabled>Continue</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Business info -->
+  <div class="cb-step" data-step="2">
+    <div class="cb-step-label">STEP 2 OF 6</div>
+    <h2>Your business info</h2>
+    <div class="hint">Saved for next time — you won't have to retype it.</div>
+    <div class="cb-field"><label>Business / Studio Name</label><input id="bizName" placeholder="e.g. Meridian Photography"></div>
+    <div class="cb-field"><label>Your Full Name</label><input id="bizOwner" placeholder="e.g. Jordan Ellis"></div>
+    <div class="cb-field"><label>Email</label><input id="bizEmail" type="email" placeholder="you@studio.com"></div>
+    <div class="cb-field"><label>Phone</label><input id="bizPhone" type="tel" placeholder="(555) 123-4567"></div>
+    <div class="cb-field"><label>Address</label><input id="bizAddr" placeholder="Street, City, State ZIP"></div>
+    <div class="cb-nav">
+      <button class="cb-btn ghost" data-back>Back</button>
+      <button class="cb-btn primary" data-next>Continue</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Client info -->
+  <div class="cb-step" data-step="3">
+    <div class="cb-step-label">STEP 3 OF 6</div>
+    <h2>Client info</h2>
+    <div class="hint">Who is this contract for?</div>
+    <div id="clientFields"></div>
+    <div class="cb-nav">
+      <button class="cb-btn ghost" data-back>Back</button>
+      <button class="cb-btn primary" data-next>Continue</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Job details -->
+  <div class="cb-step" data-step="4">
+    <div class="cb-step-label">STEP 4 OF 6</div>
+    <h2>Job details</h2>
+    <div class="hint" id="jobHint">The specifics of this booking.</div>
+    <div id="jobFields"></div>
+    <div class="cb-nav">
+      <button class="cb-btn ghost" data-back>Back</button>
+      <button class="cb-btn primary" data-next>Continue</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: Clauses -->
+  <div class="cb-step" data-step="5">
+    <div class="cb-step-label">STEP 5 OF 6</div>
+    <h2>Clauses</h2>
+    <div class="hint">Toggle the clauses to include. Tap to expand and edit the wording.</div>
+    <div id="clauseList"></div>
+    <div class="cb-nav">
+      <button class="cb-btn ghost" data-back>Back</button>
+      <button class="cb-btn primary" data-next>Review</button>
+    </div>
+  </div>
+
+  <!-- STEP 6: Review & Sign -->
+  <div class="cb-step" data-step="6">
+    <div class="cb-step-label">STEP 6 OF 6</div>
+    <h2>Review &amp; sign</h2>
+    <div class="hint">Check everything, sign below, then generate the PDF.</div>
+    <div id="reviewBox"></div>
+    <div class="cb-review">
+      <h3>Your Signature</h3>
+      <canvas class="cb-sigpad" id="sigPad" height="160"></canvas>
+      <div class="cb-sig-actions">
+        <button id="sigClear">Clear</button>
+        <button id="sigUndo">Undo stroke</button>
+      </div>
+    </div>
+    <div class="cb-nav">
+      <button class="cb-btn ghost" data-back>Back</button>
+      <button class="cb-btn primary" id="genPdf">Generate PDF</button>
+    </div>
+    <div class="cb-share hidden" id="shareBox">
+      <div class="t">Client signature link</div>
+      <div class="d">Send this to your client. They can review and sign — no account needed.</div>
+      <div class="linkrow">
+        <input id="shareLink" readonly value="">
+        <button id="copyLink">Copy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MY CONTRACTS -->
+<div class="cb-my hidden" id="myContracts">
+  <h3>My Contracts</h3>
+  <div id="contractList"></div>
+</div>
+
+<script src="/scripts/firebase-init.js?v=20261007b"></script>
+<script src="/scripts/user-state.js?v=20261002a"></script>
+<script>
+/* ================= TEMPLATES ================= */
+var TEMPLATES = {
+  portrait: {
+    name: 'Portrait Session Agreement',
+    desc: 'For portrait, headshot, family, and senior sessions.',
+    icon: 'fa-camera',
+    clientFields: [
+      { id: 'clientName', label: 'Client Full Name', ph: 'e.g. Alex Morgan' },
+      { id: 'clientEmail', label: 'Client Email', type: 'email', ph: 'client@email.com' },
+      { id: 'clientPhone', label: 'Client Phone', type: 'tel', ph: '(555) 123-4567' }
+    ],
+    jobFields: [
+      { id: 'sessionDate', label: 'Session Date', type: 'date' },
+      { id: 'sessionTime', label: 'Session Time', type: 'time' },
+      { id: 'location', label: 'Location', ph: 'e.g. Zilker Park, Austin TX' },
+      { id: 'package', label: 'Package', ph: 'e.g. 1-hour session, 25 edited images' },
+      { id: 'price', label: 'Total Price (USD)', type: 'number', ph: '350' },
+      { id: 'deposit', label: 'Deposit Due at Booking (USD)', type: 'number', ph: '100' },
+      { id: 'deliverables', label: 'Deliverables', ph: 'e.g. 25 high-res edited digital images' },
+      { id: 'turnaround', label: 'Delivery Turnaround', ph: 'e.g. 14 business days' }
+    ],
+    clauses: [
+      { id: 'cancel', title: 'Cancellation Policy', desc: 'Deposit is non-refundable if cancelled within 7 days of the session.',
+        body: 'If the Client cancels the session more than 7 days before the scheduled date, any deposit paid will be applied as credit toward a rescheduled session within 90 days. If cancelled within 7 days, the deposit is non-refundable. The Photographer reserves the right to cancel due to illness or emergency, in which case all payments will be refunded in full.' },
+      { id: 'resched', title: 'Rescheduling', desc: 'One free reschedule with 48+ hours notice.',
+        body: 'The Client may reschedule the session once at no additional charge with at least 48 hours notice. Additional reschedules or reschedules with less than 48 hours notice are subject to a $50 rescheduling fee.' },
+      { id: 'late', title: 'Late Arrival', desc: 'Session time is not extended for late arrivals.',
+        body: 'If the Client arrives late, the session will still end at the originally scheduled time. No refund or discount will be issued for time lost due to late arrival.' },
+      { id: 'usage', title: 'Image Usage Rights', desc: 'Photographer may use images for portfolio and marketing.',
+        body: 'The Photographer retains copyright of all images. The Client receives a personal-use license for the delivered images. The Photographer may use selected images for portfolio, website, and social media marketing unless the Client opts out in writing before the session.' },
+      { id: 'payment', title: 'Payment Terms', desc: 'Balance due on or before the session date.',
+        body: 'The remaining balance is due on or before the session date. Images will not be delivered until the balance is paid in full. Late payments are subject to a 5% monthly late fee.' }
+    ]
+  },
+  wedding: {
+    name: 'Wedding Photography Contract',
+    desc: 'Full wedding day coverage with timeline and payment schedule.',
+    icon: 'fa-heart',
+    clientFields: [
+      { id: 'clientName', label: 'Couple Names', ph: 'e.g. Alex & Jordan Morgan' },
+      { id: 'clientEmail', label: 'Contact Email', type: 'email', ph: 'couple@email.com' },
+      { id: 'clientPhone', label: 'Contact Phone', type: 'tel', ph: '(555) 123-4567' }
+    ],
+    jobFields: [
+      { id: 'wedDate', label: 'Wedding Date', type: 'date' },
+      { id: 'venue', label: 'Venue', ph: 'e.g. The Arlo, Austin TX' },
+      { id: 'coverage', label: 'Coverage Hours', type: 'number', ph: '8' },
+      { id: 'startTime', label: 'Start Time', type: 'time' },
+      { id: 'price', label: 'Total Price (USD)', type: 'number', ph: '3500' },
+      { id: 'deposit', label: 'Booking Deposit (USD)', type: 'number', ph: '1000' },
+      { id: 'balance', label: 'Balance Due (USD)', type: 'number', ph: '2500' },
+      { id: 'balanceDate', label: 'Balance Due Date', type: 'date' },
+      { id: 'deliverables', label: 'Deliverables', ph: 'e.g. 500+ edited images, online gallery, USB' },
+      { id: 'turnaround', label: 'Delivery Turnaround', ph: 'e.g. 6-8 weeks' }
+    ],
+    clauses: [
+      { id: 'second', title: 'Second Shooter', desc: 'Include a second photographer for the day.',
+        body: 'A second photographer will be provided for the full coverage period at no additional charge beyond the agreed package price. The second shooter works under the direction of the primary Photographer.' },
+      { id: 'travel', title: 'Travel Fees', desc: 'Client covers travel beyond 50 miles.',
+        body: 'Travel within 50 miles of the Photographer\'s studio is included. Travel beyond 50 miles is billed at $0.67/mile plus any required lodging. International or destination weddings require a custom travel quote.' },
+      { id: 'cancel', title: 'Cancellation Policy', desc: 'Sliding-scale refund based on notice period.',
+        body: 'If the Client cancels more than 180 days before the wedding, 50% of the deposit is refunded. 90-180 days: deposit is non-refundable but transferable to a new date within 12 months. Less than 90 days: all payments made are non-refundable. The Photographer will make reasonable efforts to rebook the date.' },
+      { id: 'meals', title: 'Vendor Meals', desc: 'Client provides meals for photographer(s).',
+        body: 'The Client agrees to provide a hot vendor meal for the Photographer (and second shooter, if applicable) during the reception. A 30-minute meal break will be taken at a time coordinated with the wedding planner.' },
+      { id: 'usage', title: 'Image Usage Rights', desc: 'Photographer may use images for portfolio and marketing.',
+        body: 'The Photographer retains copyright of all images. The Couple receives a personal-use license. The Photographer may use selected images for portfolio, website, publications, and social media unless the Couple opts out in writing at least 30 days before the wedding.' },
+      { id: 'payment', title: 'Payment Schedule', desc: 'Deposit at booking, balance 30 days before.',
+        body: 'A non-refundable booking deposit is due at signing to reserve the date. The remaining balance is due 30 days before the wedding date. The Photographer is not obligated to provide services if the balance is unpaid. Late payments incur a 5% monthly fee.' },
+      { id: 'album', title: 'Album Credit', desc: 'Include a $500 album credit in the package.',
+        body: 'This package includes a $500 credit toward a custom-designed wedding album. Album design begins after final image delivery. Additional pages, upgrades, and parent albums are available at current rates.' }
+    ]
+  },
+  release: {
+    name: 'Model Release',
+    desc: 'Usage rights agreement for photographed subjects.',
+    icon: 'fa-file-signature',
+    clientFields: [
+      { id: 'modelName', label: 'Model Full Name', ph: 'e.g. Casey Rivera' },
+      { id: 'modelEmail', label: 'Model Email', type: 'email', ph: 'model@email.com' },
+      { id: 'modelPhone', label: 'Model Phone', type: 'tel', ph: '(555) 123-4567' },
+      { id: 'guardian', label: 'Parent/Guardian (if minor)', ph: 'Leave blank if 18+' }
+    ],
+    jobFields: [
+      { id: 'shootDate', label: 'Shoot Date', type: 'date' },
+      { id: 'location', label: 'Shoot Location', ph: 'e.g. Studio, 123 Main St' },
+      { id: 'compensation', label: 'Compensation', ph: 'e.g. $200 / TFP / prints' },
+      { id: 'usageScope', label: 'Usage Scope', ph: 'e.g. Commercial, editorial, portfolio' }
+    ],
+    clauses: [
+      { id: 'commercial', title: 'Commercial Use', desc: 'Images may be used in paid advertising.',
+        body: 'The Model grants the Photographer the right to use the images for commercial purposes including but not limited to advertising, marketing, product packaging, and promotional materials in any medium worldwide.' },
+      { id: 'editorial', title: 'Editorial Use', desc: 'Images may appear in publications and press.',
+        body: 'The Model grants the right to use images for editorial purposes including magazines, newspapers, books, and online publications.' },
+      { id: 'portfolio', title: 'Portfolio & Social', desc: 'Photographer may display work publicly.',
+        body: 'The Photographer may use the images in their portfolio, website, social media, exhibitions, and competitions.' },
+      { id: 'duration', title: 'Perpetual License', desc: 'Rights granted have no expiration.',
+        body: 'The rights granted under this release are perpetual and irrevocable, extending worldwide in all media now known or later developed.' },
+      { id: 'noderog', title: 'No Derogatory Use', desc: 'Images will not be used to defame.',
+        body: 'The Photographer agrees not to use the images in any manner that is defamatory, pornographic, or that would cast the Model in a false light.' },
+      { id: 'minor', title: 'Minor Consent', desc: 'Parent/guardian authorization for models under 18.',
+        body: 'If the Model is under 18 years of age, the undersigned parent or legal guardian confirms they have the authority to grant these rights on the Model\'s behalf and accept the compensation described above.' }
+    ]
+  }
+};
+
+/* ================= STATE ================= */
+var CB = {
+  step: 1,
+  template: null,
+  business: {},
+  client: {},
+  job: {},
+  clauses: {},
+  sigDataUrl: null,
+  contractId: null,
+  isPro: false
+};
+
+/* ================= INIT ================= */
+document.addEventListener('DOMContentLoaded', function () {
+  checkPro();
+  renderTemplates();
+  bindNav();
+  initSigPad();
+  loadBusiness();
+  loadMyContracts();
+
+  document.getElementById('proGateBtn').addEventListener('click', function () {
+    if (window.CDPaywall) window.CDPaywall.show({ headline: 'Unlock Contract Builder', sub: 'Professional contracts for working photographers.' });
+    else window.location.href = '/pro-checkout.html';
+  });
+});
+
+function checkPro() {
+  var pro = false;
+  try { pro = window.USER && String(window.USER.tier || '').toLowerCase() === 'pro'; } catch (e) {}
+  // Also check paywall helper
+  if (!pro && window.CDPaywall && window.CDPaywall.isPro) { try { pro = window.CDPaywall.isPro(); } catch (e) {} }
+  CB.isPro = pro;
+  document.getElementById('proGate').classList.toggle('hidden', pro);
+  document.getElementById('builder').classList.toggle('hidden', !pro);
+  document.getElementById('myContracts').classList.toggle('hidden', !pro);
+  if (pro) showStep(1);
+}
+
+/* ================= TEMPLATES ================= */
+function renderTemplates() {
+  var el = document.getElementById('tplList');
+  el.innerHTML = '';
+  Object.keys(TEMPLATES).forEach(function (key) {
+    var t = TEMPLATES[key];
+    var b = document.createElement('button');
+    b.className = 'cb-tpl'; b.type = 'button'; b.dataset.tpl = key;
+    b.innerHTML = '<div class="icon"><i class="fas ' + t.icon + '"></i></div>' +
+      '<div><div class="tt">' + t.name + '</div><div class="td">' + t.desc + '</div></div>';
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.cb-tpl').forEach(function (x) { x.classList.remove('sel'); });
+      b.classList.add('sel');
+      CB.template = key;
+      document.getElementById('s1next').disabled = false;
+    });
+    el.appendChild(b);
+  });
+}
+
+/* ================= NAVIGATION ================= */
+function bindNav() {
+  document.getElementById('s1next').addEventListener('click', function () {
+    if (!CB.template) return;
+    buildDynamicFields();
+    showStep(2);
+  });
+  document.querySelectorAll('[data-next]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!validateStep(CB.step)) return;
+      saveStep(CB.step);
+      if (CB.step === 5) buildReview();
+      showStep(CB.step + 1);
+    });
+  });
+  document.querySelectorAll('[data-back]').forEach(function (b) {
+    b.addEventListener('click', function () { showStep(CB.step - 1); });
+  });
+  document.getElementById('genPdf').addEventListener('click', generateContract);
+  document.getElementById('copyLink').addEventListener('click', function () {
+    var i = document.getElementById('shareLink');
+    i.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    if (navigator.clipboard) navigator.clipboard.writeText(i.value).catch(function () {});
+    this.textContent = 'Copied';
+    var self = this;
+    setTimeout(function () { self.textContent = 'Copy'; }, 2000);
+  });
+}
+
+function showStep(n) {
+  CB.step = n;
+  document.querySelectorAll('.cb-step').forEach(function (s) {
+    s.classList.toggle('active', parseInt(s.dataset.step, 10) === n);
+  });
+  var segs = document.querySelectorAll('#progress .seg');
+  segs.forEach(function (sg, i) {
+    sg.classList.toggle('done', i < n - 1);
+    sg.classList.toggle('now', i === n - 1);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function validateStep(n) {
+  // Light validation: require business name + owner on step 2, client name on step 3
+  if (n === 2) {
+    if (!document.getElementById('bizName').value.trim()) { toast('Business name is required'); return false; }
+    if (!document.getElementById('bizOwner').value.trim()) { toast('Your name is required'); return false; }
+  }
+  if (n === 3) {
+    var first = document.querySelector('#clientFields input');
+    if (first && !first.value.trim()) { toast('Client name is required'); return false; }
+  }
+  return true;
+}
+
+function toast(msg) {
+  if (window.CDSocial && window.CDSocial.toast) { window.CDSocial.toast(msg); return; }
+  alert(msg);
+}
+
+/* ================= DYNAMIC FIELDS ================= */
+function buildDynamicFields() {
+  var t = TEMPLATES[CB.template];
+  // Client fields
+  var cf = document.getElementById('clientFields');
+  cf.innerHTML = '';
+  t.clientFields.forEach(function (f) {
+    cf.appendChild(makeField(f, 'client'));
+  });
+  // Job fields
+  var jf = document.getElementById('jobFields');
+  jf.innerHTML = '';
+  t.jobFields.forEach(function (f) {
+    jf.appendChild(makeField(f, 'job'));
+  });
+  // Clauses — default first two on
+  var cl = document.getElementById('clauseList');
+  cl.innerHTML = '';
+  CB.clauses = {};
+  t.clauses.forEach(function (c, i) {
+    var on = i < 2;
+    CB.clauses[c.id] = { on: on, body: c.body };
+    var d = document.createElement('div');
+    d.className = 'cb-clause' + (on ? ' on' : '');
+    d.innerHTML = '<div class="sw"></div><div style="flex:1;">' +
+      '<div class="ct">' + c.title + '</div><div class="cd">' + c.desc + '</div>' +
+      '<div class="cbody"><div style="font-size:11px;color:var(--text-faint);margin-bottom:4px;">CLAUSE WORDING (editable)</div>' +
+      '<textarea data-cid="' + c.id + '">' + c.body + '</textarea></div></div>';
+    d.addEventListener('click', function (e) {
+      if (e.target.tagName === 'TEXTAREA') return;
+      var now = !CB.clauses[c.id].on;
+      CB.clauses[c.id].on = now;
+      d.classList.toggle('on', now);
+    });
+    var ta = d.querySelector('textarea');
+    ta.addEventListener('input', function () { CB.clauses[c.id].body = ta.value; });
+    cl.appendChild(d);
+  });
+}
+
+function makeField(f, prefix) {
+  var wrap = document.createElement('div');
+  wrap.className = 'cb-field';
+  var label = document.createElement('label');
+  label.textContent = f.label;
+  wrap.appendChild(label);
+  var input;
+  if (f.type === 'date' || f.type === 'time' || f.type === 'number' || f.type === 'email' || f.type === 'tel') {
+    input = document.createElement('input');
+    input.type = f.type;
+  } else {
+    input = document.createElement('input');
+    input.type = 'text';
+  }
+  input.id = prefix + '_' + f.id;
+  input.placeholder = f.ph || '';
+  if (f.type === 'number') input.inputMode = 'decimal';
+  wrap.appendChild(input);
+  return wrap;
+}
+
+function saveStep(n) {
+  if (n === 2) {
+    CB.business = {
+      name: val('bizName'), owner: val('bizOwner'), email: val('bizEmail'),
+      phone: val('bizPhone'), addr: val('bizAddr')
+    };
+    try { localStorage.setItem('cb_business', JSON.stringify(CB.business)); } catch (e) {}
+    saveBusinessToFirestore();
+  }
+  if (n === 3) {
+    CB.client = {};
+    TEMPLATES[CB.template].clientFields.forEach(function (f) { CB.client[f.id] = val('client_' + f.id); });
+  }
+  if (n === 4) {
+    CB.job = {};
+    TEMPLATES[CB.template].jobFields.forEach(function (f) { CB.job[f.id] = val('job_' + f.id); });
+  }
+}
+
+function val(id) {
+  var el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+function loadBusiness() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('cb_business') || '{}');
+    ['Name', 'Owner', 'Email', 'Phone', 'Addr'].forEach(function (k) {
+      var el = document.getElementById('biz' + k);
+      if (el && saved[k.toLowerCase()]) el.value = saved[k.toLowerCase()];
+    });
+  } catch (e) {}
+  // Try Firestore profile
+  try {
+    if (window.db && window.auth && window.auth.currentUser) {
+      window.db.collection('users').doc(window.auth.currentUser.uid).get().then(function (doc) {
+        if (!doc.exists) return;
+        var d = doc.data();
+        if (d.businessName && !document.getElementById('bizName').value) document.getElementById('bizName').value = d.businessName;
+        if (d.displayName && !document.getElementById('bizOwner').value) document.getElementById('bizOwner').value = d.displayName;
+      }).catch(function () {});
+    }
+  } catch (e) {}
+}
+
+function saveBusinessToFirestore() {
+  try {
+    if (window.db && window.auth && window.auth.currentUser) {
+      window.db.collection('users').doc(window.auth.currentUser.uid).set({
+        businessName: CB.business.name || '',
+        businessEmail: CB.business.email || '',
+        businessPhone: CB.business.phone || '',
+        businessAddr: CB.business.addr || ''
+      }, { merge: true }).catch(function () {});
+    }
+  } catch (e) {}
+}
+
+/* ================= REVIEW ================= */
+function fieldLabel(tpl, fid) {
+  var all = tpl.clientFields.concat(tpl.jobFields);
+  for (var i = 0; i < all.length; i++) if (all[i].id === fid) return all[i].label;
+  return fid;
+}
+
+function buildReview() {
+  var t = TEMPLATES[CB.template];
+  var box = document.getElementById('reviewBox');
+  var h = '';
+  h += '<div class="cb-review"><h3>Template</h3><div class="kv"><span class="k">Type</span><span class="v">' + t.name + '</span></div></div>';
+  h += '<div class="cb-review"><h3>Business</h3>';
+  h += kv('Studio', CB.business.name) + kv('Contact', CB.business.owner) + kv('Email', CB.business.email) + kv('Phone', CB.business.phone);
+  h += '</div>';
+  h += '<div class="cb-review"><h3>Client</h3>';
+  t.clientFields.forEach(function (f) { h += kv(f.label, CB.client[f.id] || '—'); });
+  h += '</div>';
+  h += '<div class="cb-review"><h3>Job Details</h3>';
+  t.jobFields.forEach(function (f) {
+    var v = CB.job[f.id] || '—';
+    if (f.id === 'price' || f.id === 'deposit' || f.id === 'balance') v = v === '—' ? v : '$' + v;
+    h += kv(f.label, v);
+  });
+  h += '</div>';
+  var onClauses = t.clauses.filter(function (c) { return CB.clauses[c.id] && CB.clauses[c.id].on; });
+  h += '<div class="cb-review"><h3>Clauses (' + onClauses.length + ')</h3><div class="clauses-list">';
+  onClauses.forEach(function (c) { h += '<b>' + c.title + '</b><br>'; });
+  h += '</div></div>';
+  box.innerHTML = h;
+}
+
+function kv(k, v) {
+  return '<div class="kv"><span class="k">' + esc(k) + '</span><span class="v">' + esc(v || '—') + '</span></div>';
+}
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* ================= SIGNATURE PAD ================= */
+var sigPad = { canvas: null, ctx: null, drawing: false, strokes: [], cur: [] };
+
+function initSigPad() {
+  var c = document.getElementById('sigPad');
+  sigPad.canvas = c; sigPad.ctx = c.getContext('2d');
+  function resize() {
+    var r = c.getBoundingClientRect();
+    c.width = r.width * 2; c.height = 160 * 2;
+    sigPad.ctx.scale(2, 2);
+    sigPad.ctx.lineWidth = 2.2; sigPad.ctx.lineCap = 'round'; sigPad.ctx.strokeStyle = '#111';
+    redraw();
+  }
+  function pos(e) {
+    var r = c.getBoundingClientRect();
+    var t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  }
+  function start(e) { e.preventDefault(); sigPad.drawing = true; sigPad.cur = [pos(e)]; }
+  function move(e) {
+    if (!sigPad.drawing) return; e.preventDefault();
+    var p = pos(e); sigPad.cur.push(p);
+    var ctx = sigPad.ctx, n = sigPad.cur.length;
+    if (n > 1) {
+      ctx.beginPath();
+      ctx.moveTo(sigPad.cur[n - 2].x, sigPad.cur[n - 2].y);
+      ctx.lineTo(p.x, p.y); ctx.stroke();
+    }
+  }
+  function end(e) {
+    if (!sigPad.drawing) return; e.preventDefault();
+    sigPad.drawing = false;
+    if (sigPad.cur.length > 1) sigPad.strokes.push(sigPad.cur);
+    sigPad.cur = [];
+    updateSigData();
+  }
+  function redraw() {
+    var ctx = sigPad.ctx, r = c.getBoundingClientRect();
+    ctx.clearRect(0, 0, r.width, 160);
+    sigPad.strokes.forEach(function (s) {
+      if (s.length < 2) return;
+      ctx.beginPath(); ctx.moveTo(s[0].x, s[0].y);
+      for (var i = 1; i < s.length; i++) ctx.lineTo(s[i].x, s[i].y);
+      ctx.stroke();
+    });
+  }
+  c.addEventListener('mousedown', start);
+  c.addEventListener('mousemove', move);
+  c.addEventListener('mouseup', end);
+  c.addEventListener('touchstart', start, { passive: false });
+  c.addEventListener('touchmove', move, { passive: false });
+  c.addEventListener('touchend', end);
+  document.getElementById('sigClear').addEventListener('click', function () {
+    sigPad.strokes = []; sigPad.cur = []; redraw(); updateSigData();
+  });
+  document.getElementById('sigUndo').addEventListener('click', function () {
+    sigPad.strokes.pop(); redraw(); updateSigData();
+  });
+  // Resize when step 6 becomes visible
+  new MutationObserver(function () {
+    if (document.querySelector('[data-step="6"]').classList.contains('active')) resize();
+  }).observe(document.querySelector('[data-step="6"]'), { attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('resize', resize);
+}
+
+function updateSigData() {
+  CB.sigDataUrl = sigPad.strokes.length ? sigPad.canvas.toDataURL('image/png') : null;
+}
+
+/* ================= PDF GENERATION ================= */
+async function generateContract() {
+  var btn = document.getElementById('genPdf');
+  btn.disabled = true; btn.textContent = 'Generating...';
+  try {
+    if (!window.PDFLib) throw new Error('PDF library failed to load. Check connection and retry.');
+    var t = TEMPLATES[CB.template];
+    var pdfDoc = await PDFLib.PDFDocument.create();
+    var helv = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    var helvB = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    var page = pdfDoc.addPage([612, 792]); // US Letter
+    var W = 612, M = 56, y = 740;
+    var maxW = W - M * 2;
+
+    function text(str, opts) {
+      opts = opts || {};
+      var size = opts.size || 10, font = opts.bold ? helvB : helv;
+      var color = opts.color || PDFLib.rgb(0.12, 0.12, 0.12);
+      var lh = size * 1.45;
+      // word wrap
+      var words = String(str || '').split(' ');
+      var line = '', lines = [];
+      words.forEach(function (w) {
+        var test = line ? line + ' ' + w : w;
+        if (font.widthOfTextAtSize(test, size) > maxW && line) { lines.push(line); line = w; }
+        else line = test;
+      });
+      if (line) lines.push(line);
+      lines.forEach(function (ln) {
+        if (y < 70) { page = pdfDoc.addPage([612, 792]); y = 740; }
+        page.drawText(ln, { x: M, y: y, size: size, font: font, color: color });
+        y -= lh;
+      });
+      return y;
+    }
+    function heading(str) { y -= 6; text(str, { size: 12, bold: true, color: PDFLib.rgb(0, 0, 0) }); y -= 2; }
+    function hr() {
+      if (y < 80) { page = pdfDoc.addPage([612, 792]); y = 740; }
+      page.drawLine({ start: { x: M, y: y }, end: { x: W - M, y: y }, thickness: 0.75, color: PDFLib.rgb(0.8, 0.8, 0.8) });
+      y -= 14;
+    }
+
+    // Title block
+    text(t.name.toUpperCase(), { size: 18, bold: true, color: PDFLib.rgb(0, 0, 0) });
+    y -= 4;
+    text('This agreement is entered into on ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + ' by and between:', { size: 10 });
+    y -= 8;
+
+    heading('PHOTOGRAPHER');
+    text(CB.business.name || ''); text(CB.business.owner || '');
+    text(CB.business.email || ''); text(CB.business.phone || ''); text(CB.business.addr || '');
+    y -= 8;
+
+    heading(t.name === 'Model Release' ? 'MODEL' : 'CLIENT');
+    t.clientFields.forEach(function (f) {
+      var v = CB.client[f.id];
+      if (v) text(f.label + ': ' + v);
+    });
+    y -= 8;
+
+    heading('JOB DETAILS');
+    t.jobFields.forEach(function (f) {
+      var v = CB.job[f.id];
+      if (!v) return;
+      var disp = v;
+      if (f.id === 'price' || f.id === 'deposit' || f.id === 'balance') disp = '$' + v;
+      text(f.label + ': ' + disp);
+    });
+    y -= 8;
+
+    heading('TERMS & CLAUSES');
+    var idx = 1;
+    t.clauses.forEach(function (c) {
+      var st = CB.clauses[c.id];
+      if (!st || !st.on) return;
+      text(idx + '. ' + c.title, { bold: true, size: 10 });
+      text(st.body || c.body, { size: 9.5 });
+      y -= 6; idx++;
+    });
+
+    hr();
+    text('By signing below, both parties agree to the terms above.', { size: 10 });
+    y -= 16;
+
+    // Signature blocks
+    async function sigBlock(label, nameVal, dataUrl) {
+      heading(label.toUpperCase() + ' SIGNATURE');
+      if (dataUrl) {
+        try {
+          var pngBytes = await fetch(dataUrl).then(function (r) { return r.arrayBuffer(); });
+          var png = await pdfDoc.embedPng(pngBytes);
+          var dims = png.scale(0.45);
+          if (y < dims.height + 90) { page = pdfDoc.addPage([612, 792]); y = 740; }
+          page.drawImage(png, { x: M, y: y - dims.height, width: dims.width, height: dims.height });
+          y -= dims.height + 6;
+        } catch (e) { /* fall through to line */ }
+      }
+      page.drawLine({ start: { x: M, y: y }, end: { x: M + 220, y: y }, thickness: 1, color: PDFLib.rgb(0, 0, 0) });
+      y -= 14;
+      text('Name: ' + (nameVal || ''), { size: 9.5 });
+      text('Date: ' + new Date().toLocaleDateString('en-US'), { size: 9.5 });
+      y -= 10;
+    }
+    await sigBlock('Photographer', CB.business.owner, CB.sigDataUrl);
+    var clientName = CB.client.clientName || CB.client.modelName || '';
+    await sigBlock(t.name === 'Model Release' ? 'Model' : 'Client', clientName, null);
+
+    y -= 8;
+    text('Generated with Cameras Decoded Contract Builder.', { size: 8, color: PDFLib.rgb(0.55, 0.55, 0.55) });
+
+    var pdfBytes = await pdfDoc.save();
+    var blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    var fname = t.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-' + Date.now() + '.pdf';
+
+    // Save contract record to Firestore
+    var cid = await saveContractRecord(t, fname);
+
+    // Download
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 4000);
+
+    // Show share link for client signature
+    if (cid) {
+      document.getElementById('shareBox').classList.remove('hidden');
+      document.getElementById('shareLink').value = 'https://camerasdecoded.com/contract-sign.html?c=' + cid;
+    }
+    toast('Contract generated and saved.');
+    loadMyContracts();
+  } catch (err) {
+    console.error(err);
+    toast('PDF failed: ' + (err.message || 'unknown error'));
+  }
+  btn.disabled = false; btn.textContent = 'Generate PDF';
+}
+
+/* ================= FIRESTORE ================= */
+async function saveContractRecord(t, fname) {
+  try {
+    if (!window.db || !window.auth || !window.auth.currentUser) return null;
+    var uid = window.auth.currentUser.uid;
+    var ref = window.db.collection('users').doc(uid).collection('contracts').doc();
+    var onClauses = t.clauses.filter(function (c) { return CB.clauses[c.id] && CB.clauses[c.id].on; })
+      .map(function (c) { return { id: c.id, title: c.title, body: CB.clauses[c.id].body }; });
+    await ref.set({
+      template: CB.template,
+      templateName: t.name,
+      fileName: fname,
+      business: CB.business,
+      client: CB.client,
+      job: CB.job,
+      clauses: onClauses,
+      status: 'draft',
+      operatorSigned: !!CB.sigDataUrl,
+      clientSigned: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    CB.contractId = ref.id;
+    return ref.id;
+  } catch (e) { console.warn('Contract save failed:', e); return null; }
+}
+
+function loadMyContracts() {
+  try {
+    if (!window.db || !window.auth || !window.auth.currentUser) return;
+    var uid = window.auth.currentUser.uid;
+    window.db.collection('users').doc(uid).collection('contracts')
+      .orderBy('createdAt', 'desc').limit(20).get().then(function (snap) {
+        var box = document.getElementById('contractList');
+        if (snap.empty) {
+          document.getElementById('myContracts').classList.add('hidden');
+          return;
+        }
+        document.getElementById('myContracts').classList.remove('hidden');
+        box.innerHTML = '';
+        snap.forEach(function (doc) {
+          var d = doc.data();
+          var el = document.createElement('div');
+          el.className = 'cb-contract';
+          var st = d.clientSigned ? 'signed' : (d.status === 'sent' ? 'sent' : 'draft');
+          var stLabel = d.clientSigned ? 'SIGNED' : (d.status === 'sent' ? 'SENT' : 'DRAFT');
+          var dt = '';
+          try { dt = d.createdAt ? d.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''; } catch (e) {}
+          el.innerHTML = '<div class="ci"><i class="fas fa-file-contract"></i></div>' +
+            '<div><div class="cn">' + esc(d.templateName || 'Contract') + '</div>' +
+            '<div class="cm">' + esc(clientDisplay(d)) + (dt ? ' · ' + dt : '') + '</div></div>' +
+            '<div class="st ' + st + '">' + stLabel + '</div>';
+          box.appendChild(el);
+        });
+      }).catch(function () {});
+  } catch (e) {}
+}
+
+function clientDisplay(d) {
+  if (!d.client) return '';
+  return d.client.clientName || d.client.modelName || d.client.clientEmail || '';
+}
+</script>
+<script src="/scripts/bottom-nav.js?v=20260924c"></script>
+</body>
+</html>
