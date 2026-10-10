@@ -6,6 +6,9 @@
 <title>Contract Builder — Cameras Decoded</title>
 <meta name="description" content="Build professional photography contracts — portrait sessions, weddings, model releases. Pro feature.">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="/scripts/master-loader.js?v=20261008b"></script>
 <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <style>
@@ -536,6 +539,7 @@ var CB = {
   clauses: {},
   sigDataUrl: null,
   contractId: null,
+  signToken: null,
   isPro: false
 };
 
@@ -989,7 +993,7 @@ async function generateContract() {
     var fname = t.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-' + Date.now() + '.pdf';
 
     // Save contract record to Firestore
-    var cid = await saveContractRecord(t, fname);
+    var saved = await saveContractRecord(t, fname);
 
     // Download
     var url = URL.createObjectURL(blob);
@@ -998,10 +1002,16 @@ async function generateContract() {
     document.body.appendChild(a); a.click();
     setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 4000);
 
-    // Show share link for client signature
-    if (cid) {
+    // Show share link for client signature (marks contract SENT)
+    if (saved && saved.id) {
+      try {
+        await window.db.collection('users').doc(saved.uid).collection('contracts').doc(saved.id)
+          .update({ status: 'sent', sentAt: firebase.firestore.FieldValue.serverTimestamp() });
+      } catch (e) { console.warn('Could not mark contract sent:', e); }
       document.getElementById('shareBox').classList.remove('hidden');
-      document.getElementById('shareLink').value = 'https://camerasdecoded.com/contract-sign.html?c=' + cid;
+      document.getElementById('shareLink').value =
+        'https://camerasdecoded.com/contract-sign.html?u=' + saved.uid +
+        '&c=' + saved.id + '&t=' + saved.token;
     }
     toast('Contract generated and saved.');
     loadMyContracts();
@@ -1013,11 +1023,26 @@ async function generateContract() {
 }
 
 /* ================= FIRESTORE ================= */
+// Random token for the client signing link (checked client-side against the doc)
+function genSignToken() {
+  var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  var t = '';
+  try {
+    var a = new Uint32Array(32);
+    (window.crypto || window.msCrypto).getRandomValues(a);
+    for (var i = 0; i < 32; i++) t += chars[a[i] % chars.length];
+  } catch (e) {
+    for (var j = 0; j < 32; j++) t += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return t;
+}
+
 async function saveContractRecord(t, fname) {
   try {
     if (!window.db || !window.auth || !window.auth.currentUser) return null;
     var uid = window.auth.currentUser.uid;
     var ref = window.db.collection('users').doc(uid).collection('contracts').doc();
+    var token = genSignToken();
     var onClauses = t.clauses.filter(function (c) { return CB.clauses[c.id] && CB.clauses[c.id].on; })
       .map(function (c) { return { id: c.id, title: c.title, body: CB.clauses[c.id].body }; });
     await ref.set({
@@ -1030,11 +1055,18 @@ async function saveContractRecord(t, fname) {
       clauses: onClauses,
       status: 'draft',
       operatorSigned: !!CB.sigDataUrl,
+      operatorSignature: CB.sigDataUrl || null,
+      operatorSignedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      signToken: token,
       clientSigned: false,
+      clientSignature: null,
+      clientSignedAt: null,
+      sentAt: null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     CB.contractId = ref.id;
-    return ref.id;
+    CB.signToken = token;
+    return { id: ref.id, token: token, uid: uid };
   } catch (e) { console.warn('Contract save failed:', e); return null; }
 }
 
