@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Settings — Cameras Decoded</title>
+
+  <!-- ===== MASTER LOADER (injects header, bottom nav container, shared CSS) ===== -->
+  <script src="/scripts/master-loader.js?v=20261008b"></script>
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js?v=20261007b"></script>
+
+  <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
+  <script src="/header.js?v=20261002a"></script>
+  <script src="/scripts/desktop-sidebar.js?v=20260930a"></script>
+
+  <style>
+    :root {
+      --green: #8deb00;
+      --green-dim: rgba(141,235,0,0.12);
+      --green-glow: rgba(141,235,0,0.25);
+      --text-muted: #b4b4b4;
+      --bg-panel: #0A0A0A;
+      --border-dim: #1A1A1A;
+      --card-bg: rgba(10,10,10,0.6);
+      --radius: 12px;
+      --mono: 'Space Mono', monospace;
+      --sans: 'Montserrat', sans-serif;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body {
+      background: #050705;
+      color: #fff; font-family: var(--sans);
+      min-height: 100dvh; display: block !important;
+      padding: 0 !important;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 76px) !important;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px) !important;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+    .hidden { display: none !important; }
+
+    .page-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .page-head .back {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid var(--border-dim); background: var(--card-bg);
+      color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center;
+    }
+    .page-head h1 { font-size: 24px; font-weight: 800; letter-spacing: -.01em; }
+
+    .card {
+      background: var(--card-bg); border: 1px solid var(--border-dim);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+    }
+    .card-header { margin-bottom: 16px; }
+    .card-header img { max-width: 200px; height: auto; display: block; }
+    .title-fallback { font-size: 18px; font-weight: 800; }
+
+    /* Avatar */
+    .avatar-row { display: flex; gap: 16px; align-items: center; }
+    .avatar-preview {
+      width: 80px; height: 80px; border-radius: 50%; overflow: hidden;
+      background: #1a1a1a; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; border: 2px solid var(--border-dim);
+    }
+    .avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .btn-upload, .btn-save {
+      background: var(--green); color: #0a0a0a; border: none; border-radius: 10px;
+      padding: 10px 18px; font-weight: 700; font-size: 14px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-remove-icon {
+      background: transparent; border: 1px solid var(--border-dim); color: #ff6b6b;
+      width: 40px; height: 40px; border-radius: 10px; cursor: pointer;
+    }
+    .status-text { font-size: 12px; color: var(--text-muted); display: block; margin-top: 8px; }
+    .hint-text { font-size: 11px; color: #666; display: block; margin-top: 4px; }
+    .btn-row { display: flex; gap: 8px; align-items: center; }
+
+    /* Info grid */
+    .info-grid { display: grid; gap: 12px; }
+    .info-item { display: flex; justify-content: space-between; align-items: center; }
+    .info-item .label { font-size: 13px; color: var(--text-muted); }
+    .info-item .value { font-size: 14px; font-weight: 600; }
+    .badge {
+      font-size: 10px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 1px;
+      background: var(--green-dim); color: var(--green); padding: 4px 10px; border-radius: 100px;
+    }
+
+    /* Gear selectors */
+    .prof-group { margin-bottom: 20px; }
+    .prof-label { font-size: 13px; font-weight: 700; display: block; margin-bottom: 10px; }
+    .prof-label .req { font-weight: 400; color: var(--text-muted); font-size: 11px; }
+    .brand-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .brand-card {
+      background: #141414; border: 1px solid var(--border-dim); color: #fff;
+      border-radius: 10px; padding: 14px 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .brand-card.selected { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      background: #141414; border: 1px solid var(--border-dim); color: #fff;
+      border-radius: 100px; padding: 8px 16px; font-size: 13px; cursor: pointer;
+    }
+    .chip.selected { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+    .prof-hint { font-size: 12px; color: var(--text-muted); margin: 12px 0; }
+    .save-row { margin-top: 12px; }
+
+    /* About selects */
+    .prof-field { margin-bottom: 14px; }
+    .prof-field label { font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px; }
+    .prof-field select {
+      width: 100%; background: #141414; border: 1px solid var(--border-dim); color: #fff;
+      border-radius: 10px; padding: 12px; font-size: 14px; font-family: inherit;
+    }
+    .conf-wrap { background: #141414; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+    .conf-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 10px; }
+    .conf-slider { width: 100%; accent-color: var(--green); }
+    .conf-scale { display: flex; justify-content: space-between; font-size: 10px; color: #666; margin-top: 6px; }
+    .pain-counter { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+    /* Referral */
+    .ref-row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .ref-link {
+      font-family: var(--mono); font-size: 13px; background: #141414;
+      border: 1px solid var(--border-dim); border-radius: 8px;
+      padding: 10px 12px; margin: 8px 0; word-break: break-all;
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-head">
+    <button class="back" onclick="window.location.href='/profile.html'" aria-label="Back to profile">
+      <i class="fas fa-arrow-left"></i>
+    </button>
+    <h1>
+      <img src="/custom-site-titles/settings.png" alt="Settings" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" style="max-width:200px;height:auto;" />
+      <span hidden>Settings</span>
+    </h1>
+  </div>
+
+  <!-- Profile Photo -->
+  <div class="card">
+    <div class="card-header"><span class="title-fallback">Profile Photo</span></div>
+    <div class="avatar-row">
+      <div class="avatar-preview" id="avatarPreview"><i class="fas fa-user" style="font-size:32px;color:#555;"></i></div>
+      <div>
+        <input type="file" id="avatarInput" accept="image/*" style="display:none;" />
+        <div class="btn-row">
+          <button class="btn-upload" id="uploadBtn"><i class="fas fa-upload"></i> Upload Photo</button>
+          <button class="btn-remove-icon" id="removeBtn" style="display:none;" title="Remove photo"><i class="fas fa-trash-alt"></i></button>
+        </div>
+        <span class="status-text" id="uploadStatus"></span>
+        <span class="hint-text">Max 5MB · JPG, PNG, GIF</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account -->
+  <div class="card">
+    <div class="card-header">
+      <span class="title-fallback">Account</span>
+      <span class="badge">read-only</span>
+    </div>
+    <div class="info-grid">
+      <div class="info-item"><span class="label">Full Name</span><span class="value" id="displayNameDisplay">—</span></div>
+      <div class="info-item"><span class="label">Username</span><span class="value" id="usernameDisplay">—</span></div>
+      <div class="info-item"><span class="label">Email</span><span class="value" id="emailDisplay">—</span></div>
+      <div class="info-item"><span class="label">Plan</span><span class="value" id="tierDisplay">—</span></div>
+    </div>
+  </div>
+
+  <!-- Gear & Preferences -->
+  <div class="card" id="gearCard">
+    <div class="card-header"><span class="title-fallback">Gear &amp; Preferences</span></div>
+    <div class="prof-group">
+      <span class="prof-label">Camera brand <span class="req">· pick one</span></span>
+      <div class="brand-grid" id="brandGrid" role="radiogroup" aria-label="Camera brand">
+        <button type="button" class="brand-card" data-brand="canon" role="radio" aria-checked="false">Canon</button>
+        <button type="button" class="brand-card" data-brand="sony" role="radio" aria-checked="false">Sony</button>
+        <button type="button" class="brand-card" data-brand="nikon" role="radio" aria-checked="false">Nikon</button>
+        <button type="button" class="brand-card" data-brand="fuji" role="radio" aria-checked="false">Fujifilm</button>
+        <button type="button" class="brand-card" data-brand="panasonic" role="radio" aria-checked="false">Panasonic</button>
+        <button type="button" class="brand-card" data-brand="blackmagic" role="radio" aria-checked="false">Blackmagic</button>
+      </div>
+    </div>
+    <div class="prof-group">
+      <span class="prof-label">Lenses <span class="req">· pick any</span></span>
+      <div class="chip-row" id="lensRow" role="group" aria-label="Lenses">
+        <button type="button" class="chip" data-lens="14-24mm-f2.8">14-24mm f/2.8</button>
+        <button type="button" class="chip" data-lens="16-35mm-f2.8">16-35mm f/2.8</button>
+        <button type="button" class="chip" data-lens="24-70mm-f2.8">24-70mm f/2.8</button>
+        <button type="button" class="chip" data-lens="24-70mm-f4">24-70mm f/4</button>
+        <button type="button" class="chip" data-lens="24-105mm-f4">24-105mm f/4</button>
+        <button type="button" class="chip" data-lens="70-200mm-f2.8">70-200mm f/2.8</button>
+        <button type="button" class="chip" data-lens="70-200mm-f4">70-200mm f/4</button>
+        <button type="button" class="chip" data-lens="24mm-f1.4">24mm f/1.4</button>
+        <button type="button" class="chip" data-lens="35mm-f1.4">35mm f/1.4</button>
+        <button type="button" class="chip" data-lens="50mm-f1.8">50mm f/1.8</button>
+        <button type="button" class="chip" data-lens="50mm-f1.2">50mm f/1.2</button>
+        <button type="button" class="chip" data-lens="85mm-f1.8">85mm f/1.8</button>
+        <button type="button" class="chip" data-lens="85mm-f1.4">85mm f/1.4</button>
+        <button type="button" class="chip" data-lens="macro">Macro</button>
+      </div>
+    </div>
+    <div class="prof-group">
+      <span class="prof-label">Interests <span class="req">· pick any</span></span>
+      <div class="chip-row" id="interestRow" role="group" aria-label="Interests">
+        <button type="button" class="chip" data-interest="portraits">Portraits</button>
+        <button type="button" class="chip" data-interest="landscape">Landscape</button>
+        <button type="button" class="chip" data-interest="street">Street</button>
+        <button type="button" class="chip" data-interest="wildlife">Wildlife</button>
+        <button type="button" class="chip" data-interest="sports">Sports</button>
+        <button type="button" class="chip" data-interest="events">Events</button>
+        <button type="button" class="chip" data-interest="real-estate">Real Estate</button>
+        <button type="button" class="chip" data-interest="product">Product</button>
+        <button type="button" class="chip" data-interest="food">Food</button>
+        <button type="button" class="chip" data-interest="astro">Astro</button>
+        <button type="button" class="chip" data-interest="documentary">Documentary</button>
+        <button type="button" class="chip" data-interest="corporate">Corporate</button>
+        <button type="button" class="chip" data-interest="content">Content</button>
+        <button type="button" class="chip" data-interest="music-video">Music Video</button>
+        <button type="button" class="chip" data-interest="videography">Videography</button>
+      </div>
+    </div>
+    <div class="prof-hint" id="profileHint">Pick your brand, at least one lens, and at least one interest.</div>
+    <div class="save-row"><button class="btn-save" id="saveGearBtn"><i class="fas fa-save"></i> Save</button></div>
+  </div>
+
+  <!-- About You -->
+  <div class="card" id="aboutCard">
+    <div class="card-header"><span class="title-fallback">About You</span></div>
+    <div class="prof-group">
+      <span class="prof-label">Confidence check</span>
+      <div class="conf-wrap">
+        <div class="conf-top"><span>Signal strength</span><span id="confStatus">Scanning</span></div>
+        <input type="range" class="conf-slider" id="confidenceSlider" min="1" max="10" value="4" step="1" aria-label="Confidence level" />
+        <div class="conf-scale"><span>1 — New Signal</span><span>5 — Locking On</span><span>10 — Locked</span></div>
+      </div>
+      <div class="prof-field">
+        <label for="challengeSel">What's your biggest challenge right now?</label>
+        <select id="challengeSel">
+          <option value="">Select…</option>
+          <option value="low-light">Low light performance</option>
+          <option value="composition">Composition &amp; framing</option>
+          <option value="posing-subjects">Posing subjects / directing talent</option>
+          <option value="manual-settings">Manual settings confusion</option>
+          <option value="autofocus">Autofocus struggles</option>
+          <option value="editing">Post-processing / editing</option>
+          <option value="color-grading">Color grading</option>
+          <option value="confidence">Confidence / imposter syndrome</option>
+          <option value="gear">Understanding my gear</option>
+          <option value="business">Building my business</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="prof-field">
+        <label for="shootFrequencySel">How often do you shoot?</label>
+        <select id="shootFrequencySel">
+          <option value="">Select…</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="rarely">Rarely</option>
+        </select>
+      </div>
+      <div class="prof-field">
+        <label for="learningStyleSel">Preferred learning style</label>
+        <select id="learningStyleSel">
+          <option value="">Select…</option>
+          <option value="video">Video</option>
+          <option value="text">Text / Articles</option>
+          <option value="audio">Audio / Podcasts</option>
+          <option value="interactive">Interactive / Hands-on</option>
+        </select>
+      </div>
+    </div>
+    <div class="prof-group">
+      <span class="prof-label">Your journey</span>
+      <div class="prof-field">
+        <label for="experienceSel">How long have you been shooting mirrorless?</label>
+        <select id="experienceSel">
+          <option value="">Select…</option>
+          <option value="<6">Less than 6 months</option>
+          <option value="6-12">6–12 months</option>
+          <option value="1-2">1–2 years</option>
+          <option value="3-5">3–5 years</option>
+          <option value="5+">5+ years</option>
+        </select>
+      </div>
+      <div class="prof-field">
+        <label for="primaryGoalSel">What's your primary goal?</label>
+        <select id="primaryGoalSel">
+          <option value="">Select…</option>
+          <option value="master-manual">Master manual mode</option>
+          <option value="start-business">Start a photography / video business</option>
+          <option value="improve-social">Improve social media content</option>
+          <option value="family-travel">Capture family / travel memories</option>
+          <option value="professional-event">Become a professional event/wedding photographer</option>
+          <option value="filmmaker">Become a filmmaker / videographer</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="prof-field">
+        <label for="ambitionSel">How do you describe yourself?</label>
+        <select id="ambitionSel">
+          <option value="">Select…</option>
+          <option value="hobbyist">Hobbyist – I create for fun</option>
+          <option value="semi-pro">Semi-professional – I earn some income</option>
+          <option value="professional">Professional – this is my primary income</option>
+        </select>
+      </div>
+    </div>
+    <div class="prof-group">
+      <span class="prof-label">Pain points <span class="req">· up to 3</span></span>
+      <div class="chip-row" id="painRow" role="group" aria-label="Pain points">
+        <button type="button" class="chip" data-pain="technical">Technical confusion</button>
+        <button type="button" class="chip" data-pain="creative">Creative block</button>
+        <button type="button" class="chip" data-pain="editing">Editing / post-processing</button>
+        <button type="button" class="chip" data-pain="business">Business / marketing</button>
+        <button type="button" class="chip" data-pain="portfolio">Building a portfolio</button>
+        <button type="button" class="chip" data-pain="clients">Attracting clients</button>
+      </div>
+      <div class="pain-counter">Selected: <span class="count" id="painCount">0</span> / 3</div>
+    </div>
+    <div class="prof-hint" id="aboutHint">Answer the questions above.</div>
+    <div class="save-row"><button class="btn-save" id="saveAboutBtn"><i class="fas fa-save"></i> Save</button></div>
+  </div>
+
+  <!-- Referral -->
+  <div class="card">
+    <div class="card-header"><span class="title-fallback">Referral</span></div>
+    <div class="ref-row">
+      <div style="flex:1;min-width:180px;">
+        <div style="font-size:11px;color:var(--text-muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;">Your Referral Link</div>
+        <div class="ref-link" id="referralLinkDisplay">camerasdecoded.com/ref/—</div>
+        <button class="btn-save" style="padding:8px 16px;font-size:12px;margin-top:8px;" id="copyRefBtn"><i class="fas fa-copy"></i> Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sign out -->
+  <div class="card">
+    <button class="btn-save" id="signOutBtn" style="background:transparent;border:1px solid var(--border-dim);color:#ff6b6b;width:100%;">
+      <i class="fas fa-sign-out-alt"></i> Sign Out
+    </button>
+  </div>
+</div>
+
+<script>
+/* Settings page — extracted from profile.html */
+var IMGBB_API_KEY = '3f2e1a1c0b9a8f7e6d5c4b3a2f1e0d9c'; // placeholder, replaced at runtime
+var userDocRef = null;
+
+function cdToast(msg, type) {
+  // minimal toast
+  var t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1c1c1c;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;z-index:99;';
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 2600);
+}
+
+const ABOUT_SELECTS = [
+  ['challengeSel', 'challenge'],
+  ['shootFrequencySel', 'shootFrequency'],
+  ['learningStyleSel', 'learningStyle'],
+  ['experienceSel', 'experience'],
+  ['primaryGoalSel', 'primaryGoal'],
+  ['ambitionSel', 'ambition']
+];
+
+document.addEventListener('DOMContentLoaded', function() {
+  if (!window.firebase || !firebase.auth) { cdToast('Sign in required'); return; }
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (!user) { window.location.href = '/login.html'; return; }
+    userDocRef = window.db.collection('users').doc(user.uid);
+    loadSettings(user);
+    setupAvatarUpload();
+    setupProfileSelectors();
+    setupCopyReferral();
+    setupSignOut();
+  });
+});
+
+async function loadSettings(user) {
+  try {
+    var snap = await userDocRef.get();
+    var d = snap.exists ? snap.data() : {};
+    document.getElementById('displayNameDisplay').textContent = d.displayName || '—';
+    document.getElementById('usernameDisplay').textContent = d.username ? '@' + d.username : '—';
+    document.getElementById('emailDisplay').textContent = user.email || '—';
+    document.getElementById('tierDisplay').textContent = (d.tier || 'free').toUpperCase();
+    if (d.photoURL) {
+      var av2 = document.getElementById('avatarPreview');
+      av2.innerHTML = '';
+      var ai2 = document.createElement('img');
+      ai2.src = d.photoURL;
+      ai2.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+      av2.appendChild(ai2);
+      document.getElementById('removeBtn').style.display = 'inline-flex';
+    }
+    // Gear
+    if (d.cameraBrand) {
+      document.querySelectorAll('#brandGrid .brand-card').forEach(function(b) {
+        if (b.dataset.brand === d.cameraBrand) { b.classList.add('selected'); b.setAttribute('aria-checked','true'); }
+      });
+    }
+    (d.lenses || []).forEach(function(l) {
+      var c = document.querySelector('#lensRow .chip[data-lens="' + l + '"]');
+      if (c) c.classList.add('selected');
+    });
+    (d.interests || []).forEach(function(i) {
+      var c = document.querySelector('#interestRow .chip[data-interest="' + i + '"]');
+      if (c) c.classList.add('selected');
+    });
+    // About selects
+    ABOUT_SELECTS.forEach(function(pair) {
+      var sel = document.getElementById(pair[0]);
+      if (sel) sel.value = d[pair[1]] || '';
+    });
+    // Referral
+    if (d.referralCode) {
+      document.getElementById('referralLinkDisplay').textContent = 'camerasdecoded.com/ref/' + d.referralCode;
+    }
+  } catch(e) { console.warn('Settings load failed', e); }
+}
+
+function setupAvatarUpload() {
+  var uploadBtn = document.getElementById('uploadBtn');
+  var removeBtn = document.getElementById('removeBtn');
+  var fileInput = document.getElementById('avatarInput');
+  uploadBtn.addEventListener('click', function() { fileInput.click(); });
+  fileInput.addEventListener('change', async function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5*1024*1024) { cdToast('File too large (max 5MB)', 'error'); return; }
+    document.getElementById('uploadStatus').textContent = 'Uploading...';
+    try {
+      var fd = new FormData(); fd.append('image', file);
+      var res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_API_KEY, { method:'POST', body:fd });
+      var json = await res.json();
+      if (json.success) {
+        await userDocRef.update({ photoURL: json.data.url });
+        var av = document.getElementById('avatarPreview');
+        av.innerHTML = '';
+        var ai = document.createElement('img');
+        ai.src = json.data.url;
+        ai.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        av.appendChild(ai);
+        removeBtn.style.display = 'inline-flex';
+        document.getElementById('uploadStatus').textContent = 'Done!';
+      } else throw new Error('Upload failed');
+    } catch(err) {
+      document.getElementById('uploadStatus').textContent = 'Error uploading';
+      cdToast('Upload failed', 'error');
+    }
+  });
+  removeBtn.addEventListener('click', async function() {
+    if (!confirm('Remove your profile photo?')) return;
+    await userDocRef.update({ photoURL: null });
+    document.getElementById('avatarPreview').innerHTML = '<i class="fas fa-user" style="font-size:32px;color:#555;"></i>';
+    removeBtn.style.display = 'none';
+    cdToast('Photo removed');
+  });
+}
+
+function setupProfileSelectors() {
+  var brandGrid = document.getElementById('brandGrid');
+  if (brandGrid) brandGrid.addEventListener('click', function(e) {
+    var card = e.target.closest('.brand-card');
+    if (!card) return;
+    brandGrid.querySelectorAll('.brand-card.selected').forEach(function(el) {
+      el.classList.remove('selected'); el.setAttribute('aria-checked','false');
+    });
+    card.classList.add('selected'); card.setAttribute('aria-checked','true');
+  });
+  ['lensRow','interestRow','painRow'].forEach(function(id) {
+    var row = document.getElementById(id);
+    if (!row) return;
+    row.addEventListener('click', function(e) {
+      var chip = e.target.closest('.chip');
+      if (!chip) return;
+      if (id === 'painRow' && !chip.classList.contains('selected') &&
+          row.querySelectorAll('.chip.selected').length >= 3) {
+        cdToast('Pick up to 3.', 'error'); return;
+      }
+      chip.classList.toggle('selected');
+      if (id === 'painRow') {
+        document.getElementById('painCount').textContent = row.querySelectorAll('.chip.selected').length;
+      }
+    });
+  });
+  var slider = document.getElementById('confidenceSlider');
+  if (slider) slider.addEventListener('input', function() {
+    var v = parseInt(slider.value, 10);
+    document.getElementById('confStatus').textContent = v <= 3 ? 'New Signal' : v <= 7 ? 'Locking On' : 'Locked';
+  });
+  document.getElementById('saveGearBtn').addEventListener('click', saveGear);
+  document.getElementById('saveAboutBtn').addEventListener('click', saveAbout);
+}
+
+async function saveGear() {
+  var brand = null;
+  var sel = document.querySelector('#brandGrid .brand-card.selected');
+  if (sel) brand = sel.dataset.brand;
+  var lenses = Array.from(document.querySelectorAll('#lensRow .chip.selected')).map(function(c){ return c.dataset.lens; });
+  var interests = Array.from(document.querySelectorAll('#interestRow .chip.selected')).map(function(c){ return c.dataset.interest; });
+  try {
+    await userDocRef.update({ cameraBrand: brand, lenses: lenses, interests: interests });
+    cdToast('Gear saved');
+  } catch(e) { cdToast('Save failed', 'error'); }
+}
+
+async function saveAbout() {
+  var data = {};
+  ABOUT_SELECTS.forEach(function(pair) {
+    var sel = document.getElementById(pair[0]);
+    data[pair[1]] = sel ? sel.value : '';
+  });
+  data.confidence = parseInt(document.getElementById('confidenceSlider').value, 10);
+  data.painPoints = Array.from(document.querySelectorAll('#painRow .chip.selected')).map(function(c){ return c.dataset.pain; });
+  try {
+    await userDocRef.update(data);
+    cdToast('Saved');
+  } catch(e) { cdToast('Save failed', 'error'); }
+}
+
+function setupCopyReferral() {
+  document.getElementById('copyRefBtn').addEventListener('click', function() {
+    var link = document.getElementById('referralLinkDisplay').textContent;
+    if (navigator.clipboard) navigator.clipboard.writeText(link).then(function(){ cdToast('Copied!'); });
+  });
+}
+
+function setupSignOut() {
+  document.getElementById('signOutBtn').addEventListener('click', function() {
+    if (!confirm('Sign out?')) return;
+    firebase.auth().signOut().then(function(){ window.location.href = '/login.html'; });
+  });
+}
+</script>
+</body>
+</html>
