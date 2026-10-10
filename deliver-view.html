@@ -200,6 +200,18 @@
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .cell { aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--line); cursor: pointer; }
   .cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* Init-load reveal: staggered per-image, runs once */
+  #viewGallery.reveal .cell {
+    opacity: 0; transform: scale(.9) translateY(14px);
+    animation: cellIn .75s cubic-bezier(.22,1,.36,1) forwards;
+    animation-delay: var(--rd, 0s);
+  }
+  @keyframes cellIn {
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #viewGallery.reveal .cell { opacity: 1; transform: none; animation: none; }
+  }
 
   /* Lightbox */
   .lb {
@@ -444,7 +456,14 @@ function renderPass() {
 $('passEnter').onclick = function () {
   var pass = $('viewPass');
   pass.classList.add('leaving');
-  setTimeout(function () { show('viewGallery'); }, 380);
+  setTimeout(function () {
+    show('viewGallery');
+    // Init-load reveal only: trigger staggered cell animation once.
+    var gv = $('viewGallery');
+    gv.classList.add('reveal');
+    var imgs = (DV.data.images || []).length;
+    setTimeout(function () { gv.classList.remove('reveal'); }, Math.min(imgs * 70, 1400) + 900);
+  }, 380);
 };
 $('passShare').onclick = async function () {
   var d = DV.data || {};
@@ -481,6 +500,8 @@ function renderGallery() {
   imgs.forEach(function (url, i) {
     var c = document.createElement('div');
     c.className = 'cell';
+    // Stagger: 70ms per image, capped so large galleries don't drag
+    c.style.setProperty('--rd', Math.min(i * 0.07, 1.4).toFixed(2) + 's');
     var img = document.createElement('img');
     img.src = url; img.alt = 'Photo ' + (i + 1); img.loading = 'lazy';
     c.appendChild(img);
