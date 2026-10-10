@@ -486,10 +486,20 @@ async function downloadSignedPdf() {
     var helvB = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
     var page = pdfDoc.addPage([612, 792]);
     var W = 612, M = 56, y = 740, maxW = W - M * 2;
+
+    // ---- Polished doc palette (mirrors contract-builder.html) ----
+    var CHARCOAL = PDFLib.rgb(0.10, 0.10, 0.10);
+    var BODY = PDFLib.rgb(0.16, 0.16, 0.16);
+    var ACCENT = PDFLib.rgb(0.16, 0.38, 0.28);
+    var MUTED = PDFLib.rgb(0.52, 0.52, 0.52);
+    var BAND = PDFLib.rgb(0.955, 0.955, 0.955);
+    var HAIR = PDFLib.rgb(0.82, 0.82, 0.82);
+
+    function newPage() { page = pdfDoc.addPage([612, 792]); y = 740; }
     function text(str, opts) {
       opts = opts || {};
       var size = opts.size || 10, font = opts.bold ? helvB : helv;
-      var color = opts.color || PDFLib.rgb(0.12, 0.12, 0.12);
+      var color = opts.color || BODY;
       var lh = size * 1.45;
       var words = String(str || '').split(' '), line = '', lines = [];
       words.forEach(function (w) {
@@ -499,70 +509,109 @@ async function downloadSignedPdf() {
       });
       if (line) lines.push(line);
       lines.forEach(function (ln) {
-        if (y < 70) { page = pdfDoc.addPage([612, 792]); y = 740; }
-        page.drawText(ln, { x: M, y: y, size: size, font: font, color: color });
+        if (y < 70) newPage();
+        var x = M;
+        if (opts.center) x = M + (maxW - font.widthOfTextAtSize(ln, size)) / 2;
+        page.drawText(ln, { x: x, y: y, size: size, font: font, color: color });
         y -= lh;
       });
     }
-    function heading(s) { y -= 6; text(s, { size: 12, bold: true, color: PDFLib.rgb(0, 0, 0) }); y -= 2; }
+    function section(s) {
+      y -= 12;
+      var bh = 25;
+      if (y < bh + 80) newPage();
+      var top = y;
+      page.drawRectangle({ x: M, y: top - bh, width: maxW, height: bh, color: BAND });
+      page.drawRectangle({ x: M, y: top - bh, width: 3.5, height: bh, color: ACCENT });
+      page.drawText(s, { x: M + 13, y: top - 17, size: 11, font: helvB, color: CHARCOAL });
+      y = top - bh - 12;
+    }
+    async function drawLogo(dataUrl) {
+      if (!dataUrl) return;
+      try {
+        var bytes = await fetch(dataUrl).then(function (r) { return r.arrayBuffer(); });
+        var img = dataUrl.indexOf('data:image/png') === 0
+          ? await pdfDoc.embedPng(bytes) : await pdfDoc.embedJpg(bytes);
+        var sc = Math.min(120 / img.width, 52 / img.height);
+        var w = img.width * sc, h = img.height * sc;
+        page.drawImage(img, { x: (W - w) / 2, y: y - h, width: w, height: h });
+        y -= h + 16;
+      } catch (e) {}
+    }
+    function stampFooters() {
+      var pages = pdfDoc.getPages();
+      pages.forEach(function (pg, i) {
+        pg.drawLine({ start: { x: M, y: 52 }, end: { x: W - M, y: 52 }, thickness: 0.5, color: HAIR });
+        pg.drawText('Cameras Decoded  ·  Contract Builder', { x: M, y: 37, size: 8, font: helv, color: MUTED });
+        var pstr = 'Page ' + (i + 1) + ' of ' + pages.length;
+        var pw = helv.widthOfTextAtSize(pstr, 8);
+        pg.drawText(pstr, { x: W - M - pw, y: 37, size: 8, font: helv, color: MUTED });
+      });
+    }
     function fmtD(ts) {
       try { if (ts && ts.toDate) return ts.toDate().toLocaleDateString('en-US'); } catch (e) {}
       return new Date().toLocaleDateString('en-US');
     }
-    text((d.templateName || 'Contract').toUpperCase(), { size: 18, bold: true, color: PDFLib.rgb(0, 0, 0) });
-    y -= 4;
-    text('This agreement is entered into on ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + ' by and between:', { size: 10 });
-    y -= 8;
-    heading('PHOTOGRAPHER');
+    // Letterhead
+    await drawLogo(d.businessLogo);
+    text((d.templateName || 'Contract').toUpperCase(), { size: 20, bold: true, color: CHARCOAL, center: true });
+    y -= 2;
+    (function () {
+      var barW = 120;
+      page.drawLine({ start: { x: (W - barW) / 2, y: y }, end: { x: (W + barW) / 2, y: y }, thickness: 2.5, color: ACCENT });
+    })();
+    y -= 18;
+    text('This agreement is entered into on ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + ' by and between:', { size: 10, color: MUTED });
+    y -= 6;
+    section('PHOTOGRAPHER');
     var b = d.business || {};
     text(b.name || ''); text(b.owner || ''); text(b.email || ''); text(b.phone || ''); text(b.addr || '');
-    y -= 8;
-    heading(isRelease ? 'MODEL' : 'CLIENT');
+    section(isRelease ? 'MODEL' : 'CLIENT');
     var c = d.client || {};
     Object.keys(c).forEach(function (id) {
       if (c[id] === null || c[id] === '' || c[id] === undefined) return;
       text((FIELD_LABELS[id] || id) + ': ' + fmtVal(id, c[id]));
     });
-    y -= 8;
-    heading('JOB DETAILS');
+    section('JOB DETAILS');
     var j = d.job || {};
     Object.keys(j).forEach(function (id) {
       if (j[id] === null || j[id] === '' || j[id] === undefined) return;
       text((FIELD_LABELS[id] || id) + ': ' + fmtVal(id, j[id]));
     });
-    y -= 8;
-    heading('TERMS & CLAUSES');
+    section('TERMS & CLAUSES');
     (d.clauses || []).forEach(function (cl, i) {
       text((i + 1) + '. ' + cl.title, { bold: true, size: 10 });
       text(cl.body, { size: 9.5 });
       y -= 6;
     });
-    y -= 8;
-    text('By signing below, both parties agree to the terms above.', { size: 10 });
+    y -= 4;
+    if (y < 90) newPage();
+    page.drawLine({ start: { x: M, y: y }, end: { x: W - M, y: y }, thickness: 0.75, color: HAIR });
     y -= 16;
+    text('By signing below, both parties agree to the terms above.', { size: 10 });
+    y -= 18;
     async function sigBlock(label, nameVal, dataUrl, dateTs) {
-      heading(label.toUpperCase() + ' SIGNATURE');
+      section(label.toUpperCase() + ' SIGNATURE');
       if (dataUrl) {
         try {
           var pngBytes = await fetch(dataUrl).then(function (r) { return r.arrayBuffer(); });
           var png = await pdfDoc.embedPng(pngBytes);
           var dims = png.scale(0.45);
-          if (y < dims.height + 90) { page = pdfDoc.addPage([612, 792]); y = 740; }
+          if (y < dims.height + 90) newPage();
           page.drawImage(png, { x: M, y: y - dims.height, width: dims.width, height: dims.height });
           y -= dims.height + 6;
         } catch (e) {}
       }
-      page.drawLine({ start: { x: M, y: y }, end: { x: M + 220, y: y }, thickness: 1, color: PDFLib.rgb(0, 0, 0) });
-      y -= 14;
+      page.drawLine({ start: { x: M, y: y }, end: { x: M + 220, y: y }, thickness: 1, color: CHARCOAL });
+      y -= 15;
       text('Name: ' + (nameVal || ''), { size: 9.5 });
       text('Date: ' + fmtD(dateTs), { size: 9.5 });
-      y -= 10;
+      y -= 12;
     }
     await sigBlock('Photographer', b.owner, d.operatorSignature, d.operatorSignedAt);
     var cName = c.clientName || c.modelName || '';
     await sigBlock(isRelease ? 'Model' : 'Client', cName, d.clientSignature, d.clientSignedAt);
-    y -= 8;
-    text('Generated with Cameras Decoded Contract Builder.', { size: 8, color: PDFLib.rgb(0.55, 0.55, 0.55) });
+    stampFooters();
     var pdfBytes = await pdfDoc.save();
     var blob = new Blob([pdfBytes], { type: 'application/pdf' });
     var a = document.createElement('a');
