@@ -975,6 +975,11 @@
         <h3 style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin:0 0 4px;">Portfolio</h3>
         <div class="pf-grid" id="ppPfGrid"></div>
       </div>
+
+      <div class="pp-card" id="ppSelectedWorkCard" style="display:none;margin-top:12px;">
+        <h3 style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin:0 0 8px;">Selected Work</h3>
+        <div id="ppSwGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+      </div>
     </div>
 
     <!-- ===== PROFILE CONTENT ===== -->
@@ -1017,6 +1022,23 @@
             <button type="button" class="pp-btn chasing-border" id="pfUnlockBtn">Unlock with Pro</button>
           </div>
           <input type="file" id="pfFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" />
+        </div>
+      </div>
+
+      <!-- Selected Work: showcased Deliver galleries (Pro) -->
+      <div class="card" id="selectedWorkCard" style="display:none;">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <span class="title-fallback">Selected Work</span>
+          </div>
+          <span class="pf-count" id="swCount">0 / 6</span>
+        </div>
+        <div id="swBody">
+          <div id="swGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+          <div id="swEmpty" style="display:none;text-align:center;padding:20px 0;">
+            <p style="font-size:13px;color:var(--text-dim);margin-bottom:12px;">Feature your best shoots on your profile.</p>
+            <a href="/deliver-builder.html" class="pp-btn" style="text-decoration:none;display:inline-block;">Open Deliver</a>
+          </div>
         </div>
       </div>
 
@@ -1795,6 +1817,7 @@
         setupCopyReferral();
         setupPortfolio();
         setupBusinessCard();
+        setupSelectedWork();
       }
     }
 
@@ -2401,6 +2424,93 @@
       };
     }
 
+    /* ---------- Selected Work: showcased Deliver galleries ---------- */
+    function swCardEl(doc, uid) {
+      var d = doc.data() || {};
+      var imgs = d.images || [];
+      var cover = imgs[d.showcaseCover || 0] || imgs[0] || '';
+      var el = document.createElement('div');
+      el.style.cssText = 'border-radius:12px;overflow:hidden;background:var(--card2);border:1px solid var(--border);cursor:pointer;';
+      var dt = '';
+      try {
+        var cd = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null;
+        if (cd) dt = cd.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+      } catch (e) {}
+      el.innerHTML =
+        '<div style="aspect-ratio:16/10;overflow:hidden;background:#14141a;">' +
+          (cover ? '<img src="' + cover + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">' : '') +
+        '</div>' +
+        '<div style="padding:10px 12px;">' +
+          '<div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escSw(d.title || 'Gallery') + '</div>' +
+          '<div style="font-size:11px;font-family:var(--mono);color:var(--text-faint);margin-top:2px;">' + imgs.length + ' photos' + (dt ? ' · ' + dt : '') + '</div>' +
+        '</div>';
+      el.onclick = function () {
+        window.location.href = '/deliver-view.html?u=' + uid + '&g=' + doc.id + '&showcase=1';
+      };
+      return el;
+    }
+    function escSw(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function swIsExpired(d) {
+      try {
+        return d.expiresAt && d.expiresAt.toDate && d.expiresAt.toDate() < new Date();
+      } catch (e) { return false; }
+    }
+    async function swLoad(uid) {
+      if (!window.db) return [];
+      try {
+        var snap = await window.db.collection('users').doc(uid).collection('galleries')
+          .where('showcase', '==', true).orderBy('showcaseAt', 'desc').limit(6).get();
+        var out = [];
+        snap.forEach(function (doc) {
+          var d = doc.data() || {};
+          if (!swIsExpired(d) && (d.images || []).length) out.push(doc);
+        });
+        return out;
+      } catch (e) {
+        console.warn('Selected Work load failed:', e);
+        return [];
+      }
+    }
+    // Own view
+    async function setupSelectedWork() {
+      var card = document.getElementById('selectedWorkCard');
+      if (!card || !window.auth || !window.auth.currentUser) return;
+      // Pro-only, same gate as portfolio
+      var isPro = false;
+      try {
+        if (window.CDPaywall && window.CDPaywall.isPro) isPro = window.CDPaywall.isPro();
+      } catch (e) {}
+      if (!isPro) return;
+      var uid = window.auth.currentUser.uid;
+      var docs = await swLoad(uid);
+      document.getElementById('swCount').textContent = docs.length + ' / 6';
+      var grid = document.getElementById('swGrid');
+      var empty = document.getElementById('swEmpty');
+      grid.innerHTML = '';
+      if (!docs.length) {
+        empty.style.display = 'block';
+      } else {
+        empty.style.display = 'none';
+        docs.forEach(function (doc) { grid.appendChild(swCardEl(doc, uid)); });
+      }
+      card.style.display = 'block';
+    }
+    // Public view
+    async function swRenderPublic(uid) {
+      var card = document.getElementById('ppSelectedWorkCard');
+      var grid = document.getElementById('ppSwGrid');
+      if (!card || !grid) return;
+      var docs = await swLoad(uid);
+      if (!docs.length) return;
+      grid.innerHTML = '';
+      docs.forEach(function (doc) { grid.appendChild(swCardEl(doc, uid)); });
+      card.style.display = 'block';
+    }
+
     async function pfRenderPublic(uid, displayName) {
       var card = document.getElementById('ppPortfolioCard');
       var grid = document.getElementById('ppPfGrid');
@@ -2458,6 +2568,9 @@
 
       // Portfolio showcase (public read)
       pfRenderPublic(info.uid, info.displayName || info.username);
+
+      // Selected Work: showcased galleries (public read)
+      swRenderPublic(info.uid);
 
       // Tappable stat lists (Facebook-style rows in a bottom sheet).
       var profileName = info.displayName || info.username || 'Operator';

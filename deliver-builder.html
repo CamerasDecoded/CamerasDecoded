@@ -154,6 +154,11 @@
     display: flex; align-items: center; justify-content: center;
   }
   .icon-btn.danger { color: var(--red); }
+  .icon-btn.showcased {
+    color: #8deb00; border-color: rgba(141,235,0,.4);
+    background: rgba(141,235,0,.08);
+    box-shadow: 0 0 12px rgba(141,235,0,.15);
+  }
   .empty-note { text-align: center; color: var(--text-faint); font-size: 13px; padding: 18px 0 6px; }
 
   /* Pro gate */
@@ -496,6 +501,35 @@ $('copyDeliverPageLink').addEventListener('click', function () {
   }
 });
 
+/* ---------- Showcase toggle (Selected Work on profile, max 6) ---------- */
+var MAX_SHOWCASE = 6;
+async function toggleShowcase(uid, gid, title, on) {
+  if (!window.db) return;
+  var col = window.db.collection('users').doc(uid).collection('galleries');
+  try {
+    if (on) {
+      var snap = await col.where('showcase', '==', true).get();
+      if (snap.size >= MAX_SHOWCASE) {
+        toast('You can showcase up to ' + MAX_SHOWCASE + ' shoots. Remove one first.');
+        return;
+      }
+      if (!confirm('Show "' + title + '" on your public profile? Anyone visiting your profile will see this gallery.')) return;
+      await col.doc(gid).update({
+        showcase: true,
+        showcaseAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      toast('Added to your profile showcase.');
+    } else {
+      await col.doc(gid).update({ showcase: false });
+      toast('Removed from showcase.');
+    }
+    loadGalleries();
+  } catch (e) {
+    console.warn('Showcase toggle failed:', e);
+    toast('Could not update showcase — try again.');
+  }
+}
+
 /* ---------- My galleries ---------- */
 async function loadGalleries() {
   var box = $('galList');
@@ -531,6 +565,16 @@ async function loadGalleries() {
       var acts = document.createElement('div');
       acts.className = 'g-actions';
       var link = 'https://camerasdecoded.com/deliver-view.html?u=' + uid + '&g=' + doc.id + '&t=' + (d.token || '');
+      // Showcase toggle (Selected Work on profile)
+      var sc = document.createElement('button');
+      var isShowcased = !!d.showcase;
+      sc.className = 'icon-btn' + (isShowcased ? ' showcased' : '');
+      sc.innerHTML = '<i class="fas fa-star"></i>';
+      sc.setAttribute('aria-label', isShowcased ? 'Remove from profile showcase' : 'Showcase on profile');
+      sc.title = isShowcased ? 'Showcased on your profile — tap to remove' : 'Showcase on your public profile';
+      sc.onclick = function () {
+        toggleShowcase(uid, doc.id, d.title || 'gallery', !isShowcased);
+      };
       var cp = document.createElement('button');
       cp.className = 'icon-btn'; cp.innerHTML = '<i class="fas fa-link"></i>';
       cp.setAttribute('aria-label', 'Copy share link');
@@ -547,7 +591,7 @@ async function loadGalleries() {
           .then(function () { toast('Gallery deleted.'); loadGalleries(); })
           .catch(function () { toast('Delete failed — try again.'); });
       };
-      acts.appendChild(cp); acts.appendChild(del);
+      acts.appendChild(sc); acts.appendChild(cp); acts.appendChild(del);
 
       row.appendChild(th); row.appendChild(info); row.appendChild(acts);
       box.appendChild(row);

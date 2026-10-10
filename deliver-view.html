@@ -373,21 +373,27 @@ function esc(s) {
 async function boot() {
   var q = new URLSearchParams(window.location.search);
   DV.uid = q.get('u'); DV.gid = q.get('g'); DV.token = q.get('t');
-  if (!DV.uid || !DV.gid || !DV.token) { show('viewInvalid'); return; }
+  DV.showcaseMode = q.get('showcase') === '1';
+  if (!DV.uid || !DV.gid || (!DV.token && !DV.showcaseMode)) { show('viewInvalid'); return; }
   if (!window.db) { show('viewInvalid'); return; }
 
   try {
     var snap = await window.db.collection('users').doc(DV.uid).collection('galleries').doc(DV.gid).get();
     if (!snap.exists) { show('viewInvalid'); return; }
     var d = snap.data() || {};
-    // Token gate
-    if (!d.token || d.token !== DV.token) { show('viewInvalid'); return; }
+    if (DV.showcaseMode) {
+      // Public showcase: must be explicitly marked, not expired. No token needed.
+      if (!d.showcase) { show('viewInvalid'); return; }
+    } else {
+      // Token gate
+      if (!d.token || d.token !== DV.token) { show('viewInvalid'); return; }
+    }
     // Expiry gate
     if (d.expiresAt && d.expiresAt.toDate && d.expiresAt.toDate() < new Date()) { show('viewExpired'); return; }
     DV.data = d;
     renderPass();
     renderGallery();
-    bumpViews();
+    if (!DV.showcaseMode) bumpViews();
   } catch (e) {
     console.warn('Gallery load failed:', e);
     show('viewInvalid');
@@ -474,7 +480,17 @@ function renderGallery() {
   }
   $('gPhotog').textContent = d.photographerName || 'Your photographer';
   $('gTitle').textContent = d.title || 'Gallery';
-  $('gMeta').textContent = imgs.length + (imgs.length === 1 ? ' photo' : ' photos');
+  var meta = imgs.length + (imgs.length === 1 ? ' photo' : ' photos');
+  if (DV.showcaseMode) meta += ' · Showcase';
+  $('gMeta').textContent = meta;
+
+  // Showcase mode: view-only, no downloads
+  if (DV.showcaseMode) {
+    var dlBar = document.querySelector('.dl-bar');
+    if (dlBar) dlBar.style.display = 'none';
+    var lbDl = $('lbDl');
+    if (lbDl) lbDl.style.display = 'none';
+  }
 
   var grid = $('grid');
   grid.innerHTML = '';
