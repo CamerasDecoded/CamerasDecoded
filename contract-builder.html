@@ -139,6 +139,18 @@
   }
   .cb-field textarea { min-height: 88px; resize: vertical; }
   .cb-field .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .cb-opt { color: var(--text-faint); text-transform: none; letter-spacing: 0; }
+  .cb-logo-row { display: flex; gap: 14px; align-items: flex-start; }
+  .cb-logo-preview {
+    width: 72px; height: 72px; object-fit: contain; border-radius: 12px;
+    background: #fff; border: 1px solid var(--border); padding: 6px; flex-shrink: 0;
+  }
+  .cb-logo-ctl input[type="file"] { padding: 10px 12px; font-size: 13px; }
+  .cb-link {
+    background: none; border: none; color: var(--text-dim); font-size: 13px;
+    padding: 0; margin-top: 8px; cursor: pointer; text-decoration: underline;
+  }
+  .hint.small { font-size: 12px; margin-top: 6px; }
 
   /* ============ CLAUSE TOGGLES ============ */
   .cb-clause {
@@ -344,6 +356,17 @@
     <div class="cb-field"><label>Email</label><input id="bizEmail" type="email" placeholder="you@studio.com"></div>
     <div class="cb-field"><label>Phone</label><input id="bizPhone" type="tel" placeholder="(555) 123-4567"></div>
     <div class="cb-field"><label>Address</label><input id="bizAddr" placeholder="Street, City, State ZIP"></div>
+    <div class="cb-field">
+      <label>Business Logo <span class="cb-opt">(optional)</span></label>
+      <div class="cb-logo-row">
+        <img id="bizLogoPreview" class="cb-logo-preview hidden" alt="Logo preview">
+        <div class="cb-logo-ctl">
+          <input type="file" id="bizLogo" accept="image/png,image/jpeg,image/jpg">
+          <div class="hint small">JPG or PNG, max 2MB. Prints at the top of your contracts.</div>
+          <button type="button" id="bizLogoRemove" class="cb-link hidden">Remove logo</button>
+        </div>
+      </div>
+    </div>
     <div class="cb-nav">
       <button class="cb-btn ghost" data-back>Back</button>
       <button class="cb-btn primary" data-next>Continue</button>
@@ -550,6 +573,7 @@ document.addEventListener('DOMContentLoaded', function () {
   bindNav();
   initSigPad();
   loadBusiness();
+  initLogoUpload();
   loadMyContracts();
 
   document.getElementById('proGateBtn').addEventListener('click', function () {
@@ -716,7 +740,8 @@ function saveStep(n) {
   if (n === 2) {
     CB.business = {
       name: val('bizName'), owner: val('bizOwner'), email: val('bizEmail'),
-      phone: val('bizPhone'), addr: val('bizAddr')
+      phone: val('bizPhone'), addr: val('bizAddr'),
+      logo: (CB.business && CB.business.logo) || ''
     };
     try { localStorage.setItem('cb_business', JSON.stringify(CB.business)); } catch (e) {}
     saveBusinessToFirestore();
@@ -743,6 +768,7 @@ function loadBusiness() {
       var el = document.getElementById('biz' + k);
       if (el && saved[k.toLowerCase()]) el.value = saved[k.toLowerCase()];
     });
+    if (saved.logo) { CB.business.logo = saved.logo; showLogoPreview(); }
   } catch (e) {}
   // Try Firestore profile
   try {
@@ -752,6 +778,7 @@ function loadBusiness() {
         var d = doc.data();
         if (d.businessName && !document.getElementById('bizName').value) document.getElementById('bizName').value = d.businessName;
         if (d.displayName && !document.getElementById('bizOwner').value) document.getElementById('bizOwner').value = d.displayName;
+        if (d.businessLogo && !CB.business.logo) { CB.business.logo = d.businessLogo; showLogoPreview(); }
       }).catch(function () {});
     }
   } catch (e) {}
@@ -764,10 +791,69 @@ function saveBusinessToFirestore() {
         businessName: CB.business.name || '',
         businessEmail: CB.business.email || '',
         businessPhone: CB.business.phone || '',
-        businessAddr: CB.business.addr || ''
+        businessAddr: CB.business.addr || '',
+        businessLogo: CB.business.logo || ''
       }, { merge: true }).catch(function () {});
     }
   } catch (e) {}
+}
+
+/* ================= LOGO UPLOAD ================= */
+// Logo is resized client-side (max 480px, JPEG on white) so the data URL
+// stays small enough for Firestore (~1MB doc limit) and the PDF.
+function initLogoUpload() {
+  var input = document.getElementById('bizLogo');
+  if (!input || input.dataset.cbInit) return;
+  input.dataset.cbInit = '1';
+  input.addEventListener('change', function () {
+    var f = input.files && input.files[0];
+    if (!f) return;
+    if (!/^image\/(png|jpe?g)$/i.test(f.type)) { toast('Logo must be JPG or PNG.'); input.value = ''; return; }
+    if (f.size > 2 * 1024 * 1024) { toast('Logo must be under 2MB.'); input.value = ''; return; }
+    var rd = new FileReader();
+    rd.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var maxW = 480;
+          var s = Math.min(1, maxW / img.width);
+          var w = Math.round(img.width * s), h = Math.round(img.height * s);
+          var cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          var cx = cv.getContext('2d');
+          cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, w, h);
+          cx.drawImage(img, 0, 0, w, h);
+          CB.business.logo = cv.toDataURL('image/jpeg', 0.85);
+          showLogoPreview();
+          try { localStorage.setItem('cb_business', JSON.stringify(CB.business)); } catch (e) {}
+          saveBusinessToFirestore();
+          toast('Logo saved.');
+        } catch (e) { toast('Could not process logo.'); }
+      };
+      img.onerror = function () { toast('Could not read logo file.'); };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+  });
+  var rm = document.getElementById('bizLogoRemove');
+  if (rm) rm.addEventListener('click', function () {
+    CB.business.logo = '';
+    input.value = '';
+    showLogoPreview();
+    try { localStorage.setItem('cb_business', JSON.stringify(CB.business)); } catch (e) {}
+    saveBusinessToFirestore();
+  });
+}
+
+function showLogoPreview() {
+  var pv = document.getElementById('bizLogoPreview');
+  var rm = document.getElementById('bizLogoRemove');
+  var has = !!(CB.business && CB.business.logo);
+  if (pv) {
+    if (has) { pv.src = CB.business.logo; pv.classList.remove('hidden'); }
+    else { pv.removeAttribute('src'); pv.classList.add('hidden'); }
+  }
+  if (rm) rm.classList.toggle('hidden', !has);
 }
 
 /* ================= REVIEW ================= */
@@ -892,10 +978,20 @@ async function generateContract() {
     var W = 612, M = 56, y = 740;
     var maxW = W - M * 2;
 
+    // ---- Polished doc palette ----
+    var CHARCOAL = PDFLib.rgb(0.10, 0.10, 0.10);   // #1a1a1a section headers
+    var BODY = PDFLib.rgb(0.16, 0.16, 0.16);
+    var ACCENT = PDFLib.rgb(0.16, 0.38, 0.28);     // deep green accent
+    var MUTED = PDFLib.rgb(0.52, 0.52, 0.52);
+    var BAND = PDFLib.rgb(0.955, 0.955, 0.955);    // section band shading
+    var HAIR = PDFLib.rgb(0.82, 0.82, 0.82);
+
+    function newPage() { page = pdfDoc.addPage([612, 792]); y = 740; }
+
     function text(str, opts) {
       opts = opts || {};
       var size = opts.size || 10, font = opts.bold ? helvB : helv;
-      var color = opts.color || PDFLib.rgb(0.12, 0.12, 0.12);
+      var color = opts.color || BODY;
       var lh = size * 1.45;
       // word wrap
       var words = String(str || '').split(' ');
@@ -907,38 +1003,87 @@ async function generateContract() {
       });
       if (line) lines.push(line);
       lines.forEach(function (ln) {
-        if (y < 70) { page = pdfDoc.addPage([612, 792]); y = 740; }
-        page.drawText(ln, { x: M, y: y, size: size, font: font, color: color });
+        if (y < 70) newPage();
+        var x = M;
+        if (opts.center) x = M + (maxW - font.widthOfTextAtSize(ln, size)) / 2;
+        page.drawText(ln, { x: x, y: y, size: size, font: font, color: color });
         y -= lh;
       });
       return y;
     }
-    function heading(str) { y -= 6; text(str, { size: 12, bold: true, color: PDFLib.rgb(0, 0, 0) }); y -= 2; }
+
+    // Shaded section band with deep-green accent tick
+    function section(str) {
+      y -= 12;
+      var bh = 25;
+      if (y < bh + 80) newPage();
+      var top = y;
+      page.drawRectangle({ x: M, y: top - bh, width: maxW, height: bh, color: BAND });
+      page.drawRectangle({ x: M, y: top - bh, width: 3.5, height: bh, color: ACCENT });
+      page.drawText(str, { x: M + 13, y: top - 17, size: 11, font: helvB, color: CHARCOAL });
+      y = top - bh - 12;
+    }
+
     function hr() {
-      if (y < 80) { page = pdfDoc.addPage([612, 792]); y = 740; }
-      page.drawLine({ start: { x: M, y: y }, end: { x: W - M, y: y }, thickness: 0.75, color: PDFLib.rgb(0.8, 0.8, 0.8) });
-      y -= 14;
+      if (y < 80) newPage();
+      page.drawLine({ start: { x: M, y: y }, end: { x: W - M, y: y }, thickness: 0.75, color: HAIR });
+      y -= 16;
+    }
+
+    // Business logo, centered at the top of the first page
+    async function drawLogo(dataUrl) {
+      if (!dataUrl) return;
+      try {
+        var bytes = await fetch(dataUrl).then(function (r) { return r.arrayBuffer(); });
+        var img = dataUrl.indexOf('data:image/png') === 0
+          ? await pdfDoc.embedPng(bytes) : await pdfDoc.embedJpg(bytes);
+        var s = Math.min(120 / img.width, 52 / img.height);
+        var w = img.width * s, h = img.height * s;
+        page.drawImage(img, { x: (W - w) / 2, y: y - h, width: w, height: h });
+        y -= h + 16;
+      } catch (e) { /* logo is decorative — never block the PDF */ }
+    }
+
+    // Letterhead: logo + centered title + accent bar
+    async function titleBlock(title, logoUrl) {
+      await drawLogo(logoUrl);
+      text(title, { size: 20, bold: true, color: CHARCOAL, center: true });
+      y -= 2;
+      var barW = 120;
+      page.drawLine({
+        start: { x: (W - barW) / 2, y: y }, end: { x: (W + barW) / 2, y: y },
+        thickness: 2.5, color: ACCENT
+      });
+      y -= 18;
+      text('This agreement is entered into on ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + ' by and between:', { size: 10, color: MUTED });
+      y -= 6;
+    }
+
+    function stampFooters() {
+      var pages = pdfDoc.getPages();
+      pages.forEach(function (pg, i) {
+        pg.drawLine({ start: { x: M, y: 52 }, end: { x: W - M, y: 52 }, thickness: 0.5, color: HAIR });
+        pg.drawText('Cameras Decoded  ·  Contract Builder', { x: M, y: 37, size: 8, font: helv, color: MUTED });
+        var pstr = 'Page ' + (i + 1) + ' of ' + pages.length;
+        var pw = helv.widthOfTextAtSize(pstr, 8);
+        pg.drawText(pstr, { x: W - M - pw, y: 37, size: 8, font: helv, color: MUTED });
+      });
     }
 
     // Title block
-    text(t.name.toUpperCase(), { size: 18, bold: true, color: PDFLib.rgb(0, 0, 0) });
-    y -= 4;
-    text('This agreement is entered into on ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + ' by and between:', { size: 10 });
-    y -= 8;
+    await titleBlock(t.name.toUpperCase(), CB.business.logo);
 
-    heading('PHOTOGRAPHER');
+    section('PHOTOGRAPHER');
     text(CB.business.name || ''); text(CB.business.owner || '');
     text(CB.business.email || ''); text(CB.business.phone || ''); text(CB.business.addr || '');
-    y -= 8;
 
-    heading(t.name === 'Model Release' ? 'MODEL' : 'CLIENT');
+    section(t.name === 'Model Release' ? 'MODEL' : 'CLIENT');
     t.clientFields.forEach(function (f) {
       var v = CB.client[f.id];
       if (v) text(f.label + ': ' + v);
     });
-    y -= 8;
 
-    heading('JOB DETAILS');
+    section('JOB DETAILS');
     t.jobFields.forEach(function (f) {
       var v = CB.job[f.id];
       if (!v) return;
@@ -946,9 +1091,8 @@ async function generateContract() {
       if (f.id === 'price' || f.id === 'deposit' || f.id === 'balance') disp = '$' + v;
       text(f.label + ': ' + disp);
     });
-    y -= 8;
 
-    heading('TERMS & CLAUSES');
+    section('TERMS & CLAUSES');
     var idx = 1;
     t.clauses.forEach(function (c) {
       var st = CB.clauses[c.id];
@@ -960,33 +1104,32 @@ async function generateContract() {
 
     hr();
     text('By signing below, both parties agree to the terms above.', { size: 10 });
-    y -= 16;
+    y -= 18;
 
     // Signature blocks
     async function sigBlock(label, nameVal, dataUrl) {
-      heading(label.toUpperCase() + ' SIGNATURE');
+      section(label.toUpperCase() + ' SIGNATURE');
       if (dataUrl) {
         try {
           var pngBytes = await fetch(dataUrl).then(function (r) { return r.arrayBuffer(); });
           var png = await pdfDoc.embedPng(pngBytes);
           var dims = png.scale(0.45);
-          if (y < dims.height + 90) { page = pdfDoc.addPage([612, 792]); y = 740; }
+          if (y < dims.height + 90) newPage();
           page.drawImage(png, { x: M, y: y - dims.height, width: dims.width, height: dims.height });
           y -= dims.height + 6;
         } catch (e) { /* fall through to line */ }
       }
-      page.drawLine({ start: { x: M, y: y }, end: { x: M + 220, y: y }, thickness: 1, color: PDFLib.rgb(0, 0, 0) });
-      y -= 14;
+      page.drawLine({ start: { x: M, y: y }, end: { x: M + 220, y: y }, thickness: 1, color: CHARCOAL });
+      y -= 15;
       text('Name: ' + (nameVal || ''), { size: 9.5 });
       text('Date: ' + new Date().toLocaleDateString('en-US'), { size: 9.5 });
-      y -= 10;
+      y -= 12;
     }
     await sigBlock('Photographer', CB.business.owner, CB.sigDataUrl);
     var clientName = CB.client.clientName || CB.client.modelName || '';
     await sigBlock(t.name === 'Model Release' ? 'Model' : 'Client', clientName, null);
 
-    y -= 8;
-    text('Generated with Cameras Decoded Contract Builder.', { size: 8, color: PDFLib.rgb(0.55, 0.55, 0.55) });
+    stampFooters();
 
     var pdfBytes = await pdfDoc.save();
     var blob = new Blob([pdfBytes], { type: 'application/pdf' });
@@ -1045,11 +1188,16 @@ async function saveContractRecord(t, fname) {
     var token = genSignToken();
     var onClauses = t.clauses.filter(function (c) { return CB.clauses[c.id] && CB.clauses[c.id].on; })
       .map(function (c) { return { id: c.id, title: c.title, body: CB.clauses[c.id].body }; });
+    // Logo lives top-level (businessLogo); strip it from the nested business
+    // object so the doc stays lean.
+    var biz = { name: CB.business.name, owner: CB.business.owner, email: CB.business.email,
+      phone: CB.business.phone, addr: CB.business.addr };
     await ref.set({
       template: CB.template,
       templateName: t.name,
       fileName: fname,
-      business: CB.business,
+      business: biz,
+      businessLogo: CB.business.logo || null,
       client: CB.client,
       job: CB.job,
       clauses: onClauses,
