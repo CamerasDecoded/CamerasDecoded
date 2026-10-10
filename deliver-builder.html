@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Deliver — Share Shoot Images — Cameras Decoded</title>
+<meta name="description" content="Deliver full-resolution shoot images straight to your client's device. Pro business toolkit.">
+<meta property="og:title" content="Deliver — Cameras Decoded Business Toolkit">
+<meta property="og:image" content="https://camerasdecoded.com/cameras-decoded-logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="/scripts/firebase-init.js?v=20261007b"></script>
+<style>
+  :root {
+    --bg: #08080a;
+    --card: #101014;
+    --card2: #14141a;
+    --border: rgba(255,255,255,.09);
+    --border-dim: rgba(255,255,255,.06);
+    --green: #8deb00;
+    --green-dim: rgba(141,235,0,.14);
+    --text: #f2f2f2;
+    --text-dim: rgba(255,255,255,.62);
+    --text-faint: rgba(255,255,255,.38);
+    --red: #ff5a5a;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Montserrat', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--sans);
+    min-height: 100dvh; display: block !important;
+    padding: 0 !important;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 76px) !important;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 48px) !important;
+  }
+  .hidden { display: none !important; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 0 18px; }
+
+  .page-title { margin-bottom: 6px; }
+  .page-title img { max-width: 230px; width: 100%; height: auto; display: block; }
+  .page-sub { font-size: 13px; color: var(--text-dim); margin-bottom: 22px; line-height: 1.6; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h2 .step-n {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--green-dim);
+    color: var(--green); font-size: 11px; display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--mono); letter-spacing: 0;
+  }
+
+  label.f-label { display: block; font-size: 12px; font-weight: 700; color: var(--text-dim); margin: 0 0 6px; letter-spacing: .04em; }
+  input[type="text"], select {
+    width: 100%; background: var(--card2); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text); font-family: var(--sans);
+    font-size: 15px; padding: 13px 14px; margin-bottom: 14px; outline: none;
+  }
+  input[type="text"]:focus, select:focus { border-color: var(--green); }
+  select { appearance: none; }
+  .hint { font-size: 12px; color: var(--text-faint); margin: -8px 0 14px; line-height: 1.5; }
+
+  /* Upload dropzone */
+  .dropzone {
+    border: 2px dashed var(--border); border-radius: 14px;
+    padding: 34px 18px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s; margin-bottom: 14px;
+  }
+  .dropzone:active, .dropzone.over { border-color: var(--green); background: rgba(141,235,0,.04); }
+  .dropzone .dz-ic { font-size: 30px; color: var(--green); margin-bottom: 10px; }
+  .dropzone .dz-t { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .dropzone .dz-s { font-size: 12px; color: var(--text-faint); font-family: var(--mono); }
+  .up-progress { font-size: 13px; font-family: var(--mono); color: var(--green); margin-bottom: 12px; }
+
+  .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .thumb { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-dim); background: var(--card2); }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .rm {
+    position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(0,0,0,.72); color: #fff; border: 1px solid var(--border);
+    font-size: 13px; line-height: 1; display: flex; align-items: center; justify-content: center;
+  }
+  .thumb.uploading { display: flex; align-items: center; justify-content: center; }
+  .thumb.uploading .spin {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid var(--border); border-top-color: var(--green);
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .btn {
+    display: inline-block; border: none; border-radius: 12px; font-family: var(--sans);
+    padding: 15px 28px; font-size: 15px; font-weight: 700; cursor: pointer;
+    background: rgba(255,255,255,.06); color: var(--text); border: 1px solid var(--border);
+    transition: transform .12s;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn.primary { background: var(--green); color: #0a0a0a; border: none; width: 100%; font-size: 16px; }
+  .btn:disabled { opacity: .45; }
+  .btnrow { display: flex; gap: 10px; }
+  .btnrow .btn { flex: 1; }
+
+  /* Chase border — single primary CTA only */
+  .chasing-border { position: relative; }
+  .chasing-border::before {
+    content: ""; position: absolute; inset: -2px; border-radius: 14px; padding: 2px;
+    background: conic-gradient(from var(--cb-a, 0deg), transparent 0 70%, var(--green) 85%, transparent 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    animation: cb-spin 2.4s linear infinite; pointer-events: none;
+  }
+  @property --cb-a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+  @keyframes cb-spin { to { --cb-a: 360deg; } }
+
+  /* Share link box */
+  .sharebox {
+    background: var(--card2); border: 1px solid var(--green); border-radius: 12px;
+    padding: 16px; margin-top: 6px;
+  }
+  .sharebox .sb-label { font-size: 11px; font-family: var(--mono); letter-spacing: .14em; color: var(--green); text-transform: uppercase; margin-bottom: 8px; }
+  .sharebox .sb-row { display: flex; gap: 8px; }
+  .sharebox input { margin-bottom: 0; font-family: var(--mono); font-size: 12px; flex: 1; }
+  .sharebox .btn { padding: 13px 18px; white-space: nowrap; }
+
+  /* My galleries */
+  .gal { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-dim); }
+  .gal:last-child { border-bottom: none; }
+  .gal .g-thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--card2); border: 1px solid var(--border-dim); }
+  .gal .g-info { flex: 1; min-width: 0; }
+  .gal .g-title { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gal .g-meta { font-size: 11px; font-family: var(--mono); color: var(--text-faint); margin-top: 3px; }
+  .gal .g-actions { display: flex; gap: 6px; }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--card2); color: var(--text-dim); font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn.danger { color: var(--red); }
+  .empty-note { text-align: center; color: var(--text-faint); font-size: 13px; padding: 18px 0 6px; }
+
+  /* Pro gate */
+  .progate { text-align: center; padding: 60px 24px; }
+  .progate .pg-ic {
+    width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 20px;
+    background: var(--green-dim); color: var(--green); font-size: 26px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .progate h1, .progate .pg-h { font-size: 24px; font-weight: 800; margin-bottom: 10px; }
+  .progate p { font-size: 14px; color: var(--text-dim); line-height: 1.7; max-width: 400px; margin: 0 auto 26px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+    transform: translateX(-50%); background: #1c1c22; border: 1px solid var(--border);
+    color: var(--text); font-size: 13px; padding: 12px 20px; border-radius: 12px;
+    opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 99; max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="page-title">
+    <img src="/custom-site-titles/deliver.png" alt="Deliver" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+    <span style="display:none;font-size:28px;font-weight:800;letter-spacing:-.01em;">Deliver</span>
+  </div>
+  <p class="page-sub">Share full-resolution shoot images straight to your client's device. One link, no account needed on their end.</p>
+
+  <!-- Pro gate -->
+  <div class="progate hidden" id="proGate">
+    <div class="pg-ic"><i class="fas fa-images"></i></div>
+    <div class="pg-h">Deliver is a Pro tool</div>
+    <p>Send galleries of full-resolution images to your clients with a single link. Branded with your logo, tracked views, expiry control.</p>
+    <button class="btn primary chasing-border" id="proGateBtn" style="max-width:320px;">Unlock with Pro</button>
+  </div>
+
+  <div id="builderUI" class="hidden">
+    <!-- Step 1: details -->
+    <div class="card">
+      <h2><span class="step-n">1</span> Gallery details</h2>
+      <label class="f-label" for="galTitle">Gallery title</label>
+      <input type="text" id="galTitle" placeholder="e.g. Smith Wedding — Final Images" maxlength="80">
+      <label class="f-label" for="galClient">Client name <span style="color:var(--text-faint);font-weight:400;">(optional)</span></label>
+      <input type="text" id="galClient" placeholder="e.g. Jane Smith" maxlength="80">
+      <label class="f-label" for="galExpiry">Link expiry</label>
+      <select id="galExpiry">
+        <option value="7">7 days</option>
+        <option value="30" selected>30 days</option>
+        <option value="0">Never expires</option>
+      </select>
+      <p class="hint">After expiry the link shows an "expired" notice. You can delete the gallery any time.</p>
+    </div>
+
+    <!-- Step 2: images -->
+    <div class="card">
+      <h2><span class="step-n">2</span> Images <span id="imgCount" style="font-family:var(--mono);color:var(--text-faint);letter-spacing:0;"></span></h2>
+      <div class="dropzone" id="dropzone">
+        <div class="dz-ic"><i class="fas fa-cloud-upload-alt"></i></div>
+        <div class="dz-t">Tap to add photos</div>
+        <div class="dz-s">JPG · PNG · WEBP — up to 50 images</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" multiple class="hidden">
+      <div class="up-progress hidden" id="upProgress"></div>
+      <div class="thumbs" id="thumbs"></div>
+    </div>
+
+    <!-- Step 3: create -->
+    <div class="card">
+      <h2><span class="step-n">3</span> Create &amp; share</h2>
+      <button class="btn primary chasing-border" id="createBtn">Create gallery</button>
+      <div class="sharebox hidden" id="shareBox" style="margin-top:14px;">
+        <div class="sb-label">Share this link with your client</div>
+        <div class="sb-row">
+          <input type="text" id="shareLink" readonly value="">
+          <button class="btn" id="copyBtn">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- My galleries -->
+    <div class="card">
+      <h2>My galleries</h2>
+      <div id="galList"><div class="empty-note">No galleries yet.</div></div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<script>
+/* ============================================================
+   Deliver builder (operator side, Pro-gated)
+   Uploads images to imgbb, saves gallery docs to
+   users/{uid}/galleries/{galleryId}.
+   Share link: deliver-view.html?u={uid}&g={galleryId}&t={token}
+   Token validated in page JS on the view side (rules can't see
+   URL params; doc IDs are unguessable auto-IDs).
+   ============================================================ */
+var IMGBB_API_KEY = '0b9201a8e4212a124013c23eb559936a';
+var MAX_IMAGES = 50;
+var MAX_MB = 10;
+
+var DB = {
+  images: [],      // {url, deleteUrl}
+  uploading: 0,
+  isPro: false
+};
+
+function $(id) { return document.getElementById(id); }
+function toast(msg) {
+  var t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, 2600);
+}
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function genToken() {
+  var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  var t = '';
+  try {
+    var a = new Uint32Array(32);
+    (window.crypto || window.msCrypto).getRandomValues(a);
+    for (var i = 0; i < 32; i++) t += chars[a[i] % chars.length];
+  } catch (e) {
+    for (var j = 0; j < 32; j++) t += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return t;
+}
+
+/* ---------- Pro gate ---------- */
+function checkPro() {
+  var pro = false;
+  try { pro = window.USER && String(window.USER.tier || '').toLowerCase() === 'pro'; } catch (e) {}
+  if (!pro && window.CDPaywall && window.CDPaywall.isPro) { try { pro = window.CDPaywall.isPro(); } catch (e) {} }
+  DB.isPro = !!pro;
+  $('proGate').classList.toggle('hidden', !!pro);
+  $('builderUI').classList.toggle('hidden', !pro);
+  if (pro) loadGalleries();
+}
+$('proGateBtn').addEventListener('click', function () {
+  if (window.CDPaywall && window.CDPaywall.show) window.CDPaywall.show();
+  else window.location.href = '/pro-checkout.html';
+});
+document.addEventListener('userStateReady', checkPro);
+setTimeout(checkPro, 2500); // backstop if event never fires
+
+/* ---------- Image upload ---------- */
+$('dropzone').addEventListener('click', function () { $('fileInput').click(); });
+$('fileInput').addEventListener('change', function () {
+  handleFiles(this.files);
+  this.value = '';
+});
+
+function handleFiles(files) {
+  var list = Array.prototype.slice.call(files || []);
+  if (!list.length) return;
+  var room = MAX_IMAGES - DB.images.length - DB.uploading;
+  if (room <= 0) { toast('Gallery is full (50 images max).'); return; }
+  list = list.slice(0, room);
+  list.forEach(function (f) {
+    if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { toast('Skipped non-image file: ' + f.name); return; }
+    if (f.size > MAX_MB * 1024 * 1024) { toast(f.name + ' is over ' + MAX_MB + 'MB — skipped.'); return; }
+    uploadOne(f);
+  });
+}
+
+function uploadOne(file) {
+  DB.uploading++;
+  renderThumbs();
+  var ph = document.createElement('div');
+  ph.className = 'thumb uploading';
+  ph.innerHTML = '<div class="spin"></div>';
+  ph.id = 'up_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+  $('thumbs').appendChild(ph);
+  updateProgress();
+
+  var form = new FormData();
+  form.append('image', file, file.name || 'deliver.jpg');
+  fetch('https://api.imgbb.com/1/upload?key=' + encodeURIComponent(IMGBB_API_KEY), { method: 'POST', body: form })
+    .then(function (res) { return res.json(); })
+    .then(function (json) {
+      if (!json || !json.success || !json.data || !json.data.url) throw new Error('upload failed');
+      DB.images.push({ url: json.data.url, deleteUrl: json.data.delete_url || null });
+    })
+    .catch(function () { toast('Upload failed for ' + file.name + ' — try again.'); })
+    .then(function () {
+      DB.uploading--;
+      var el = document.getElementById(ph.id);
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+      renderThumbs();
+      updateProgress();
+    });
+}
+
+function updateProgress() {
+  var p = $('upProgress');
+  if (DB.uploading > 0) {
+    p.textContent = 'Uploading… ' + DB.uploading + ' remaining';
+    p.classList.remove('hidden');
+  } else {
+    p.classList.add('hidden');
+  }
+  $('imgCount').textContent = DB.images.length ? '(' + DB.images.length + '/' + MAX_IMAGES + ')' : '';
+}
+
+function renderThumbs() {
+  var box = $('thumbs');
+  box.querySelectorAll('.thumb:not(.uploading)').forEach(function (n) { n.remove(); });
+  DB.images.forEach(function (im, i) {
+    var d = document.createElement('div');
+    d.className = 'thumb';
+    var img = document.createElement('img');
+    img.src = im.url; img.alt = 'Gallery image ' + (i + 1); img.loading = 'lazy';
+    var rm = document.createElement('button');
+    rm.className = 'rm'; rm.type = 'button'; rm.innerHTML = '&times;';
+    rm.setAttribute('aria-label', 'Remove image');
+    rm.onclick = function () { DB.images.splice(i, 1); renderThumbs(); updateProgress(); };
+    d.appendChild(img); d.appendChild(rm);
+    box.appendChild(d);
+  });
+  updateProgress();
+}
+
+/* ---------- Create gallery ---------- */
+$('createBtn').addEventListener('click', async function () {
+  var title = $('galTitle').value.trim();
+  if (!title) { toast('Give your gallery a title first.'); $('galTitle').focus(); return; }
+  if (!DB.images.length) { toast('Add at least one image.'); return; }
+  if (DB.uploading > 0) { toast('Wait for uploads to finish.'); return; }
+  if (!window.db || !window.auth || !window.auth.currentUser) { toast('Sign in to create a gallery.'); return; }
+
+  var btn = $('createBtn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    var uid = window.auth.currentUser.uid;
+    var token = genToken();
+    var expDays = parseInt($('galExpiry').value, 10);
+    var expiresAt = null;
+    if (expDays > 0) expiresAt = new Date(Date.now() + expDays * 24 * 3600 * 1000);
+
+    // Photographer branding: prefer saved business info (contract builder), fall back to profile
+    var photographerName = (window.USER && window.USER.name) || 'Your photographer';
+    var businessLogo = null;
+    try {
+      var biz = JSON.parse(localStorage.getItem('cb_business') || '{}');
+      if (biz.name) photographerName = biz.name;
+      if (biz.logo) businessLogo = biz.logo;
+    } catch (e) {}
+
+    var ref = window.db.collection('users').doc(uid).collection('galleries').doc();
+    await ref.set({
+      title: title,
+      clientName: $('galClient').value.trim() || null,
+      images: DB.images.map(function (im) { return im.url; }),
+      photographerName: photographerName,
+      businessLogo: businessLogo,
+      token: token,
+      expiresAt: expiresAt,
+      viewCount: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    var link = 'https://camerasdecoded.com/deliver-view.html?u=' + uid + '&g=' + ref.id + '&t=' + token;
+    $('shareLink').value = link;
+    $('shareBox').classList.remove('hidden');
+    toast('Gallery created — share the link.');
+
+    // Reset for next gallery
+    DB.images = [];
+    $('galTitle').value = ''; $('galClient').value = '';
+    renderThumbs();
+    loadGalleries();
+  } catch (e) {
+    console.warn('Gallery create failed:', e);
+    toast('Could not create gallery — try again.');
+  }
+  btn.disabled = false; btn.textContent = 'Create gallery';
+});
+
+$('copyBtn').addEventListener('click', function () {
+  var i = $('shareLink');
+  i.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(i.value).catch(function () {});
+  }
+  toast('Link copied.');
+});
+
+/* ---------- My galleries ---------- */
+async function loadGalleries() {
+  var box = $('galList');
+  if (!window.db || !window.auth || !window.auth.currentUser) return;
+  var uid = window.auth.currentUser.uid;
+  try {
+    var snap = await window.db.collection('users').doc(uid).collection('galleries')
+      .orderBy('createdAt', 'desc').limit(30).get();
+    if (snap.empty) { box.innerHTML = '<div class="empty-note">No galleries yet.</div>'; return; }
+    box.innerHTML = '';
+    snap.forEach(function (doc) {
+      var d = doc.data() || {};
+      var row = document.createElement('div');
+      row.className = 'gal';
+
+      var th = document.createElement('img');
+      th.className = 'g-thumb';
+      th.src = (d.images && d.images[0]) || '';
+      th.alt = '';
+      th.loading = 'lazy';
+
+      var info = document.createElement('div');
+      info.className = 'g-info';
+      var n = (d.images || []).length;
+      var exp = 'Never expires';
+      if (d.expiresAt && d.expiresAt.toDate) {
+        var ed = d.expiresAt.toDate();
+        exp = ed < new Date() ? 'Expired' : 'Expires ' + ed.toLocaleDateString();
+      }
+      info.innerHTML = '<div class="g-title">' + esc(d.title) + '</div>' +
+        '<div class="g-meta">' + n + ' photos · ' + (d.viewCount || 0) + ' views · ' + esc(exp) + '</div>';
+
+      var acts = document.createElement('div');
+      acts.className = 'g-actions';
+      var link = 'https://camerasdecoded.com/deliver-view.html?u=' + uid + '&g=' + doc.id + '&t=' + (d.token || '');
+      var cp = document.createElement('button');
+      cp.className = 'icon-btn'; cp.innerHTML = '<i class="fas fa-link"></i>';
+      cp.setAttribute('aria-label', 'Copy share link');
+      cp.onclick = function () {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).catch(function () {});
+        toast('Link copied.');
+      };
+      var del = document.createElement('button');
+      del.className = 'icon-btn danger'; del.innerHTML = '<i class="fas fa-trash"></i>';
+      del.setAttribute('aria-label', 'Delete gallery');
+      del.onclick = function () {
+        if (!confirm('Delete "' + (d.title || 'gallery') + '"? The share link will stop working.')) return;
+        window.db.collection('users').doc(uid).collection('galleries').doc(doc.id).delete()
+          .then(function () { toast('Gallery deleted.'); loadGalleries(); })
+          .catch(function () { toast('Delete failed — try again.'); });
+      };
+      acts.appendChild(cp); acts.appendChild(del);
+
+      row.appendChild(th); row.appendChild(info); row.appendChild(acts);
+      box.appendChild(row);
+    });
+  } catch (e) {
+    console.warn('Galleries load failed:', e);
+  }
+}
+</script>
+</body>
+</html>
