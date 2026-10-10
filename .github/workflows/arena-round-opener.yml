@@ -1,0 +1,46 @@
+name: Arena Round Opener
+
+# Nightly backstop: creates tomorrow's daily challenge round doc
+# (arenaRounds/c-YYYY-MM-DD, America/Chicago) the evening before, so the
+# Arena never falls back to "practice mode" for lack of a round.
+#
+# This complements the arena-closer's openNextRounds phase: it is
+# idempotent (skips when the round already exists) and will NOT invent
+# prompts — the arenaPrompts/{date} doc must exist or the run logs and
+# exits cleanly. Seed prompts via the seed-arena workflow.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   FIREBASE_SERVICE_ACCOUNT — whole service-account JSON (already exists;
+#                            same secret the arena/launch-qa workflows use).
+#
+# Manual trigger available via workflow_dispatch (opens tomorrow's round).
+
+on:
+  schedule:
+    # Daily at 04:30 UTC = 11:30 PM CDT (10:30 PM CST) — before the
+    # midnight Central rollover the client uses for round lookup.
+    - cron: '30 4 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  open-round:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install firebase-admin
+
+      - name: Open tomorrow's round
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          python3 ${{ github.workspace }}/tools/arena-round-opener/opener.py 2>&1 | tail -30
