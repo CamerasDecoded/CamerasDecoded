@@ -90,6 +90,7 @@
     color: var(--text-dim); cursor: pointer;
   }
   .tb-btn:active { background: rgba(255,255,255,0.07); color: var(--text); }
+  .tb-btn svg { pointer-events: none; }
   .tb-btn:disabled { opacity: 0.25; }
   .tb-btn.on { color: var(--green); }
   .tb-btn svg { width: 19px; height: 19px; }
@@ -616,12 +617,7 @@
     <button id="modeLearn">Learn</button>
   </div>
   <div class="tb-enginedot" id="engineDot" title="Engine status"></div>
-  <button class="tb-btn" id="btnCopy" aria-label="Copy settings">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-  </button>
-  <button class="tb-btn" id="btnPaste" aria-label="Paste settings">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
-  </button>
+
   <button class="tb-export" id="btnSave">Export</button>
 </div>
 <input type="file" id="fileInput" accept="image/*">
@@ -1185,41 +1181,6 @@ window.addEventListener('error', function(e) {
       statusEl.textContent = 'Export failed';
     }
   }
-  let copiedSettings = null;
-  $('btnCopy').addEventListener('click', async () => {
-    if (!original) return;
-    copiedSettings = JSON.stringify({ S: JSON.parse(JSON.stringify(S)), masks: JSON.parse(JSON.stringify(masks)), maskSeq });
-    try { await navigator.clipboard.writeText(copiedSettings); } catch (e) {}
-    statusEl.textContent = 'Settings copied';
-    setTimeout(() => { if (statusEl.textContent === 'Settings copied') statusEl.textContent = ''; }, 1500);
-  });
-  $('btnPaste').addEventListener('click', async () => {
-    if (!original) return;
-    let data = copiedSettings;
-    if (!data) {
-      try { data = await navigator.clipboard.readText(); } catch (e) {}
-    }
-    if (!data) { statusEl.textContent = 'Nothing to paste'; return; }
-    try {
-      const o = JSON.parse(data);
-      if (!o.S) throw new Error('bad data');
-      for (const k of Object.keys(S)) {
-        if (k === 'mixer') { for (const b of BANDS) S.mixer[b] = { ...o.S.mixer[b] }; }
-        else if (o.S[k] !== undefined) S[k] = o.S[k];
-      }
-      masks = o.masks || [];
-      maskSeq = o.maskSeq || (masks.length + 1);
-      activeMaskId = null;
-      pushHistory();
-      renderPanel();
-      drawMaskOverlay();
-      scheduleRender();
-      statusEl.textContent = 'Settings pasted';
-      setTimeout(() => { if (statusEl.textContent === 'Settings pasted') statusEl.textContent = ''; }, 1500);
-    } catch (err) {
-      statusEl.textContent = 'Paste failed';
-    }
-  });
   $('btnSave').addEventListener('click', () => {
     if (!original) return;
     $('fmtSheet').classList.add('open');
