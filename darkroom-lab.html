@@ -480,31 +480,6 @@
   }
   .mask-newbtn:active { background: rgba(141,235,0,0.16); }
   .mask-newbtn svg { width: 16px; height: 16px; }
-  .mask-newrow { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-  .mask-newrow .mask-newbtn { flex: 1 1 28%; }
-  .mask-presets { margin-bottom: 12px; }
-  .mask-preset-row { display: flex; gap: 6px; }
-  .mask-presetbtn {
-    flex: 1; padding: 9px 4px; border-radius: 12px; cursor: pointer;
-    background: linear-gradient(180deg, rgba(141,235,0,0.14), rgba(141,235,0,0.05));
-    border: 1px solid rgba(141,235,0,0.35); color: #e8f5d0;
-    font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
-  }
-  .mask-presetbtn:active { background: rgba(141,235,0,0.22); }
-  .mask-lumbar {
-    position: relative; height: 14px; border-radius: 7px; margin: 4px 0 10px;
-    background: linear-gradient(90deg, #000 0%, #555 50%, #fff 100%);
-    border: 1px solid var(--border);
-  }
-  .mask-lumfill {
-    position: absolute; top: 0; bottom: 0; border-radius: 6px;
-    background: rgba(141,235,0,0.35); border: 1px solid rgba(141,235,0,0.7);
-  }
-  .mask-swatch {
-    width: 28px; height: 28px; border-radius: 8px; display: inline-block;
-    border: 1px solid var(--border); vertical-align: middle;
-  }
-  #maskOverlay.sampling { cursor: crosshair; }
   .mask-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
   .mask-row {
     display: flex; align-items: center; gap: 8px;
@@ -769,7 +744,6 @@
   let activeMaskId = null;      // selected mask for adjustments
   let maskPaintMode = null;     // 'brush' while painting strokes
   let maskDrawMode = null;      // 'linear' | 'radial' while placing a shape
-  let maskSampleMode = null;    // 'color' while eyedropper sampling
   let brushSize = 0.06;         // fraction of image long edge
   let brushFeather = 50;        // 0..100
   let brushErase = false;       // add vs erase
@@ -1481,16 +1455,10 @@
   const SVG_BRUSH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 12.5l-5 5a2.1 2.1 0 0 0 3 3l5-5"/><path d="M14.5 7.5l2-2a1.8 1.8 0 0 1 2.5 0l1 1a1.8 1.8 0 0 1 0 2.5l-2 2L14.5 7.5z"/><path d="M14.5 7.5L9.5 12.5"/></svg>';
   const SVG_LINEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2" opacity="0.35"/><path d="M12 19V5"/><path d="M9 8l3-3 3 3"/></svg>';
   const SVG_RADIAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="12" rx="8" ry="5.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>';
-  const SVG_LUMINANCE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2" opacity="0.35"/><path d="M7 15l3-4 2 2 3-5 2 3"/><path d="M7 18h10"/></svg>';
-  const SVG_COLOR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="14" cy="9" r="1.2" fill="currentColor" opacity="0.6"/><circle cx="15" cy="14" r="1.2" fill="currentColor" opacity="0.35"/></svg>';
   const SVG_EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
   const SVG_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
   function shapeIcon(kind) {
-    if (kind === 'linear') return SVG_LINEAR;
-    if (kind === 'radial') return SVG_RADIAL;
-    if (kind === 'luminanceRange') return SVG_LUMINANCE;
-    if (kind === 'colorRange') return SVG_COLOR;
-    return SVG_BRUSH;
+    return kind === 'linear' ? SVG_LINEAR : kind === 'radial' ? SVG_RADIAL : SVG_BRUSH;
   }
 
   /* ---- coordinate mapping (object-fit: cover) ---- */
@@ -1515,59 +1483,10 @@
     };
   }
 
-  /* ---- RGB to OkLab (for color range sampling) ---- */
-  function rgbToOkLab(r, g, b) {
-    // sRGB 0..255 -> linear
-    const toLin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-    const rl = toLin(r), gl = toLin(g), bl = toLin(b);
-    // linear sRGB -> LMS
-    const l = 0.4122214708 * rl + 0.5363325363 * gl + 0.0514459929 * bl;
-    const m = 0.2119034982 * rl + 0.6806995451 * gl + 0.1073969566 * bl;
-    const s = 0.0883024619 * rl + 0.2817188376 * gl + 0.6299787005 * bl;
-    // LMS -> LMS'
-    const l_ = Math.cbrt(l), m_ = Math.cbrt(m), s_ = Math.cbrt(s);
-    // LMS' -> OkLab
-    return [
-      0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
-      1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
-      0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
-    ];
-  }
-  function okLabToRgbCss(lab) {
-    // OkLab -> linear sRGB -> sRGB 0..255 css
-    const [L, a, b] = lab;
-    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
-    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
-    const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
-    const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
-    const rl = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-    const gl = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-    const bl = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
-    const toS = c => { c = Math.min(1, Math.max(0, c)); return Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055)); };
-    return `${toS(rl)},${toS(gl)},${toS(bl)}`;
-  }
-  function samplePhotoColor(normX, normY) {
-    // sample from the displayed canvas
-    const cv = $('mainCanvas');
-    if (!cv) return null;
-    const t = coverTransform(maskGeom());
-    const px = Math.round(t.ox + normX * t.dw), py = Math.round(t.oy + normY * t.dh);
-    const g = cv.getContext('2d', { willReadFrequently: true });
-    if (!g) return null;
-    const scaleX = cv.width / t.dw, scaleY = cv.height / t.dh;
-    const sx = Math.round((px - t.ox) * scaleX), sy = Math.round((py - t.oy) * scaleY);
-    try {
-      const d = g.getImageData(Math.max(0, sx - 2), Math.max(0, sy - 2), 5, 5).data;
-      let r = 0, gg = 0, b = 0, n = 0;
-      for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; }
-      return { r: Math.round(r / n), g: Math.round(gg / n), b: Math.round(b / n) };
-    } catch (e) { return null; }
-  }
-
   /* ---- mask CRUD ---- */
   function createMask(kind) {
     const n = maskSeq++;
-    const label = kind === 'brush' ? 'Brush' : kind === 'linear' ? 'Linear' : kind === 'radial' ? 'Radial' : kind === 'luminanceRange' ? 'Luminance' : 'Color';
+    const label = kind === 'brush' ? 'Brush' : kind === 'linear' ? 'Linear' : 'Radial';
     const m = {
       id: n, name: label + ' ' + n, visible: true, invert: false,
       components: [], adjust: newMaskAdjust(),
@@ -1575,50 +1494,15 @@
     masks.push(m);
     activeMaskId = m.id;
     if (kind === 'brush') {
-      maskPaintMode = 'brush'; maskDrawMode = null; maskSampleMode = null;
+      maskPaintMode = 'brush'; maskDrawMode = null;
       m.components.push({ op: 'add', invert: false, shape: { kind: 'brush', strokes: [] } });
-    } else if (kind === 'luminanceRange') {
-      maskPaintMode = null; maskDrawMode = null; maskSampleMode = null;
-      m.components.push({ op: 'add', invert: false, shape: { kind: 'luminanceRange', lo: 0.0, hi: 1.0, lo_feather: 0.15, hi_feather: 0.15 } });
-    } else if (kind === 'colorRange') {
-      maskPaintMode = null; maskDrawMode = null; maskSampleMode = 'color';
-      m.components.push({ op: 'add', invert: false, shape: { kind: 'colorRange', samples: [], refine: 50 } });
     } else {
-      maskPaintMode = null; maskDrawMode = kind; maskSampleMode = null;
+      maskPaintMode = null; maskDrawMode = kind;
     }
     updateMaskOverlayMode();
     pushHistory();
     renderMaskPanel($('panelContent'));
     drawMaskOverlay();
-  }
-  function applyPreset(which) {
-    const n = maskSeq++;
-    const m = { id: n, name: '', visible: true, invert: false, components: [], adjust: newMaskAdjust() };
-    if (which === 'sky') {
-      m.name = 'Darken Sky ' + n;
-      m.components.push({ op: 'add', invert: false, shape: {
-        kind: 'linear', start: { x: 0.5, y: 0.0 }, end: { x: 0.5, y: 0.55 } } });
-      m.adjust.exposure = -0.7; m.adjust.highlights = -30;
-    } else if (which === 'subject') {
-      m.name = 'Pop Subject ' + n;
-      m.components.push({ op: 'add', invert: false, shape: {
-        kind: 'radial', center: { x: 0.5, y: 0.5 }, rx: 0.28, ry: 0.28,
-        angle: 0, feather: 60, invert: false } });
-      m.adjust.exposure = 0.3; m.adjust.clarity = 20; m.adjust.saturation = 10;
-    } else if (which === 'vignette') {
-      m.name = 'Vignette ' + n;
-      m.invert = true;
-      m.components.push({ op: 'add', invert: false, shape: {
-        kind: 'radial', center: { x: 0.5, y: 0.5 }, rx: 0.75, ry: 0.75,
-        angle: 0, feather: 80, invert: false } });
-      m.adjust.exposure = -0.5;
-    }
-    masks.push(m);
-    activeMaskId = m.id;
-    maskPaintMode = null; maskDrawMode = null; maskSampleMode = null;
-    updateMaskOverlayMode();
-    pushHistory(); scheduleRender(); drawMaskOverlay();
-    renderMaskPanel($('panelContent'));
   }
   function deleteMask(id) {
     masks = masks.filter(m => m.id !== id);
@@ -1632,13 +1516,10 @@
 
   /* ---- overlay visualization ---- */
   function updateMaskOverlayMode() {
-    const painting = !!original && !!activeMask() && (maskPaintMode === 'brush' || !!maskDrawMode || maskSampleMode === 'color');
+    const painting = !!original && !!activeMask() && (maskPaintMode === 'brush' || !!maskDrawMode);
     maskOverlay.classList.toggle('painting', painting);
-    maskOverlay.classList.toggle('sampling', maskSampleMode === 'color');
   }
   function rasterizeShape(octx, shape, mw, mh, geom) {
-    // value-based masks (luminance/color range) have no spatial geometry to draw
-    if (shape.kind === 'luminanceRange' || shape.kind === 'colorRange') return;
     const W = original.width, H = original.height;
     const t = coverTransform(geom);
     const fx = mw / geom.rect.width, fy = mh / geom.rect.height;
@@ -1766,22 +1647,6 @@
       drawCurrent = Object.assign({}, drawAnchor);
       try { maskOverlay.setPointerCapture(e.pointerId); } catch (err) {}
       drawMaskOverlay();
-    } else if (maskSampleMode === 'color') {
-      e.preventDefault(); e.stopPropagation();
-      const geom = maskGeom();
-      const p = clientToNorm(e.clientX, e.clientY, geom);
-      const rgb = samplePhotoColor(p.x, p.y);
-      if (rgb && m) {
-        const lab = rgbToOkLab(rgb.r, rgb.g, rgb.b);
-        const comp = m.components[0];
-        if (comp && comp.shape.kind === 'colorRange') {
-          comp.shape.samples.push([+lab[0].toFixed(4), +lab[1].toFixed(4), +lab[2].toFixed(4)]);
-          maskSampleMode = null; // one tap samples; tap "Sample" again for more
-          updateMaskOverlayMode(); drawMaskOverlay();
-          pushHistory(); scheduleRender();
-          if (activeDock === 'mask') renderMaskPanel($('panelContent'));
-        }
-      }
     }
   });
   maskOverlay.addEventListener('pointermove', e => {
@@ -1914,21 +1779,11 @@
       return;
     }
     // main list view
-    let html = `<div class="mask-presets">
-        <div class="mask-sec-label">One-tap presets</div>
-        <div class="mask-preset-row">
-          <button class="mask-presetbtn" id="mkPresetSky"><span>Darken Sky</span></button>
-          <button class="mask-presetbtn" id="mkPresetSubject"><span>Pop Subject</span></button>
-          <button class="mask-presetbtn" id="mkPresetVignette"><span>Vignette</span></button>
-        </div>
-      </div>
-      <div class="mask-sec-label">New mask</div>
+    let html = `<div class="mask-sec-label">New mask</div>
       <div class="mask-newrow">
         <button class="mask-newbtn" id="mkNewBrush">${SVG_BRUSH}<span>Brush</span></button>
         <button class="mask-newbtn" id="mkNewLinear">${SVG_LINEAR}<span>Linear</span></button>
         <button class="mask-newbtn" id="mkNewRadial">${SVG_RADIAL}<span>Radial</span></button>
-        <button class="mask-newbtn" id="mkNewLuminance">${SVG_LUMINANCE}<span>Luminance</span></button>
-        <button class="mask-newbtn" id="mkNewColor">${SVG_COLOR}<span>Color</span></button>
       </div>`;
     if (!masks.length) {
       html += `<div class="mask-empty">Selective edits, exactly where you want them.<br>Pick a brush, gradient, or radial mask above.</div>`;
@@ -1941,11 +1796,10 @@
           if (c.shape.kind === 'brush') units += c.shape.strokes.length;
           else units += 1;
         }
-        const kindLabel = compKind === 'luminanceRange' ? 'luminance' : compKind === 'colorRange' ? 'color' : compKind;
         html += `
         <div class="mask-row ${mask.id === activeMaskId ? 'active' : ''}" data-mask="${mask.id}">
           <span class="mshape">${shapeIcon(compKind)}</span>
-          <span class="mname">${escHtml(mask.name)}<span class="msub">${kindLabel} &middot; ${units} ${units === 1 ? 'unit' : 'units'}</span></span>
+          <span class="mname">${escHtml(mask.name)}<span class="msub">${compKind} &middot; ${units} ${units === 1 ? 'unit' : 'units'}</span></span>
           <button class="miconbtn ${mask.visible === false ? 'off' : ''}" data-act="vis" aria-label="Toggle visibility">${SVG_EYE}</button>
           <button class="miconbtn danger" data-act="del" aria-label="Delete mask">${SVG_TRASH}</button>
         </div>`;
@@ -1953,39 +1807,6 @@
       html += `</div>`;
     }
     if (m) {
-      const mKind = m.components.length ? m.components[0].shape.kind : 'brush';
-      // range-specific config panels
-      if (mKind === 'luminanceRange') {
-        const sh = m.components[0].shape;
-        const lo = Math.round(sh.lo * 100), hi = Math.round(sh.hi * 100);
-        const fe = Math.round(((sh.lo_feather + sh.hi_feather) / 2) * 100);
-        html += `<div class="mask-sec-label">Luminance range &mdash; ${escHtml(m.name)}</div>
-          <div class="mask-lumbar"><div class="mask-lumfill" id="mkLumFill" style="left:${lo}%;width:${hi - lo}%"></div></div>
-          <div class="mask-ctl-row" style="margin-bottom:7px;"><span class="ms-label">Shadows</span>
-            <input type="range" class="big" id="mkLumLo" min="0" max="100" step="1" value="${lo}">
-            <span class="ms-val" id="mkLumLoV">${lo}</span></div>
-          <div class="mask-ctl-row" style="margin-bottom:7px;"><span class="ms-label">Highlights</span>
-            <input type="range" class="big" id="mkLumHi" min="0" max="100" step="1" value="${hi}">
-            <span class="ms-val" id="mkLumHiV">${hi}</span></div>
-          <div class="mask-ctl-row" style="margin-bottom:7px;"><span class="ms-label">Feather</span>
-            <input type="range" class="big" id="mkLumFe" min="0" max="100" step="1" value="${fe}">
-            <span class="ms-val" id="mkLumFeV">${fe}</span></div>
-          <div class="mask-hintline">Masks pixels by brightness. Narrow the range to target just shadows or highlights.</div>`;
-      } else if (mKind === 'colorRange') {
-        const sh = m.components[0].shape;
-        const nSamp = sh.samples.length;
-        const last = nSamp ? sh.samples[nSamp - 1] : null;
-        html += `<div class="mask-sec-label">Color range &mdash; ${escHtml(m.name)}</div>
-          <div class="mask-ctl-row" style="margin-bottom:7px;"><span class="ms-label">Samples</span>
-            <span class="ms-val">${nSamp} color${nSamp === 1 ? '' : 's'}</span>
-            <button class="mask-donebtn" id="mkSampleBtn" style="margin:0;padding:6px 14px;">${maskSampleMode === 'color' ? 'Tap photo…' : 'Sample'}</button></div>
-          ${last ? `<div class="mask-ctl-row" style="margin-bottom:7px;"><span class="ms-label">Last sample</span>
-            <span class="mask-swatch" style="background:rgb(${okLabToRgbCss(last)})"></span></div>` : ''}
-          <div class="mask-ctl-row" style="margin-bottom:7px;"><span class="ms-label">Tolerance</span>
-            <input type="range" class="big" id="mkColorRef" min="0" max="100" step="1" value="${Math.round(sh.refine)}">
-            <span class="ms-val" id="mkColorRefV">${Math.round(sh.refine)}</span></div>
-          <div class="mask-hintline">Tap Sample, then tap a color in the photo. Higher tolerance catches more similar tones.</div>`;
-      }
       html += `<div class="mask-sec-label">Adjust &mdash; ${escHtml(m.name)}</div>
         <div class="mask-toggle-row"><span class="ms-label">Show overlay</span>
           <div class="mask-switch ${showMaskOverlay ? 'on' : ''}" id="mkOverlaySw2"></div></div>
@@ -2003,11 +1824,6 @@
     $('mkNewBrush').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } createMask('brush'); });
     $('mkNewLinear').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } createMask('linear'); });
     $('mkNewRadial').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } createMask('radial'); });
-    $('mkNewLuminance').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } createMask('luminanceRange'); });
-    $('mkNewColor').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } createMask('colorRange'); });
-    $('mkPresetSky').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } applyPreset('sky'); });
-    $('mkPresetSubject').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } applyPreset('subject'); });
-    $('mkPresetVignette').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } applyPreset('vignette'); });
     pc.querySelectorAll('.mask-row').forEach(row => {
       row.addEventListener('click', e => {
         const id = parseInt(row.dataset.mask, 10);
@@ -2040,52 +1856,6 @@
       inv.classList.toggle('on', m.invert);
       pushHistory(); scheduleRender(); drawMaskOverlay();
     });
-    // luminance range controls
-    const lumLo = $('mkLumLo'), lumHi = $('mkLumHi'), lumFe = $('mkLumFe');
-    if (lumLo && m && m.components[0] && m.components[0].shape.kind === 'luminanceRange') {
-      const sh = m.components[0].shape;
-      const syncFill = () => {
-        const fill = $('mkLumFill');
-        if (fill) { fill.style.left = (sh.lo * 100) + '%'; fill.style.width = ((sh.hi - sh.lo) * 100) + '%'; }
-      };
-      lumLo.addEventListener('input', () => {
-        sh.lo = Math.min(parseFloat(lumLo.value) / 100, sh.hi);
-        $('mkLumLoV').textContent = Math.round(sh.lo * 100);
-        syncFill(); scheduleRender();
-      });
-      lumLo.addEventListener('change', () => pushHistory());
-      lumHi.addEventListener('input', () => {
-        sh.hi = Math.max(parseFloat(lumHi.value) / 100, sh.lo);
-        $('mkLumHiV').textContent = Math.round(sh.hi * 100);
-        syncFill(); scheduleRender();
-      });
-      lumHi.addEventListener('change', () => pushHistory());
-      lumFe.addEventListener('input', () => {
-        const f = parseFloat(lumFe.value) / 100;
-        sh.lo_feather = f; sh.hi_feather = f;
-        $('mkLumFeV').textContent = lumFe.value;
-        scheduleRender();
-      });
-      lumFe.addEventListener('change', () => pushHistory());
-    }
-    // color range controls
-    const colRef = $('mkColorRef'), sampBtn = $('mkSampleBtn');
-    if (colRef && m && m.components[0] && m.components[0].shape.kind === 'colorRange') {
-      const sh = m.components[0].shape;
-      colRef.addEventListener('input', () => {
-        sh.refine = parseFloat(colRef.value);
-        $('mkColorRefV').textContent = colRef.value;
-        scheduleRender();
-      });
-      colRef.addEventListener('change', () => pushHistory());
-    }
-    if (sampBtn && m) {
-      sampBtn.addEventListener('click', () => {
-        maskSampleMode = maskSampleMode === 'color' ? null : 'color';
-        updateMaskOverlayMode(); drawMaskOverlay();
-        renderMaskPanel(pc);
-      });
-    }
     pc.querySelectorAll('[data-madj]').forEach(sl => {
       const id = sl.dataset.madj;
       const def = MASK_ADJUSTS.find(a => a.id === id);
@@ -2332,9 +2102,14 @@
     } catch (e) {}
   })();
   (async () => {
+    const timeout = (ms, label) => new Promise((_, rej) =>
+      setTimeout(() => rej(new Error('Timeout: ' + label)), ms));
     try {
-      const mod = await import('/scripts/wasm/cd_wasm.js?v=20261008a');
-      await mod.default();
+      const mod = await Promise.race([
+        import('/scripts/wasm/cd_wasm.js?v=20261008a'),
+        timeout(15000, 'WASM JS load')
+      ]);
+      await Promise.race([mod.default(), timeout(15000, 'WASM init')]);
       wasm = mod;
       engineDot.classList.add('live');
       engineDot.title = 'Rust engine live';
@@ -2342,8 +2117,9 @@
       statusEl.classList.add('live');
     } catch (err) {
       console.error('WASM load failed:', err);
-      engineDot.title = 'Engine failed to load';
-      statusEl.textContent = 'WASM failed';
+      engineDot.title = 'Engine failed to load: ' + (err.message || err);
+      statusEl.textContent = 'Engine failed: ' + (err.message || 'unknown');
+      statusEl.classList.add('error');
       return;
     }
     loadSamplePhoto();
