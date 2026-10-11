@@ -1187,19 +1187,19 @@ window.addEventListener('error', function(e) {
     }
   }
   let copiedSettings = null;
-  $('btnCopy').addEventListener('click', async () => {
+  $('btnCopy').addEventListener('click', () => {
     if (!original) return;
     copiedSettings = JSON.stringify({ S: JSON.parse(JSON.stringify(S)), masks: JSON.parse(JSON.stringify(masks)), maskSeq });
-    try { await navigator.clipboard.writeText(copiedSettings); } catch (e) {}
     statusEl.textContent = 'Settings copied';
     setTimeout(() => { if (statusEl.textContent === 'Settings copied') statusEl.textContent = ''; }, 1500);
-  });
-  $('btnPaste').addEventListener('click', async () => {
-    if (!original) return;
-    let data = copiedSettings;
-    if (!data) {
-      try { data = await navigator.clipboard.readText(); } catch (e) {}
+    // Clipboard in background — don't block on iOS quirks
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(copiedSettings).catch(() => {});
     }
+  });
+  $('btnPaste').addEventListener('click', () => {
+    if (!original) return;
+    const data = copiedSettings;
     if (!data) { statusEl.textContent = 'Nothing to paste'; return; }
     try {
       const o = JSON.parse(data);
