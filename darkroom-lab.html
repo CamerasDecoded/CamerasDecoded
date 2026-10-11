@@ -118,6 +118,21 @@
     margin-left: 2px;
   }
   .tb-export:active { background: rgba(141,235,0,0.2); }
+  .fmt-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 200; display: none;
+    background: rgba(12,14,10,0.97); border-top: 1px solid var(--border);
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); backdrop-filter: blur(12px); }
+  .fmt-sheet.open { display: block; }
+  .fmt-title { font: 600 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px; text-align: center; }
+  .fmt-row { display: flex; gap: 10px; }
+  .fmt-btn { flex: 1; padding: 14px; border-radius: 14px; border: 1px solid var(--border);
+    background: rgba(141,235,0,0.08); color: #e8f5d0; font: 600 13px var(--mono);
+    letter-spacing: 0.04em; cursor: pointer; }
+  .fmt-btn small { display: block; font-weight: 400; font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .fmt-btn:active { background: rgba(141,235,0,0.18); }
+  .fmt-cancel { width: 100%; margin-top: 10px; padding: 12px; border-radius: 14px;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    font: 600 13px var(--mono); cursor: pointer; }
 
   /* ============ MODE TOGGLE ============ */
   .modebar {
@@ -1136,18 +1151,22 @@ window.addEventListener('error', function(e) {
   $('btnBack').addEventListener('click', () => {
     window.location.href = '/darkroom.html';
   });
-  $('btnSave').addEventListener('click', async () => {
+  async function doExport(fmt) {
     if (!original) return;
     render();
+    $('fmtSheet').classList.remove('open');
     statusEl.textContent = 'Preparing export\u2026';
     try {
-      const blob = await new Promise(res => cvAfter.toBlob(res, 'image/png'));
+      const isJpg = fmt === 'jpeg';
+      const mime = isJpg ? 'image/jpeg' : 'image/png';
+      const ext = isJpg ? 'jpg' : 'png';
+      const blob = await new Promise(res => cvAfter.toBlob(res, mime, isJpg ? 0.92 : undefined));
       if (!blob) throw new Error('encode failed');
-      const file = new File([blob], 'cd-develop.png', { type: 'image/png' });
+      const file = new File([blob], 'cd-develop.' + ext, { type: mime });
       // iOS Safari: programmatic <a download> clicks are ignored — use Share sheet
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Develop Lab export' });
-        statusEl.textContent = 'Shared';
+        statusEl.textContent = 'Shared ' + ext.toUpperCase();
         return;
       }
       // Fallback: open in new tab (user can long-press to save)
@@ -1160,7 +1179,14 @@ window.addEventListener('error', function(e) {
       console.error('Export failed:', err);
       statusEl.textContent = 'Export failed';
     }
+  }
+  $('btnSave').addEventListener('click', () => {
+    if (!original) return;
+    $('fmtSheet').classList.add('open');
   });
+  $('fmtPng').addEventListener('click', () => doExport('png'));
+  $('fmtJpg').addEventListener('click', () => doExport('jpeg'));
+  $('fmtCancel').addEventListener('click', () => $('fmtSheet').classList.remove('open'));
 
   /* ================= panel + dock ================= */
   const LOCK_GLYPH = '<span class="tlock">\u25cf</span>'; // gold dot marker
@@ -2376,5 +2402,13 @@ window.addEventListener('error', function(e) {
   })();
   window.addEventListener('resize', () => { if (original) fitCanvases(); });
 </script>
+  <div class="fmt-sheet" id="fmtSheet">
+    <div class="fmt-title">Export format</div>
+    <div class="fmt-row">
+      <button class="fmt-btn" id="fmtPng">PNG<small>Lossless &middot; larger file</small></button>
+      <button class="fmt-btn" id="fmtJpg">JPEG<small>Smaller &middot; share-ready</small></button>
+    </div>
+    <button class="fmt-cancel" id="fmtCancel">Cancel</button>
+  </div>
 </body>
 </html><!-- rebuild trigger 2 -->
