@@ -738,6 +738,12 @@
 <script src="/scripts/user-state.js?v=20261002a"></script>
 <script src="/scripts/bottom-nav.js?v=20260924c"></script>
 <script src="/scripts/ptr.js?v=20261004a"></script>
+<script>
+window.addEventListener('error', function(e) {
+  var s = document.getElementById('status');
+  if (s) { s.textContent = 'JS Error: ' + (e.message || 'unknown'); s.classList.add('error'); }
+}, true);
+</script>
 <script type="module">
   const $ = id => document.getElementById(id);
     // Detect Safari browser mode (not standalone PWA) for URL bar clearance
@@ -1130,16 +1136,30 @@
   $('btnBack').addEventListener('click', () => {
     window.location.href = '/darkroom.html';
   });
-  $('btnSave').addEventListener('click', () => {
+  $('btnSave').addEventListener('click', async () => {
     if (!original) return;
     render();
-    const a = document.createElement('a');
-    a.download = 'cd-develop.png';
-    a.href = cvAfter.toDataURL('image/png');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    statusEl.textContent = 'Exported PNG';
+    statusEl.textContent = 'Preparing export\u2026';
+    try {
+      const blob = await new Promise(res => cvAfter.toBlob(res, 'image/png'));
+      if (!blob) throw new Error('encode failed');
+      const file = new File([blob], 'cd-develop.png', { type: 'image/png' });
+      // iOS Safari: programmatic <a download> clicks are ignored — use Share sheet
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Develop Lab export' });
+        statusEl.textContent = 'Shared';
+        return;
+      }
+      // Fallback: open in new tab (user can long-press to save)
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      statusEl.textContent = 'Opened in new tab';
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      if (err && err.name === 'AbortError') { statusEl.textContent = 'Export cancelled'; return; }
+      console.error('Export failed:', err);
+      statusEl.textContent = 'Export failed';
+    }
   });
 
   /* ================= panel + dock ================= */
@@ -1591,7 +1611,7 @@
     renderMaskPanel($('panelContent'));
     drawMaskOverlay();
   }
-  function applyMaskPreset(which) {
+  function applyPreset(which) {
     const n = maskSeq++;
     const m = { id: n, name: '', visible: true, invert: false, components: [], adjust: newMaskAdjust() };
     if (which === 'sky') {
@@ -2005,9 +2025,9 @@
     $('mkNewRadial').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } createMask('radial'); });
     $('mkNewLuminance').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } createMask('luminanceRange'); });
     $('mkNewColor').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } createMask('colorRange'); });
-    $('mkPresetSky').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } applyMaskPreset('sky'); });
-    $('mkPresetSubject').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } applyMaskPreset('subject'); });
-    $('mkPresetVignette').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } applyMaskPreset('vignette'); });
+    $('mkPresetSky').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } applyPreset('sky'); });
+    $('mkPresetSubject').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } applyPreset('subject'); });
+    $('mkPresetVignette').addEventListener('click', () => { if (!isPro) { showPaywall(); return; } applyPreset('vignette'); });
     pc.querySelectorAll('.mask-row').forEach(row => {
       row.addEventListener('click', e => {
         const id = parseInt(row.dataset.mask, 10);
