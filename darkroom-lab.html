@@ -336,6 +336,16 @@
   }
 
   /* ============ PRESETS ============ */
+  .preset-save-btn { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 12px;
+    border: 1px dashed rgba(141,235,0,0.4); background: rgba(141,235,0,0.06);
+    color: #8deb00; font: 600 12px var(--mono); letter-spacing: 0.04em; cursor: pointer; }
+  .preset-save-btn:active { background: rgba(141,235,0,0.12); }
+  .preset-section-head { font: 600 10px var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); margin: 14px 0 8px; }
+  .user-preset { position: relative; }
+  .preset-del { position: absolute; top: 4px; right: 8px; font-size: 18px; color: var(--muted);
+    padding: 4px 8px; cursor: pointer; }
+  .preset-del:active { color: #ff6b6b; }
   .preset-strip {
     display: flex; gap: 10px; overflow-x: auto;
     padding: 2px 2px 10px; scrollbar-width: none;
@@ -1349,6 +1359,50 @@ window.addEventListener('error', function(e) {
   }
 
   /* ================= presets ================= */
+  const USER_PRESET_KEY = 'cd_develop_user_presets';
+  function fbDb() {
+    try { return (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) ? firebase.firestore() : null; }
+    catch (e) { return null; }
+  }
+  function fbUser() {
+    try { return (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) ? firebase.auth().currentUser : null; }
+    catch (e) { return null; }
+  }
+  async function loadUserPresets() {
+    const db = fbDb(), user = fbUser();
+    if (db && user) {
+      try {
+        const snap = await db.collection('users').doc(user.uid).collection('developPresets').orderBy('createdAt', 'desc').get();
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      } catch (e) { /* fall through to local */ }
+    }
+    try { return JSON.parse(localStorage.getItem(USER_PRESET_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+  async function saveUserPreset(preset) {
+    const db = fbDb(), user = fbUser();
+    if (db && user) {
+      try {
+        const ref = await db.collection('users').doc(user.uid).collection('developPresets').add({
+          ...preset, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        return ref.id;
+      } catch (e) { /* fall through to local */ }
+    }
+    const list = JSON.parse(localStorage.getItem(USER_PRESET_KEY) || '[]');
+    list.unshift({ id: 'u' + Date.now(), ...preset });
+    try { localStorage.setItem(USER_PRESET_KEY, JSON.stringify(list)); } catch (e) {}
+    return null;
+  }
+  async function deleteUserPreset(id) {
+    const db = fbDb(), user = fbUser();
+    if (db && user && !String(id).startsWith('u')) {
+      try { await db.collection('users').doc(user.uid).collection('developPresets').doc(id).delete(); return; }
+      catch (e) { /* fall through */ }
+    }
+    const list = JSON.parse(localStorage.getItem(USER_PRESET_KEY) || '[]').filter(x => x.id !== id);
+    try { localStorage.setItem(USER_PRESET_KEY, JSON.stringify(list)); } catch (e) {}
+  }
   const PRESETS = [
     { name: 'None', desc: 'Clear any preset \u2014 back to the unedited original.', s: {}, none: true },
     { name: 'Golden Hour', desc: 'Warms highlights, lifts shadows. <em>See how temperature shapes mood.</em>',
@@ -1368,7 +1422,7 @@ window.addEventListener('error', function(e) {
     { name: 'Noir', desc: 'Crushed blacks, stark contrast. <em>When less light says more.</em>',
       s: { saturation: -85, contrast: 25, curveS: -20, vignette: -40 } },
   ];
-  function renderPresetPanel(pc) {
+  async function renderPresetPanel(pc) {
     const wrap = document.createElement('div');
     wrap.style.position = 'relative';
     wrap.innerHTML = `
@@ -1394,6 +1448,65 @@ window.addEventListener('error', function(e) {
       wrap.appendChild(veil);
       return;
     }
+    // Save current button
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'preset-save-btn';
+    saveBtn.innerHTML = '+ Save current as preset';
+    saveBtn.addEventListener('click', async () => {
+      if (!original) return;
+      const name = prompt('Name this preset:', 'My look');
+      if (!name || !name.trim()) return;
+      await saveUserPreset({
+        name: name.trim().slice(0, 30),
+        s: JSON.parse(JSON.stringify(S)),
+        masks: JSON.parse(JSON.stringify(masks)),
+      });
+      renderPresetPanel(pc);
+      statusEl.textContent = 'Preset saved';
+    });
+    strip.appendChild(saveBtn);
+    // User presets section
+    const userPresets = await loadUserPresets();
+    if (userPresets.length) {
+      const uh = document.createElement('div');
+      uh.className = 'preset-section-head';
+      uh.textContent = 'Your presets';
+      strip.appendChild(uh);
+    }
+    const ucards = userPresets.map(p => {
+      const el = document.createElement('button');
+      el.className = 'preset-card user-preset';
+      el.innerHTML = `<div class="preset-name">${p.name}</div><div class="preset-del" data-id="${p.id}">\u00d7</div>`;
+      el.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('preset-del')) {
+          e.stopPropagation();
+          if (!confirm('Delete "' + p.name + '"?')) return;
+          await deleteUserPreset(p.id);
+          renderPresetPanel(pc);
+          return;
+        }
+        if (!wasm || !original) return;
+        pushHistory();
+        for (const k of Object.keys(S)) {
+          if (k === 'mixer') { for (const b of BANDS) S.mixer[b] = { ...p.s.mixer[b] }; }
+          else if (p.s[k] !== undefined) S[k] = p.s[k];
+        }
+        masks = p.masks ? JSON.parse(JSON.stringify(p.masks)) : [];
+        maskSeq = masks.length + 1;
+        activeMaskId = null;
+        renderPanel();
+        drawMaskOverlay();
+        scheduleRender();
+        statusEl.textContent = 'Applied "' + p.name + '"';
+      });
+      strip.appendChild(el);
+      return el;
+    });
+    // Built-in presets
+    const bh = document.createElement('div');
+    bh.className = 'preset-section-head';
+    bh.textContent = userPresets.length ? 'Studio presets' : '';
+    if (userPresets.length) strip.appendChild(bh);
     // skeleton placeholders, then build thumbs async
     const cards = PRESETS.map(p => {
       const el = document.createElement('button');
