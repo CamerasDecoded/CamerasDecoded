@@ -272,6 +272,41 @@ async function closeRound(db, roundRef, round) {
     });
   } catch (e) {}
 
+  // crew battles: aggregate member scores by crew (best-effort)
+  try {
+    const crewsSnap = await db.collection("groups").where("type", "==", "crew").get();
+    let topCrew = null;
+    for (const crewDoc of crewsSnap.docs) {
+      const crew = crewDoc.data();
+      const membersSnap = await crewDoc.ref.collection("members").get();
+      let crewTotal = 0, crewVotes = 0;
+      for (const m of membersSnap.docs) {
+        const tally = tallies.find((t) => t.entryId === m.id);
+        if (tally) { crewTotal += tally.weightedTotal; crewVotes += tally.voteCount; }
+      }
+      if (membersSnap.size >= 3 && (!topCrew || crewTotal > topCrew.total)) {
+        topCrew = { id: crewDoc.id, name: crew.name || "Crew", total: crewTotal, votes: crewVotes };
+      }
+    }
+    if (topCrew && topCrew.total > 0) {
+      batch.set(db.collection("feedItems").doc(), {
+        type: "arena_winner",
+        actorUid: "crew:" + topCrew.id,
+        actorName: topCrew.name,
+        text: topCrew.name + " won the crew battle with " + topCrew.total + " combined votes",
+        targetType: "arena_round",
+        targetId: roundId,
+        createdAt: FieldValue.serverTimestamp(),
+        visibility: "public",
+      });
+      batch.set(db.collection("crewBattles").doc(roundId), {
+        roundId, crewId: topCrew.id, crewName: topCrew.name,
+        total: topCrew.total, votes: topCrew.votes,
+        closedAt: FieldValue.serverTimestamp(),
+      });
+    }
+  } catch (e) {}
+
   batch.update(roundRef, { state: "closed", winnerEntryId, winnerUid });
   await batch.commit();
   log(
