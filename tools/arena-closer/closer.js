@@ -256,6 +256,22 @@ async function closeRound(db, roundRef, round) {
     batch.set(entry.ref, { authorName: name }, { merge: true });
   }
 
+  // feed: announce the winner (best-effort)
+  try {
+    const winnerEntry = entries.find((e) => e.entryId === winnerEntryId);
+    batch.set(db.collection("feedItems").doc(), {
+      type: "arena_winner",
+      actorUid: winnerUid,
+      actorName: winnerName,
+      text: winnerName + " won the Arena",
+      imageUrl: (winnerEntry && winnerEntry.imgUrl) || null,
+      targetType: "arena_round",
+      targetId: roundId,
+      createdAt: FieldValue.serverTimestamp(),
+      visibility: "public",
+    });
+  } catch (e) {}
+
   batch.update(roundRef, { state: "closed", winnerEntryId, winnerUid });
   await batch.commit();
   log(
