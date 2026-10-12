@@ -73,6 +73,23 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 .feed-action{display:inline-block;font-family:var(--font-d);font-size:12px;color:var(--green);
   text-decoration:none;border:1px solid var(--green-border);border-radius:8px;padding:8px 14px;
   background:var(--green-soft)}
+/* editorial cards */
+.feed-card.editorial{border-color:rgba(141,235,0,.2);background:linear-gradient(135deg,var(--surface),#0c120a)}
+.ed-title{font-size:17px;font-weight:800;line-height:1.3;margin-bottom:6px}
+.ed-excerpt{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:10px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ed-meta{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ed-cta{display:inline-block;font-family:var(--font-d);font-size:12px;color:#0a0a0a;
+  background:var(--green);text-decoration:none;border-radius:8px;padding:10px 18px;font-weight:700}
+/* spotlight */
+.feed-card.spotlight{border-color:rgba(245,192,68,.3);background:linear-gradient(135deg,var(--surface),#141007)}
+.spot-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.spot-avatar{width:52px;height:52px;border-radius:50%;background:var(--surface-2);
+  border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-d);font-size:20px;color:var(--gold);flex-shrink:0;overflow:hidden}
+.spot-avatar img{width:100%;height:100%;object-fit:cover}
+.spot-name{font-weight:800;font-size:16px}
+.spot-label{font-family:var(--font-d);font-size:10px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
 .feed-empty{text-align:center;padding:60px 20px;color:var(--muted)}
 .filter-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
 .filter-tab{flex-shrink:0;font-family:var(--font-d);font-size:11px;letter-spacing:.06em;
@@ -184,13 +201,59 @@ async function loadFeed() {
     const snap = await db.collection('feedItems').orderBy('createdAt','desc').limit(50).get();
     feedList.innerHTML = '';
     const types = FILTER_TYPES[activeFilter];
+    /* slot ranking: featured first, then interleave editorial every 4th */
+    const items = [];
+    snap.forEach(doc => {
+      const d = doc.data(); d._id = doc.id;
+      if(types && !types.includes(d.type)) return;
+      items.push(d);
+    });
+    const featured = items.filter(d => d.type === 'featured_operator');
+    const editorial = items.filter(d => ['blog_post','protocol','podcast'].includes(d.type));
+    const social = items.filter(d => !['featured_operator','blog_post','protocol','podcast'].includes(d.type));
+    const ordered = [...featured];
+    let ei = 0;
+    social.forEach((d, i) => {
+      ordered.push(d);
+      if((i+1) % 4 === 0 && ei < editorial.length) ordered.push(editorial[ei++]);
+    });
+    while(ei < editorial.length) ordered.push(editorial[ei++]);
+
     let shown = 0;
     const frag = document.createDocumentFragment();
-    snap.forEach(doc => {
-      const d = doc.data();
-      if(types && !types.includes(d.type)) return;
+    ordered.forEach(d => {
       shown++;
+      frag.appendChild(renderCard(d));
+    });
+
+    function renderCard(d){
       const el = document.createElement('div');
+      /* editorial: title-forward */
+      if(['blog_post','protocol','podcast'].includes(d.type)){
+        el.className = 'feed-card editorial';
+        el.innerHTML =
+          `<div class="ed-meta"><div class="feed-type">${esc(TYPE_LABELS[d.type]||d.type)}</div>`+
+          `<div class="feed-time">${timeAgo(d.createdAt)}</div></div>`+
+          (d.title ? `<div class="ed-title">${esc(d.title)}</div>` : '')+
+          (d.text ? `<div class="ed-excerpt">${esc(d.text)}</div>` : '')+
+          (d.imageUrl ? `<img class="feed-image" src="${esc(d.imageUrl)}" loading="lazy" alt=""/>` : '')+
+          (d.actionUrl ? `<a class="ed-cta" href="${esc(d.actionUrl)}">${esc(d.actionLabel||'Read')}</a>` : '');
+        return el;
+      }
+      /* spotlight: profile-forward */
+      if(d.type === 'featured_operator'){
+        el.className = 'feed-card spotlight';
+        const av = d.actorAvatar ? `<img src="${esc(d.actorAvatar)}" alt=""/>` : esc((d.actorName||'?')[0].toUpperCase());
+        el.innerHTML =
+          `<div class="spot-head"><div class="spot-avatar">${av}</div>`+
+          `<div><div class="spot-label">Featured Operator</div>`+
+          `<div class="spot-name">${esc(d.actorName||'Operator')}</div></div></div>`+
+          (d.text ? `<div class="feed-text">${esc(d.text)}</div>` : '')+
+          (d.imageUrl ? `<img class="feed-image" src="${esc(d.imageUrl)}" loading="lazy" alt=""/>` : '')+
+          (d.actionUrl ? `<a class="feed-action" href="${esc(d.actionUrl)}">${esc(d.actionLabel||'View Profile')}</a>` : '');
+        return el;
+      }
+      /* social: default */
       el.className = 'feed-card';
       const typeCls = d.type === 'arena_winner' ? 'feed-type winner' : 'feed-type';
       const avatarHtml = d.actorAvatar ? `<img src="${esc(d.actorAvatar)}" alt=""/>` : esc((d.actorName||'?')[0].toUpperCase());
@@ -204,8 +267,8 @@ async function loadFeed() {
         (d.text ? `<div class="feed-text">${esc(d.text)}</div>` : '') +
         (d.imageUrl ? `<img class="feed-image" src="${esc(d.imageUrl)}" loading="lazy" alt=""/>` : '') +
         (d.actionUrl ? `<a class="feed-action" href="${esc(d.actionUrl)}">${esc(d.actionLabel||'View')}</a>` : '');
-      frag.appendChild(el);
-    });
+      return el;
+    }
     if (shown === 0) {
       const msg = activeFilter === 'all'
         ? 'Nothing here yet.<br/>Enter the Arena or hit a milestone to light up the feed.'
