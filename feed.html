@@ -74,6 +74,18 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   text-decoration:none;border:1px solid var(--green-border);border-radius:8px;padding:8px 14px;
   background:var(--green-soft)}
 .feed-empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.filter-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
+.filter-tab{flex-shrink:0;font-family:var(--font-d);font-size:11px;letter-spacing:.06em;
+background:var(--surface);border:1px solid var(--border);color:var(--muted);
+border-radius:20px;padding:8px 16px;cursor:pointer}
+.filter-tab.active{background:var(--green-soft);border-color:var(--green-border);color:var(--green)}
+.composer{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+padding:14px;margin-bottom:16px}
+.composer textarea{width:100%;background:var(--surface-2);border:1px solid var(--border);
+border-radius:10px;color:var(--text);font-family:var(--font-b);font-size:14px;
+padding:12px;min-height:60px;resize:vertical;margin-bottom:10px}
+.composer button{background:var(--green);border:none;color:#0a0a0a;border-radius:8px;
+padding:10px 20px;font-family:var(--font-d);font-size:12px;font-weight:700;cursor:pointer}
 .feed-empty .big{font-size:40px;margin-bottom:12px}
 .feed-loading{text-align:center;padding:40px;color:var(--muted-2);font-family:var(--font-d);font-size:13px}
 @media(min-width:768px){.feed-wrap{padding-top:24px}}
@@ -86,13 +98,24 @@ body{display:block !important;justify-content:normal !important;align-items:norm
         onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
       <h1 hidden>FEED</h1>
     </div>
+    <div class="filter-tabs" id="filterTabs">
+      <button class="filter-tab active" data-f="all">All</button>
+      <button class="filter-tab" data-f="arena">Arena</button>
+      <button class="filter-tab" data-f="clubs">Clubs</button>
+      <button class="filter-tab" data-f="ideas">Ideas</button>
+      <button class="filter-tab" data-f="milestones">Milestones</button>
+    </div>
+    <div class="composer" id="composer" style="display:none">
+      <textarea id="composerText" maxlength="300" placeholder="Share something with the community…"></textarea>
+      <button id="composerPost">Post</button>
+    </div>
     <div id="feedList"><div class="feed-loading">Loading the signal…</div></div>
   </div>
 
 <script>
 (function(){
 const feedList = document.getElementById('feedList');
-const TYPE_LABELS = { arena_entry:'Arena Entry', arena_winner:'Winner', xp_milestone:'Milestone', club_post:'Club', suggestion:'Idea' };
+const TYPE_LABELS = { arena_entry:'Arena Entry', arena_winner:'Winner', xp_milestone:'Milestone', club_post:'Club', suggestion:'Idea', post:'Post' };
 
 function timeAgo(ts) {
   if (!ts) return '';
@@ -105,21 +128,66 @@ function timeAgo(ts) {
 }
 function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 
+let activeFilter = 'all';
+const FILTER_TYPES = {
+  all: null,
+  arena: ['arena_entry','arena_winner'],
+  clubs: ['club_post'],
+  ideas: ['suggestion'],
+  milestones: ['xp_milestone']
+};
+document.getElementById('filterTabs').addEventListener('click', function(e){
+  const b = e.target.closest('.filter-tab');
+  if(!b) return;
+  document.querySelectorAll('.filter-tab').forEach(function(t){ t.classList.remove('active'); });
+  b.classList.add('active');
+  activeFilter = b.dataset.f;
+  loadFeed();
+});
+/* composer */
+function updateComposer(){
+  const u = (typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length)
+    ? firebase.auth().currentUser : null;
+  document.getElementById('composer').style.display = u ? 'block' : 'none';
+}
+document.getElementById('composerPost').onclick = async function(){
+  const text = document.getElementById('composerText').value.trim();
+  if(!text) return;
+  const u = firebase.auth().currentUser;
+  if(!u) return;
+  const userName = (window.USER&&window.USER.name)||u.displayName||'Operator';
+  try{
+    await firebase.firestore().collection('feedItems').add({
+      type: 'post', actorUid: u.uid, actorName: userName, text: text,
+      targetType: 'profile', targetId: u.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      visibility: 'public'
+    });
+    document.getElementById('composerText').value = '';
+    activeFilter = 'all';
+    document.querySelectorAll('.filter-tab').forEach(function(t){
+      t.classList.toggle('active', t.dataset.f==='all');
+    });
+    loadFeed();
+  }catch(e){}
+};
 async function loadFeed() {
   try {
     if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
       feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
       return;
     }
+    updateComposer();
     const db = firebase.firestore();
     const snap = await db.collection('feedItems').orderBy('createdAt','desc').limit(50).get();
-    if (snap.empty) {
-      feedList.innerHTML = '<div class="feed-empty"><div class="big">◌</div><div>Nothing here yet.<br/>Enter the Arena or hit a milestone to light up the feed.</div></div>';
-      return;
-    }
     feedList.innerHTML = '';
+    const types = FILTER_TYPES[activeFilter];
+    let shown = 0;
+    const frag = document.createDocumentFragment();
     snap.forEach(doc => {
       const d = doc.data();
+      if(types && !types.includes(d.type)) return;
+      shown++;
       const el = document.createElement('div');
       el.className = 'feed-card';
       const typeCls = d.type === 'arena_winner' ? 'feed-type winner' : 'feed-type';
@@ -134,8 +202,16 @@ async function loadFeed() {
         (d.text ? `<div class="feed-text">${esc(d.text)}</div>` : '') +
         (d.imageUrl ? `<img class="feed-image" src="${esc(d.imageUrl)}" loading="lazy" alt=""/>` : '') +
         (d.actionUrl ? `<a class="feed-action" href="${esc(d.actionUrl)}">${esc(d.actionLabel||'View')}</a>` : '');
-      feedList.appendChild(el);
+      frag.appendChild(el);
     });
+    if (shown === 0) {
+      const msg = activeFilter === 'all'
+        ? 'Nothing here yet.<br/>Enter the Arena or hit a milestone to light up the feed.'
+        : 'Nothing in this view yet.';
+      feedList.innerHTML = '<div class="feed-empty"><div class="big">◌</div><div>'+msg+'</div></div>';
+      return;
+    }
+    feedList.appendChild(frag);
   } catch(e) {
     feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
   }
