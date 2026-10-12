@@ -234,6 +234,29 @@
     background: #fff; color: #141414; font-size: 15px; font-weight: 700;
     display: flex; align-items: center; gap: 8px;
   }
+  .lb-annotate {
+    border: 1px solid rgba(255,255,255,.25); border-radius: 12px; padding: 14px 24px;
+    background: transparent; color: #fff; font-size: 15px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px; margin-left: 10px;
+  }
+  .lb-annotate.on { border-color: #8deb00; color: #8deb00; }
+  .lb-bottom { gap: 0; }
+  .anno-pin {
+    position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px;
+    background: #8deb00; border-radius: 50%; border: 3px solid #0a0a0a;
+    cursor: pointer; z-index: 5; box-shadow: 0 2px 8px rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 12px; font-weight: 700; color: #0a0a0a;
+  }
+  .anno-pin.resolved { background: #6f7d68; }
+  .lb-stage { position: relative; }
+  .lb-stage.annotating #lbImg { cursor: crosshair; }
+  .anno-tip {
+    position: absolute; z-index: 6; background: rgba(10,10,10,.95);
+    border: 1px solid rgba(255,255,255,.15); border-radius: 10px;
+    padding: 10px 12px; max-width: 220px; font-size: 13px; line-height: 1.4;
+    pointer-events: none;
+  }
 
   .foot {
     display: block; text-align: center; margin-top: 34px; padding-top: 20px;
@@ -335,6 +358,7 @@
   </div>
   <div class="lb-bottom">
     <button class="lb-dl" id="lbDl"><i class="fas fa-download"></i> Download</button>
+    <button class="lb-annotate" id="lbAnno"><i class="fas fa-comment"></i> Annotate</button>
   </div>
 </div>
 
@@ -543,6 +567,73 @@ function syncLb() {
   $('lbImg').src = imgs[DV.idx];
   $('lbCount').textContent = (DV.idx + 1) + ' / ' + imgs.length;
 }
+/* ---------- Annotations ---------- */
+DV.annotating = false;
+DV.annotations = [];
+$('lbAnno').onclick = function(e){
+  e.stopPropagation();
+  DV.annotating = !DV.annotating;
+  $('lbAnno').classList.toggle('on', DV.annotating);
+  document.querySelector('.lb-stage').classList.toggle('annotating', DV.annotating);
+  $('lbAnno').innerHTML = DV.annotating
+    ? '<i class="fas fa-comment"></i> Tap photo…'
+    : '<i class="fas fa-comment"></i> Annotate';
+};
+$('lbImg').addEventListener('click', function(e){
+  if(!DV.annotating) return;
+  e.stopPropagation();
+  var r = $('lbImg').getBoundingClientRect();
+  var x = ((e.clientX - r.left) / r.width * 100).toFixed(1);
+  var y = ((e.clientY - r.top) / r.height * 100).toFixed(1);
+  var text = prompt('Add a note for the photographer:');
+  if(!text || !text.trim()) return;
+  var ref = window.db.collection('users').doc(DV.uid).collection('galleries').doc(DV.gid)
+    .collection('annotations');
+  ref.add({
+    photoIndex: DV.idx, x: parseFloat(x), y: parseFloat(y),
+    text: text.trim().substring(0, 300),
+    authorName: 'Client', resolved: false,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){ loadAnnotations(); }).catch(function(){});
+  DV.annotating = false;
+  $('lbAnno').classList.remove('on');
+  document.querySelector('.lb-stage').classList.remove('annotating');
+  $('lbAnno').innerHTML = '<i class="fas fa-comment"></i> Annotate';
+});
+function loadAnnotations(){
+  document.querySelectorAll('.anno-pin,.anno-tip').forEach(function(el){ el.remove(); });
+  if(!window.db) return;
+  window.db.collection('users').doc(DV.uid).collection('galleries').doc(DV.gid)
+    .collection('annotations').where('photoIndex','==',DV.idx).get()
+    .then(function(snap){
+      var stage = document.querySelector('.lb-stage');
+      var n = 0;
+      snap.forEach(function(doc){
+        n++;
+        var d = doc.data();
+        var pin = document.createElement('div');
+        pin.className = 'anno-pin' + (d.resolved ? ' resolved' : '');
+        pin.style.left = d.x + '%'; pin.style.top = d.y + '%';
+        pin.textContent = n;
+        pin.onclick = function(e){
+          e.stopPropagation();
+          document.querySelectorAll('.anno-tip').forEach(function(t){ t.remove(); });
+          var tip = document.createElement('div');
+          tip.className = 'anno-tip';
+          tip.style.left = 'calc(' + d.x + '% + 18px)';
+          tip.style.top = 'calc(' + d.y + '% - 10px)';
+          tip.textContent = d.text;
+          stage.appendChild(tip);
+          setTimeout(function(){ tip.remove(); }, 4000);
+        };
+        stage.appendChild(pin);
+      });
+    }).catch(function(){});
+}
+/* reload pins on nav */
+var _syncLb = syncLb;
+syncLb = function(){ _syncLb(); loadAnnotations(); };
+
 $('lbClose').onclick = closeLb;
 $('lbPrev').onclick = function (e) { e.stopPropagation(); DV.idx--; syncLb(); };
 $('lbNext').onclick = function (e) { e.stopPropagation(); DV.idx++; syncLb(); };
