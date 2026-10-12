@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+  <title>Clubs — Cameras Decoded</title>
+  <meta name="description" content="Find your crew. Photo clubs for shooters who want to grow together." />
+  <script src="/scripts/master-loader.js?v=20261010a"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/scripts/firebase-init.js?v=20261007b"></script>
+  <script src="/scripts/user-state.js?v=20261004a"></script>
+  <script src="header.js?v=20261002a"></script>
+  <script src="/scripts/desktop-sidebar.js?v=20260930a"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+:root{--green:#8deb00;--green-soft:rgba(141,235,0,.12);--green-border:rgba(141,235,0,.35);
+--bg:#070807;--surface:#0e0f0e;--surface-2:#121312;--text:#fff;--muted:#a9b8a2;--muted-2:#6f7d68;
+--border:rgba(255,255,255,.09);--font-d:'Space Mono',monospace;--font-b:'Montserrat',sans-serif;
+--ease:cubic-bezier(.22,1,.36,1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{display:block !important;justify-content:normal !important;align-items:normal !important;
+padding:0 !important;padding-top:calc(env(safe-area-inset-top,0px) + 80px) !important;
+background:var(--bg);color:var(--text);font-family:var(--font-b);min-height:100dvh}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 120px}
+.title{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.title img{height:32px}
+.title h1{font-family:var(--font-d);font-size:18px;letter-spacing:.08em}
+.btn-new{font-family:var(--font-d);font-size:12px;color:#0a0a0a;background:var(--green);
+border:none;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer}
+.club-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+padding:16px;margin-bottom:12px;cursor:pointer;animation:fadeUp .4s var(--ease)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.club-name{font-weight:800;font-size:16px;margin-bottom:4px}
+.club-desc{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:10px;
+display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.club-meta{display:flex;align-items:center;gap:12px;font-family:var(--font-d);font-size:11px;color:var(--muted-2)}
+.club-meta .members{color:var(--green)}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.loading{text-align:center;padding:40px;color:var(--muted-2);font-family:var(--font-d);font-size:13px}
+/* create modal */
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.8);display:none;
+align-items:flex-end;justify-content:center}
+.modal.open{display:flex}
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;
+width:100%;max-width:640px;padding:24px 20px 40px;animation:slideUp .3s var(--ease)}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.sheet h2{font-family:var(--font-d);font-size:16px;margin-bottom:16px}
+.field{margin-bottom:14px}
+.field label{display:block;font-family:var(--font-d);font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:.06em}
+.field input,.field textarea{width:100%;background:var(--surface-2);border:1px solid var(--border);
+border-radius:10px;color:var(--text);font-family:var(--font-b);font-size:14px;padding:12px}
+.field textarea{min-height:80px;resize:vertical}
+.sheet-actions{display:flex;gap:10px;margin-top:8px}
+.btn-cancel{flex:1;background:transparent;border:1px solid var(--border);color:var(--muted);
+border-radius:10px;padding:12px;font-family:var(--font-d);font-size:13px;cursor:pointer}
+.btn-create{flex:2;background:var(--green);border:none;color:#0a0a0a;border-radius:10px;
+padding:12px;font-family:var(--font-d);font-size:13px;font-weight:700;cursor:pointer}
+@media(min-width:768px){.wrap{padding-top:24px}.modal{align-items:center}.sheet{border-radius:20px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <div style="display:flex;align-items:center;gap:12px">
+        <img src="/custom-site-titles/clubs.png?v=20261011a" alt="Clubs"
+          onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
+        <h1 hidden>CLUBS</h1>
+      </div>
+      <button class="btn-new" id="btnNew">+ New Club</button>
+    </div>
+    <div id="clubList"><div class="loading">Finding your crew…</div></div>
+  </div>
+
+  <div class="modal" id="createModal">
+    <div class="sheet">
+      <h2>START A CLUB</h2>
+      <div class="field"><label>NAME</label><input id="fName" maxlength="60" placeholder="e.g. Austin Street Shooters" /></div>
+      <div class="field"><label>DESCRIPTION</label><textarea id="fDesc" maxlength="300" placeholder="What is this club about?"></textarea></div>
+      <div class="sheet-actions">
+        <button class="btn-cancel" id="btnCancel">Cancel</button>
+        <button class="btn-create" id="btnCreate">Create Club</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+const list = document.getElementById('clubList');
+function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+async function loadClubs(){
+  try {
+    if (typeof firebase==='undefined'||!firebase.apps||!firebase.apps.length){
+      list.innerHTML='<div class="empty"><div>No connection.</div></div>'; return;
+    }
+    const snap = await firebase.firestore().collection('groups')
+      .where('type','==','club').orderBy('createdAt','desc').limit(50).get();
+    if (snap.empty){
+      list.innerHTML='<div class="empty"><div class="big" style="font-size:40px;margin-bottom:12px">◌</div><div>No clubs yet.<br/>Start the first one.</div></div>';
+      return;
+    }
+    list.innerHTML='';
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const el=document.createElement('div');
+      el.className='club-card';
+      el.innerHTML=`<div class="club-name">${esc(d.name)}</div>`+
+        (d.description?`<div class="club-desc">${esc(d.description)}</div>`:'')+
+        `<div class="club-meta"><span class="members">${d.memberCount||1} member${(d.memberCount||1)>1?'s':''}</span><span>by ${esc(d.ownerName||'Operator')}</span></div>`;
+      el.onclick=()=>{ location.href='/group.html?id='+doc.id; };
+      list.appendChild(el);
+    });
+  } catch(e){ list.innerHTML='<div class="empty"><div>Could not load clubs.</div></div>'; }
+}
+
+/* create flow */
+const modal=document.getElementById('createModal');
+document.getElementById('btnNew').onclick=()=>{
+  const u=firebase.auth().currentUser;
+  if(!u){ location.href='/login.html?next=/groups.html'; return; }
+  modal.classList.add('open');
+};
+document.getElementById('btnCancel').onclick=()=>modal.classList.remove('open');
+modal.onclick=(e)=>{ if(e.target===modal) modal.classList.remove('open'); };
+document.getElementById('btnCreate').onclick=async()=>{
+  const name=document.getElementById('fName').value.trim();
+  const desc=document.getElementById('fDesc').value.trim();
+  if(!name){ return; }
+  const u=firebase.auth().currentUser;
+  if(!u) return;
+  const userName=(window.USER&&window.USER.name)||u.displayName||'Operator';
+  try{
+    const ref=await firebase.firestore().collection('groups').add({
+      name:name, description:desc, type:'club',
+      ownerUid:u.uid, ownerName:userName, memberCount:1,
+      createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+      visibility:'public'
+    });
+    await ref.collection('members').doc(u.uid).set({
+      role:'owner', joinedAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    location.href='/group.html?id='+ref.id;
+  }catch(e){}
+};
+
+loadClubs();
+})();
+</script>
+<script src="/scripts/ptr.js?v=20261001a"></script>
+</body>
+</html>

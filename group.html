@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+  <title>Club — Cameras Decoded</title>
+  <script src="/scripts/master-loader.js?v=20261010a"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/scripts/firebase-init.js?v=20261007b"></script>
+  <script src="/scripts/user-state.js?v=20261004a"></script>
+  <script src="header.js?v=20261002a"></script>
+  <script src="/scripts/desktop-sidebar.js?v=20260930a"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+:root{--green:#8deb00;--green-soft:rgba(141,235,0,.12);--green-border:rgba(141,235,0,.35);
+--bg:#070807;--surface:#0e0f0e;--surface-2:#121312;--text:#fff;--muted:#a9b8a2;--muted-2:#6f7d68;
+--border:rgba(255,255,255,.09);--font-d:'Space Mono',monospace;--font-b:'Montserrat',sans-serif;
+--ease:cubic-bezier(.22,1,.36,1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{display:block !important;justify-content:normal !important;align-items:normal !important;
+padding:0 !important;padding-top:calc(env(safe-area-inset-top,0px) + 80px) !important;
+background:var(--bg);color:var(--text);font-family:var(--font-b);min-height:100dvh}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 120px}
+.back{font-family:var(--font-d);font-size:12px;color:var(--muted);text-decoration:none;display:inline-block;margin-bottom:16px}
+.club-hero{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px}
+.club-hero-name{font-size:20px;font-weight:800;margin-bottom:6px}
+.club-hero p{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px}
+.club-hero-meta{display:flex;align-items:center;gap:12px;font-family:var(--font-d);font-size:11px;color:var(--muted-2)}
+.btn-join{background:var(--green);border:none;color:#0a0a0a;border-radius:10px;padding:10px 20px;
+font-family:var(--font-d);font-size:12px;font-weight:700;cursor:pointer}
+.btn-joined{background:transparent;border:1px solid var(--green-border);color:var(--green);
+border-radius:10px;padding:10px 20px;font-family:var(--font-d);font-size:12px;cursor:default}
+/* composer */
+.composer{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px;display:none}
+.composer.open{display:block}
+.composer textarea{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;
+color:var(--text);font-family:var(--font-b);font-size:14px;padding:12px;min-height:70px;resize:vertical;margin-bottom:10px}
+.composer button{background:var(--green);border:none;color:#0a0a0a;border-radius:8px;padding:10px 18px;
+font-family:var(--font-d);font-size:12px;font-weight:700;cursor:pointer}
+.btn-post-toggle{width:100%;background:var(--surface);border:1px dashed var(--border);color:var(--muted);
+border-radius:12px;padding:14px;font-family:var(--font-d);font-size:12px;cursor:pointer;margin-bottom:12px}
+/* posts */
+.post{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;
+margin-bottom:12px;animation:fadeUp .4s var(--ease)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.post-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.post-avatar{width:32px;height:32px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);
+display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:13px;color:var(--green);flex-shrink:0}
+.post-name{font-weight:700;font-size:13px}
+.post-time{font-family:var(--font-d);font-size:10px;color:var(--muted-2)}
+.post-text{font-size:14px;line-height:1.5}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:14px}
+.loading{text-align:center;padding:40px;color:var(--muted-2);font-family:var(--font-d);font-size:13px}
+@media(min-width:768px){.wrap{padding-top:24px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="/groups.html">&larr; All clubs</a>
+    <div id="hero"><div class="loading">Loading club…</div></div>
+    <div id="joinRow" style="margin-bottom:16px"></div>
+    <button class="btn-post-toggle" id="btnPostToggle" style="display:none">Share something with the club…</button>
+    <div class="composer" id="composer">
+      <textarea id="postText" maxlength="500" placeholder="What is on your mind?"></textarea>
+      <button id="btnPost">Post</button>
+    </div>
+    <div id="postList"></div>
+  </div>
+<script>
+(function(){
+const gid=new URLSearchParams(location.search).get('id');
+const hero=document.getElementById('hero'), joinRow=document.getElementById('joinRow'),
+      postList=document.getElementById('postList'),
+      btnToggle=document.getElementById('btnPostToggle'), composer=document.getElementById('composer');
+let isMember=false, clubData=null;
+function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function timeAgo(ts){ if(!ts) return ''; const ms=ts.toMillis?ts.toMillis():(ts.seconds*1000);
+  const s=Math.floor((Date.now()-ms)/1000);
+  if(s<60) return 'just now'; if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
+
+async function init(){
+  if(!gid){ hero.innerHTML='<div class="empty">No club selected.</div>'; return; }
+  if(typeof firebase==='undefined'||!firebase.apps||!firebase.apps.length){
+    hero.innerHTML='<div class="empty">No connection.</div>'; return;
+  }
+  const db=firebase.firestore();
+  const doc=await db.collection('groups').doc(gid).get();
+  if(!doc.exists){ hero.innerHTML='<div class="empty">Club not found.</div>'; return; }
+  clubData=doc.data();
+  document.title=clubData.name+' — Cameras Decoded';
+  hero.innerHTML=`<div class="club-hero"><div class="club-hero-name">${esc(clubData.name)}</div>`+
+    (clubData.description?`<p>${esc(clubData.description)}</p>`:'')+
+    `<div class="club-hero-meta"><span>${clubData.memberCount||1} members</span><span>by ${esc(clubData.ownerName||'Operator')}</span></div></div>`;
+
+  const u=firebase.auth().currentUser;
+  if(u){
+    const m=await db.collection('groups').doc(gid).collection('members').doc(u.uid).get();
+    isMember=m.exists;
+  }
+  renderJoin(); loadPosts();
+}
+
+function renderJoin(){
+  const u=firebase.auth().currentUser;
+  if(!u){ joinRow.innerHTML=''; return; }
+  joinRow.innerHTML=isMember
+    ? '<span class="btn-joined">Member</span>'
+    : '<button class="btn-join" id="btnJoin">Join Club</button>';
+  btnToggle.style.display=isMember?'block':'none';
+  const b=document.getElementById('btnJoin');
+  if(b) b.onclick=joinClub;
+}
+
+async function joinClub(){
+  const u=firebase.auth().currentUser; if(!u) return;
+  const db=firebase.firestore();
+  try{
+    await db.collection('groups').doc(gid).collection('members').doc(u.uid).set({
+      role:'member', joinedAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('groups').doc(gid).update({
+      memberCount:firebase.firestore.FieldValue.increment(1)
+    });
+    isMember=true; renderJoin();
+  }catch(e){}
+}
+
+async function loadPosts(){
+  const db=firebase.firestore();
+  try{
+    const snap=await db.collection('groups').doc(gid).collection('posts')
+      .orderBy('createdAt','desc').limit(30).get();
+    if(snap.empty){ postList.innerHTML='<div class="empty">No posts yet. Be the first.</div>'; return; }
+    postList.innerHTML='';
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const el=document.createElement('div'); el.className='post';
+      el.innerHTML=`<div class="post-head"><div class="post-avatar">${esc((d.authorName||'?')[0].toUpperCase())}</div>`+
+        `<div><div class="post-name">${esc(d.authorName||'Operator')}</div>`+
+        `<div class="post-time">${timeAgo(d.createdAt)}</div></div></div>`+
+        `<div class="post-text">${esc(d.text||'')}</div>`;
+      postList.appendChild(el);
+    });
+  }catch(e){ postList.innerHTML='<div class="empty">Could not load posts.</div>'; }
+}
+
+btnToggle.onclick=()=>composer.classList.toggle('open');
+document.getElementById('btnPost').onclick=async()=>{
+  const text=document.getElementById('postText').value.trim();
+  if(!text||!isMember) return;
+  const u=firebase.auth().currentUser; if(!u) return;
+  const userName=(window.USER&&window.USER.name)||u.displayName||'Operator';
+  const db=firebase.firestore();
+  try{
+    const ref=await db.collection('groups').doc(gid).collection('posts').add({
+      authorUid:u.uid, authorName:userName, text:text,
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    /* feed: club post (best-effort) */
+    try{
+      await db.collection('feedItems').add({
+        type:'club_post', actorUid:u.uid, actorName:userName,
+        text:userName+' posted in '+clubData.name,
+        targetType:'group', targetId:gid,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+        visibility:'public'
+      });
+    }catch(e){}
+    document.getElementById('postText').value='';
+    composer.classList.remove('open');
+    loadPosts();
+  }catch(e){}
+};
+
+function boot(){
+  if(typeof firebase==='undefined'||!firebase.apps||!firebase.apps.length){
+    setTimeout(boot, 500); return;
+  }
+  firebase.auth().onAuthStateChanged(()=>init());
+}
+boot();
+})();
+</script>
+<script src="/scripts/ptr.js?v=20261001a"></script>
+</body>
+</html>
