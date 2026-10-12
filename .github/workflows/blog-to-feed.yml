@@ -1,18 +1,23 @@
 name: Blog to Feed
 
-# When new blog posts merge to main, publish them to the feed as editorial cards.
+# Auto: when new blog posts merge to main, publish them to the feed as editorial cards.
+# One-time backfill: run manually (Actions -> Blog to Feed -> Run workflow) and paste
+# the merge commit SHA of the blog PR to backfill (e.g. PR #570's "merged commit" code).
+# The file stays as-is afterwards -- future posts keep publishing automatically.
+#
 # Uses tools/feed-writer/feed-writer.js with the FIREBASE_SERVICE_ACCOUNT secret
 # (same secret as the arena closer).
-#
-# Trigger: push to main that adds files under blog/.
-# For each new blog/*.html file, extracts the title + excerpt and writes a
-# type=blog_post feed item linking to the live post URL.
 
 on:
   push:
     branches: [main]
     paths: ['blog/*.html']
   workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Merge commit SHA of the blog PR to backfill (copy it from the PR page, next to "merged commit")'
+        required: true
+        default: ''
 
 jobs:
   publish:
@@ -20,21 +25,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: Install feed-writer deps
         run: npm install
         working-directory: tools/feed-writer
-      - name: Publish new posts to feed
+      - name: Publish posts to feed
         working-directory: tools/feed-writer
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          NEW_FILES=$(git diff --name-only --diff-filter=A HEAD~1 HEAD -- 'blog/*.html')
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RANGE="${{ inputs.commit_sha }}~1 ${{ inputs.commit_sha }}"
+          else
+            RANGE="HEAD~1 HEAD"
+          fi
+          NEW_FILES=$(git diff --name-only --diff-filter=A $RANGE -- 'blog/*.html')
           if [ -z "$NEW_FILES" ]; then
-            echo "No new blog posts in this push."
+            echo "No new blog posts in that commit."
             exit 0
           fi
           echo "$NEW_FILES" | while read -r f; do
