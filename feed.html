@@ -89,15 +89,15 @@ body{display:block !important;justify-content:normal !important;align-items:norm
     <div id="feedList"><div class="feed-loading">Loading the signal…</div></div>
   </div>
 
-<script type="module">
-import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+<script>
+(function(){
 const feedList = document.getElementById('feedList');
 const TYPE_LABELS = { arena_entry:'Arena Entry', arena_winner:'Winner', xp_milestone:'Milestone', club_post:'Club' };
 
 function timeAgo(ts) {
   if (!ts) return '';
-  const s = Math.floor((Date.now() - ts.toMillis()) / 1000);
+  const ms = ts.toMillis ? ts.toMillis() : (ts.seconds * 1000);
+  const s = Math.floor((Date.now() - ms) / 1000);
   if (s < 60) return 'just now';
   if (s < 3600) return Math.floor(s/60) + 'm ago';
   if (s < 86400) return Math.floor(s/3600) + 'h ago';
@@ -107,9 +107,12 @@ function esc(s){ const d=document.createElement('div'); d.textContent=s||''; ret
 
 async function loadFeed() {
   try {
-    const db = getFirestore();
-    const q = query(collection(db,'feedItems'), orderBy('createdAt','desc'), limit(50));
-    const snap = await getDocs(q);
+    if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+      feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
+      return;
+    }
+    const db = firebase.firestore();
+    const snap = await db.collection('feedItems').orderBy('createdAt','desc').limit(50).get();
     if (snap.empty) {
       feedList.innerHTML = '<div class="feed-empty"><div class="big">◌</div><div>Nothing here yet.<br/>Enter the Arena or hit a milestone to light up the feed.</div></div>';
       return;
@@ -138,6 +141,7 @@ async function loadFeed() {
   }
 }
 loadFeed();
+})();
 </script>
 <script src="/scripts/ptr.js?v=20261001a"></script>
 </body>
