@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
+  <title>Feed — Cameras Decoded</title>
+  <meta name="description" content="Everything happening on Cameras Decoded: Arena entries, winners, milestones, and community activity." />
+
+  <!-- ===== MASTER LOADER ===== -->
+  <script src="/scripts/master-loader.js?v=20261010a"></script>
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js?v=20261007b"></script>
+
+  <!-- ===== USER STATE ===== -->
+  <script src="/scripts/user-state.js?v=20261004a"></script>
+
+  <!-- ===== SHARED COMPONENTS ===== -->
+  <script src="header.js?v=20261002a"></script>
+  <script src="/scripts/desktop-sidebar.js?v=20260930a"></script>
+
+  <!-- ===== FONTS ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+:root{
+  --green:#8deb00;
+  --green-soft:rgba(141,235,0,.12);
+  --green-border:rgba(141,235,0,.35);
+  --bg:#070807;
+  --surface:#0e0f0e;
+  --surface-2:#121312;
+  --text:#ffffff;
+  --muted:#a9b8a2;
+  --muted-2:#6f7d68;
+  --border:rgba(255,255,255,.09);
+  --border-strong:rgba(255,255,255,.17);
+  --gold:#f5c044;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --font-d:'Space Mono',monospace;
+  --font-b:'Montserrat',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{display:block !important;justify-content:normal !important;align-items:normal !important;
+  padding:0 !important;padding-top:calc(env(safe-area-inset-top,0px) + 80px) !important;
+  background:var(--bg);color:var(--text);font-family:var(--font-b);min-height:100dvh}
+.feed-wrap{max-width:640px;margin:0 auto;padding:16px 16px 120px}
+.feed-title{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.feed-title img{height:32px}
+.feed-title h1{font-family:var(--font-d);font-size:18px;letter-spacing:.08em}
+.feed-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:16px;margin-bottom:12px;animation:fadeUp .4s var(--ease)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.feed-card-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.feed-avatar{width:36px;height:36px;border-radius:50%;background:var(--surface-2);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-d);font-size:14px;color:var(--green);flex-shrink:0;overflow:hidden}
+.feed-avatar img{width:100%;height:100%;object-fit:cover}
+.feed-meta{flex:1;min-width:0}
+.feed-actor{font-weight:700;font-size:14px}
+.feed-time{font-family:var(--font-d);font-size:11px;color:var(--muted-2)}
+.feed-type{font-family:var(--font-d);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--green);border:1px solid var(--green-border);border-radius:6px;padding:3px 8px;
+  background:var(--green-soft);flex-shrink:0}
+.feed-type.winner{color:var(--gold);border-color:rgba(245,192,68,.35);background:rgba(245,192,68,.12)}
+.feed-text{font-size:14px;line-height:1.5;color:var(--text);margin-bottom:10px}
+.feed-image{width:100%;border-radius:12px;margin-bottom:10px;display:block;background:var(--surface-2)}
+.feed-action{display:inline-block;font-family:var(--font-d);font-size:12px;color:var(--green);
+  text-decoration:none;border:1px solid var(--green-border);border-radius:8px;padding:8px 14px;
+  background:var(--green-soft)}
+.feed-empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.feed-empty .big{font-size:40px;margin-bottom:12px}
+.feed-loading{text-align:center;padding:40px;color:var(--muted-2);font-family:var(--font-d);font-size:13px}
+@media(min-width:768px){.feed-wrap{padding-top:24px}}
+  </style>
+</head>
+<body>
+  <div class="feed-wrap">
+    <div class="feed-title">
+      <img src="/custom-site-titles/feed.png?v=20261011a" alt="Feed"
+        onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
+      <h1 hidden>FEED</h1>
+    </div>
+    <div id="feedList"><div class="feed-loading">Loading the signal…</div></div>
+  </div>
+
+<script type="module">
+import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const feedList = document.getElementById('feedList');
+const TYPE_LABELS = { arena_entry:'Arena Entry', arena_winner:'Winner', xp_milestone:'Milestone', club_post:'Club' };
+
+function timeAgo(ts) {
+  if (!ts) return '';
+  const s = Math.floor((Date.now() - ts.toMillis()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  return Math.floor(s/86400) + 'd ago';
+}
+function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+async function loadFeed() {
+  try {
+    const db = getFirestore();
+    const q = query(collection(db,'feedItems'), orderBy('createdAt','desc'), limit(50));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      feedList.innerHTML = '<div class="feed-empty"><div class="big">◌</div><div>Nothing here yet.<br/>Enter the Arena or hit a milestone to light up the feed.</div></div>';
+      return;
+    }
+    feedList.innerHTML = '';
+    snap.forEach(doc => {
+      const d = doc.data();
+      const el = document.createElement('div');
+      el.className = 'feed-card';
+      const typeCls = d.type === 'arena_winner' ? 'feed-type winner' : 'feed-type';
+      const avatarHtml = d.actorAvatar ? `<img src="${esc(d.actorAvatar)}" alt=""/>` : esc((d.actorName||'?')[0].toUpperCase());
+      el.innerHTML =
+        `<div class="feed-card-header">` +
+          `<div class="feed-avatar">${avatarHtml}</div>` +
+          `<div class="feed-meta"><div class="feed-actor">${esc(d.actorName||'Operator')}</div>` +
+          `<div class="feed-time">${timeAgo(d.createdAt)}</div></div>` +
+          `<div class="${typeCls}">${esc(TYPE_LABELS[d.type]||d.type)}</div>` +
+        `</div>` +
+        (d.text ? `<div class="feed-text">${esc(d.text)}</div>` : '') +
+        (d.imageUrl ? `<img class="feed-image" src="${esc(d.imageUrl)}" loading="lazy" alt=""/>` : '') +
+        (d.actionUrl ? `<a class="feed-action" href="${esc(d.actionUrl)}">${esc(d.actionLabel||'View')}</a>` : '');
+      feedList.appendChild(el);
+    });
+  } catch(e) {
+    feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
+  }
+}
+loadFeed();
+</script>
+<script src="/scripts/ptr.js?v=20261001a"></script>
+</body>
+</html>
