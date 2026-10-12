@@ -76,6 +76,7 @@ padding:12px;font-family:var(--font-d);font-size:13px;font-weight:700;cursor:poi
   <div class="modal" id="createModal">
     <div class="sheet">
       <h2>START A CLUB</h2>
+      <div class="field"><label>TYPE</label><select id="fType" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--font-b);font-size:14px;padding:12px"><option value="club">Photo Club</option><option value="crew">Arena Crew (3-5 for battles)</option></select></div>
       <div class="field"><label>NAME</label><input id="fName" maxlength="60" placeholder="e.g. Austin Street Shooters" /></div>
       <div class="field"><label>DESCRIPTION</label><textarea id="fDesc" maxlength="300" placeholder="What is this club about?"></textarea></div>
       <div class="sheet-actions">
@@ -108,7 +109,7 @@ async function loadClubs(){
       el.className='club-card';
       el.innerHTML=`<div class="club-name">${esc(d.name)}</div>`+
         (d.description?`<div class="club-desc">${esc(d.description)}</div>`:'')+
-        `<div class="club-meta"><span class="members">${d.memberCount||1} member${(d.memberCount||1)>1?'s':''}</span><span>by ${esc(d.ownerName||'Operator')}</span></div>`;
+        `<div class="club-meta"><span class="members">${d.memberCount||1} member${(d.memberCount||1)>1?'s':''}</span><span>${d.type==='crew'?'Crew':'Club'}</span><span>by ${esc(d.ownerName||'Operator')}</span></div>`;
       el.onclick=()=>{ location.href='/group.html?id='+doc.id; };
       list.appendChild(el);
     });
@@ -132,8 +133,9 @@ document.getElementById('btnCreate').onclick=async()=>{
   if(!u) return;
   const userName=(window.USER&&window.USER.name)||u.displayName||'Operator';
   try{
+    const gtype=document.getElementById('fType').value||'club';
     const ref=await firebase.firestore().collection('groups').add({
-      name:name, description:desc, type:'club',
+      name:name, description:desc, type:gtype,
       ownerUid:u.uid, ownerName:userName, memberCount:1,
       createdAt:firebase.firestore.FieldValue.serverTimestamp(),
       visibility:'public'
