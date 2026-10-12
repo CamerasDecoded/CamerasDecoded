@@ -38,11 +38,11 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            RANGE="${{ inputs.commit_sha }}~1 ${{ inputs.commit_sha }}"
+            # List files added IN the given commit (works for merge + regular commits)
+            NEW_FILES=$(git diff-tree --no-commit-id --name-only --diff-filter=A -r "${{ inputs.commit_sha }}" -- 'blog/*.html')
           else
-            RANGE="HEAD~1 HEAD"
+            NEW_FILES=$(git diff --name-only --diff-filter=A HEAD~1 HEAD -- 'blog/*.html')
           fi
-          NEW_FILES=$(git diff --name-only --diff-filter=A $RANGE -- 'blog/*.html')
           if [ -z "$NEW_FILES" ]; then
             echo "No new blog posts in that commit."
             exit 0
