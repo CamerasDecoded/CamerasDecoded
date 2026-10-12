@@ -111,6 +111,41 @@
       { merge: true }
     );
 
+    /* feed: milestone announcements (best-effort, never blocks) */
+    try {
+      const actorName = pick(data, ['displayName', 'name', 'username'], 'Operator');
+      const feed = window.db.collection('feedItems');
+      const FV2 = window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue;
+      const ts = FV2 ? FV2.serverTimestamp() : new Date();
+      /* streak milestones */
+      const MILESTONES = [7, 14, 30, 60, 100, 365];
+      if (MILESTONES.includes(newStreak)) {
+        feed.add({
+          type: 'xp_milestone',
+          actorUid: uid,
+          actorName: actorName,
+          text: actorName + ' hit a ' + newStreak + '-day streak',
+          targetType: 'profile',
+          targetId: uid,
+          createdAt: ts,
+          visibility: 'public'
+        });
+      }
+      /* badge unlocks */
+      if (newlyUnlockedBadges.length > 0) {
+        feed.add({
+          type: 'xp_milestone',
+          actorUid: uid,
+          actorName: actorName,
+          text: actorName + ' unlocked ' + newlyUnlockedBadges.length + ' new badge' + (newlyUnlockedBadges.length > 1 ? 's' : ''),
+          targetType: 'profile',
+          targetId: uid,
+          createdAt: ts,
+          visibility: 'public'
+        });
+      }
+    } catch (e) {}
+
     return {
       xpEarned: toNum(xp, 0),
       xpToday:  newXp,
