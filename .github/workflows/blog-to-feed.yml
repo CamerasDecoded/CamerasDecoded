@@ -5,11 +5,6 @@ on:
     branches: [main]
     paths: ['blog/*.html']
   workflow_dispatch:
-    inputs:
-      slugs:
-        description: 'Backfill: comma-separated blog slugs (e.g. night-photography-everyday-places,raising-blacks-lightroom-sunset-glow,bayer-filter-colorblind-sensor)'
-        required: false
-        default: ''
 
 jobs:
   publish:
@@ -29,37 +24,17 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          if [ -n "${{ inputs.slugs }}" ]; then
-            # Backfill: use the slugs pasted by the user, no git needed
-            echo "${{ inputs.slugs }}" | tr ',' '\n' | while read -r slug; do
-              slug=$(echo "$slug" | xargs)
-              [ -z "$slug" ] && continue
-              f="$GITHUB_WORKSPACE/blog/${slug}.html"
-              [ ! -f "$f" ] && echo "Not found: $f" && continue
-              TITLE=$(grep -o '<title>[^<]*</title>' "$f" | sed 's/<[^>]*>//g' | head -1)
-              [ -z "$TITLE" ] && TITLE="$slug"
-              echo "Publishing: $TITLE"
-              node feed-writer.js \
-                --type blog_post \
-                --title "$TITLE" \
-                --actionUrl "https://camerasdecoded.com/blog/${slug}.html" \
-                --actionLabel "Read" \
-                --targetId "$slug"
-            done
-          else
-            # Normal: new files in this push
-            NEW_FILES=$(git diff --name-only --diff-filter=A HEAD~1 HEAD -- 'blog/*.html')
-            [ -z "$NEW_FILES" ] && echo "No new blog posts." && exit 0
-            echo "$NEW_FILES" | while read -r f; do
-              SLUG=$(basename "$f" .html)
-              TITLE=$(grep -o '<title>[^<]*</title>' "$GITHUB_WORKSPACE/$f" | sed 's/<[^>]*>//g' | head -1)
-              [ -z "$TITLE" ] && TITLE="$SLUG"
-              echo "Publishing: $TITLE"
-              node feed-writer.js \
-                --type blog_post \
-                --title "$TITLE" \
-                --actionUrl "https://camerasdecoded.com/blog/${SLUG}.html" \
-                --actionLabel "Read" \
-                --targetId "$SLUG"
-            done
-          fi
+          # One-time backfill for 2026-10-12 posts (hardcoded, no input needed)
+          for slug in night-photography-everyday-places raising-blacks-lightroom-sunset-glow bayer-filter-colorblind-sensor; do
+            f="$GITHUB_WORKSPACE/blog/${slug}.html"
+            if [ ! -f "$f" ]; then echo "Not found: $f"; continue; fi
+            TITLE=$(grep -o '<title>[^<]*</title>' "$f" | sed 's/<[^>]*>//g' | head -1)
+            [ -z "$TITLE" ] && TITLE="$slug"
+            echo "Publishing: $TITLE"
+            node feed-writer.js \
+              --type blog_post \
+              --title "$TITLE" \
+              --actionUrl "https://camerasdecoded.com/blog/${slug}.html" \
+              --actionLabel "Read" \
+              --targetId "$slug"
+          done
