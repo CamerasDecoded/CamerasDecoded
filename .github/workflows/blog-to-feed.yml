@@ -1,0 +1,51 @@
+name: Blog to Feed
+
+# When new blog posts merge to main, publish them to the feed as editorial cards.
+# Uses tools/feed-writer/feed-writer.js with the FIREBASE_SERVICE_ACCOUNT secret
+# (same secret as the arena closer).
+#
+# Trigger: push to main that adds files under blog/.
+# For each new blog/*.html file, extracts the title + excerpt and writes a
+# type=blog_post feed item linking to the live post URL.
+
+on:
+  push:
+    branches: [main]
+    paths: ['blog/*.html']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install feed-writer deps
+        run: npm install
+        working-directory: tools/feed-writer
+      - name: Publish new posts to feed
+        working-directory: tools/feed-writer
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          NEW_FILES=$(git diff --name-only --diff-filter=A HEAD~1 HEAD -- 'blog/*.html')
+          if [ -z "$NEW_FILES" ]; then
+            echo "No new blog posts in this push."
+            exit 0
+          fi
+          echo "$NEW_FILES" | while read -r f; do
+            SLUG=$(basename "$f" .html)
+            TITLE=$(grep -o '<title>[^<]*</title>' "$GITHUB_WORKSPACE/$f" | sed 's/<[^>]*>//g' | head -1)
+            if [ -z "$TITLE" ]; then TITLE="$SLUG"; fi
+            echo "Publishing: $TITLE"
+            node feed-writer.js \
+              --type blog_post \
+              --title "$TITLE" \
+              --actionUrl "https://camerasdecoded.com/blog/${SLUG}.html" \
+              --actionLabel "Read" \
+              --targetId "$SLUG"
+          done
