@@ -1538,6 +1538,30 @@ body{display:block !important;justify-content:normal !important;align-items:norm
       progress.xpClaims["chapter:"+chapter.id] = true;
       result.gained += CHAPTER_BONUS;
       result.lines.push(["Chapter complete — " + chapter.title, "+" + CHAPTER_BONUS + " XP"]);
+      /* cohort: update progress + announce (best-effort) */
+      try{
+        var ud = db();
+        if(ud && user){
+          var cname = (window.USER && window.USER.name) || user.displayName || 'Operator';
+          ud.collectionGroup('members').where('uid','==',user.uid).get().then(function(msnap){
+            msnap.forEach(function(mdoc){
+              var gid = mdoc.ref.parent.parent.id;
+              ud.collection('groups').doc(gid).get().then(function(gdoc){
+                if(!gdoc.exists || gdoc.data().type !== 'cohort') return;
+                mdoc.ref.set({ currentChapter: chapter.id, chapterTitle: chapter.title,
+                  updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, {merge:true});
+                ud.collection('feedItems').add({
+                  type: 'xp_milestone', actorUid: user.uid, actorName: cname,
+                  text: cname + ' finished "' + chapter.title + '" with their cohort',
+                  targetType: 'group', targetId: gid,
+                  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                  visibility: 'public'
+                });
+              });
+            });
+          });
+        }
+      }catch(e){}
     }
 
     await saveProgress();
