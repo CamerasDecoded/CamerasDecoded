@@ -91,11 +91,15 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 .spot-name{font-weight:800;font-size:16px}
 .spot-label{font-family:var(--font-d);font-size:10px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
 .feed-empty{text-align:center;padding:60px 20px;color:var(--muted)}
-.filter-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
-.filter-tab{flex-shrink:0;font-family:var(--font-d);font-size:11px;letter-spacing:.06em;
+.filter-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding:10px 4px;
+--jr-green:var(--green,#8deb00)}
+.jelly-chip{flex-shrink:0;font-family:var(--font-d);font-size:11px;letter-spacing:.06em;
 background:var(--surface);border:1px solid var(--border);color:var(--muted);
-border-radius:20px;padding:8px 16px;cursor:pointer}
-.filter-tab.active{background:var(--green-soft);border-color:var(--green-border);color:var(--green)}
+border-radius:20px;padding:8px 16px;cursor:pointer;transform-origin:center;
+transition:transform .45s cubic-bezier(.34,1.56,.64,1),background-color .25s,color .25s,border-color .25s;
+will-change:transform;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.jelly-chip.active{background:var(--green-soft);border-color:var(--green-border);color:var(--green)}
+@media(prefers-reduced-motion:reduce){.jelly-chip{transition:none}}
 .composer{background:var(--surface);border:1px solid var(--border);border-radius:16px;
 padding:14px;margin-bottom:16px}
 .composer textarea{width:100%;background:var(--surface-2);border:1px solid var(--border);
@@ -115,13 +119,13 @@ padding:10px 20px;font-family:var(--font-d);font-size:12px;font-weight:700;curso
         onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
       <h1 hidden>FEED</h1>
     </div>
-    <div class="filter-tabs" id="filterTabs">
-      <button class="filter-tab active" data-f="all">All</button>
-      <button class="filter-tab" data-f="arena">Arena</button>
-      <button class="filter-tab" data-f="clubs">Clubs</button>
-      <button class="filter-tab" data-f="ideas">Ideas</button>
-      <button class="filter-tab" data-f="milestones">Milestones</button>
-      <button class="filter-tab" data-f="content">Articles</button>
+    <div class="filter-tabs" id="filterTabs" role="radiogroup" aria-label="Feed filters">
+      <button class="jelly-chip active" data-f="all" role="radio" aria-checked="true">All</button>
+      <button class="jelly-chip" data-f="arena" role="radio" aria-checked="false">Arena</button>
+      <button class="jelly-chip" data-f="clubs" role="radio" aria-checked="false">Clubs</button>
+      <button class="jelly-chip" data-f="ideas" role="radio" aria-checked="false">Ideas</button>
+      <button class="jelly-chip" data-f="milestones" role="radio" aria-checked="false">Milestones</button>
+      <button class="jelly-chip" data-f="content" role="radio" aria-checked="false">Articles</button>
     </div>
     <div class="composer" id="composer" style="display:none">
       <textarea id="composerText" maxlength="300" placeholder="Share something with the community…"></textarea>
@@ -155,14 +159,57 @@ const FILTER_TYPES = {
   milestones: ['xp_milestone'],
   content: ['blog_post','protocol','podcast']
 };
-document.getElementById('filterTabs').addEventListener('click', function(e){
-  const b = e.target.closest('.filter-tab');
-  if(!b) return;
-  document.querySelectorAll('.filter-tab').forEach(function(t){ t.classList.remove('active'); });
-  b.classList.add('active');
-  activeFilter = b.dataset.f;
-  loadFeed();
-});
+/* JellyRadio filter chips: selected swells, neighbors barge outward with stagger */
+(function(){
+  var tabs = document.getElementById('filterTabs');
+  var chips = Array.prototype.slice.call(tabs.querySelectorAll('.jelly-chip'));
+  var SWELL = 0.18, SHRINK = 0.04, BARGE = 7, STAGGER = 28;
+  function jellyTo(sel){
+    chips.forEach(function(chip, i){
+      var on = (i === sel);
+      var far = Math.abs(i - sel);
+      var dir = Math.sign(i - sel);
+      var s = on ? 1 + SWELL : 1 - SHRINK;
+      var x = dir * BARGE * (on ? 0 : 1);
+      // stagger: farther chips animate slightly later
+      chip.style.transitionDelay = (far * STAGGER) + 'ms';
+      // jelly squash: scale y lags x for organic feel
+      chip.style.transform = 'translateX(' + x + 'px) scale(' + s + ',' + (on ? s * 0.96 : s) + ')';
+      chip.classList.toggle('active', on);
+      chip.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    // clear stagger delays after animation settles
+    setTimeout(function(){
+      chips.forEach(function(c){ c.style.transitionDelay = '0ms'; });
+    }, 600);
+  }
+  // set initial jelly state (All selected)
+  jellyTo(0);
+  tabs.addEventListener('click', function(e){
+    var b = e.target.closest('.jelly-chip');
+    if(!b) return;
+    var idx = chips.indexOf(b);
+    if(idx < 0) return;
+    jellyTo(idx);
+    activeFilter = b.dataset.f;
+    loadFeed();
+  });
+  // keyboard: arrows move selection
+  tabs.addEventListener('keydown', function(e){
+    var cur = chips.findIndex(function(c){ return c.classList.contains('active'); });
+    var next = -1;
+    if(e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (cur + 1) % chips.length;
+    else if(e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (cur - 1 + chips.length) % chips.length;
+    else if(e.key === 'Home') next = 0;
+    else if(e.key === 'End') next = chips.length - 1;
+    if(next < 0) return;
+    e.preventDefault();
+    chips[next].focus();
+    jellyTo(next);
+    activeFilter = chips[next].dataset.f;
+    loadFeed();
+  });
+})();
 /* composer */
 function updateComposer(){
   const u = (typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length)
