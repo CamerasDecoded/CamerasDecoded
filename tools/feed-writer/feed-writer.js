@@ -64,6 +64,9 @@ async function main() {
       .where("type", "==", type).where("targetId", "==", targetId).limit(1).get();
     if (!snap.empty) {
       ref = snap.docs[0].ref;
+      // Preserve the original publish time on update, so refreshing a post
+      // never bumps it to the top of the feed.
+      delete doc.createdAt;
       await ref.update(doc);
       console.log("Updated feed item:", ref.id, `(${type})`, title);
       return;
