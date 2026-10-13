@@ -92,7 +92,7 @@
         { href: '/shoot-lab.html',          icon: 'practice', title: 'Shoot Lab', sub: 'Nail the exposure triangle' },
         { href: '/darkroom-lab.html',          icon: 'sliders', title: 'Develop Lab', sub: 'Pro photo editor' },
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
-        { href: '/feed.html',            icon: 'comm',   title: 'Feed',         sub: 'Community activity' },
+        { href: '/feed.html',            icon: 'comm',   title: 'The Signal',   sub: 'Everything happening' },
         // Community cut for launch — returns as a post-launch web-app update.
         { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { href: '/decoders-crew.html',        icon: 'users',  title: 'Decoders Crew', sub: 'Meet your mentors' },
