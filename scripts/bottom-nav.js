@@ -64,10 +64,10 @@
 
   // ---------- routes ----------
   var TABS = [
-    { id: 'home',     label: 'Home',     href: '/operator-dashboard.html', icon: 'home' },
-    { id: 'journey',  label: 'Arena',     href: '/missions.html',            icon: 'arena' },
+    { id: 'home',     label: 'Dash',     href: '/operator-dashboard.html', icon: 'home' },
     { id: 'practice', label: 'Practice', sheet: 'practice',                icon: 'practice' },
-    { id: 'library',  label: 'Protocols', href: '/protocols.html',         icon: 'library' },
+    { id: 'journey',  label: 'Arena',     href: '/missions.html',            icon: 'arena', king: true },
+    { id: 'signal',   label: 'Signal',   href: '/feed.html',               icon: 'comm' },
     { id: 'more',     label: 'More',     sheet: 'more',                    icon: 'more' }
   ];
 
@@ -92,7 +92,7 @@
         { href: '/shoot-lab.html',          icon: 'practice', title: 'Shoot Lab', sub: 'Nail the exposure triangle' },
         { href: '/darkroom-lab.html',          icon: 'sliders', title: 'Develop Lab', sub: 'Pro photo editor' },
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
-        { href: '/feed.html',            icon: 'comm',   title: 'The Signal',   sub: 'Everything happening' },
+        { href: '/protocols.html',       icon: 'library', title: 'Protocols',   sub: 'Training archive' },
         // Community cut for launch — returns as a post-launch web-app update.
         { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { href: '/decoders-crew.html',        icon: 'users',  title: 'Decoders Crew', sub: 'Meet your mentors' },
@@ -169,6 +169,12 @@
     + '.cd-bn-link svg{width:18px;height:18px}'
     + '.cd-bn-link:hover{color:#fff}'
     + '.cd-bn-link.cd-active{color:var(--cd-bn-green)}'
+    + '.cd-bn-link.cd-king svg{width:22px;height:22px;filter:drop-shadow(0 0 6px rgba(141,235,0,.6))}'
+    + '.cd-bn-link.cd-king{color:var(--cd-bn-green)}'
+    + '.cd-bn-link.cd-king::before{content:"";position:absolute;top:2px;width:36px;height:36px;'
+    +   'border-radius:50%;background:radial-gradient(circle,rgba(141,235,0,.18),transparent 70%);'
+    +   'pointer-events:none}'
+    + '@media(prefers-reduced-motion:reduce){.cd-bn-link.cd-king svg{filter:none}}'
     + '.cd-bn-link:active{transform:scale(.97)}'
     /* Sliding active-tab pill: glides between tabs (Arena-style), branded glass, 0.5px border. */
     + '.cd-bn-pill{position:absolute;top:8px;bottom:calc(8px + env(safe-area-inset-bottom));'
@@ -240,7 +246,8 @@
       var attrs = isSheet
         ? ' type="button" data-cd-sheet="' + t.sheet + '"'
         : ' href="' + ((t.id === 'home') ? roleConfig().dashboard : t.href) + '"';
-      return '<' + tag + ' class="cd-bn-link" data-cd-tab="' + t.id + '"' + attrs + '>'
+      var kingCls = t.king ? ' cd-king' : '';
+      return '<' + tag + ' class="cd-bn-link' + kingCls + '" data-cd-tab="' + t.id + '"' + attrs + '>'
            +   iconSVG(t.icon)
            +   '<span>' + t.label + '</span>'
            + '</' + tag + '>';
@@ -307,16 +314,16 @@
                  '/guide-progress.html', '/learning-journey.html', '/learning-module.html'], p)) {
       return 'journey';
     }
-    // Protocols tab: the numbered training archive and its reader pages.
-    if (matches(['/protocols.html', '/protocol-', '/dailyprotocols-op-dashboard.html'], p)) {
-      return 'library';
+    // Signal tab: the feed.
+    if (matches(['/feed.html'], p)) {
+      return 'signal';
     }
     // More sheet: secondary destinations.
     if (matches(['/community.html', '/ai-workbench.html', '/profile.html', '/admin-profile.html',
                  '/instructor-profile.html', '/partner-profile.html', '/leaderboard.html',
                  '/snapshot-library.html', '/decoders-crew.html', '/blog-updates.html', '/blog-post',
                  '/cynetis-7.html', '/ugc-creator.html', '/founding-200.html', '/inner-signal.html',
-                 '/feed.html',
+                 '/protocols.html', '/protocol-',
                  '/partners.html', '/operators.html', '/podcast.html',
                  '/about.html', '/contact.html', '/faq.html', '/terms.html', '/roadmap.html'], p)) {
       return 'more';
