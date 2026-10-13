@@ -26,7 +26,10 @@ jobs:
           failed=0
           for f in "$GITHUB_WORKSPACE"/blog/*.html; do
             slug=$(basename "$f" .html)
-            TITLE=$(grep -o '<title>[^<]*</title>' "$f" | sed 's/<[^>]*>//g' | head -1)
+            RAW_TITLE=$(grep -o '<title>[^<]*</title>' "$f" | sed 's/<[^>]*>//g' | head -1)
+TITLE=$(printf '%s' "$RAW_TITLE" | python3 -c "import html,sys; sys.stdout.write(html.unescape(sys.stdin.read().strip()))")
+TITLE=${TITLE% — Cameras Decoded}
+TITLE=${TITLE% - Cameras Decoded}
             [ -z "$TITLE" ] && TITLE="$slug"
             IMG=$(grep -o '<meta[^>]*property="og:image"[^>]*>' "$f" | grep -o 'content="[^"]*"' | cut -d'"' -f2 | head -1)
             echo "Publishing: $TITLE"
