@@ -24,17 +24,33 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          # One-time backfill for 2026-10-12 posts (hardcoded, no input needed)
-          for slug in night-photography-everyday-places raising-blacks-lightroom-sunset-glow bayer-filter-colorblind-sensor; do
+          publish_one() {
+            slug="$1"
             f="$GITHUB_WORKSPACE/blog/${slug}.html"
-            if [ ! -f "$f" ]; then echo "Not found: $f"; continue; fi
+            if [ ! -f "$f" ]; then echo "Not found: $f"; return; fi
             TITLE=$(grep -o '<title>[^<]*</title>' "$f" | sed 's/<[^>]*>//g' | head -1)
             [ -z "$TITLE" ] && TITLE="$slug"
+            IMG=$(grep -o '<meta[^>]*property="og:image"[^>]*>' "$f" | grep -o 'content="[^"]*"' | cut -d'"' -f2 | head -1)
             echo "Publishing: $TITLE"
-            node feed-writer.js \
-              --type blog_post \
-              --title "$TITLE" \
-              --actionUrl "https://camerasdecoded.com/blog/${slug}.html" \
-              --actionLabel "Read" \
-              --targetId "$slug"
+            [ -n "$IMG" ] && echo "  Image: $IMG"
+            if [ -n "$IMG" ]; then
+              node feed-writer.js --type blog_post --title "$TITLE" \
+                --actionUrl "https://camerasdecoded.com/blog/${slug}.html" \
+                --actionLabel "Read" --targetId "$slug" --imageUrl "$IMG"
+            else
+              node feed-writer.js --type blog_post --title "$TITLE" \
+                --actionUrl "https://camerasdecoded.com/blog/${slug}.html" \
+                --actionLabel "Read" --targetId "$slug"
+            fi
+          }
+          for slug in night-photography-everyday-places raising-blacks-lightroom-sunset-glow bayer-filter-colorblind-sensor; do
+            publish_one "$slug"
+          done
+          NEW_FILES=$(git diff --name-only --diff-filter=A HEAD~1 HEAD -- 'blog/*.html' 2>/dev/null || true)
+          for f in $NEW_FILES; do
+            slug=$(basename "$f" .html)
+            case "$slug" in
+              night-photography-everyday-places|raising-blacks-lightroom-sunset-glow|bayer-filter-colorblind-sensor) continue;;
+            esac
+            publish_one "$slug"
           done
