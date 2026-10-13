@@ -125,15 +125,29 @@ padding:8px 4px;cursor:pointer;border-radius:8px}
 .feed-act svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8}
 .feed-act.loved{color:var(--green)}
 .feed-act.loved svg{fill:var(--green-soft)}
+/* premium micro-animations: layered glow + spring physics */
+.feed-act{position:relative;overflow:visible}
+.feed-act::after{content:'';position:absolute;inset:0;margin:auto;width:36px;height:36px;
+  border-radius:50%;opacity:0;pointer-events:none}
+@keyframes flash-strike{0%{transform:scale(1) rotate(0);filter:brightness(1) drop-shadow(0 0 0 transparent)}
+  20%{transform:scale(1.35) rotate(-10deg);filter:brightness(2.2) drop-shadow(0 0 12px rgba(141,235,0,.9))}
+  45%{transform:scale(.92) rotate(5deg);filter:brightness(1.1)}
+  70%{transform:scale(1.12) rotate(-3deg);filter:brightness(1.6) drop-shadow(0 0 6px rgba(141,235,0,.5))}
+  100%{transform:scale(1) rotate(0);filter:brightness(1)}}
+@keyframes flash-ripple{0%{opacity:.7;transform:scale(.4)}100%{opacity:0;transform:scale(1.6)}}
+@keyframes comment-pop{0%{transform:scale(1);filter:brightness(1)}
+  35%{transform:scale(1.3,.82);filter:brightness(1.3)}
+  60%{transform:scale(.88,1.12)}80%{transform:scale(1.05,.95)}100%{transform:scale(1)}}
+@keyframes share-launch{0%{transform:translateY(0);filter:brightness(1)}
+  30%{transform:translateY(-8px);filter:brightness(1.5) drop-shadow(0 4px 8px rgba(141,235,0,.4))}
+  60%{transform:translateY(3px)}100%{transform:translateY(0)}}
+.feed-act.anim-flash svg{animation:flash-strike .55s cubic-bezier(.34,1.4,.64,1)}
+.feed-act.anim-flash::after{border:2px solid var(--green);animation:flash-ripple .55s ease-out}
+.feed-act.anim-comment svg{animation:comment-pop .5s cubic-bezier(.34,1.4,.64,1)}
+.feed-act.anim-share svg{animation:share-launch .45s cubic-bezier(.22,1,.36,1)}
+@media(prefers-reduced-motion:reduce){.feed-act svg,.feed-act::after{animation:none !important}}
 .feed-act .cnt{font-size:11px}
 /* reactions row */
-.react-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
-.react-btn{display:flex;align-items:center;gap:5px;background:var(--surface-2);
-border:1px solid var(--border);border-radius:16px;padding:5px 10px;cursor:pointer;
-font-family:var(--font-d);font-size:11px;color:var(--muted)}
-.react-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
-.react-btn.mine{border-color:var(--green-border);color:var(--green);background:var(--green-soft)}
-.react-btn.mine svg{fill:var(--green-soft)}
 /* comments */
 .comments{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;display:none}
 .comments.open{display:block}
@@ -207,14 +221,7 @@ function timeAgo(ts) {
   return Math.floor(s/86400) + 'd ago';
 }
 function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
-const REACT_ICONS = {
-  like: '<svg viewBox="0 0 24 24"><path d="M7 10v12H4a1 1 0 01-1-1V11a1 1 0 011-1h3zm2-2l4-8a2 2 0 013.7 1.6L15 8h6a2 2 0 012 2.4l-1.5 8A2 2 0 0119.5 20H9V8z"/></svg>',
-  appreciate: '<svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg>',
-  flash: '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
-  fav: '<svg viewBox="0 0 24 24"><path d="M12 21l-1.5-1.3C5 15.5 2 12.7 2 9.2 2 6.5 4 4.5 6.7 4.5c1.7 0 3.3.9 4.3 2.4h2c1-1.5 2.6-2.4 4.3-2.4 2.7 0 4.7 2 4.7 4.7 0 3.5-3 6.3-8.5 10.5L12 21z" transform="scale(0.9) translate(1.3,1.3)"/></svg>',
-  love: '<svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg>'
-};
-const REACT_LABELS = { like:'Like', appreciate:'Appreciate', flash:'Flash', fav:'Fav', love:'Love' };
+const FLASH_ICON = '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
 const SHARE_ICON = '<svg viewBox="0 0 24 24"><path d="M4 12v8a1 1 0 001 1h14a1 1 0 001-1v-8M16 6l-4-4-4 4M12 2v13"/></svg>';
 const COMMENT_ICON = '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>';
 
@@ -395,55 +402,57 @@ async function loadFeed() {
 
     /* --- feed interactions: reactions, comments, share --- */
     function actionBarHTML(d){
+      const fc = d.flashCount || 0;
       return `<div class="feed-actions">` +
-        `<button class="feed-act" data-act="react" data-id="${d._id}">${REACT_ICONS.like}<span>React</span></button>` +
+        `<button class="feed-act" data-act="flash" data-id="${d._id}">${FLASH_ICON}<span class="cnt" data-flash-cnt="${d._id}">${fc||''}</span><span>Flash</span></button>` +
         `<button class="feed-act" data-act="comment" data-id="${d._id}">${COMMENT_ICON}<span>Comment</span></button>` +
         `<button class="feed-act" data-act="share" data-id="${d._id}">${SHARE_ICON}<span>Share</span></button>` +
-      `</div><div class="react-row" data-reacts="${d._id}" style="display:none"></div>` +
+      `</div>` +
       `<div class="comments" data-comments="${d._id}"></div>`;
     }
-    async function toggleReactions(itemId, btn){
-      const row = document.querySelector(`[data-reacts="${itemId}"]`);
-      if(row.style.display !== 'none'){ row.style.display = 'none'; return; }
+    async function doFlash(itemId, btn){
       const u = firebase.auth().currentUser;
-      const db = firebase.firestore();
-      // load counts
-      let counts = { like:0, appreciate:0, flash:0, fav:0, love:0 };
-      let mine = null;
-      try{
-        const snap = await db.collection('feedItems').doc(itemId).collection('reactions').get();
-        snap.forEach(doc => {
-          const t = doc.data().type;
-          if(counts[t] !== undefined) counts[t]++;
-          if(u && doc.id === u.uid) mine = t;
-        });
-      }catch(e){}
-      row.innerHTML = Object.keys(counts).map(t =>
-        `<button class="react-btn${mine===t?' mine':''}" data-react="${t}" data-id="${itemId}">` +
-        `${REACT_ICONS[t]}<span>${REACT_LABELS[t]}</span>` +
-        (counts[t] ? `<span class="cnt">${counts[t]}</span>` : '') +
-        `</button>`
-      ).join('');
-      row.style.display = 'flex';
-    }
-    async function doReact(itemId, type, btn){
-      const u = firebase.auth().currentUser;
-      if(!u){ return; }
+      if(!u) return;
       const db = firebase.firestore();
       const ref = db.collection('feedItems').doc(itemId).collection('reactions').doc(u.uid);
+      const cntEl = document.querySelector(`[data-flash-cnt="${itemId}"]`);
       try{
         const existing = await ref.get();
-        if(existing.exists && existing.data().type === type){
-          await ref.delete(); // toggle off
+        if(existing.exists){
+          await ref.delete();
+          btn.classList.remove('loved');
+          if(cntEl){ const n = parseInt(cntEl.textContent||'0')-1; cntEl.textContent = n>0?n:''; }
         } else {
-          await ref.set({ type: type, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+          await ref.set({ type:'flash', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+          btn.classList.add('loved');
+          btn.classList.remove('anim-flash'); void btn.offsetWidth;
+          btn.classList.add('anim-flash');
+          setTimeout(()=>btn.classList.remove('anim-flash'), 600);
+          if(cntEl){ const n = parseInt(cntEl.textContent||'0')+1; cntEl.textContent = n; }
         }
-        toggleReactions(itemId); // refresh (close)
-        setTimeout(() => toggleReactions(itemId), 100); // reopen with new counts
       }catch(e){}
     }
-    async function toggleComments(itemId){
+    async function loadFlashStates(){
+      const u = firebase.auth().currentUser;
+      if(!u) return;
+      const db = firebase.firestore();
+      document.querySelectorAll('[data-act="flash"]').forEach(async function(btn){
+        const itemId = btn.dataset.id;
+        try{
+          // check if I flashed
+          const mine = await db.collection('feedItems').doc(itemId).collection('reactions').doc(u.uid).get();
+          if(mine.exists) btn.classList.add('loved');
+          // count total
+          const snap = await db.collection('feedItems').doc(itemId).collection('reactions').get();
+          const cntEl = document.querySelector(`[data-flash-cnt="${itemId}"]`);
+          if(cntEl && snap.size) cntEl.textContent = snap.size;
+        }catch(e){}
+      });
+    }
+    async function toggleComments(itemId, btn){
       const box = document.querySelector(`[data-comments="${itemId}"]`);
+      if(btn){ btn.classList.remove('anim-comment'); void btn.offsetWidth; btn.classList.add('anim-comment');
+        setTimeout(()=>btn.classList.remove('anim-comment'), 450); }
       if(box.classList.contains('open')){ box.classList.remove('open'); return; }
       const db = firebase.firestore();
       const u = firebase.auth().currentUser;
@@ -487,7 +496,9 @@ async function loadFeed() {
         setTimeout(() => toggleComments(itemId), 100); // reopen
       }catch(e){}
     }
-    async function sharePost(itemId, d){
+    async function sharePost(itemId, d, btn){
+      if(btn){ btn.classList.remove('anim-share'); void btn.offsetWidth; btn.classList.add('anim-share');
+        setTimeout(()=>btn.classList.remove('anim-share'), 450); }
       const url = 'https://camerasdecoded.com/feed.html#' + itemId;
       const title = d.title || 'Cameras Decoded Feed';
       const text = d.text ? d.text.substring(0, 100) : title;
@@ -505,13 +516,11 @@ async function loadFeed() {
         const card = act.closest('.feed-card');
         // find the data object - stored on element
         const d = card && card._feedData;
-        if(act.dataset.act === 'react') toggleReactions(itemId, act);
-        else if(act.dataset.act === 'comment') toggleComments(itemId);
-        else if(act.dataset.act === 'share' && d) sharePost(itemId, d);
+        if(act.dataset.act === 'flash') doFlash(itemId, act);
+        else if(act.dataset.act === 'comment') toggleComments(itemId, act);
+        else if(act.dataset.act === 'share' && d) sharePost(itemId, d, act);
         return;
       }
-      const rb = e.target.closest('[data-react]');
-      if(rb){ doReact(rb.dataset.id, rb.dataset.react, rb); return; }
       const cs = e.target.closest('[data-csend]');
       if(cs){ sendComment(cs.dataset.csend); return; }
     });
@@ -579,6 +588,7 @@ async function loadFeed() {
       return;
     }
     feedList.appendChild(frag);
+    loadFlashStates();
   } catch(e) {
     feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
   }
