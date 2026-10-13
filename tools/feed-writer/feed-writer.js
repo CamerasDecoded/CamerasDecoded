@@ -56,7 +56,20 @@ async function main() {
   // Strip nulls (Firestore rejects undefined, nulls are fine but noisy)
   Object.keys(doc).forEach((k) => { if (doc[k] === null) delete doc[k]; });
 
-  const ref = await db.collection("feedItems").add(doc);
+  // Upsert: if an item with same type+targetId exists, update it (avoids duplicates)
+  const targetId = arg("targetId") || "";
+  let ref;
+  if (targetId) {
+    const snap = await db.collection("feedItems")
+      .where("type", "==", type).where("targetId", "==", targetId).limit(1).get();
+    if (!snap.empty) {
+      ref = snap.docs[0].ref;
+      await ref.update(doc);
+      console.log("Updated feed item:", ref.id, `(${type})`, title);
+      return;
+    }
+  }
+  ref = await db.collection("feedItems").add(doc);
   console.log("Wrote feed item:", ref.id, `(${type})`, title);
 }
 
