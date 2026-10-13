@@ -115,6 +115,25 @@ padding:14px;margin-bottom:16px}
 .composer textarea{width:100%;background:var(--surface-2);border:1px solid var(--border);
 border-radius:10px;color:var(--text);font-family:var(--font-b);font-size:14px;
 padding:12px;min-height:60px;resize:vertical;margin-bottom:10px}
+@property --sg-angle { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+@keyframes sgSpin { to { --sg-angle:360deg; } }
+.sg-post{position:relative;display:flex;align-items:center;justify-content:center;
+  width:100%;height:52px;border-radius:12px;border:1px solid transparent;cursor:pointer;
+  background:linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,0) 42%),
+    linear-gradient(165deg, rgba(141,235,0,.20) 0%, rgba(141,235,0,.07) 60%, rgba(141,235,0,.13) 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09), 0 6px 22px rgba(141,235,0,.10)}
+.sg-post::before{content:'';position:absolute;inset:-0.5px;border-radius:inherit;
+  padding:1.5px;opacity:.4;pointer-events:none;
+  background:conic-gradient(from var(--sg-angle,120deg),
+    transparent 20%, #8deb00 40%, transparent 60%, #8deb00 80%, transparent 100%);
+  -webkit-mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+  -webkit-mask-composite:xor; mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+  mask-composite:exclude; animation:sgSpin 6s linear infinite}
+.sg-post span{font-weight:800;font-size:13px;letter-spacing:.12em;color:#8deb00;
+  text-transform:uppercase;text-shadow:0 0 18px rgba(141,235,0,.45);font-family:var(--font-d)}
+.sg-post:disabled{opacity:.5;cursor:default}
+.sg-post:disabled::before{animation:none}
+@media(prefers-reduced-motion:reduce){.sg-post::before{animation:none}}
 .composer button{background:var(--green);border:none;color:#0a0a0a;border-radius:8px;
 padding:10px 20px;font-family:var(--font-d);font-size:12px;font-weight:700;cursor:pointer}
 .composer-row{display:flex;gap:8px;align-items:center}
@@ -210,7 +229,7 @@ font-size:11px;cursor:pointer}
         <input type="file" id="composerFile" accept="image/*" multiple style="display:none"/>
       </div>
       <div class="composer-row">
-        <button id="composerPost" style="flex:1">Post</button>
+        <button id="composerPost" class="sg-post" style="flex:1"><span>Post</span></button>
       </div>
     </div>
     <div id="feedList"><div class="feed-loading">Loading the signal…</div></div>
@@ -364,7 +383,7 @@ document.getElementById('composerPost').onclick = async function(){
   if(!u) return;
   const userName = (window.USER&&window.USER.name)||u.displayName||'Operator';
   const btn = document.getElementById('composerPost');
-  btn.textContent = 'Posting…'; btn.disabled = true;
+  btn.querySelector('span').textContent = 'Posting…'; btn.disabled = true;
   try{
     const doc = {
       type: 'post', actorUid: u.uid, actorName: userName, text: text,
@@ -389,7 +408,7 @@ document.getElementById('composerPost').onclick = async function(){
     });
     loadFeed();
   }catch(e){}
-  btn.textContent = 'Post'; btn.disabled = false;
+  btn.querySelector('span').textContent = 'Post'; btn.disabled = false;
 };
 async function loadFeed() {
   try {
