@@ -11,46 +11,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: Install feed-writer deps
         run: npm install
         working-directory: tools/feed-writer
-      - name: Publish posts to feed
+      - name: Publish all posts to feed
         working-directory: tools/feed-writer
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          publish_one() {
-            slug="$1"
-            f="$GITHUB_WORKSPACE/blog/${slug}.html"
-            if [ ! -f "$f" ]; then echo "Not found: $f"; return; fi
+          published=0
+          failed=0
+          for f in "$GITHUB_WORKSPACE"/blog/*.html; do
+            slug=$(basename "$f" .html)
             TITLE=$(grep -o '<title>[^<]*</title>' "$f" | sed 's/<[^>]*>//g' | head -1)
             [ -z "$TITLE" ] && TITLE="$slug"
             IMG=$(grep -o '<meta[^>]*property="og:image"[^>]*>' "$f" | grep -o 'content="[^"]*"' | cut -d'"' -f2 | head -1)
             echo "Publishing: $TITLE"
-            [ -n "$IMG" ] && echo "  Image: $IMG"
             if [ -n "$IMG" ]; then
               node feed-writer.js --type blog_post --title "$TITLE" \
                 --actionUrl "https://camerasdecoded.com/blog/${slug}.html" \
-                --actionLabel "Read" --targetId "$slug" --imageUrl "$IMG"
+                --actionLabel "Read" --targetId "$slug" --imageUrl "$IMG" \
+                && published=$((published+1)) || failed=$((failed+1))
             else
               node feed-writer.js --type blog_post --title "$TITLE" \
                 --actionUrl "https://camerasdecoded.com/blog/${slug}.html" \
-                --actionLabel "Read" --targetId "$slug"
+                --actionLabel "Read" --targetId "$slug" \
+                && published=$((published+1)) || failed=$((failed+1))
             fi
-          }
-          for slug in night-photography-everyday-places raising-blacks-lightroom-sunset-glow bayer-filter-colorblind-sensor; do
-            publish_one "$slug"
           done
-          NEW_FILES=$(git diff --name-only --diff-filter=A HEAD~1 HEAD -- 'blog/*.html' 2>/dev/null || true)
-          for f in $NEW_FILES; do
-            slug=$(basename "$f" .html)
-            case "$slug" in
-              night-photography-everyday-places|raising-blacks-lightroom-sunset-glow|bayer-filter-colorblind-sensor) continue;;
-            esac
-            publish_one "$slug"
-          done
+          echo "Feed publish complete: $published ok, $failed failed"
+          if [ "$failed" -gt 0 ]; then
+            echo "::error::$failed post(s) failed to publish to the feed"
+            exit 1
+          fi
