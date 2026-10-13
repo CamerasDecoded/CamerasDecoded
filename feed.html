@@ -221,6 +221,7 @@ function timeAgo(ts) {
   return Math.floor(s/86400) + 'd ago';
 }
 function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function dec(s){ const t=document.createElement('textarea'); t.innerHTML=s||''; return t.value; }
 const FLASH_ICON = '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
 const SHARE_ICON = '<svg viewBox="0 0 24 24"><path d="M4 12v8a1 1 0 001 1h14a1 1 0 001-1v-8M16 6l-4-4-4 4M12 2v13"/></svg>';
 const COMMENT_ICON = '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>';
@@ -291,6 +292,18 @@ function updateComposer(){
   const u = (typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length)
     ? firebase.auth().currentUser : null;
   document.getElementById('composer').style.display = u ? 'block' : 'none';
+}
+// Re-check when auth resolves (fixes composer hidden on launch)
+if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length){
+  firebase.auth().onAuthStateChanged(function(){ updateComposer(); loadFlashStates(); });
+} else {
+  // firebase not ready yet, retry shortly
+  setTimeout(function(){
+    if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length){
+      firebase.auth().onAuthStateChanged(function(){ updateComposer(); loadFlashStates(); });
+      updateComposer();
+    }
+  }, 2000);
 }
 /* composer: text + image upload via imgbb */
 let composerImageUrl = null;
@@ -539,7 +552,7 @@ async function loadFeed() {
         el.innerHTML =
           `<div class="ed-meta"><div class="feed-type">${esc(TYPE_LABELS[d.type]||d.type)}</div>`+
           `<div class="feed-time">${timeAgo(d.createdAt)}</div></div>`+
-          (d.title ? `<div class="ed-title">${esc(d.title)}</div>` : '')+
+          (d.title ? `<div class="ed-title">${esc(dec(d.title))}</div>` : '')+
           (d.text ? `<div class="ed-excerpt">${esc(d.text)}</div>` : '')+
           (d.imageUrl ? `<img class="feed-image" src="${esc(d.imageUrl)}" loading="lazy" alt=""/>` : '')+
           (d.actionUrl ? `<a class="ed-cta" href="${esc(d.actionUrl)}">${esc(d.actionLabel||'Read')}</a>` : '')+
