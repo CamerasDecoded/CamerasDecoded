@@ -92,6 +92,7 @@
         { href: '/shoot-lab.html',          icon: 'practice', title: 'Shoot Lab', sub: 'Nail the exposure triangle' },
         { href: '/darkroom-lab.html',          icon: 'sliders', title: 'Develop Lab', sub: 'Pro photo editor' },
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
+        { href: '/feed.html',            icon: 'comm',   title: 'Feed',         sub: 'Community activity' },
         // Community cut for launch — returns as a post-launch web-app update.
         { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { href: '/decoders-crew.html',        icon: 'users',  title: 'Decoders Crew', sub: 'Meet your mentors' },
@@ -315,6 +316,7 @@
                  '/instructor-profile.html', '/partner-profile.html', '/leaderboard.html',
                  '/snapshot-library.html', '/decoders-crew.html', '/blog-updates.html', '/blog-post',
                  '/cynetis-7.html', '/ugc-creator.html', '/founding-200.html', '/inner-signal.html',
+                 '/feed.html',
                  '/partners.html', '/operators.html', '/podcast.html',
                  '/about.html', '/contact.html', '/faq.html', '/terms.html', '/roadmap.html'], p)) {
       return 'more';
