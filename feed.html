@@ -416,23 +416,40 @@ async function loadFeed() {
     const snap = await db.collection('feedItems').orderBy('createdAt','desc').limit(50).get();
     feedList.innerHTML = '';
     const types = FILTER_TYPES[activeFilter];
-    /* slot ranking: featured first, then interleave editorial every 4th */
+    /* time-aware interleave: the slot ranking (featured first, social first,
+       editorial woven every 4th) applies only WITHIN each Chicago day —
+       nothing ever crosses a day boundary. Days run newest first. */
     const items = [];
     snap.forEach(doc => {
       const d = doc.data(); d._id = doc.id;
       if(types && !types.includes(d.type)) return;
       items.push(d);
     });
-    const featured = items.filter(d => d.type === 'featured_operator');
-    const editorial = items.filter(d => ['blog_post','protocol','podcast'].includes(d.type));
-    const social = items.filter(d => !['featured_operator','blog_post','protocol','podcast'].includes(d.type));
-    const ordered = [...featured];
-    let ei = 0;
-    social.forEach((d, i) => {
-      ordered.push(d);
-      if((i+1) % 4 === 0 && ei < editorial.length) ordered.push(editorial[ei++]);
+    function dayKey(d){
+      const t = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null;
+      if(!t || isNaN(t.getTime())) return '9999-12-31';
+      return t.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+    }
+    const byDay = new Map();
+    items.forEach(d => {
+      const k = dayKey(d);
+      if(!byDay.has(k)) byDay.set(k, []);
+      byDay.get(k).push(d);
     });
-    while(ei < editorial.length) ordered.push(editorial[ei++]);
+    const ordered = [];
+    Array.from(byDay.keys()).sort().reverse().forEach(k => {
+      const dayItems = byDay.get(k);
+      const featured = dayItems.filter(d => d.type === 'featured_operator');
+      const editorial = dayItems.filter(d => ['blog_post','protocol','podcast'].includes(d.type));
+      const social = dayItems.filter(d => !['featured_operator','blog_post','protocol','podcast'].includes(d.type));
+      ordered.push(...featured);
+      let ei = 0;
+      social.forEach((d, i) => {
+        ordered.push(d);
+        if((i+1) % 4 === 0 && ei < editorial.length) ordered.push(editorial[ei++]);
+      });
+      while(ei < editorial.length) ordered.push(editorial[ei++]);
+    });
 
     let shown = 0;
     const frag = document.createDocumentFragment();
