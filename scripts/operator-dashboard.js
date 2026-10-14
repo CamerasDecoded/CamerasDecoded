@@ -855,7 +855,8 @@
             art: '/images/fm-chapters/fm-ch' + (nextIdx + 1) + '.jpg?v=20261002b',
             chip: 'Field Manual · Chapter ' + (nextIdx + 1) });
         } else {
-          rows.push({ kind: 'lesson', kicker: 'Field Manual', title: 'Course complete', sub: 'Review a chapter, or take the final exam', href: '/field-manual.html', cta: 'Review' });
+          rows.push({ kind: 'lesson', kicker: 'Field Manual', title: 'Course complete', sub: 'Review a chapter, or take the final exam', href: '/field-manual.html', cta: 'Review',
+            art: '/images/fm-chapters/fm-ch5.jpg?v=20261002b', chip: 'Field Manual · Complete' });
         }
       }
     } catch (e) {}
