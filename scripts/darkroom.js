@@ -279,6 +279,34 @@ function renderAll(){
 /* ---------- detail sheet ---------- */
 const scrim = () => document.getElementById('scrim');
 let lastFocus = null;
+/* Bridges: each skill's theory lesson in the Field Manual (Learn audit, 2026-10-14).
+   Free skills point at free chapters; Pro skills at their Pro chapters. */
+const THEORY = {
+  'camera-basics':   { lesson: 'ch02-camera-settings',    title: 'Camera Settings' },
+  'exposure-triangle': { lesson: 'ch03-exposure',         title: 'Exposure Triangle' },
+  'metering':        { lesson: 'ch03-exposure',           title: 'Exposure Triangle' },
+  'focus':           { lesson: 'ch03-focus',              title: 'Focus Demystified' },
+  'aperture':        { lesson: 'ch03-exposure',           title: 'Exposure Triangle' },
+  'shutter':         { lesson: 'ch03-exposure',           title: 'Exposure Triangle' },
+  'iso':             { lesson: 'ch03-exposure',           title: 'Exposure Triangle' },
+  'exp-comp':        { lesson: 'ch03-exposure',           title: 'Exposure Triangle' },
+  'manual-mode':     { lesson: 'ch03-mode-dial',         title: 'Mode Dial Explained' },
+  'thirds':          { lesson: 'ch04-photography-basics', title: 'Photography Basics' },
+  'leading-lines':   { lesson: 'ch04-photography-basics', title: 'Photography Basics' },
+  'framing':         { lesson: 'ch04-photography-basics', title: 'Photography Basics' },
+  'seeing-light':    { lesson: 'ch04-photography-basics', title: 'Photography Basics' },
+  'neg-space':       { lesson: 'ch04-photography-basics', title: 'Photography Basics' },
+  'white-balance':   { lesson: 'ch04-picture-profiles',   title: 'Picture Profiles' },
+  'color-temp':      { lesson: 'ch04-picture-profiles',   title: 'Picture Profiles' },
+  'color-harmony':   { lesson: 'ch04-creative-looks',     title: 'Creative Looks' },
+  'golden-hour':     { lesson: 'ch04-lowlight',           title: 'Lowlight Shooting' },
+  'portraits':       { lesson: 'ch04-photography-basics', title: 'Photography Basics' },
+  'long-exposure':   { lesson: 'ch04-lowlight',           title: 'Lowlight Shooting' },
+  'night':           { lesson: 'ch04-lowlight',           title: 'Lowlight Shooting' },
+  'street':          { lesson: 'ch04-photography-basics', title: 'Photography Basics' },
+  'editing':         { lesson: 'ch04-creative-looks',     title: 'Creative Looks' }
+};
+
 function openSheet(skillId){
   const s = skillMap[skillId];
   if (!s) return;
@@ -301,6 +329,16 @@ function openSheet(skillId){
   document.getElementById('sheetIcon').innerHTML = ICONS[s.icon] || ICONS.camera;
   document.getElementById('sheetTitle').textContent = s.name;
   document.getElementById('sheetDesc').textContent = s.desc;
+  /* bridge back to the theory (Learn audit, 2026-10-14) */
+  const thEl = document.getElementById('sheetTheory');
+  if (thEl) {
+    const th = THEORY[skillId];
+    if (th) {
+      thEl.hidden = false;
+      thEl.href = '/field-manual.html?lesson=' + th.lesson;
+      thEl.textContent = 'The theory — Field Manual: ' + th.title + ' →';
+    } else thEl.hidden = true;
+  }
   document.getElementById('sheetPips').innerHTML = [1,2,3,4,5].map(i=>'<i class="'+(i<=lvl?'on':'')+'"></i>').join('');
   const nt = nextThreshold(xp);
   document.getElementById('sheetLvl').textContent =
