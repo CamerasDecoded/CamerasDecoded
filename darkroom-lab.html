@@ -459,18 +459,38 @@
   .cd-score-feedback { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
 
   /* ============ UPLOAD INVITE OVERLAY ============ */
+  /* Liquid Glass (per Apple's HIG materials guidance): a translucent
+     functional layer floating over the content — refraction via blur +
+     saturation pick-up, specular light on the top edge (an inset
+     highlight, not a border), concentric corners, capsule control,
+     and a solid fallback when reduced transparency is requested. */
   .dl-invite {
     position: fixed; inset: 0; z-index: 60;
-    background: rgba(5,7,5,0.20); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    background: rgba(5,7,5,0.18);
+    backdrop-filter: blur(10px) saturate(1.25); -webkit-backdrop-filter: blur(10px) saturate(1.25);
     display: none; align-items: center; justify-content: center; padding: 22px;
   }
   .dl-invite.show { display: flex; }
   .dl-invite-card {
+    position: relative; overflow: hidden;
     width: 100%; max-width: 336px; text-align: center;
-    background: rgba(10,13,10,0.36); border: none;
-    backdrop-filter: blur(16px) saturate(1.15); -webkit-backdrop-filter: blur(16px) saturate(1.15);
-    border-radius: 22px; padding: 28px 24px 24px;
-    box-shadow: 0 18px 48px rgba(0,0,0,0.35);
+    background: rgba(14,18,14,0.30); border: none;
+    backdrop-filter: blur(22px) saturate(180%) brightness(1.06); -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.06);
+    border-radius: 28px; padding: 28px 24px 24px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.35),
+      inset 0 -1px 0 rgba(255,255,255,0.07),
+      inset 1px 0 0 rgba(255,255,255,0.05),
+      inset -1px 0 0 rgba(255,255,255,0.05),
+      0 24px 56px rgba(0,0,0,0.38);
+  }
+  .dl-invite-card::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(115deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.03) 38%, rgba(255,255,255,0) 60%);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .dl-invite { background: rgba(5,7,5,0.72); backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .dl-invite-card { background: rgba(12,15,12,0.95); backdrop-filter: none; -webkit-backdrop-filter: none; }
   }
   @media (prefers-reduced-motion: no-preference) {
     .dl-invite.show .dl-invite-card { animation: dlInviteIn .45s cubic-bezier(.22,1,.36,1); }
@@ -481,14 +501,19 @@
   .dl-invite-sub { font-size: 13.5px; line-height: 1.55; color: rgba(238,246,226,0.86); margin: 0 0 20px; }
   .dl-invite-sub b { color: #fff; font-weight: 600; }
   .dl-invite-btn {
+    position: relative;
     display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%;
-    background: rgba(141,235,0,0.18); color: #c4ff5e; border: none; border-radius: 999px;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    background: linear-gradient(180deg, rgba(163,255,80,0.30), rgba(141,235,0,0.16));
+    color: #d4ff8a; border: none; border-radius: 999px;
+    backdrop-filter: blur(8px) saturate(160%); -webkit-backdrop-filter: blur(8px) saturate(160%);
     font-family: var(--sans); font-size: 15.5px; font-weight: 700; padding: 14px 16px; cursor: pointer;
-    box-shadow: none;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.45),
+      inset 0 -1px 0 rgba(0,0,0,0.08),
+      0 8px 22px rgba(0,0,0,0.22);
   }
   .dl-invite-btn svg { width: 19px; height: 19px; flex-shrink: 0; }
-  .dl-invite-btn:active { background: rgba(141,235,0,0.30); transform: scale(.985); }
+  .dl-invite-btn:active { background: linear-gradient(180deg, rgba(163,255,80,0.42), rgba(141,235,0,0.24)); transform: scale(.98); }
   .dl-invite-sample {
     display: inline-block; margin-top: 12px; background: none; border: none; cursor: pointer;
     font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em; color: rgba(238,246,226,0.75);
@@ -1210,9 +1235,9 @@ window.addEventListener('error', function(e) {
     if (!o) return;
     const isHandoff = new URLSearchParams(location.search).get('handoff') === '1';
     if (!isHandoff) o.classList.add('show');
-    $('dlInviteUpload').addEventListener('click', () => fileInput.click());
+    $('dlInviteUpload').addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
     $('dlInviteSample').addEventListener('click', hideDlInvite);
-    o.addEventListener('click', (e) => { if (e.target === o) hideDlInvite(); });
+    o.addEventListener('click', hideDlInvite);
   })();
   fileInput.addEventListener('change', () => {
     const f = fileInput.files[0];
