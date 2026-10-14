@@ -234,14 +234,22 @@
       }
     } catch (e) { chapters = []; }
 
-    let completedIds = [];
+    // Completion truth lives in the guideProgress/{uid} doc: completedLessons[].
+    // (The legacy chapters subcollection belongs to the retired guide pages
+    // and is never written by the current Field Manual player.)
+    let completedLessons = [];
     try {
-      const pSnap = await window.db.collection('guideProgress').doc(uid).collection('chapters').get();
-      pSnap.docs.forEach((doc) => {
-        const d = doc.data() || {};
-        if (d.completed) completedIds.push(doc.id);
-      });
-    } catch (e) { completedIds = []; }
+      const pDoc = await window.db.collection('guideProgress').doc(uid).get();
+      if (pDoc && pDoc.exists) {
+        const pd = pDoc.data() || {};
+        if (Array.isArray(pd.completedLessons)) completedLessons = pd.completedLessons;
+      }
+    } catch (e) { completedLessons = []; }
+    const completedIds = chapters
+      .filter((c) => Array.isArray(c.lessons) && c.lessons.length &&
+        c.lessons.every((l) => completedLessons.includes(l.id)))
+      .map((c) => c.id);
+    vm.fmRaw = { chapters, completedLessons };
 
     const nodes = chapters.map((c, i) => ({
       id: c.id || ('ch' + String(i + 1).padStart(2, '0')),
@@ -823,6 +831,79 @@
     if (cta) cta.href = '/missions.html';
     if (ctaLabel) ctaLabel.textContent = 'Continue mission';
     splitHeroDescLines();
+  }
+
+  /* ---- Today stack (Learn audit, 2026-10-14): one path across systems ---- */
+  async function loadToday(uid) {
+    const rows = [];
+    try {
+      const fm = vm.fmRaw;
+      if (fm && fm.chapters && fm.chapters.length) {
+        let nextLesson = null, nextChapter = null, nextIdx = -1;
+        fm.chapters.forEach((c, ci) => {
+          if (nextLesson) return;
+          (c.lessons || []).forEach((l) => {
+            if (!nextLesson && !fm.completedLessons.includes(l.id)) { nextLesson = l; nextChapter = c; nextIdx = ci; }
+          });
+        });
+        if (nextLesson) {
+          const pro = nextIdx >= 3 && vm.user.tier !== 'pro';
+          rows.push({ kicker: 'Field Manual · Chapter ' + (nextIdx + 1), title: nextLesson.title,
+            sub: (pro ? 'Pro chapter · ' : '') + (nextChapter.title || ''), href: '/field-manual.html?lesson=' + nextLesson.id });
+        } else {
+          rows.push({ kicker: 'Field Manual', title: 'Course complete', sub: 'Review a chapter, or take the final exam', href: '/field-manual.html' });
+        }
+      }
+    } catch (e) {}
+    try {
+      if (typeof SKILL_TREES !== 'undefined' && typeof deriveState === 'function') {
+        const snap = await window.db.collection('userSkills').doc(uid).get();
+        const data = (snap && snap.exists && snap.data()) || {};
+        const progress = {};
+        Object.entries(data.skills || {}).forEach(([id, v]) => { if (v && typeof v.xp === 'number') progress[id] = { xp: v.xp }; });
+        const tree = SKILL_TREES['photo-foundations'];
+        const flat = [];
+        tree.branches.forEach((b) => b.skills.forEach((s) => flat.push({ s, branch: b })));
+        const states = flat.map((x) => ({ ...x, st: deriveState(x.s, progress) }));
+        const pick = states.find((x) => x.st.state === 'available') ||
+          states.filter((x) => x.st.state === 'in-progress').sort((a, b) => a.st.lvl - b.st.lvl)[0] ||
+          states.find((x) => x.st.state === 'locked');
+        if (pick) {
+          const nt = nextThreshold(pick.st.xp);
+          const sub = pick.branch.name + (pick.st.state === 'in-progress' && nt ? ' · Level ' + pick.st.lvl + ' — ' + (nt.xp - pick.st.xp) + ' XP to level ' + nt.level : ' · Up next');
+          rows.push({ kicker: 'The Darkroom', title: pick.s.name, sub, href: '/darkroom.html#skill=' + pick.s.id });
+        } else if (states.length && states.every((x) => x.st.state === 'mastered')) {
+          rows.push({ kicker: 'The Darkroom', title: 'Skill tree mastered', sub: 'Every skill at level 5 — keep the drills warm', href: '/darkroom.html' });
+        }
+      }
+    } catch (e) {}
+    try {
+      const entries = Object.keys(PROTOCOL_TITLES).map((id) => ({ id, title: PROTOCOL_TITLES[id] }));
+      if (!PROTOCOL_TITLES['protocol-022']) entries.push({ id: 'protocol-022', title: 'The Blue Hour Contract' });
+      if (entries.length) {
+        const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+        const start = new Date(now.getFullYear(), 0, 0);
+        const doy = Math.floor((now - start) / 864e5);
+        const pick = entries[doy % entries.length];
+        rows.push({ kicker: "Today's Protocol", title: pick.title, sub: 'One read from the training archive', href: '/' + pick.id + '.html' });
+      }
+    } catch (e) {}
+    renderToday(rows);
+  }
+  function renderToday(rows) {
+    const sec = $('todaySection'), box = $('todayRows');
+    if (!sec || !box) return;
+    if (!rows.length) { sec.hidden = true; return; }
+    box.innerHTML = rows.map((r) =>
+      '<a class="today-row" href="' + r.href + '">' +
+        '<span class="today-main">' +
+          '<span class="today-kicker">' + escHtml(r.kicker) + '</span>' +
+          '<span class="today-title">' + escHtml(r.title) + '</span>' +
+          '<span class="today-sub">' + escHtml(r.sub) + '</span>' +
+        '</span>' +
+        '<span class="today-arrow" aria-hidden="true">→</span>' +
+      '</a>').join('');
+    sec.hidden = false;
   }
 
   function renderJourneyList() {
@@ -1553,6 +1634,7 @@
       try {
         await hydrateUser(uid);
         await loadJourney(uid);
+        loadToday(uid);
         renderAll();
         if (window.BottomNav?.updateBadges) window.BottomNav.updateBadges(window.USER || vm.user);
       } catch (e) { console.warn('[Dashboard] snapshot render error', e); }
@@ -1604,6 +1686,7 @@
         await hydrateUser(user.uid);
         maybePromptProfileCompletion(user.uid); // fire-and-forget bell nudge
         await loadJourney(user.uid);
+        loadToday(user.uid);
         renderAll();
         subscribeToUser(user.uid);
         const l = $('loadingState'); if (l) l.hidden = true;
