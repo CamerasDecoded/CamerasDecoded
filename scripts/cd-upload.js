@@ -12,8 +12,8 @@
    in client code by design); the account API secret is never here.
    ================================================================ */
 (function () {
-  var CLOUD_NAME = "__CLOUD_NAME__";
-  var UPLOAD_PRESET = "__UPLOAD_PRESET__";
+  var CLOUD_NAME = "l8tkygij";
+  var UPLOAD_PRESET = "cd_unsigned";
 
   function configured() {
     return CLOUD_NAME.indexOf("__") !== 0 && UPLOAD_PRESET.indexOf("__") !== 0;
