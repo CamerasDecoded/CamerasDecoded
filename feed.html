@@ -155,6 +155,9 @@ padding:8px 4px;cursor:pointer;border-radius:8px}
 .feed-act svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8}
 .feed-act.loved{color:var(--green)}
 .feed-act.loved svg{fill:var(--green-soft)}
+.feed-act.feed-del{flex:0 0 auto;color:var(--muted-2);padding-left:10px;padding-right:10px}
+.feed-act.feed-del.armed{color:#ff6b6b}
+.feed-card.removing{opacity:0;transform:scale(.98);transition:opacity .25s ease,transform .25s ease}
 /* premium micro-animations: layered glow + spring physics */
 .feed-act{position:relative;overflow:visible}
 .feed-act::after{content:'';position:absolute;inset:0;margin:auto;width:36px;height:36px;
@@ -255,6 +258,7 @@ function dec(s){ const t=document.createElement('textarea'); t.innerHTML=s||''; 
 const FLASH_ICON = '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
 const SHARE_ICON = '<svg viewBox="0 0 24 24"><path d="M4 12v8a1 1 0 001 1h14a1 1 0 001-1v-8M16 6l-4-4-4 4M12 2v13"/></svg>';
 const COMMENT_ICON = '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>';
+const TRASH_ICON = '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a2 2 0 01-2 2H8a2 2 0 01-2-2V6M10 11v6M14 11v6"/></svg>';
 
 
 let activeFilter = 'all';
@@ -325,12 +329,12 @@ function updateComposer(){
 }
 // Re-check when auth resolves (fixes composer hidden on launch)
 if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length){
-  firebase.auth().onAuthStateChanged(function(){ updateComposer(); loadFlashStates(); });
+  firebase.auth().onAuthStateChanged(function(){ updateComposer(); loadFlashStates(); loadFeed(); });
 } else {
   // firebase not ready yet, retry shortly
   setTimeout(function(){
     if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length){
-      firebase.auth().onAuthStateChanged(function(){ updateComposer(); loadFlashStates(); });
+      firebase.auth().onAuthStateChanged(function(){ updateComposer(); loadFlashStates(); loadFeed(); });
       updateComposer();
     }
   }, 2000);
@@ -520,10 +524,14 @@ async function loadFeed() {
     /* --- feed interactions: reactions, comments, share --- */
     function actionBarHTML(d){
       const fc = d.flashCount || 0;
+      const me = (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) || null;
+      const delBtn = (me && d.actorUid === me.uid && ['post','club_post','suggestion'].includes(d.type))
+        ? `<button class="feed-act feed-del" data-act="delete" data-id="${d._id}">${TRASH_ICON}<span class="del-label">Delete</span></button>` : '';
       return `<div class="feed-actions">` +
         `<button class="feed-act" data-act="flash" data-id="${d._id}">${FLASH_ICON}<span class="cnt" data-flash-cnt="${d._id}">${fc||''}</span><span>Flash</span></button>` +
         `<button class="feed-act" data-act="comment" data-id="${d._id}">${COMMENT_ICON}<span>Comment</span></button>` +
         `<button class="feed-act" data-act="share" data-id="${d._id}">${SHARE_ICON}<span>Share</span></button>` +
+        delBtn +
       `</div>` +
       `<div class="comments" data-comments="${d._id}"></div>`;
     }
@@ -613,6 +621,45 @@ async function loadFeed() {
         setTimeout(() => toggleComments(itemId), 100); // reopen
       }catch(e){}
     }
+    async function deleteFeedItem(itemId){
+      const db = firebase.firestore();
+      const ref = db.collection('feedItems').doc(itemId);
+      for(const sub of ['comments','reactions']){
+        const snap = await ref.collection(sub).get();
+        let batch = db.batch(); let n = 0;
+        for(const doc of snap.docs){
+          batch.delete(doc.ref); n++;
+          if(n === 450){ await batch.commit(); batch = db.batch(); n = 0; }
+        }
+        if(n) await batch.commit();
+      }
+      await ref.delete();
+    }
+    async function handleDelete(btn, itemId, card){
+      const label = btn.querySelector('.del-label');
+      if(!btn.dataset.armed){
+        btn.dataset.armed = '1';
+        btn.classList.add('armed');
+        if(label) label.textContent = 'Confirm?';
+        setTimeout(() => {
+          delete btn.dataset.armed;
+          btn.classList.remove('armed');
+          if(label) label.textContent = 'Delete';
+        }, 3500);
+        return;
+      }
+      btn.disabled = true;
+      if(label) label.textContent = 'Deleting…';
+      try{
+        await deleteFeedItem(itemId);
+        if(card){ card.classList.add('removing'); setTimeout(() => card.remove(), 260); }
+      }catch(err){
+        btn.disabled = false;
+        delete btn.dataset.armed;
+        btn.classList.remove('armed');
+        if(label){ label.textContent = 'Failed — retry'; setTimeout(() => { label.textContent = 'Delete'; }, 2500); }
+      }
+    }
     async function sharePost(itemId, d, btn){
       if(btn){ btn.classList.remove('anim-share'); void btn.offsetWidth; btn.classList.add('anim-share');
         setTimeout(()=>btn.classList.remove('anim-share'), 450); }
@@ -636,6 +683,7 @@ async function loadFeed() {
         if(act.dataset.act === 'flash') doFlash(itemId, act);
         else if(act.dataset.act === 'comment') toggleComments(itemId, act);
         else if(act.dataset.act === 'share' && d) sharePost(itemId, d, act);
+        else if(act.dataset.act === 'delete') handleDelete(act, itemId, card);
         return;
       }
       const cs = e.target.closest('[data-csend]');
