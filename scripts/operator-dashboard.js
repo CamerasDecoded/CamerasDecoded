@@ -839,19 +839,23 @@
     try {
       const fm = vm.fmRaw;
       if (fm && fm.chapters && fm.chapters.length) {
-        let nextLesson = null, nextChapter = null, nextIdx = -1;
+        let nextLesson = null, nextChapter = null, nextIdx = -1, nextPos = -1;
         fm.chapters.forEach((c, ci) => {
           if (nextLesson) return;
-          (c.lessons || []).forEach((l) => {
-            if (!nextLesson && !fm.completedLessons.includes(l.id)) { nextLesson = l; nextChapter = c; nextIdx = ci; }
+          (c.lessons || []).forEach((l, li) => {
+            if (!nextLesson && !fm.completedLessons.includes(l.id)) { nextLesson = l; nextChapter = c; nextIdx = ci; nextPos = li; }
           });
         });
         if (nextLesson) {
           const pro = nextIdx >= 3 && vm.user.tier !== 'pro';
-          rows.push({ kicker: 'Field Manual · Chapter ' + (nextIdx + 1), title: nextLesson.title,
-            sub: (pro ? 'Pro chapter · ' : '') + (nextChapter.title || ''), href: '/field-manual.html?lesson=' + nextLesson.id });
+          const total = (nextChapter.lessons || []).length;
+          rows.push({ kind: 'lesson', kicker: 'Field Manual · Chapter ' + (nextIdx + 1), title: nextLesson.title,
+            sub: (pro ? 'Pro chapter · ' : '') + (nextChapter.title || '') + ' · Lesson ' + (nextPos + 1) + ' of ' + total,
+            href: '/field-manual.html?lesson=' + nextLesson.id, xp: 20, cta: 'Continue',
+            art: '/images/fm-chapters/fm-ch' + (nextIdx + 1) + '.jpg?v=20261002b',
+            chip: 'Field Manual · Chapter ' + (nextIdx + 1) });
         } else {
-          rows.push({ kicker: 'Field Manual', title: 'Course complete', sub: 'Review a chapter, or take the final exam', href: '/field-manual.html' });
+          rows.push({ kind: 'lesson', kicker: 'Field Manual', title: 'Course complete', sub: 'Review a chapter, or take the final exam', href: '/field-manual.html', cta: 'Review' });
         }
       }
     } catch (e) {}
@@ -871,9 +875,9 @@
         if (pick) {
           const nt = nextThreshold(pick.st.xp);
           const sub = pick.branch.name + (pick.st.state === 'in-progress' && nt ? ' · Level ' + pick.st.lvl + ' — ' + (nt.xp - pick.st.xp) + ' XP to level ' + nt.level : ' · Up next');
-          rows.push({ kicker: 'The Darkroom', title: pick.s.name, sub, href: '/darkroom.html#skill=' + pick.s.id });
+          rows.push({ kind: 'skill', kicker: 'Darkroom drill', title: pick.s.name, sub, href: '/darkroom.html#skill=' + pick.s.id, xp: 10, cta: 'Open skill' });
         } else if (states.length && states.every((x) => x.st.state === 'mastered')) {
-          rows.push({ kicker: 'The Darkroom', title: 'Skill tree mastered', sub: 'Every skill at level 5 — keep the drills warm', href: '/darkroom.html' });
+          rows.push({ kind: 'skill', kicker: 'The Darkroom', title: 'Skill tree mastered', sub: 'Every skill at level 5 — keep the drills warm', href: '/darkroom.html', cta: 'Open the Darkroom' });
         }
       }
     } catch (e) {}
@@ -885,24 +889,70 @@
         const start = new Date(now.getFullYear(), 0, 0);
         const doy = Math.floor((now - start) / 864e5);
         const pick = entries[doy % entries.length];
-        rows.push({ kicker: "Today's Protocol", title: pick.title, sub: 'One read from the training archive', href: '/' + pick.id + '.html' });
+        rows.push({ kind: 'protocol', kicker: "Today's Protocol", title: pick.title, sub: 'One read from the training archive', href: '/' + pick.id + '.html', cta: 'Read it' });
       }
     } catch (e) {}
     renderToday(rows);
   }
+  const TH_ICONS = {
+    skill: '<svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 14l4.2-4.2"/><circle cx="12" cy="14" r="1.4"/></svg>',
+    protocol: '<svg viewBox="0 0 24 24"><path d="M12 6c-1.8-1.5-4-2-8-2v14c4 0 6.2.5 8 2 1.8-1.5 4-2 8-2V4c-4 0-6.2.5-8 2z"/><path d="M12 6v14"/></svg>',
+    lesson: '<svg viewBox="0 0 24 24"><path d="M12 6c-1.8-1.5-4-2-8-2v14c4 0 6.2.5 8 2 1.8-1.5 4-2 8-2V4c-4 0-6.2.5-8 2z"/><path d="M12 6v14"/></svg>'
+  };
   function renderToday(rows) {
     const sec = $('todaySection'), box = $('todayRows');
     if (!sec || !box) return;
     if (!rows.length) { sec.hidden = true; return; }
-    box.innerHTML = rows.map((r) =>
-      '<a class="today-row" href="' + r.href + '">' +
-        '<span class="today-main">' +
-          '<span class="today-kicker">' + escHtml(r.kicker) + '</span>' +
-          '<span class="today-title">' + escHtml(r.title) + '</span>' +
-          '<span class="today-sub">' + escHtml(r.sub) + '</span>' +
-        '</span>' +
-        '<span class="today-arrow" aria-hidden="true">→</span>' +
-      '</a>').join('');
+    const dEl = $('todayDate');
+    if (dEl) {
+      try {
+        const now = new Date();
+        dEl.textContent = now.toLocaleDateString('en-US', { timeZone: 'America/Chicago', weekday: 'long' }) +
+          ' · ' + now.toLocaleDateString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric' });
+      } catch (e) {}
+    }
+    const stackXp = rows.reduce((a, r) => a + (r.xp || 0), 0);
+    const stakes = $('todayStakes');
+    if (stakes) {
+      if (stackXp > 0 && $('todayBarGot')) {
+        const got = Math.max(0, (vm.stats && vm.stats.xpToday) || 0);
+        const goal = Math.max(1, (vm.stats && vm.stats.xpGoal) || 100);
+        $('todayStackXp').textContent = '+' + stackXp + ' XP';
+        $('todayCount').innerHTML = '<b>' + got + '</b> / ' + goal + ' today';
+        const gotPct = Math.min(100, (got / goal) * 100);
+        $('todayBarGot').style.width = gotPct + '%';
+        $('todayBarNext').style.width = Math.max(0, Math.min(100 - gotPct, (stackXp / goal) * 100)) + '%';
+        const cap = $('todayCap');
+        if (got >= goal) cap.textContent = 'Daily goal already cleared — the stack is all bonus.';
+        else if (got + stackXp >= goal) cap.innerHTML = 'Clear the stack and you <b>crush the daily goal</b>.';
+        else cap.innerHTML = 'Clear the stack and you close the day at <b>' + (got + stackXp) + ' XP</b>.';
+        stakes.hidden = false;
+      } else { stakes.hidden = true; }
+    }
+    const hero = rows[0], tiles = rows.slice(1, 3);
+    const xpTag = (r) => r.xp ? ' · <b>+' + r.xp + ' XP</b>' : '';
+    let html = '<a class="th-lesson" href="' + hero.href + '">';
+    if (hero.art) {
+      html += '<div class="th-art"><img src="' + hero.art + '" alt="" loading="lazy" onerror="this.parentNode.style.display=\'none\'">' +
+        (hero.chip ? '<span class="th-chip"><i></i>' + escHtml(hero.chip) + '</span>' : '') + '</div>';
+    }
+    html += '<div class="th-lesson-body">' +
+      (hero.art ? '' : '<div class="th-kicker">' + escHtml(hero.kicker) + '</div>') +
+      '<div class="th-lesson-title">' + escHtml(hero.title) + '</div>' +
+      '<p class="th-lesson-meta">' + escHtml(hero.sub) + xpTag(hero) + '</p>' +
+      '<span class="today-cta"><span>' + escHtml(hero.cta || 'Open') + '</span></span>' +
+      '</div></a>';
+    if (tiles.length) {
+      html += '<div class="th-tiles">' + tiles.map((r) =>
+        '<a class="th-tile" href="' + r.href + '">' +
+          '<div class="th-tile-top"><span class="th-ico">' + (TH_ICONS[r.kind] || TH_ICONS.skill) + '</span>' +
+          '<svg class="th-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></div>' +
+          '<div class="th-tile-kicker">' + escHtml(r.kicker) + '</div>' +
+          '<div class="th-tile-title">' + escHtml(r.title) + '</div>' +
+          '<div class="th-tile-sub">' + escHtml(r.sub) + '</div>' +
+        '</a>').join('') + '</div>';
+    }
+    box.innerHTML = html;
     sec.hidden = false;
   }
 
