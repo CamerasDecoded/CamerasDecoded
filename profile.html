@@ -965,7 +965,7 @@
           <div class="pp-stat"><b id="ppStreak">0</b><span>Streak</span></div>
           <div class="pp-stat pp-tappable" id="ppFollowersStat" role="button" tabindex="0" aria-label="View followers"><b id="ppFollowers">0</b><span>Followers</span></div>
           <div class="pp-stat pp-tappable" id="ppFollowingStat" role="button" tabindex="0" aria-label="View following"><b id="ppFollowing">0</b><span>Following</span></div>
-          <div class="pp-stat pp-tappable" id="ppLikesStat" role="button" tabindex="0" aria-label="View signals"><b id="ppLikes">0</b><span>Signals</span></div>
+          <div class="pp-stat pp-tappable" id="ppLikesStat" role="button" tabindex="0" aria-label="View flashes"><b id="ppLikes">0</b><span>Flashes</span></div>
         </div>
         <div class="pp-actions">
           <button type="button" class="pp-btn" id="ppFollowBtn">Follow</button>
@@ -1004,7 +1004,7 @@
         <div class="hero-stats">
           <div class="pp-stat pp-tappable" id="opFollowersStat" role="button" tabindex="0" aria-label="View followers"><b id="opFollowers">0</b><span>Followers</span></div>
           <div class="pp-stat pp-tappable" id="opFollowingStat" role="button" tabindex="0" aria-label="View following"><b id="opFollowing">0</b><span>Following</span></div>
-          <div class="pp-stat pp-tappable" id="opSignalsStat" role="button" tabindex="0" aria-label="View signals"><b id="opSignals">0</b><span>Signals</span></div>
+          <div class="pp-stat pp-tappable" id="opSignalsStat" role="button" tabindex="0" aria-label="View flashes"><b id="opSignals">0</b><span>Flashes</span></div>
         </div>
       </div>
 
@@ -1244,6 +1244,69 @@
 
     let currentUser = null;
     let userDocRef = null;
+
+    // ---- Flashes: flash reactions on this operator's Signal posts ----
+    // The reactions subcollection (feedItems/{id}/reactions/{uid}, type
+    // 'flash') is the only record of a flash — no counter field is ever
+    // written — so the profile stat aggregates it live: one listener on
+    // the operator's posts, one per post on its reactions. A flash (or
+    // un-flash) anywhere ticks the number within a second, no reload.
+    var _flashWatch = null;
+    function watchFlashes(uid, elId) {
+      if (_flashWatch && _flashWatch.uid === uid && _flashWatch.elId === elId) return;
+      if (_flashWatch) {
+        if (_flashWatch.unsubItems) { try { _flashWatch.unsubItems(); } catch (e) {} }
+        Object.keys(_flashWatch.unsubs).forEach(function (k) { try { _flashWatch.unsubs[k](); } catch (e) {} });
+      }
+      var st = { uid: uid, elId: elId, unsubItems: null, unsubs: {}, counts: {} };
+      _flashWatch = st;
+      function render() {
+        var total = 0;
+        Object.keys(st.counts).forEach(function (k) { total += st.counts[k]; });
+        var el = document.getElementById(st.elId);
+        if (el) el.textContent = total;
+      }
+      try {
+        st.unsubItems = db.collection('feedItems').where('actorUid', '==', uid)
+          .onSnapshot(function (snap) {
+            var seen = {};
+            snap.forEach(function (doc) {
+              seen[doc.id] = true;
+              if (!st.unsubs[doc.id]) {
+                st.counts[doc.id] = 0;
+                st.unsubs[doc.id] = doc.ref.collection('reactions').onSnapshot(function (rs) {
+                  st.counts[doc.id] = rs.size;
+                  render();
+                }, function () {});
+              }
+            });
+            Object.keys(st.unsubs).forEach(function (id) {
+              if (!seen[id]) { try { st.unsubs[id](); } catch (e) {} delete st.unsubs[id]; delete st.counts[id]; }
+            });
+            render();
+          }, function () {});
+      } catch (e) {}
+    }
+    // One-shot flasher list for the tappable stat sheet: unique flashers
+    // of this operator's posts, most recent first.
+    function fetchFlashers(uid) {
+      return db.collection('feedItems').where('actorUid', '==', uid).get().then(function (snap) {
+        var byUser = {};
+        var jobs = [];
+        snap.forEach(function (doc) {
+          jobs.push(doc.ref.collection('reactions').get().then(function (rs) {
+            rs.forEach(function (r) {
+              var t = r.data() && r.data().createdAt;
+              var ms = t && t.toMillis ? t.toMillis() : 0;
+              if (!(r.id in byUser) || ms > byUser[r.id]) byUser[r.id] = ms;
+            });
+          }).catch(function () {}));
+        });
+        return Promise.all(jobs).then(function () {
+          return Object.keys(byUser).sort(function (a, b) { return byUser[b] - byUser[a]; }).slice(0, 60);
+        });
+      }).catch(function () { return []; });
+    }
 
     // ---- Username policy: lowercase, 3-24 chars, letters/numbers/._- only,
     // no leading/trailing/consecutive separators, reserved words blocked,
@@ -2338,7 +2401,7 @@ var _pfProCache = null;
       document.getElementById('ppStreak').textContent = info.streakDays || 0;
       document.getElementById('ppFollowers').textContent = info.followerCount || 0;
       document.getElementById('ppFollowing').textContent = info.followingCount || 0;
-      document.getElementById('ppLikes').textContent = info.likeCount || 0;
+      watchFlashes(info.uid, 'ppLikes');
 
       // Portfolio showcase (public read)
       pfRenderPublic(info.uid, info.displayName || info.username);
@@ -2371,8 +2434,8 @@ var _pfProCache = null;
         'No followers yet', profileName + ' hasn\u2019t picked up any followers yet. Share the profile to grow the circle.');
       bindStat('ppFollowingStat', window.CDSocial.getFollowingOf, 'Following',
         'Not following anyone yet', profileName + ' isn\u2019t following anyone yet.');
-      bindStat('ppLikesStat', window.CDSocial.getLikers, 'Signals',
-        'No signals yet', 'Nobody has signaled this profile yet. Be the first.');
+      bindStat('ppLikesStat', fetchFlashers, 'Flashes',
+        'No flashes yet', profileName + ' hasn\u2019t received any flashes yet. Flash their posts in the Signal.');
 
       var followBtn = document.getElementById('ppFollowBtn');
       var likeBtn = document.getElementById('ppLikeBtn');
@@ -2424,8 +2487,6 @@ var _pfProCache = null;
         window.CDSocial.toggleLike(info.uid).then(function (liked) {
           likeLabel.textContent = liked ? 'Signaled' : 'Signal';
           likeBtn.classList.toggle('liked', liked);
-          var c = document.getElementById('ppLikes');
-          c.textContent = Math.max(0, parseInt(c.textContent || '0', 10) + (liked ? 1 : -1));
         }).catch(function () { window.CDSocial.toast('Could not signal'); });
       };
 
@@ -2484,8 +2545,8 @@ var _pfProCache = null;
             if (!info) return;
             document.getElementById('opFollowers').textContent = info.followerCount || 0;
             document.getElementById('opFollowing').textContent = info.followingCount || 0;
-            document.getElementById('opSignals').textContent = info.likeCount || 0;
           }).catch(function () {});
+          watchFlashes(user.uid, 'opSignals');
           var ownName = data.displayName || data.username || 'Operator';
           function bindOwnStat(id, fetchUids, sheetTitle, emptyTitle, emptySub) {
             var el = document.getElementById(id);
@@ -2505,8 +2566,8 @@ var _pfProCache = null;
             'No followers yet', 'Share your profile to grow the circle.');
           bindOwnStat('opFollowingStat', window.CDSocial.getFollowingOf, 'Following',
             'Not following anyone yet', 'Find photographers who inspire you in the Arena.');
-          bindOwnStat('opSignalsStat', window.CDSocial.getLikers, 'Signals',
-            'No signals yet', 'Nobody has signaled your profile yet.');
+          bindOwnStat('opSignalsStat', fetchFlashers, 'Flashes',
+            'No flashes yet', 'Nobody has flashed your posts yet. Post in the Signal and give people a reason to flash it.');
         }
       } catch (err) {
         console.error('Error loading profile:', err);
