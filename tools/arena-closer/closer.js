@@ -261,10 +261,13 @@ async function closeRound(db, roundRef, round) {
   // feed: announce the winner (best-effort)
   try {
     const winnerEntry = entries.find((e) => e.entryId === winnerEntryId);
+    const winnerUser = await db.collection("users").doc(winnerUid).get().catch(() => null);
+    const winnerAvatar = winnerUser && winnerUser.exists ? (winnerUser.data() || {}).photoURL || null : null;
     batch.set(db.collection("feedItems").doc(), {
       type: "arena_winner",
       actorUid: winnerUid,
       actorName: winnerName,
+      actorAvatar: winnerAvatar,
       text: winnerName + " won the Arena",
       imageUrl: (winnerEntry && winnerEntry.imgUrl) || null,
       targetType: "arena_round",

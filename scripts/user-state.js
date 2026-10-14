@@ -11,6 +11,7 @@ window.USER = {
   name: null,
   email: null,
   username: null,
+  avatar: null,
   role: null,
   tier: null,
   createdAt: null
@@ -54,6 +55,7 @@ async function loadUserData(uid) {
         name: data.name || null,
         email: data.email || null,
         username: data.username || null,
+        avatar: data.photoURL || null,
         role: data.role || 'Operator',
         tier: data.tier || 'free',
         createdAt: data.createdAt || null
@@ -111,6 +113,7 @@ async function initializeUserState() {
         name: null,
         email: null,
         username: null,
+        avatar: null,
         role: null,
         tier: null,
         createdAt: null
