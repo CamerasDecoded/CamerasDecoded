@@ -458,6 +458,42 @@
   .cd-score-label { font-family: var(--mono); font-size: 9px; letter-spacing: 0.2em; color: var(--text-faint); text-transform: uppercase; margin: 6px 0; }
   .cd-score-feedback { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
 
+  /* ============ UPLOAD INVITE OVERLAY ============ */
+  .dl-invite {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+    display: none; align-items: center; justify-content: center; padding: 22px;
+  }
+  .dl-invite.show { display: flex; }
+  .dl-invite-card {
+    width: 100%; max-width: 336px; text-align: center;
+    background: rgba(13,15,13,0.92); border: 1px solid rgba(141,235,0,0.28);
+    border-radius: 20px; padding: 28px 24px 24px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 44px rgba(141,235,0,0.07);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .dl-invite.show .dl-invite-card { animation: dlInviteIn .45s cubic-bezier(.22,1,.36,1); }
+    @keyframes dlInviteIn { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+  }
+  .dl-invite-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em; color: var(--green); text-transform: uppercase; }
+  .dl-invite-title { font-family: var(--sans); font-size: 24px; font-weight: 800; color: #fff; margin: 10px 0 8px; line-height: 1.15; }
+  .dl-invite-sub { font-size: 13.5px; line-height: 1.55; color: var(--text-dim); margin: 0 0 20px; }
+  .dl-invite-sub b { color: #e8f5d8; font-weight: 600; }
+  .dl-invite-btn {
+    display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%;
+    background: var(--green); color: #0a0f05; border: none; border-radius: 12px;
+    font-family: var(--sans); font-size: 15.5px; font-weight: 700; padding: 14px 16px; cursor: pointer;
+    box-shadow: 0 6px 24px rgba(141,235,0,0.35);
+  }
+  .dl-invite-btn svg { width: 19px; height: 19px; flex-shrink: 0; }
+  .dl-invite-btn:active { transform: scale(.985); }
+  .dl-invite-sample {
+    display: inline-block; margin-top: 12px; background: none; border: none; cursor: pointer;
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em; color: var(--text-dim);
+    text-decoration: underline; text-underline-offset: 3px; padding: 6px 8px;
+  }
+  .dl-invite-note { margin-top: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--text-faint); }
+
   /* ============ PAYWALL SHEET ============ */
   .sheet-backdrop {
     position: fixed; inset: 0; z-index: 50;
@@ -637,6 +673,21 @@
   <button class="tb-export" id="btnSave">Export</button>
 </div>
 <input type="file" id="fileInput" accept="image/*">
+
+<!-- ============ UPLOAD INVITE (up until a photo of their own is loaded) ============ -->
+<div class="dl-invite" id="dlInvite" role="dialog" aria-modal="true" aria-labelledby="dlInviteTitle">
+  <div class="dl-invite-card">
+    <div class="dl-invite-kicker">Develop Lab</div>
+    <div class="dl-invite-title" id="dlInviteTitle">Develop your own shot</div>
+    <p class="dl-invite-sub">You're looking at a <b>sample photo</b>. Upload yours and every tool in the lab &mdash; exposure, color, masks, presets &mdash; goes to work on your image.</p>
+    <button type="button" class="dl-invite-btn" id="dlInviteUpload">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5"/><path d="M6 11l6-6 6 6"/><path d="M4 20h16"/></svg>
+      Upload your image
+    </button>
+    <button type="button" class="dl-invite-sample" id="dlInviteSample">Explore with the sample first</button>
+    <div class="dl-invite-note">JPG &middot; PNG &middot; YOUR PHOTO STAYS ON YOUR DEVICE</div>
+  </div>
+</div>
 
 <!-- ============ EDIT MODE ============ -->
 <div id="editMode" style="display:flex;flex-direction:column;flex:1;min-height:0;position:relative;">
@@ -1145,6 +1196,22 @@ window.addEventListener('error', function(e) {
   }
   const fileInput = $('fileInput');
   $('btnUpload').addEventListener('click', () => fileInput.click());
+
+  /* Upload invite overlay: greets visitors until a photo of their own
+     lands (upload or Shoot Lab handoff). The sample never dismisses it. */
+  function hideDlInvite() {
+    const o = $('dlInvite');
+    if (o) o.classList.remove('show');
+  }
+  (function initDlInvite() {
+    const o = $('dlInvite');
+    if (!o) return;
+    const isHandoff = new URLSearchParams(location.search).get('handoff') === '1';
+    if (!isHandoff) o.classList.add('show');
+    $('dlInviteUpload').addEventListener('click', () => fileInput.click());
+    $('dlInviteSample').addEventListener('click', hideDlInvite);
+    o.addEventListener('click', (e) => { if (e.target === o) hideDlInvite(); });
+  })();
   fileInput.addEventListener('change', () => {
     const f = fileInput.files[0];
     if (!f) return;
@@ -1160,6 +1227,7 @@ window.addEventListener('error', function(e) {
       resetSettings();
       setPhoto(c.getContext('2d').getImageData(0, 0, w, h));
       renderPanel();
+      hideDlInvite();
       URL.revokeObjectURL(url);
       statusEl.textContent = 'Photo loaded \u2014 ' + w + '\u00d7' + h;
     };
@@ -2527,6 +2595,7 @@ window.addEventListener('error', function(e) {
           c.width = img.naturalWidth; c.height = img.naturalHeight;
           c.getContext('2d').drawImage(img, 0, 0);
           setPhoto(c.getContext('2d').getImageData(0, 0, c.width, c.height));
+          hideDlInvite();
         } catch (e) {}
       };
       img.src = d;
