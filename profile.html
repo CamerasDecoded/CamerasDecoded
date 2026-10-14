@@ -14,12 +14,13 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <!-- ===== FIREBASE INIT ===== -->
-  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/firebase-init.js?v=20261014a"></script>
+  <script src="/scripts/cd-upload.js?v=20261014a"></script>
 
   <!-- ===== SHARED BADGE DEFINITIONS (single source of truth for badge copy) ===== -->
   <script src="/scripts/badges.js?v=20261008b"></script>
   <script src="/scripts/gear-awards.js?v=20261001a"></script>
-  <script src="/scripts/gear-share.js"></script>
+  <script src="/scripts/gear-share.js?v=20261014a"></script>
   <script src="/scripts/social.js?v=20261009a"></script>
 
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
@@ -1123,7 +1124,7 @@
   <div id="bottomNavContainer" data-role="operator"></div>
 
   <!-- ===== EMAIL VERIFICATION (optional) ===== -->
-  <script src="/scripts/email-verification.js"></script>
+  <script src="/scripts/email-verification.js?v=20261014a"></script>
 
   <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
   <script>
@@ -1241,7 +1242,6 @@
       auth.signOut().then(() => window.location.href = 'login.html').catch(() => window.location.href = 'login.html');
     };
 
-    const IMGBB_API_KEY = '0b9201a8e4212a124013c23eb559936a';
     let currentUser = null;
     let userDocRef = null;
 
@@ -1795,18 +1795,12 @@
           cdToast('File too large (max 5MB)', 'error');
           return;
         }
-        const formData = new FormData();
-        formData.append('image', file);
         const statusEl = document.getElementById('uploadStatus');
         statusEl.textContent = 'Uploading...';
         try {
-          const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-            method: 'POST',
-            body: formData
-          });
-          const json = await res.json();
-          if (json.success) {
-            const url = json.data.url;
+          const up = await window.CDUpload.upload(file);
+          if (up && up.url) {
+            const url = up.url;
             await userDocRef.update({ photoURL: url });
             document.getElementById('avatarPreview').innerHTML =
               `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
@@ -2123,14 +2117,11 @@ var _pfProCache = null;
         if (!/image\/(jpeg|png|gif|webp)/.test(file.type)) { cdToast('JPG, PNG, GIF or WebP only', 'error'); return; }
         cdToast('Uploading...');
         try {
-          var formData = new FormData();
-          formData.append('image', file);
-          var res = await fetch('https://api.imgbb.com/1/upload?key=' + IMGBB_API_KEY, { method: 'POST', body: formData });
-          var json = await res.json();
-          if (!json.success) throw new Error('Upload failed');
+          var up = await window.CDUpload.upload(file);
+          if (!up || !up.url) throw new Error('Upload failed');
           var order = pfItems.length ? Math.max.apply(null, pfItems.map(function (x) { return x.order; })) + 1 : 0;
           await pfCollection(currentUser.uid).add({
-            url: json.data.url,
+            url: up.url,
             order: order,
             uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
@@ -2553,7 +2544,7 @@ var _pfProCache = null;
     window.addEventListener('storage', updateCartUI);
     document.addEventListener('DOMContentLoaded', updateCartUI);
   </script>
-<script src="/scripts/ptr.js"></script>
+<script src="/scripts/ptr.js?v=20261014a"></script>
 <!-- Portfolio lightbox -->
 <div class="pf-lightbox" id="pfLightbox" role="dialog" aria-label="Photo viewer">
   <button type="button" class="pf-lb-close" id="pfLbClose" aria-label="Close">&times;</button>

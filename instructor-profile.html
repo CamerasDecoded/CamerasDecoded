@@ -14,7 +14,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <!-- ===== firebase-init.js ===== -->
-  <script src="/scripts/firebase-init.js"></script>
+  <script src="/scripts/firebase-init.js?v=20261014a"></script>
+  <script src="/scripts/cd-upload.js?v=20261014a"></script>
 
   <!-- ===== HEADER AUTH UI LOGIC ===== -->
   <script src="/header.js?v=20261002a"></script>
@@ -336,7 +337,8 @@
 
     <div class="profile-header" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-bottom:28px; padding-bottom:16px; border-bottom:1px solid var(--border-dim);">
       <div class="brand" style="display:flex; align-items:center; gap:12px;">
-        <h1 style="font-family:'Space Mono',monospace; font-size:22px; color:var(--green); letter-spacing:-0.5px;">📡 Instructor Profile</h1>
+        <img class="title-png" src="/custom-site-titles/instructor-profile.png?v=20261014a" alt="Instructor Profile" style="max-height:64px;width:auto" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
+        <h1 hidden style="font-family:'Space Mono',monospace; font-size:22px; color:var(--green); letter-spacing:-0.5px;">Instructor Profile</h1>
         <span class="tag" id="roleTag" style="font-size:11px; color:var(--text-muted); font-family:'Space Mono',monospace; background:rgba(255,255,255,0.04); padding:2px 12px; border-radius:20px; border:1px solid var(--border-dim);">Instructor</span>
       </div>
       <div class="header-actions" style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -440,7 +442,7 @@
        ================================================================ -->
 
   <!-- ===== PAGE-SPECIFIC JAVASCRIPT ===== -->
-  <script src="/scripts/email-verification.js"></script>
+  <script src="/scripts/email-verification.js?v=20261014a"></script>
 
   <script>
     // ================================================================
@@ -509,7 +511,12 @@
       var avatarPreview = document.getElementById('avatarPreview');
       var removeBtn = document.getElementById('removeBtn');
       if (data.photoURL) {
-        avatarPreview.innerHTML = '<img src="' + data.photoURL + '" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />';
+        var avImg = document.createElement('img');
+        avImg.src = data.photoURL;
+        avImg.alt = 'Avatar';
+        avImg.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
+        avatarPreview.innerHTML = '';
+        avatarPreview.appendChild(avImg);
         removeBtn.style.display = 'inline-block';
       } else {
         avatarPreview.innerHTML = '<i class="fas fa-user" style="font-size:32px;color:#555;"></i>';
@@ -560,17 +567,19 @@
         var file = e.target.files[0];
         if (!file) return;
         if (file.size > 5*1024*1024) { cdToast('File too large (max 5MB)', 'error'); return; }
-        var formData = new FormData();
-        formData.append('image', file);
         var statusEl = document.getElementById('uploadStatus');
         statusEl.textContent = 'Uploading...';
-        fetch('https://api.imgbb.com/1/upload?key=0b9201a8e4212a124013c23eb559936a', { method:'POST', body: formData })
-          .then(function(res) { return res.json(); })
-          .then(function(json) {
-            if (json.success) {
-              var url = json.data.url;
+        window.CDUpload.upload(file)
+          .then(function(up) {
+            if (up && up.url) {
+              var url = up.url;
               return db.collection('users').doc(currentUser.uid).update({ photoURL: url }).then(function() {
-                document.getElementById('avatarPreview').innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />';
+                var avImg2 = document.createElement('img');
+                avImg2.src = url;
+                avImg2.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
+                var avPrev = document.getElementById('avatarPreview');
+                avPrev.innerHTML = '';
+                avPrev.appendChild(avImg2);
                 removeBtn.style.display = 'inline-block';
                 statusEl.textContent = 'Done!';
               });

@@ -19,7 +19,8 @@
  *      submittedAt), arenaScores updates, mission hall of fame, broadcasts.
  *   3. Open next rounds: challenge daily from arenaPrompts/{yyyy-MM-dd};
  *      mission on Mondays from the oldest unused arenaBriefQueue doc.
- *   4. 24h imgbb sweep on entries whose parent round closed >24h ago.
+ *   4. 24h image sweep on entries whose parent round closed >24h ago
+ *      (Cloudinary destroy for current entries; imgbb delete URL for legacy).
  *
  * Firestore names per spec §6 (+ hofExpiresAt on hall-of-fame docs).
  */
@@ -27,6 +28,7 @@
 
 const { initializeApp, cert } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
+const crypto = require("crypto");
 const logic = require("./arena-logic");
 
 const HOF_RETENTION_DAYS = Number(process.env.HOF_RETENTION_DAYS) || 365;
@@ -431,7 +433,29 @@ async function openNextRounds(db, now) {
   }
 }
 
-/* ---------- phase 4: 24h imgbb sweep ---------- */
+/* ---------- phase 4: 24h image sweep ---------- */
+
+/* Cloudinary destroy (signed; server-side only). Env: CLOUDINARY_CLOUD_NAME,
+ * CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET (repo secrets). */
+async function cloudinaryDestroy(publicId) {
+  const cloud = process.env.CLOUDINARY_CLOUD_NAME;
+  const key = process.env.CLOUDINARY_API_KEY;
+  const secret = process.env.CLOUDINARY_API_SECRET;
+  if (!cloud || !key || !secret) return { ok: false, missing: true };
+  const ts = Math.floor(Date.now() / 1000);
+  const sig = crypto.createHash("sha1")
+    .update("public_id=" + publicId + "&timestamp=" + ts + secret)
+    .digest("hex");
+  const form = new URLSearchParams({
+    public_id: publicId, timestamp: String(ts), api_key: key, signature: sig,
+  });
+  const res = await fetch("https://api.cloudinary.com/v1_1/" + cloud + "/image/destroy", {
+    method: "POST", body: form,
+  });
+  let result = null;
+  try { result = (await res.json() || {}).result; } catch (e) { /* non-JSON body */ }
+  return { ok: res.ok && result === "ok", status: res.status, result };
+}
 
 function chunkedBatch(db) {
   let batch = db.batch();
@@ -486,20 +510,32 @@ async function sweep(db, nowMs) {
     }
 
     const priv = await e.ref.collection("_private").doc("data").get();
-    const deleteUrl = priv.exists ? (priv.data() || {}).deleteUrl : null;
-    if (!deleteUrl) {
-      loud(`entry ${roundId}/${e.id}: no _private/data.deleteUrl — leaving swept=false for retry`);
+    const privData = priv.exists ? (priv.data() || {}) : {};
+    const deleteUrl = privData.deleteUrl || null;
+    const publicId = privData.publicId || null;
+    if (!deleteUrl && !publicId) {
+      loud(`entry ${roundId}/${e.id}: no _private/data.deleteUrl or publicId — leaving swept=false for retry`);
       failed++;
       continue;
     }
 
     let ok = false;
-    try {
-      const res = await fetch(deleteUrl, { method: "GET" });
-      ok = res.ok;
-      if (!ok) loud(`entry ${roundId}/${e.id}: imgbb delete returned ${res.status} — leaving swept=false for retry`);
-    } catch (err) {
-      loud(`entry ${roundId}/${e.id}: imgbb delete failed (${err && err.message}) — leaving swept=false for retry`);
+    if (publicId) {
+      try {
+        const r = await cloudinaryDestroy(publicId);
+        ok = r.ok;
+        if (!ok) loud(`entry ${roundId}/${e.id}: cloudinary delete ${r.missing ? "skipped — CLOUDINARY_* secrets not set" : "returned " + (r.result || r.status)} — leaving swept=false for retry`);
+      } catch (err) {
+        loud(`entry ${roundId}/${e.id}: cloudinary delete failed (${err && err.message}) — leaving swept=false for retry`);
+      }
+    } else {
+      try {
+        const res = await fetch(deleteUrl, { method: "GET" });
+        ok = res.ok;
+        if (!ok) loud(`entry ${roundId}/${e.id}: imgbb delete returned ${res.status} — leaving swept=false for retry`);
+      } catch (err) {
+        loud(`entry ${roundId}/${e.id}: imgbb delete failed (${err && err.message}) — leaving swept=false for retry`);
+      }
     }
     if (!ok) { failed++; continue; }
 

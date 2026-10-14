@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="/scripts/firebase-init.js?v=20261007b"></script>
+  <script src="/scripts/cd-upload.js?v=20261014a"></script>
 <style>
   :root {
     --bg: #08080a;
@@ -262,18 +263,17 @@
 <script>
 /* ============================================================
    Deliver builder (operator side, Pro-gated)
-   Uploads images to imgbb, saves gallery docs to
+   Uploads images to Cloudinary, saves gallery docs to
    users/{uid}/galleries/{galleryId}.
    Share link: deliver-view.html?u={uid}&g={galleryId}&t={token}
    Token validated in page JS on the view side (rules can't see
    URL params; doc IDs are unguessable auto-IDs).
    ============================================================ */
-var IMGBB_API_KEY = '0b9201a8e4212a124013c23eb559936a';
 var MAX_IMAGES = 50;
 var MAX_MB = 10;
 
 var DB = {
-  images: [],      // {url, deleteUrl}
+  images: [],      // {url, publicId}
   uploading: 0,
   isPro: false
 };
@@ -377,13 +377,10 @@ function uploadOne(file) {
   $('thumbs').appendChild(ph);
   updateProgress();
 
-  var form = new FormData();
-  form.append('image', file, file.name || 'deliver.jpg');
-  fetch('https://api.imgbb.com/1/upload?key=' + encodeURIComponent(IMGBB_API_KEY), { method: 'POST', body: form })
-    .then(function (res) { return res.json(); })
-    .then(function (json) {
-      if (!json || !json.success || !json.data || !json.data.url) throw new Error('upload failed');
-      DB.images.push({ url: json.data.url, deleteUrl: json.data.delete_url || null });
+  window.CDUpload.upload(file, file.name || 'deliver.jpg')
+    .then(function (up) {
+      if (!up || !up.url) throw new Error('upload failed');
+      DB.images.push({ url: up.url, publicId: up.publicId || null });
     })
     .catch(function () { toast('Upload failed for ' + file.name + ' — try again.'); })
     .then(function () {
