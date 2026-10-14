@@ -969,7 +969,7 @@
         </div>
         <div class="pp-actions">
           <button type="button" class="pp-btn" id="ppFollowBtn">Follow</button>
-          <button type="button" class="pp-btn" id="ppLikeBtn"><span class="sig-dot"></span><span id="ppLikeLabel">Signal</span></button>
+          <button type="button" class="pp-btn" id="ppLikeBtn"><span class="sig-dot"></span><span id="ppLikeLabel">Flash</span></button>
           <button type="button" class="pp-btn" id="ppShareBtn"><i class="fas fa-share-alt"></i> Share</button>
         </div>
       </div>
@@ -1245,28 +1245,36 @@
     let currentUser = null;
     let userDocRef = null;
 
-    // ---- Flashes: flash reactions on this operator's Signal posts ----
-    // The reactions subcollection (feedItems/{id}/reactions/{uid}, type
-    // 'flash') is the only record of a flash — no counter field is ever
-    // written — so the profile stat aggregates it live: one listener on
-    // the operator's posts, one per post on its reactions. A flash (or
-    // un-flash) anywhere ticks the number within a second, no reload.
+    // ---- Flashes: every flash this operator has received ----
+    // One system, two sources, both counted from their records (no
+    // counter field is trusted): flash reactions on the operator's
+    // Signal posts (feedItems/{id}/reactions) plus Flash-button taps on
+    // the profile itself (profileLikes where targetUid == uid).
+    // Aggregated live: a listener on the operator's posts, one per post
+    // on its reactions, one on the profile-flash query. Any flash or
+    // un-flash ticks the number within a second, no reload.
     var _flashWatch = null;
     function watchFlashes(uid, elId) {
       if (_flashWatch && _flashWatch.uid === uid && _flashWatch.elId === elId) return;
       if (_flashWatch) {
         if (_flashWatch.unsubItems) { try { _flashWatch.unsubItems(); } catch (e) {} }
+        if (_flashWatch.unsubLikes) { try { _flashWatch.unsubLikes(); } catch (e) {} }
         Object.keys(_flashWatch.unsubs).forEach(function (k) { try { _flashWatch.unsubs[k](); } catch (e) {} });
       }
-      var st = { uid: uid, elId: elId, unsubItems: null, unsubs: {}, counts: {} };
+      var st = { uid: uid, elId: elId, unsubItems: null, unsubLikes: null, unsubs: {}, counts: {}, profileCount: 0 };
       _flashWatch = st;
       function render() {
-        var total = 0;
+        var total = st.profileCount || 0;
         Object.keys(st.counts).forEach(function (k) { total += st.counts[k]; });
         var el = document.getElementById(st.elId);
         if (el) el.textContent = total;
       }
       try {
+        st.unsubLikes = db.collection('profileLikes').where('targetUid', '==', uid)
+          .onSnapshot(function (snap) {
+            st.profileCount = snap.size;
+            render();
+          }, function () {});
         st.unsubItems = db.collection('feedItems').where('actorUid', '==', uid)
           .onSnapshot(function (snap) {
             var seen = {};
@@ -1288,23 +1296,30 @@
       } catch (e) {}
     }
     // One-shot flasher list for the tappable stat sheet: unique flashers
-    // of this operator's posts, most recent first.
+    // from both sources (posts + profile), most recent first.
     function fetchFlashers(uid) {
-      return db.collection('feedItems').where('actorUid', '==', uid).get().then(function (snap) {
-        var byUser = {};
+      var byUser = {};
+      function note(uid2, t) {
+        var ms = t && t.toMillis ? t.toMillis() : 0;
+        if (!(uid2 in byUser) || ms > byUser[uid2]) byUser[uid2] = ms;
+      }
+      var postsJob = db.collection('feedItems').where('actorUid', '==', uid).get().then(function (snap) {
         var jobs = [];
         snap.forEach(function (doc) {
           jobs.push(doc.ref.collection('reactions').get().then(function (rs) {
-            rs.forEach(function (r) {
-              var t = r.data() && r.data().createdAt;
-              var ms = t && t.toMillis ? t.toMillis() : 0;
-              if (!(r.id in byUser) || ms > byUser[r.id]) byUser[r.id] = ms;
-            });
+            rs.forEach(function (r) { note(r.id, r.data() && r.data().createdAt); });
           }).catch(function () {}));
         });
-        return Promise.all(jobs).then(function () {
-          return Object.keys(byUser).sort(function (a, b) { return byUser[b] - byUser[a]; }).slice(0, 60);
+        return Promise.all(jobs);
+      }).catch(function () {});
+      var likesJob = db.collection('profileLikes').where('targetUid', '==', uid).get().then(function (qs) {
+        qs.forEach(function (doc) {
+          var d = doc.data() || {};
+          if (d.likerUid) note(d.likerUid, d.createdAt);
         });
+      }).catch(function () {});
+      return Promise.all([postsJob, likesJob]).then(function () {
+        return Object.keys(byUser).sort(function (a, b) { return byUser[b] - byUser[a]; }).slice(0, 60);
       }).catch(function () { return []; });
     }
 
@@ -2381,7 +2396,7 @@ var _pfProCache = null;
 
     // ---- Public profile view (?u=) ----
     // When ?u=<uid> names someone else, render a read-only public card with
-    // Follow / Signal / Share. Works signed-out (publicProfiles is public read).
+    // Follow / Flash / Share. Works signed-out (publicProfiles is public read).
     var publicUid = (function () {
       try { return new URLSearchParams(location.search).get('u'); } catch (e) { return null; }
     })();
@@ -2435,7 +2450,7 @@ var _pfProCache = null;
       bindStat('ppFollowingStat', window.CDSocial.getFollowingOf, 'Following',
         'Not following anyone yet', profileName + ' isn\u2019t following anyone yet.');
       bindStat('ppLikesStat', fetchFlashers, 'Flashes',
-        'No flashes yet', profileName + ' hasn\u2019t received any flashes yet. Flash their posts in the Signal.');
+        'No flashes yet', profileName + ' hasn\u2019t received any flashes yet. Flash a post of theirs, or hit Flash on this profile.');
 
       var followBtn = document.getElementById('ppFollowBtn');
       var likeBtn = document.getElementById('ppLikeBtn');
@@ -2457,12 +2472,12 @@ var _pfProCache = null;
           followBtn.classList.toggle('following', f);
         });
         window.CDSocial.hasLiked(info.uid).then(function (l) {
-          likeLabel.textContent = l ? 'Signaled' : 'Signal';
+          likeLabel.textContent = l ? 'Flashed' : 'Flash';
           likeBtn.classList.toggle('liked', l);
         });
       } else if (!viewerUid) {
         followBtn.textContent = 'Follow';
-        likeLabel.textContent = 'Signal';
+        likeLabel.textContent = 'Flash';
       } else {
         // Own profile via ?u= — hide follow/like, keep share.
         followBtn.style.display = 'none';
@@ -2483,11 +2498,11 @@ var _pfProCache = null;
       };
 
       likeBtn.onclick = function () {
-        if (needAuth('Sign in to signal operators') || !window.CDSocial) return;
+        if (needAuth('Sign in to flash operators') || !window.CDSocial) return;
         window.CDSocial.toggleLike(info.uid).then(function (liked) {
-          likeLabel.textContent = liked ? 'Signaled' : 'Signal';
+          likeLabel.textContent = liked ? 'Flashed' : 'Flash';
           likeBtn.classList.toggle('liked', liked);
-        }).catch(function () { window.CDSocial.toast('Could not signal'); });
+        }).catch(function () { window.CDSocial.toast('Could not flash'); });
       };
 
       document.getElementById('ppShareBtn').onclick = function () {
@@ -2567,7 +2582,7 @@ var _pfProCache = null;
           bindOwnStat('opFollowingStat', window.CDSocial.getFollowingOf, 'Following',
             'Not following anyone yet', 'Find photographers who inspire you in the Arena.');
           bindOwnStat('opSignalsStat', fetchFlashers, 'Flashes',
-            'No flashes yet', 'Nobody has flashed your posts yet. Post in the Signal and give people a reason to flash it.');
+            'No flashes yet', 'Nobody has flashed you yet. Post in the Signal and give people a reason to flash it.');
         }
       } catch (err) {
         console.error('Error loading profile:', err);
