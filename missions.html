@@ -16,6 +16,7 @@
 
   <!-- ===== FIREBASE INIT ===== -->
   <script src="/scripts/firebase-init.js?v=20261007b"></script>
+  <script src="/scripts/cd-upload.js?v=20261014a"></script>
 
   <!-- ===== REWARD ENGINE (XP on submission) ===== -->
   <script src="/scripts/reward-engine.js?v=20261001a"></script>
@@ -804,7 +805,6 @@ button{font-family:inherit;cursor:pointer}
     }
 
     /* ---------- config ---------- */
-    var IMGBB_API_KEY = '0b9201a8e4212a124013c23eb559936a'; /* replaced at build from the established client pattern */
     var COMPRESS_MAX_EDGE = 1600;
     var COMPRESS_QUALITIES = [0.82, 0.7, 0.6, 0.5];
     var HARD_CAP_BYTES = 5 * 1024 * 1024;
@@ -1330,25 +1330,20 @@ button{font-family:inherit;cursor:pointer}
       try { prev.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' }); } catch (e) {}
     }
 
-    /* ---------- submit: imgbb -> entry doc -> _private/data (create-only) -> XP ---------- */
+    /* ---------- submit: cloudinary -> entry doc -> _private/data (create-only) -> XP ---------- */
     function submitEntry(laneKey, blob, done) {
       var st = lanes[laneKey];
       var btn = el('amUpBtn' + cap(laneKey));
       var finish = function () { if (btn) btn.disabled = false; if (done) done(); };
       if (!st.round || st.round._id == null) { toast('Round isn\u2019t live — can\u2019t submit yet.'); finish(); return; }
-      if (IMGBB_API_KEY.indexOf('__IMGBB') === 0) { toast('Upload isn\u2019t configured on this build.'); finish(); return; }
-
-      var form = new FormData();
-      form.append('image', blob, 'arena-entry.jpg');
       toast('Uploading your shot…');
-      fetch('https://api.imgbb.com/1/upload?key=' + encodeURIComponent(IMGBB_API_KEY), { method: 'POST', body: form })
-        .then(function (res) { return res.json(); })
-        .then(function (json) {
-          if (!json || !json.success || !json.data || !json.data.url || !json.data.delete_url) {
+      window.CDUpload.upload(blob, 'arena-entry.jpg')
+        .then(function (up) {
+          if (!up || !up.url) {
             throw new Error('Upload failed — try again.');
           }
-          var imgUrl = json.data.url;
-          var deleteUrl = json.data.delete_url; /* the 24h sweep reads this; never logged */
+          var imgUrl = up.url;
+          var publicId = up.publicId; /* the 24h sweep reads this; never logged */
           var roundId = st.round._id;
           var uid = user.uid;
           var authorName = (window.USER && window.USER.name) || user.displayName || 'Operator';
@@ -1365,7 +1360,7 @@ button{font-family:inherit;cursor:pointer}
             return entryRef.collection('_private').doc('data').set({
               authorUid: uid,
               authorName: authorName,
-              deleteUrl: deleteUrl
+              publicId: publicId
             });
           }).then(function () {
             /* feed: announce the entry (best-effort, never blocks) */
