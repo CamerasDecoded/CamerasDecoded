@@ -86,6 +86,9 @@
     { amt: '+25', what: 'Field Manual chapter', rule: 'Once per chapter' },
     { amt: '+10', what: "Today's Challenge", rule: 'Once per day · extends your streak' },
     { amt: 'varies', what: 'Game Arcade', rule: 'First scored play per game, per day' },
+    { amt: '+10', what: 'Quiz Arena run', rule: 'First scored run per difficulty, per day · replays are practice' },
+    { amt: '+10', what: 'Dashboard quick drill', rule: 'Once per day' },
+    { amt: '+10', what: 'Arena entry', rule: 'Once per round, per lane' },
     { amt: '+10', what: 'Snapshot save', rule: 'Once ever · your first saved card' }
   ];
 
