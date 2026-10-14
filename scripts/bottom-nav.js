@@ -76,7 +76,7 @@
       title: 'Practice',
       sub: 'Quick drills and daily work.',
       rows: [
-        { href: '/field-manual.html',  icon: 'manual',   title: 'Field Manual',      sub: 'The Camera Confidence Guide · Pro' },
+        { href: '/field-manual.html',  icon: 'manual',   title: 'Field Manual',      sub: 'The Camera Confidence Guide · Chapters 1–3 free' },
         { href: '/darkroom.html',      icon: 'darkroom', title: 'The Darkroom',      sub: 'Your skill tree' },
         { href: '/arcade.html',        icon: 'gamepad',  title: 'Game Arcade',       sub: 'Play drills, earn XP' },
         { href: '/challenge.html',       icon: 'bolt',     title: "Today's challenge", sub: 'Keep your streak alive' },
