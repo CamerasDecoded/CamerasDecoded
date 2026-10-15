@@ -19,24 +19,37 @@
     return CLOUD_NAME.indexOf("__") !== 0 && UPLOAD_PRESET.indexOf("__") !== 0;
   }
 
-  function upload(file, filename) {
-    if (!configured()) {
-      return Promise.reject(new Error("Uploads are not configured on this build."));
-    }
+  function post(file, filename, kind) {
     var form = new FormData();
     if (filename) form.append("file", file, filename);
     else form.append("file", file);
     form.append("upload_preset", UPLOAD_PRESET);
-    return fetch("https://api.cloudinary.com/v1_1/" + CLOUD_NAME + "/image/upload", {
+    return fetch("https://api.cloudinary.com/v1_1/" + CLOUD_NAME + "/" + kind + "/upload", {
       method: "POST",
       body: form
     })
       .then(function (res) { return res.json(); })
       .then(function (json) {
         if (!json || !json.secure_url) throw new Error("Upload failed — try again.");
-        return { url: json.secure_url, publicId: json.public_id || null };
+        return { url: json.secure_url, publicId: json.public_id || null, duration: json.duration || null };
       });
   }
 
-  window.CDUpload = { upload: upload, configured: configured };
+  function upload(file, filename) {
+    if (!configured()) {
+      return Promise.reject(new Error("Uploads are not configured on this build."));
+    }
+    return post(file, filename, "image");
+  }
+
+  /* Video uploads (Deliver galleries). Same unsigned preset, the
+     /video/upload endpoint. Resolves { url, publicId, duration }. */
+  function uploadVideo(file, filename) {
+    if (!configured()) {
+      return Promise.reject(new Error("Uploads are not configured on this build."));
+    }
+    return post(file, filename, "video");
+  }
+
+  window.CDUpload = { upload: upload, uploadVideo: uploadVideo, configured: configured };
 })();

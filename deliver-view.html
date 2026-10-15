@@ -199,6 +199,14 @@
   /* Grid */
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .cell { aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--line); cursor: pointer; }
+  .cell { position: relative; }
+  .play-chip { position: absolute; left: 8px; bottom: 8px; width: 30px; height: 30px;
+    border-radius: 50%; background: rgba(10,10,10,.72); color: #8deb00;
+    border: 1px solid rgba(141,235,0,.45); display: flex; align-items: center; justify-content: center;
+    font-size: 11px; }
+  #lbVideo { display: none; max-width: 92vw; max-height: 76vh; border-radius: 6px; background: #000; }
+  .lb-stage.video #lbImg { display: none; }
+  .lb-stage.video #lbVideo { display: block; }
   .cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   /* Lightbox */
@@ -354,6 +362,7 @@
   <div class="lb-stage">
     <button class="lb-nav lb-prev" id="lbPrev" aria-label="Previous">&#8249;</button>
     <img id="lbImg" alt="Gallery photo fullscreen">
+    <video id="lbVideo" controls playsinline preload="metadata"></video>
     <button class="lb-nav lb-next" id="lbNext" aria-label="Next">&#8250;</button>
   </div>
   <div class="lb-bottom">
@@ -392,6 +401,23 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
+}
+
+/* Gallery items are plain URLs; a Cloudinary video URL carries
+   /video/upload/ in its path, which is how clips are told from
+   photos everywhere below. Poster = same URL, .jpg extension. */
+function isVideoUrl(u) { return /\/video\/upload\//.test(u || ''); }
+function videoPoster(u) { return String(u || '').replace(/\.[a-z0-9]+($|\?)/i, '.jpg$1'); }
+function mediaCounts(imgs) {
+  var v = 0;
+  (imgs || []).forEach(function (u) { if (isVideoUrl(u)) v++; });
+  return { photos: (imgs || []).length - v, videos: v };
+}
+function mediaLabel(imgs) {
+  var mc = mediaCounts(imgs), parts = [];
+  if (mc.photos) parts.push(mc.photos + (mc.photos === 1 ? ' photo' : ' photos'));
+  if (mc.videos) parts.push(mc.videos + (mc.videos === 1 ? ' clip' : ' clips'));
+  return parts.join(' · ');
 }
 
 async function boot() {
@@ -445,14 +471,14 @@ function expiryChip() {
 function renderPass() {
   var d = DV.data;
   var imgs = d.images || [];
-  $('passHero').src = imgs[0] || '';
+  $('passHero').src = imgs[0] ? (isVideoUrl(imgs[0]) ? videoPoster(imgs[0]) : imgs[0]) : '';
   $('passTitle').textContent = d.title || 'Gallery';
   var client = d.clientName ? 'Prepared for ' + d.clientName : '';
   $('passClient').textContent = client;
   $('passClient').style.display = client ? '' : 'none';
 
   var chips = [];
-  chips.push('<span class="pass-chip">' + imgs.length + (imgs.length === 1 ? ' photo' : ' photos') + '</span>');
+  chips.push('<span class="pass-chip">' + (mediaLabel(imgs) || 'Gallery') + '</span>');
   var dt = fmtDate(d.createdAt);
   if (dt) chips.push('<span class="pass-chip">' + esc(dt) + '</span>');
   var ex = expiryChip();
@@ -504,7 +530,7 @@ function renderGallery() {
   }
   $('gPhotog').textContent = d.photographerName || 'Your photographer';
   $('gTitle').textContent = d.title || 'Gallery';
-  var meta = imgs.length + (imgs.length === 1 ? ' photo' : ' photos');
+  var meta = mediaLabel(imgs) || 'Gallery';
   if (DV.showcaseMode) meta += ' · Showcase';
   $('gMeta').textContent = meta;
 
@@ -522,8 +548,16 @@ function renderGallery() {
     var c = document.createElement('div');
     c.className = 'cell';
     var img = document.createElement('img');
-    img.src = url; img.alt = 'Photo ' + (i + 1); img.loading = 'lazy';
+    var vid = isVideoUrl(url);
+    img.src = vid ? videoPoster(url) : url;
+    img.alt = (vid ? 'Clip ' : 'Photo ') + (i + 1); img.loading = 'lazy';
     c.appendChild(img);
+    if (vid) {
+      var chip = document.createElement('span');
+      chip.className = 'play-chip';
+      chip.innerHTML = '<i class="fas fa-play"></i>';
+      c.appendChild(chip);
+    }
     c.onclick = function () { openLb(i); };
     grid.appendChild(c);
   });
@@ -556,6 +590,7 @@ function openLb(i) {
   document.body.style.overflow = 'hidden';
 }
 function closeLb() {
+  try { $('lbVideo').pause(); } catch (e) {}
   $('lightbox').classList.remove('open');
   $('lightbox').setAttribute('aria-hidden', 'true');
   document.body.style.overflow = '';
@@ -564,7 +599,21 @@ function syncLb() {
   var imgs = DV.data.images || [];
   if (!imgs.length) return;
   DV.idx = (DV.idx + imgs.length) % imgs.length;
-  $('lbImg').src = imgs[DV.idx];
+  var url = imgs[DV.idx];
+  var vid = isVideoUrl(url);
+  document.querySelector('.lb-stage').classList.toggle('video', vid);
+  var v = $('lbVideo');
+  if (vid) {
+    $('lbImg').removeAttribute('src');
+    v.poster = videoPoster(url);
+    if (v.getAttribute('src') !== url) v.src = url;
+  } else {
+    try { v.pause(); } catch (e) {}
+    v.removeAttribute('src');
+    try { v.load(); } catch (e) {}
+    $('lbImg').src = url;
+  }
+  $('lbAnno').style.display = vid ? 'none' : '';
   $('lbCount').textContent = (DV.idx + 1) + ' / ' + imgs.length;
 }
 /* ---------- Annotations ---------- */
@@ -650,7 +699,13 @@ document.addEventListener('keydown', function (e) {
 /* ---------- Downloads ---------- */
 function fileNameFor(i) {
   var base = (DV.data.title || 'gallery').replace(/[^a-z0-9-_]+/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-  return (base || 'gallery') + '-' + (i + 1) + '.jpg';
+  var url = (DV.data.images || [])[i] || '';
+  var ext = '.jpg';
+  if (isVideoUrl(url)) {
+    var m = url.match(/\.([a-z0-9]+)($|\?)/i);
+    ext = m ? '.' + m[1].toLowerCase() : '.mp4';
+  }
+  return (base || 'gallery') + '-' + (i + 1) + ext;
 }
 async function downloadUrl(url, name) {
   var res = await fetch(url);
