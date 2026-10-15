@@ -345,6 +345,24 @@ async function todaysDropItem(db){
   }catch(e){ return null; }
 }
 
+/* Followed-first ranking: the viewer's follow list, fetched once per
+   page session (follows where followerUid == me — the same query
+   CDSocial runs). Signed-out or any error -> empty set -> the plain
+   ordering below, unchanged. */
+let followingCache = null;
+async function loadFollowing(db){
+  if (followingCache) return followingCache;
+  const u = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+  if (!u) return new Set();
+  try {
+    const snap = await db.collection('follows').where('followerUid', '==', u.uid).get();
+    const set = new Set();
+    snap.forEach(doc => { const t = doc.data().targetUid; if (t) set.add(t); });
+    followingCache = set;
+    return set;
+  } catch (e) { return new Set(); }
+}
+
 let activeFilter = 'all';
 const FILTER_TYPES = {
   all: null,
@@ -515,6 +533,7 @@ async function loadFeed() {
     });
     const dropItem = await todaysDropItem(db);
     if (dropItem && (!types || types.includes('arena_drop'))) items.unshift(dropItem);
+    const following = await loadFollowing(db);
     function dayKey(d){
       const t = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null;
       if(!t || isNaN(t.getTime())) return '9999-12-31';
@@ -532,9 +551,15 @@ async function loadFeed() {
       const drops = dayItems.filter(d => d.type === 'arena_drop');
       const featured = dayItems.filter(d => d.type === 'featured_operator');
       const editorial = dayItems.filter(d => ['blog_post','protocol','podcast'].includes(d.type));
-      const social = dayItems.filter(d => !['featured_operator','arena_drop','blog_post','protocol','podcast'].includes(d.type));
+      const socialAll = dayItems.filter(d => !['featured_operator','arena_drop','blog_post','protocol','podcast'].includes(d.type));
+      /* Followed operators lead the day's social stream (their club posts
+         ride along — the boost is on the author). Everyone else keeps the
+         existing order, editorial still woven every 4th of the remainder. */
+      const followedSocial = following.size ? socialAll.filter(d => following.has(d.actorUid)) : [];
+      const social = followedSocial.length ? socialAll.filter(d => !following.has(d.actorUid)) : socialAll;
       ordered.push(...drops);
       ordered.push(...featured);
+      ordered.push(...followedSocial);
       let ei = 0;
       social.forEach((d, i) => {
         ordered.push(d);
