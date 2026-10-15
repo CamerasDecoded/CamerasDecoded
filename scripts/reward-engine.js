@@ -132,12 +132,12 @@
         });
       }
       /* badge unlocks */
-      if (newlyUnlockedBadges.length > 0) {
+      if (newlyUnlocked.length > 0) {
         feed.add({
           type: 'xp_milestone',
           actorUid: uid,
           actorName: actorName,
-          text: actorName + ' unlocked ' + newlyUnlockedBadges.length + ' new badge' + (newlyUnlockedBadges.length > 1 ? 's' : ''),
+          text: actorName + ' unlocked ' + newlyUnlocked.length + ' new badge' + (newlyUnlocked.length > 1 ? 's' : ''),
           targetType: 'profile',
           targetId: uid,
           createdAt: ts,
