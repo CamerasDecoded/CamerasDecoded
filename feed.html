@@ -235,6 +235,25 @@ border-radius:20px;color:var(--text);font-size:13px;padding:9px 14px;font-family
 .comment-form button{background:var(--green-soft);border:1px solid var(--green-border);
 color:var(--green);border-radius:20px;padding:9px 16px;font-family:var(--font-d);
 font-size:11px;cursor:pointer}
+.feed-search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:0 12px;margin-bottom:14px}
+.feed-search>svg{width:17px;height:17px;stroke:var(--muted-2);fill:none;stroke-width:2;flex-shrink:0}
+.feed-search input{flex:1;background:none;border:none;outline:none;color:var(--text);
+  font-family:var(--font-b);font-size:14px;padding:12px 0;min-width:0}
+.feed-search input::placeholder{color:var(--muted-2)}
+.feed-search button{background:none;border:none;cursor:pointer;padding:6px;display:flex}
+.feed-search button svg{width:15px;height:15px;stroke:var(--muted);fill:none;stroke-width:2}
+.search-sec{font-family:var(--font-d);font-size:10px;letter-spacing:.1em;color:var(--muted-2);
+  text-transform:uppercase;margin:18px 0 8px}
+.search-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:10px 12px;margin-bottom:8px;text-decoration:none;color:var(--text);
+  cursor:pointer;width:100%;text-align:left;font-family:var(--font-b)}
+.sr-main{flex:1;min-width:0}
+.sr-name{font-weight:700;font-size:14px}
+.sr-sub{font-family:var(--font-d);font-size:11px;color:var(--muted-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sr-text{font-size:13px;color:var(--muted);line-height:1.45;margin-top:2px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.search-note{text-align:center;color:var(--muted-2);font-family:var(--font-d);font-size:12px;padding:22px 0}
 .feed-empty .big{font-size:40px;margin-bottom:12px}
 .feed-loading{text-align:center;padding:40px;color:var(--muted-2);font-family:var(--font-d);font-size:13px}
 @media(min-width:768px){.feed-wrap{padding-top:24px}}
@@ -247,6 +266,12 @@ font-size:11px;cursor:pointer}
         onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
       <h1 hidden>THE SIGNAL</h1>
     </div>
+    <div class="feed-search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></svg>
+      <input id="feedSearch" type="search" placeholder="Search operators, clubs, posts\u2026" autocomplete="off" enterkeyhint="search"/>
+      <button id="feedSearchX" type="button" aria-label="Clear search" hidden><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
+    </div>
+    <div id="searchResults" hidden></div>
     <div class="filter-tabs" id="filterTabs" role="radiogroup" aria-label="Feed filters">
       <button class="jelly-chip active" data-f="all" role="radio" aria-checked="true">All</button>
       <button class="jelly-chip" data-f="arena" role="radio" aria-checked="false">Arena</button>
@@ -370,6 +395,9 @@ async function loadFollowing(db){
   } catch (e) { return new Set(); }
 }
 
+/* Raw items from the latest feed load (all types, before the tab
+   filter) — the search box matches posts against these. */
+let lastFeedItems = [];
 /* Public-profile cache for flasher faces (publicProfiles/{uid}). */
 const profileCache = new Map();
 async function loadPublicProfile(db, uid){
@@ -546,11 +574,14 @@ async function loadFeed() {
        editorial woven every 4th) applies only WITHIN each Chicago day —
        nothing ever crosses a day boundary. Days run newest first. */
     const items = [];
+    const rawItems = [];
     snap.forEach(doc => {
       const d = doc.data(); d._id = doc.id;
+      rawItems.push(d);
       if(types && !types.includes(d.type)) return;
       items.push(d);
     });
+    lastFeedItems = rawItems;
     const dropItem = await todaysDropItem(db);
     if (dropItem && (!types || types.includes('arena_drop'))) items.unshift(dropItem);
     const following = await loadFollowing(db);
@@ -1013,6 +1044,105 @@ async function loadFeed() {
     feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
   }
 }
+/* ---- feed search: operators + clubs by name prefix (Firestore
+   prefix windows + an exact client-side recheck), posts by substring
+   against the loaded feed. Picking a post exits search and lands on
+   the card through the deep-link path; articles go to their page. ---- */
+const searchInput = document.getElementById('feedSearch');
+const searchX = document.getElementById('feedSearchX');
+const searchBox = document.getElementById('searchResults');
+let searchToken = 0;
+function exitSearch(){
+  searchToken++;
+  searchBox.hidden = true; searchBox.innerHTML = '';
+  feedList.hidden = false;
+  searchX.hidden = true; searchInput.value = '';
+}
+function prefixVariants(q){
+  const out = new Set([q, q.toLowerCase(), q.charAt(0).toUpperCase() + q.slice(1)]);
+  return Array.from(out).filter(Boolean);
+}
+async function runSearch(qRaw){
+  const token = ++searchToken;
+  const q = (qRaw || '').trim();
+  if (q.length < 2) { searchBox.hidden = true; searchBox.innerHTML = ''; feedList.hidden = false; searchX.hidden = true; return; }
+  searchX.hidden = false;
+  feedList.hidden = true; searchBox.hidden = false;
+  searchBox.innerHTML = '<div class="search-note">Searching\u2026</div>';
+  if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+    searchBox.innerHTML = '<div class="search-note">Search needs a connection.</div>';
+    return;
+  }
+  const db = firebase.firestore();
+  const ql = q.toLowerCase();
+  const people = new Map(), clubs = new Map();
+  try {
+    for (const v of prefixVariants(q)) {
+      const byName = await db.collection('publicProfiles').where('displayName','>=',v).where('displayName','<',v+'\uf8ff').limit(6).get().catch(() => null);
+      if (byName) byName.forEach(doc => people.set(doc.id, Object.assign({ uid: doc.id }, doc.data())));
+      const byUser = await db.collection('publicProfiles').where('username','>=',v.toLowerCase()).where('username','<',v.toLowerCase()+'\uf8ff').limit(6).get().catch(() => null);
+      if (byUser) byUser.forEach(doc => people.set(doc.id, Object.assign({ uid: doc.id }, doc.data())));
+      const g = await db.collection('groups').where('name','>=',v).where('name','<',v+'\uf8ff').limit(6).get().catch(() => null);
+      if (g) g.forEach(doc => clubs.set(doc.id, Object.assign({ id: doc.id }, doc.data())));
+    }
+  } catch (e) {}
+  if (token !== searchToken) return;
+  const peopleList = Array.from(people.values()).filter(p =>
+    (p.displayName || '').toLowerCase().startsWith(ql) || (p.username || '').toLowerCase().startsWith(ql)).slice(0, 6);
+  const clubList = Array.from(clubs.values()).filter(c => (c.name || '').toLowerCase().startsWith(ql)).slice(0, 6);
+  const postHits = lastFeedItems.filter(d =>
+    (d.text || '').toLowerCase().includes(ql) || (d.title || '').toLowerCase().includes(ql) || (d.actorName || '').toLowerCase().includes(ql)
+  ).slice(0, 10);
+  let h = '';
+  if (peopleList.length) {
+    h += '<div class="search-sec">Operators</div>' + peopleList.map(p => {
+      const av = p.avatarUrl ? `<img src="${esc(p.avatarUrl)}" alt=""/>` : esc((p.displayName || '?')[0].toUpperCase());
+      return `<a class="search-row" href="/profile.html?u=${esc(p.uid)}"><span class="feed-avatar">${av}</span>` +
+        `<span class="sr-main"><span class="sr-name">${esc(p.displayName || 'Operator')}</span>` +
+        (p.username ? `<div class="sr-sub">@${esc(p.username)}</div>` : '') + `</span></a>`;
+    }).join('');
+  }
+  if (clubList.length) {
+    h += '<div class="search-sec">Clubs</div>' + clubList.map(c =>
+      `<a class="search-row" href="/group.html?id=${esc(c.id)}"><span class="feed-avatar">${esc((c.name || '?')[0].toUpperCase())}</span>` +
+      `<span class="sr-main"><span class="sr-name">${esc(c.name || 'Club')}</span>` +
+      (c.memberCount != null ? `<div class="sr-sub">${c.memberCount} members</div>` : '') + `</span></a>`
+    ).join('');
+  }
+  if (postHits.length) {
+    h += '<div class="search-sec">In the Signal</div>' + postHits.map(d => {
+      const av = d.actorAvatar ? `<img src="${esc(d.actorAvatar)}" alt=""/>` : esc((d.actorName || '?')[0].toUpperCase());
+      const head = d.title ? esc(dec(d.title)) : esc(d.actorName || 'Operator');
+      const body = d.text ? `<div class="sr-text">${esc(d.text)}</div>` : '';
+      const href = d.actionUrl ? esc(d.actionUrl) : ('#' + esc(d._id));
+      const jump = d.actionUrl ? '' : ` data-jump="${esc(d._id)}"`;
+      return `<a class="search-row" href="${href}"${jump}><span class="feed-avatar">${av}</span>` +
+        `<span class="sr-main"><span class="sr-name">${head}</span>` +
+        `<div class="sr-sub">${esc(TYPE_LABELS[d.type] || 'Post')} \u00B7 ${timeAgo(d.createdAt)}</div>${body}</span></a>`;
+    }).join('');
+  }
+  searchBox.innerHTML = h || `<div class="search-note">Nothing found for "${esc(q)}".</div>`;
+}
+let searchTimer = null;
+searchInput.addEventListener('input', function(){
+  clearTimeout(searchTimer);
+  const v = searchInput.value;
+  searchTimer = setTimeout(() => runSearch(v), 250);
+});
+searchX.addEventListener('click', function(){ exitSearch(); searchInput.focus(); });
+searchBox.addEventListener('click', function(e){
+  const a = e.target.closest('[data-jump]');
+  if (!a) return;
+  e.preventDefault();
+  const id = a.getAttribute('data-jump');
+  exitSearch();
+  if (activeFilter !== 'all') {
+    activeFilter = 'all';
+    document.querySelectorAll('.jelly-chip').forEach(function(t, i){ t.classList.toggle('active', i === 0); });
+  }
+  try { history.replaceState(null, '', '#' + id); } catch (err) {}
+  loadFeed();
+});
 loadFeed();
 })();
 </script>
