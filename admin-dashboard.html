@@ -1244,44 +1244,26 @@
       approveBtn.disabled = true; declineBtn.disabled = true;
       approveBtn.textContent = 'Approving…';
       try {
-        // Founding Decoder: claim one of the first 200 spots atomically.
-        // The counter self-seeds on first claim; no spot left = no flag.
-        var foundingNum = 0;
-        await db.runTransaction(async function (tx) {
-          var ref = db.collection('config').doc('founding');
-          var snap = await tx.get(ref);
-          var data = (snap.exists && snap.data()) || {};
-          var cap = Number(data.cap) || 200;
-          var claimed = Number(data.claimed) || 0;
-          if (claimed < cap) {
-            foundingNum = claimed + 1;
-            tx.set(ref, {
-              cap: cap,
-              claimed: foundingNum,
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-          }
-        });
-        var batch = db.batch();
+        // Founding spots are claimed by members on the wall, never assigned
+        // here. Approving Pro grants Pro only; the plan is carried over from
+        // the request doc so surfaces like the Founding claim desk can
+        // distinguish annual from weekly/monthly.
+        var reqSnap = await db.collection('proRequests').doc(uid).get();
+        var reqData = (reqSnap.exists && reqSnap.data()) || {};
         var userPatch = { tier: 'pro' };
-        if (foundingNum > 0) {
-          userPatch.foundingDecoder = true;
-          userPatch.foundingDecoderNum = foundingNum;
-          userPatch.foundingDecoderAt = firebase.firestore.FieldValue.serverTimestamp();
+        if (reqData.plan === 'annual' || reqData.plan === 'monthly' || reqData.plan === 'weekly') {
+          userPatch.proPlan = reqData.plan;
         }
+        var batch = db.batch();
         batch.set(db.collection('users').doc(uid), userPatch, { merge: true });
-        var reqPatch = {
+        batch.update(db.collection('proRequests').doc(uid), {
           status: 'active',
           fulfilledAt: firebase.firestore.FieldValue.serverTimestamp(),
           fulfilledBy: currentUser ? currentUser.uid : null
-        };
-        if (foundingNum > 0) reqPatch.foundingDecoderNum = foundingNum;
-        batch.update(db.collection('proRequests').doc(uid), reqPatch);
+        });
         await batch.commit();
         loadFoundingStatus();
-        cdToast(foundingNum > 0
-          ? 'Pro activated — Founding Decoder #' + foundingNum
-          : 'Pro activated (founding closed)', 'success');
+        cdToast('Pro activated', 'success');
       } catch (e) {
         approveBtn.disabled = false; declineBtn.disabled = false;
         approveBtn.textContent = 'Approve';
@@ -1420,6 +1402,9 @@
       approveBtn.textContent = 'Posting\u2026';
       try {
         await db.collection('founding200').doc(uid).update({ approved: true });
+        try {
+          await db.collection('users').doc(uid).set({ foundingDecoder: true }, { merge: true });
+        } catch (e) { /* profile tag is cosmetic; never block the posting */ }
         var notified = true;
         try {
           await db.collection('notifications').doc(uid).collection('items').add({
@@ -1446,6 +1431,9 @@
       approveBtn.disabled = true; removeBtn.disabled = true;
       try {
         await db.collection('founding200').doc(uid).delete();
+        try {
+          await db.collection('users').doc(uid).set({ foundingDecoder: false }, { merge: true });
+        } catch (e) { /* best-effort; the claim is already gone */ }
         cdToast('Claim removed', 'success');
       } catch (e) {
         approveBtn.disabled = false; removeBtn.disabled = false;
