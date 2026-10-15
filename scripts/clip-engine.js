@@ -1,0 +1,479 @@
+/* ================================================================
+   clip-engine.js — Clip Lab on-device finishing engine (fast path).
+   ?v=20261015a
+
+   Decode with WebCodecs (hardware), composite on a 2D canvas
+   (WebGPU is headroom for v2 filters — v1 composites in 2D, which
+   keeps frames in GPU-backed canvas surfaces and is the standard
+   v1 shape), hardware H.264 encode, AAC audio round-trip, and
+   mux to MP4 with mediabunny (EncodedVideo/AudioPacketSource —
+   it writes correct avcC/esds descriptors from the encoder output,
+   which mp4box.js's generator API cannot do from byte arrays).
+
+   Demux (track discovery + sample extraction) is mp4box.js,
+   vendored locally as scripts/mp4box.js.
+   ================================================================ */
+(function () {
+  'use strict';
+
+  var MB = null; /* mediabunny namespace, set via setMuxer() */
+
+  function setMuxer(mb) { MB = mb; }
+
+  function testCap() {
+    try {
+      var m = /[?&]testcap=(\d+)/.exec(window.location.search || '');
+      return m ? parseInt(m[1], 10) : 0;
+    } catch (e) { return 0; }
+  }
+
+  /* ---------- capability gate ---------- */
+
+  async function checkSupport() {
+    var out = { decoder: false, encoder: false, h264Decode: false, h264Encode: false, ok: false };
+    try {
+      out.decoder = typeof VideoDecoder !== 'undefined';
+      out.encoder = typeof VideoEncoder !== 'undefined';
+      if (out.decoder) {
+        var d = await VideoDecoder.isConfigSupported({ codec: 'avc1.640028', codedWidth: 1280, codedHeight: 720 });
+        out.h264Decode = !!(d && d.supported);
+      }
+      if (out.encoder) {
+        var e = await VideoEncoder.isConfigSupported({ codec: 'avc1.640028', width: 1280, height: 720, bitrate: 2000000, framerate: 30 });
+        out.h264Encode = !!(e && e.supported);
+      }
+    } catch (err) { /* unsupported shape */ }
+    out.ok = out.h264Decode && out.h264Encode;
+    return out;
+  }
+
+  /* ---------- demux (mp4box) ---------- */
+
+  function readAvcC(entry) {
+    var box = entry && entry.avcC;
+    if (!box || !box.SPS || !box.SPS.length || !box.PPS || !box.PPS.length) return null;
+    var out = [];
+    var sps = box.SPS[0].nalu;
+    out.push(1, sps[1], sps[2], sps[3], 0xFF, 0xE0 | (box.SPS.length & 31));
+    box.SPS.forEach(function (s) {
+      var n = s.nalu;
+      out.push((n.length >> 8) & 255, n.length & 255);
+      for (var i = 0; i < n.length; i++) out.push(n[i]);
+    });
+    out.push(box.PPS.length & 255);
+    box.PPS.forEach(function (s) {
+      var n = s.nalu;
+      out.push((n.length >> 8) & 255, n.length & 255);
+      for (var i = 0; i < n.length; i++) out.push(n[i]);
+    });
+    return new Uint8Array(out);
+  }
+
+  function ascBytes(sampleRate, channels) {
+    var rates = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
+    var idx = rates.indexOf(sampleRate);
+    if (idx < 0) idx = 4;
+    return new Uint8Array([0x10 | (idx >> 1), ((idx & 1) << 7) | ((channels & 15) << 3)]);
+  }
+
+  function findTrak(mp4file, trackId) {
+    var traks = (mp4file.moov && mp4file.moov.traks) || [];
+    for (var i = 0; i < traks.length; i++) {
+      if (traks[i].tkhd && traks[i].tkhd.track_id === trackId) return traks[i];
+    }
+    return null;
+  }
+
+  function demuxFile(file) {
+    return file.arrayBuffer().then(function (buf) {
+      return new Promise(function (resolve, reject) {
+        var mp4 = MP4Box.createFile();
+        var vTrack = null, aTrack = null;
+        var vSamples = [], aSamples = [];
+        var done = false;
+
+        mp4.onError = function (e) { if (!done) { done = true; reject(new Error('Could not read this clip (' + (e || 'parse error') + ').')); } };
+        mp4.onReady = function (info) {
+          try {
+            var vts = info.videoTracks || [], ats = info.audioTracks || [];
+            if (!vts.length) { done = true; reject(new Error('No video track found in this clip.')); return; }
+            vTrack = vts[0];
+            if (ats.length) aTrack = ats[0];
+            mp4.setExtractionOptions(vTrack.id, null, {});
+            if (aTrack) mp4.setExtractionOptions(aTrack.id, null, {});
+            mp4.onSamples = function (id, user, samples) {
+              if (id === vTrack.id) samples.forEach(function (s) { vSamples.push(s); });
+              else if (aTrack && id === aTrack.id) samples.forEach(function (s) { aSamples.push(s); });
+              var wantV = vTrack.nb_samples || 0, wantA = aTrack ? (aTrack.nb_samples || 0) : 0;
+              if (vSamples.length >= wantV && aSamples.length >= wantA) {
+                mp4.stop(); mp4.flush();
+                if (!done) { done = true; resolve(buildInfo()); }
+              }
+            };
+            mp4.start();
+          } catch (err) { if (!done) { done = true; reject(err); } }
+        };
+
+        function buildInfo() {
+          var trak = findTrak(mp4, vTrack.id);
+          var entry = trak && trak.mdia && trak.mdia.minf.stbl.stsd.entries[0];
+          var avcc = readAvcC(entry || {});
+          var vt = vTrack.timescale || 90000;
+          var cw = (entry && entry.width) || (vTrack.video && vTrack.video.width) || vTrack.track_width || 0;
+          var ch = (entry && entry.height) || (vTrack.video && vTrack.video.height) || vTrack.track_height || 0;
+          var info = {
+            duration: (vTrack.movie_duration || vTrack.duration || 0) / (info_timescale()),
+            width: cw,
+            height: ch,
+            fps: 30,
+            videoCodec: vTrack.codec,
+            videoTimescale: vt,
+            avccBytes: avcc,
+            samples: vSamples.map(function (s) {
+              return { data: s.data, dts: s.dts, cts: s.cts, duration: s.duration, isSync: !!s.is_sync };
+            }),
+            audio: null
+          };
+          if (vTrack.nb_samples && info.duration > 0) {
+            info.fps = Math.round((vTrack.nb_samples / info.duration) * 10) / 10 || 30;
+          }
+          if (aTrack) {
+            var at = aTrack.timescale || 44100;
+            info.audio = {
+              sampleRate: aTrack.audio ? (aTrack.audio.sample_rate || 44100) : 44100,
+              channels: aTrack.audio ? (aTrack.audio.channel_count || 2) : 2,
+              timescale: at,
+              samples: aSamples.map(function (s) {
+                return { data: s.data, dts: s.dts, duration: s.duration };
+              })
+            };
+          }
+          return info;
+
+          function info_timescale() {
+            try { return (mp4.moov.mvhd.timescale) || 1; } catch (e) { return 1; }
+          }
+        }
+
+        buf.fileStart = 0;
+        mp4.appendBuffer(buf);
+        mp4.flush();
+        setTimeout(function () {
+          if (!done) { done = true; reject(new Error('Timed out reading this clip.')); }
+        }, 20000);
+      });
+    });
+  }
+
+  /* ---------- composition ---------- */
+
+  function targetDims(info, format) {
+    var cap = testCap();
+    if (format === 'vertical') {
+      var s = cap || 1080;
+      return { w: s, h: Math.round(s * 16 / 9 / 2) * 2 }; /* portrait 9:16, even dims for H.264 */
+    }
+    if (format === 'square') {
+      var q = cap || 1080;
+      return { w: q, h: q };
+    }
+    var sw = info.width || 1280, sh = info.height || 720;
+    var maxEdge = cap || 1920;
+    var scale = Math.min(1, maxEdge / Math.max(sw, sh));
+    return { w: Math.round(sw * scale / 2) * 2, h: Math.round(sh * scale / 2) * 2 };
+  }
+
+  function drawFrame(ctx, frame, dims, info, tRel, title, captions) {
+    var W = dims.w, H = dims.h;
+    var sw = frame.codedWidth, sh = frame.codedHeight;
+    /* cover crop */
+    var scale = Math.max(W / sw, H / sh);
+    var dw = sw * scale, dh = sh * scale;
+    var dx = (W - dw) / 2, dy = (H - dh) / 2;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(frame, dx, dy, dw, dh);
+
+    if (title && tRel < 2.0) {
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      var fs = Math.round(W * 0.075);
+      ctx.font = '700 ' + fs + 'px Montserrat, sans-serif';
+      var lines = wrapText(ctx, title, W * 0.86);
+      var lh = fs * 1.25;
+      var y0 = H / 2 - (lines.length - 1) * lh / 2;
+      lines.forEach(function (ln, i) {
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        var tw = ctx.measureText(ln).width;
+        ctx.fillRect(W / 2 - tw / 2 - 14, y0 + i * lh - fs * 0.62, tw + 28, fs * 1.24);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(ln, W / 2, y0 + i * lh);
+      });
+      ctx.restore();
+    }
+
+    var cap = null;
+    for (var i = 0; i < captions.length; i++) {
+      if (tRel >= captions[i].start && tRel < captions[i].end) { cap = captions[i]; break; }
+    }
+    if (cap) {
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      var cfs = Math.round(W * 0.052);
+      ctx.font = '700 ' + cfs + 'px Montserrat, sans-serif';
+      var clines = wrapText(ctx, cap.text, W * 0.9);
+      var clh = cfs * 1.3;
+      var blockH = clines.length * clh + cfs * 0.7;
+      var by = H * 0.97 - blockH;
+      ctx.fillStyle = 'rgba(0,0,0,0.62)';
+      ctx.fillRect(0, by, W, blockH);
+      ctx.fillStyle = '#ffffff';
+      clines.forEach(function (ln, i2) { ctx.fillText(ln, W / 2, by + cfs * 0.35 + clh * (i2 + 0.5)); });
+      ctx.restore();
+    }
+  }
+
+  function wrapText(ctx, text, maxW) {
+    var words = String(text || '').split(/\s+/).filter(Boolean);
+    var lines = [], line = '';
+    words.forEach(function (w) {
+      var t = line ? line + ' ' + w : w;
+      if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; }
+      else line = t;
+    });
+    if (line) lines.push(line);
+    return lines.slice(0, 2);
+  }
+
+  /* ---------- export ---------- */
+
+  async function exportClip(opts) {
+    if (!MB) throw new Error('The exporter is still loading — try again in a moment.');
+    var info = opts.info;
+    var trimStartUs = Math.round(opts.trimStart * 1e6);
+    var trimEndUs = Math.round(opts.trimEnd * 1e6);
+    if (!(trimEndUs > trimStartUs)) throw new Error('The trim range is empty.');
+    var dims = targetDims(info, opts.format);
+    var captions = (opts.captions || []).filter(function (c) { return c.text && c.end > c.start; });
+    var title = (opts.title || '').trim();
+    var totalFrames = Math.max(1, Math.round((opts.trimEnd - opts.trimStart) * (info.fps || 30)));
+    var progress = opts.onProgress || function () {};
+
+    /* muxer */
+    var output = new MB.Output({
+      format: new MB.Mp4OutputFormat({ fastStart: 'fragmented' }),
+      target: new MB.BufferTarget()
+    });
+    var vSrc = new MB.EncodedVideoPacketSource('avc');
+    var vTrack = output.addVideoTrack(vSrc, { width: dims.w, height: dims.h });
+
+    /* audio viability is decided up front: tracks must exist before output.start() */
+    var audioViable = false, audioNote = null, au = null;
+    if (info.audio && info.audio.samples.length) {
+      try {
+        au = info.audio;
+        var probe = new AudioDecoder({ output: function () {}, error: function () {} });
+        probe.configure({
+          codec: 'mp4a.40.2', sampleRate: au.sampleRate,
+          numberOfChannels: au.channels, description: ascBytes(au.sampleRate, au.channels)
+        });
+        probe.close();
+        audioViable = true;
+      } catch (e) {
+        audioNote = 'Exported without sound — this device could not process the clip audio.';
+      }
+    }
+    var aSrc = null;
+    if (audioViable) {
+      aSrc = new MB.EncodedAudioPacketSource('aac');
+      output.addAudioTrack(aSrc);
+    }
+    await output.start();
+
+    /* decode — only the trimmed window, streaming frames straight to encode */
+    var codec = info.videoCodec || 'avc1.640028';
+    if (!info.avccBytes) throw new Error('This clip uses a video format Clip Lab cannot decode yet.');
+    var frameQueue = [];
+    var decodeDone = false, decodeErr = null;
+    var decoder = new VideoDecoder({
+      output: function (f) { frameQueue.push(f); },
+      error: function (e) { decodeErr = e; }
+    });
+    /* NOTE: no hardwareAcceleration hint. 'prefer-hardware' makes Chromium
+       fail ASYNC (after a successful configure) on machines with no
+       hardware decoder instead of falling back; the default lets the
+       platform pick hardware where it exists (iPhones) and software
+       elsewhere. */
+    decoder.configure({
+      codec: codec,
+      description: info.avccBytes,
+      codedWidth: info.width,
+      codedHeight: info.height
+    });
+
+    var vt = info.videoTimescale || 90000;
+    var samples = info.samples;
+    var startIdx = 0;
+    for (var si = 0; si < samples.length; si++) {
+      var sus = Math.round(samples[si].dts * 1e6 / vt);
+      if (sus + Math.round(samples[si].duration * 1e6 / vt) >= trimStartUs) { startIdx = si; break; }
+      startIdx = si;
+    }
+    /* walk back to the nearest keyframe so decode starts clean */
+    while (startIdx > 0 && !samples[startIdx].isSync) startIdx--;
+    var consumed = startIdx;
+
+    /* encoder */
+    var pixels = dims.w * dims.h;
+    var bitrate = Math.max(2000000, Math.round(8000000 * pixels / (1920 * 1080)));
+    var fps = Math.max(1, Math.round(info.fps || 30));
+    var encCfg = { codec: 'avc1.640028', width: dims.w, height: dims.h, bitrate: bitrate, framerate: fps, latencyMode: 'quality' };
+    var firstVideoMeta = true;
+    var encoder = new VideoEncoder({
+      output: function (chunk, meta) {
+        var pkt = MB.EncodedPacket.fromEncodedChunk(chunk);
+        var m;
+        if (firstVideoMeta) {
+          firstVideoMeta = false;
+          m = (meta && meta.decoderConfig) ? { decoderConfig: meta.decoderConfig } : undefined;
+        }
+        vSrc.add(pkt, m);
+      },
+      error: function (e) { decodeErr = e; }
+    });
+    try { encoder.configure(encCfg); }
+    catch (e) { encCfg.latencyMode = 'realtime'; encoder.configure(encCfg); }
+
+    var canvas = document.createElement('canvas');
+    canvas.width = dims.w; canvas.height = dims.h;
+    var ctx = canvas.getContext('2d', { alpha: false });
+    var baseUs = null, encoded = 0, lastKf = -1e12;
+
+    function feedMore() {
+      while (consumed < samples.length && decoder.decodeQueueSize < 8) {
+        var s = samples[consumed++];
+        var ts = Math.round(s.dts * 1e6 / vt);
+        if (ts >= trimEndUs + 2e6) break;
+        decoder.decode(new EncodedVideoChunk({
+          type: s.isSync ? 'key' : 'delta',
+          timestamp: ts,
+          duration: Math.max(1, Math.round(s.duration * 1e6 / vt)),
+          data: s.data
+        }));
+      }
+    }
+    feedMore();
+
+    while (true) {
+      if (decodeErr) throw decodeErr;
+      if (frameQueue.length === 0) {
+        if (decodeDone) break;
+        feedMore();
+        if (decoder.decodeQueueSize === 0 && frameQueue.length === 0) { decodeDone = true; break; }
+        await new Promise(function (r) { setTimeout(r, 4); });
+        continue;
+      }
+      var frame = frameQueue.shift();
+      var fts = frame.timestamp;
+      feedMore();
+      if (fts < trimStartUs || fts >= trimEndUs) { frame.close(); continue; }
+      if (baseUs === null) baseUs = fts;
+      var tRel = (fts - trimStartUs) / 1e6;
+      var outTs = fts - baseUs;
+      drawFrame(ctx, frame, dims, info, tRel, title, captions);
+      frame.close();
+      /* encode the COMPOSITED canvas (video + title + captions), not the raw frame */
+      var nf = new VideoFrame(canvas, { timestamp: outTs, duration: Math.round(1e6 / fps) });
+      var kf = (encoded === 0) || (outTs - lastKf >= 2e6);
+      if (kf) lastKf = outTs;
+      encoder.encode(nf, { keyFrame: kf });
+      nf.close();
+      encoded++;
+      progress(Math.min(0.98, encoded / totalFrames));
+      while (encoder.encodeQueueSize > 6) await new Promise(function (r) { setTimeout(r, 4); });
+      if (decodeErr) throw decodeErr;
+    }
+
+    await decoder.flush();
+    await encoder.flush();
+
+    /* audio: decode the trimmed window, re-encode AAC, mux interleaved */
+    if (audioViable) {
+      try {
+        var at = au.timescale || 44100;
+        var asc = ascBytes(au.sampleRate, au.channels);
+        var aQueue = [];
+        var aDone = false, aErr = null;
+        var aDec = new AudioDecoder({
+          output: function (ad) { aQueue.push(ad); },
+          error: function (e) { aErr = e; }
+        });
+        aDec.configure({ codec: 'mp4a.40.2', sampleRate: au.sampleRate, numberOfChannels: au.channels, description: asc });
+        au.samples.forEach(function (s) {
+          var ts = Math.round(s.dts * 1e6 / at);
+          if (ts + Math.round(s.duration * 1e6 / at) < trimStartUs || ts >= trimEndUs) return;
+          aDec.decode(new EncodedAudioChunk({
+            type: 'key',
+            timestamp: ts,
+            duration: Math.max(1, Math.round(s.duration * 1e6 / at)),
+            data: s.data
+          }));
+        });
+        aDec.flush().then(function () { aDone = true; }).catch(function (e) { aErr = e; });
+
+        var firstAudioMeta = true;
+        var aEnc = new AudioEncoder({
+          output: function (chunk, meta) {
+            var pkt = MB.EncodedPacket.fromEncodedChunk(chunk);
+            var m;
+            if (firstAudioMeta) {
+              firstAudioMeta = false;
+              m = (meta && meta.decoderConfig) ? { decoderConfig: meta.decoderConfig } : undefined;
+            }
+            aSrc.add(pkt, m);
+          },
+          error: function (e) { aErr = e; }
+        });
+        aEnc.configure({ codec: 'mp4a.40.2', sampleRate: au.sampleRate, numberOfChannels: au.channels, bitrate: 128000 });
+
+        while (!aDone || aQueue.length) {
+          if (aErr) throw aErr;
+          var ad = aQueue.shift();
+          if (!ad) { await new Promise(function (r) { setTimeout(r, 4); }); continue; }
+          if (ad.timestamp < trimStartUs || ad.timestamp >= trimEndUs) { ad.close(); continue; }
+          var nFrames = ad.numberOfFrames, nCh = ad.numberOfChannels;
+          var pcm = new Float32Array(nFrames * nCh);
+          ad.copyTo(pcm, { format: 'f32' });
+          var shifted = new AudioData({
+            format: 'f32', sampleRate: ad.sampleRate,
+            numberOfFrames: nFrames, numberOfChannels: nCh,
+            timestamp: ad.timestamp - trimStartUs, data: pcm.buffer
+          });
+          ad.close();
+          aEnc.encode(shifted);
+          shifted.close();
+        }
+        await aEnc.flush();
+      } catch (e) {
+        audioNote = 'Exported without sound — this device could not process the clip audio.';
+      }
+    }
+
+    await output.finalize();
+    var buffer = output.target.buffer;
+    if (!buffer || buffer.byteLength < 1024) throw new Error('The export came out empty — try a shorter trim.');
+    progress(1);
+    return { blob: new Blob([buffer], { type: 'video/mp4' }), audioNote: audioNote };
+  }
+
+  window.ClipEngine = {
+    checkSupport: checkSupport,
+    demuxFile: demuxFile,
+    exportClip: exportClip,
+    targetDims: targetDims,
+    setMuxer: setMuxer,
+    testCap: testCap
+  };
+})();
