@@ -86,6 +86,12 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   background:var(--green-soft)}
 /* editorial cards */
 .feed-card.editorial{border-color:rgba(141,235,0,.2);background:linear-gradient(135deg,var(--surface),#0c120a)}
+/* deep-link arrival (feed.html#<itemId>): the shared card gets a fading green halo */
+.feed-card.deep-hit{outline:2px solid var(--green);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){
+  .feed-card.deep-hit{animation:deepHit 2.6s ease-out}
+  @keyframes deepHit{0%,55%{box-shadow:0 0 0 2px var(--green),0 0 34px rgba(141,235,0,.45)}100%{box-shadow:0 0 0 0 rgba(141,235,0,0),0 0 0 rgba(141,235,0,0)}}
+}
 .ed-title{font-size:17px;font-weight:800;line-height:1.3;margin-bottom:6px}
 .ed-excerpt{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:10px;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -663,7 +669,13 @@ async function loadFeed() {
     async function sharePost(itemId, d, btn){
       if(btn){ btn.classList.remove('anim-share'); void btn.offsetWidth; btn.classList.add('anim-share');
         setTimeout(()=>btn.classList.remove('anim-share'), 450); }
-      const url = 'https://camerasdecoded.com/feed.html#' + itemId;
+      // Share the real destination: items that link out to their own page
+      // (articles, protocols, podcasts, profiles) share THAT page. Plain
+      // posts share their feed deep link, which lands on the card itself.
+      let url = 'https://camerasdecoded.com/feed.html#' + itemId;
+      if (d && d.actionUrl) {
+        try { url = new URL(d.actionUrl, 'https://camerasdecoded.com').href; } catch (e) {}
+      }
       const title = d.title || 'Cameras Decoded Feed';
       const text = d.text ? d.text.substring(0, 100) : title;
       if(navigator.share){
@@ -696,8 +708,51 @@ async function loadFeed() {
       }
     });
 
+    /* Deep link: feed.html#<itemId> scrolls to that card and halos it.
+       Runs once per page load. If the card isn't in the newest 50 (or is
+       hidden by a filter), reset to All; failing that, fetch the single
+       item and pin its card at the top. */
+    let deepLinkDone = false;
+    async function openDeepLink(){
+      if (deepLinkDone) return;
+      deepLinkDone = true;
+      const id = (location.hash || '').replace(/^#/, '').trim();
+      if (!id) return;
+      const sel = '[data-item-id="' + id.replace(/["\\]/g, '\\$&') + '"]';
+      let card = feedList.querySelector(sel);
+      if (!card && activeFilter !== 'all') {
+        activeFilter = 'all';
+        document.querySelectorAll('.jelly-chip').forEach(function(t, i){ t.classList.toggle('active', i === 0); });
+        await loadFeed();
+        card = feedList.querySelector(sel);
+      }
+      if (!card) {
+        try {
+          const doc = await firebase.firestore().collection('feedItems').doc(id).get();
+          if (doc.exists) {
+            const empty = feedList.querySelector('.feed-empty');
+            if (empty) feedList.innerHTML = '';
+            card = renderCard(Object.assign({ _id: doc.id }, doc.data()));
+            feedList.prepend(card);
+            if (typeof loadFlashStates === 'function') loadFlashStates();
+            if (typeof initCarousels === 'function') initCarousels(feedList);
+          }
+        } catch (e) {}
+      }
+      if (!card) return;
+      setTimeout(function(){
+        card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        card.classList.add('deep-hit');
+        // Late layout (header, images) can drift the card off-center —
+        // re-center once while the halo is still up.
+        setTimeout(function(){ if (card.classList.contains('deep-hit')) card.scrollIntoView({ block: 'center' }); }, 750);
+        setTimeout(() => card.classList.remove('deep-hit'), 3200);
+      }, 60);
+    }
+
     function renderCard(d){
       const el = document.createElement('div');
+      el.dataset.itemId = d._id || '';
       /* editorial: title-forward */
       if(['blog_post','protocol','podcast'].includes(d.type)){
         el.className = 'feed-card editorial';
@@ -750,11 +805,13 @@ async function loadFeed() {
         ? 'Nothing here yet.<br/>Enter the Arena or hit a milestone to light up the feed.'
         : 'Nothing in this view yet.';
       feedList.innerHTML = '<div class="feed-empty"><div class="big">◌</div><div>'+msg+'</div></div>';
+      openDeepLink();
       return;
     }
     feedList.appendChild(frag);
     loadFlashStates();
     initCarousels(feedList);
+    openDeepLink();
   } catch(e) {
     feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
   }
