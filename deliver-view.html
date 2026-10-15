@@ -259,6 +259,15 @@
   .anno-pin.resolved { background: #6f7d68; }
   .lb-stage { position: relative; }
   .lb-stage.annotating #lbImg { cursor: crosshair; }
+  .tc-notes { width: min(92vw, 560px); margin: 10px auto 0; display: flex; flex-direction: column; gap: 6px; }
+  .tc-notes[hidden] { display: none; }
+  .tc-note { display: flex; gap: 10px; align-items: baseline; background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.1); border-radius: 10px; padding: 8px 12px;
+    cursor: pointer; text-align: left; width: 100%; font-family: inherit; }
+  .tc-note .tc-t { font-family: var(--mono); font-size: 12px; color: #8deb00; white-space: nowrap; }
+  .tc-note .tc-x { font-size: 13px; color: #eee; line-height: 1.4; }
+  .tc-note.resolved { opacity: .55; }
+  .tc-note.resolved .tc-t { color: #6f7d68; }
   .anno-tip {
     position: absolute; z-index: 6; background: rgba(10,10,10,.95);
     border: 1px solid rgba(255,255,255,.15); border-radius: 10px;
@@ -365,6 +374,7 @@
     <video id="lbVideo" controls playsinline preload="metadata"></video>
     <button class="lb-nav lb-next" id="lbNext" aria-label="Next">&#8250;</button>
   </div>
+  <div class="tc-notes" id="tcNotes" hidden></div>
   <div class="lb-bottom">
     <button class="lb-dl" id="lbDl"><i class="fas fa-download"></i> Download</button>
     <button class="lb-annotate" id="lbAnno"><i class="fas fa-comment"></i> Annotate</button>
@@ -613,7 +623,14 @@ function syncLb() {
     try { v.load(); } catch (e) {}
     $('lbImg').src = url;
   }
-  $('lbAnno').style.display = vid ? 'none' : '';
+  if (vid && DV.annotating) {
+    DV.annotating = false;
+    $('lbAnno').classList.remove('on');
+    document.querySelector('.lb-stage').classList.remove('annotating');
+  }
+  $('lbAnno').innerHTML = vid
+    ? '<i class="fas fa-comment"></i> Note at time'
+    : '<i class="fas fa-comment"></i> Annotate';
   $('lbCount').textContent = (DV.idx + 1) + ' / ' + imgs.length;
 }
 /* ---------- Annotations ---------- */
@@ -621,6 +638,7 @@ DV.annotating = false;
 DV.annotations = [];
 $('lbAnno').onclick = function(e){
   e.stopPropagation();
+  if (isVideoUrl((DV.data.images || [])[DV.idx])) { addTimeNote(); return; }
   DV.annotating = !DV.annotating;
   $('lbAnno').classList.toggle('on', DV.annotating);
   document.querySelector('.lb-stage').classList.toggle('annotating', DV.annotating);
@@ -649,17 +667,45 @@ $('lbImg').addEventListener('click', function(e){
   document.querySelector('.lb-stage').classList.remove('annotating');
   $('lbAnno').innerHTML = '<i class="fas fa-comment"></i> Annotate';
 });
+/* Timecoded notes: pause where you are, write the note, it is
+   pinned to that second of the clip. */
+function fmtTC(s) {
+  s = Math.max(0, Math.floor(s || 0));
+  var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+  return (h > 0 ? h + ':' + String(m).padStart(2, '0') : String(m)) + ':' + String(ss).padStart(2, '0');
+}
+function addTimeNote() {
+  var v = $('lbVideo');
+  try { v.pause(); } catch (e) {}
+  var t = Math.floor(v.currentTime || 0);
+  var text = prompt('Note at ' + fmtTC(t) + ' \u2014 what should the photographer change?');
+  if (!text || !text.trim()) return;
+  if (!window.db) return;
+  var ref = window.db.collection('users').doc(DV.uid).collection('galleries').doc(DV.gid)
+    .collection('annotations');
+  ref.add({
+    photoIndex: DV.idx, tSec: t,
+    text: text.trim().substring(0, 300),
+    authorName: 'Client', resolved: false,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function(){ loadAnnotations(); toast('Note added at ' + fmtTC(t)); })
+    .catch(function(){ toast('Could not add the note \u2014 try again.'); });
+}
 function loadAnnotations(){
   document.querySelectorAll('.anno-pin,.anno-tip').forEach(function(el){ el.remove(); });
+  var tcBox = $('tcNotes');
+  tcBox.innerHTML = ''; tcBox.hidden = true;
   if(!window.db) return;
   window.db.collection('users').doc(DV.uid).collection('galleries').doc(DV.gid)
     .collection('annotations').where('photoIndex','==',DV.idx).get()
     .then(function(snap){
       var stage = document.querySelector('.lb-stage');
       var n = 0;
+      var timed = [];
       snap.forEach(function(doc){
-        n++;
         var d = doc.data();
+        if (typeof d.tSec === 'number') { timed.push(d); return; }
+        n++;
         var pin = document.createElement('div');
         pin.className = 'anno-pin' + (d.resolved ? ' resolved' : '');
         pin.style.left = d.x + '%'; pin.style.top = d.y + '%';
@@ -677,6 +723,27 @@ function loadAnnotations(){
         };
         stage.appendChild(pin);
       });
+      if (timed.length) {
+        timed.sort(function(a, b){ return a.tSec - b.tSec; });
+        tcBox.hidden = false;
+        timed.forEach(function(d){
+          var row = document.createElement('button');
+          row.type = 'button';
+          row.className = 'tc-note' + (d.resolved ? ' resolved' : '');
+          var tt = document.createElement('span');
+          tt.className = 'tc-t'; tt.textContent = fmtTC(d.tSec);
+          var tx = document.createElement('span');
+          tx.className = 'tc-x'; tx.textContent = d.text;
+          row.appendChild(tt); row.appendChild(tx);
+          row.onclick = function(e){
+            e.stopPropagation();
+            var v = $('lbVideo');
+            v.currentTime = d.tSec;
+            var p = v.play(); if (p && p.catch) p.catch(function(){});
+          };
+          tcBox.appendChild(row);
+        });
+      }
     }).catch(function(){});
 }
 /* reload pins on nav */
