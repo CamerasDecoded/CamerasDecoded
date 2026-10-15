@@ -268,6 +268,13 @@
   .tc-note .tc-x { font-size: 13px; color: #eee; line-height: 1.4; }
   .tc-note.resolved { opacity: .55; }
   .tc-note.resolved .tc-t { color: #6f7d68; }
+  .tc-note .tc-act { margin-left: auto; font-family: var(--mono); font-size: 11px; color: #8deb00;
+    border: 1px solid rgba(141,235,0,.45); border-radius: 6px; padding: 3px 9px; white-space: nowrap; }
+  .tc-note.resolved .tc-act { color: #9fb29a; border-color: rgba(255,255,255,.2); }
+  .anno-tip.own { pointer-events: auto; }
+  .anno-tip .tip-act { display: block; margin-top: 8px; background: #8deb00; color: #0a0a0a;
+    border: none; border-radius: 6px; padding: 5px 10px; font-family: var(--mono);
+    font-size: 11px; cursor: pointer; }
   .anno-tip {
     position: absolute; z-index: 6; background: rgba(10,10,10,.95);
     border: 1px solid rgba(255,255,255,.15); border-radius: 10px;
@@ -636,6 +643,28 @@ function syncLb() {
 /* ---------- Annotations ---------- */
 DV.annotating = false;
 DV.annotations = [];
+/* The gallery owner, signed in, can mark notes resolved — the
+   rules already restrict that update to the owner; everyone else
+   just reads. Auth resolves async, so re-render if it lands
+   while the lightbox is open. */
+DV.isOwner = false;
+try {
+  firebase.auth().onAuthStateChanged(function(u){
+    if (!DV.uid) return;
+    var now = !!(u && u.uid === DV.uid);
+    if (now !== DV.isOwner) {
+      DV.isOwner = now;
+      if ($('lightbox').classList.contains('open')) loadAnnotations();
+    }
+  });
+} catch (e) {}
+function toggleResolved(noteId, current) {
+  if (!DV.isOwner || !window.db) return;
+  window.db.collection('users').doc(DV.uid).collection('galleries').doc(DV.gid)
+    .collection('annotations').doc(noteId).update({ resolved: !current })
+    .then(function(){ loadAnnotations(); })
+    .catch(function(){ toast('Could not update the note.'); });
+}
 $('lbAnno').onclick = function(e){
   e.stopPropagation();
   if (isVideoUrl((DV.data.images || [])[DV.idx])) { addTimeNote(); return; }
@@ -704,8 +733,9 @@ function loadAnnotations(){
       var timed = [];
       snap.forEach(function(doc){
         var d = doc.data();
-        if (typeof d.tSec === 'number') { timed.push(d); return; }
+        if (typeof d.tSec === 'number') { timed.push({ id: doc.id, data: d }); return; }
         n++;
+        var nid = doc.id;
         var pin = document.createElement('div');
         pin.className = 'anno-pin' + (d.resolved ? ' resolved' : '');
         pin.style.left = d.x + '%'; pin.style.top = d.y + '%';
@@ -714,19 +744,29 @@ function loadAnnotations(){
           e.stopPropagation();
           document.querySelectorAll('.anno-tip').forEach(function(t){ t.remove(); });
           var tip = document.createElement('div');
-          tip.className = 'anno-tip';
+          tip.className = 'anno-tip' + (DV.isOwner ? ' own' : '');
           tip.style.left = 'calc(' + d.x + '% + 18px)';
           tip.style.top = 'calc(' + d.y + '% - 10px)';
           tip.textContent = d.text;
-          stage.appendChild(tip);
-          setTimeout(function(){ tip.remove(); }, 4000);
+          if (DV.isOwner) {
+            var act = document.createElement('button');
+            act.type = 'button'; act.className = 'tip-act';
+            act.textContent = d.resolved ? 'Reopen' : 'Mark resolved';
+            act.onclick = function(ev){ ev.stopPropagation(); toggleResolved(nid, d.resolved); };
+            tip.appendChild(act);
+            stage.appendChild(tip);
+          } else {
+            stage.appendChild(tip);
+            setTimeout(function(){ tip.remove(); }, 4000);
+          }
         };
         stage.appendChild(pin);
       });
       if (timed.length) {
-        timed.sort(function(a, b){ return a.tSec - b.tSec; });
+        timed.sort(function(a, b){ return a.data.tSec - b.data.tSec; });
         tcBox.hidden = false;
-        timed.forEach(function(d){
+        timed.forEach(function(entry){
+          var d = entry.data;
           var row = document.createElement('button');
           row.type = 'button';
           row.className = 'tc-note' + (d.resolved ? ' resolved' : '');
@@ -735,6 +775,13 @@ function loadAnnotations(){
           var tx = document.createElement('span');
           tx.className = 'tc-x'; tx.textContent = d.text;
           row.appendChild(tt); row.appendChild(tx);
+          if (DV.isOwner) {
+            var act = document.createElement('span');
+            act.className = 'tc-act';
+            act.textContent = d.resolved ? 'Reopen' : 'Done';
+            act.onclick = function(e){ e.stopPropagation(); toggleResolved(entry.id, d.resolved); };
+            row.appendChild(act);
+          }
           row.onclick = function(e){
             e.stopPropagation();
             var v = $('lbVideo');
