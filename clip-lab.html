@@ -95,6 +95,13 @@
     pointer-events: none; text-align: center;
   }
   #capOverlay span { display: inline-block; font-weight: 700; font-size: 15px; color: #fff; background: rgba(0,0,0,0.62); padding: 6px 14px; border-radius: 8px; margin-bottom: 8px; max-width: 92%; }
+  #stillsNote {
+    position: absolute; top: 54px; right: 10px; z-index: 4;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em;
+    color: #ffd479; background: rgba(0,0,0,0.62);
+    border: 1px solid rgba(255,212,121,0.35); border-radius: 999px;
+    padding: 5px 10px; pointer-events: none; white-space: nowrap;
+  }
   #importOverlay {
     position: absolute; inset: 0; z-index: 5;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -253,7 +260,7 @@
 <div class="cl-shell">
 
   <header class="cl-topbar">
-    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015a" alt="Clip Lab"
+    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015b" alt="Clip Lab"
          onerror="this.style.display='none';var f=document.getElementById('clTitleFallback');if(f)f.hidden=false;">
     <h1 class="cl-title-fallback" id="clTitleFallback" hidden>CLIP <span class="accent">LAB</span></h1>
     <span class="cl-kicker">Trim · Caption · Ship</span>
@@ -274,6 +281,7 @@
           <div class="sb-clip" id="clipLabel"><b></b> · <span></span></div>
           <button class="cl-export-pill chase" id="btnExport" disabled>Loading…</button>
         </div>
+        <div id="stillsNote" class="hidden">This format previews as stills — export is full motion.</div>
         <div id="importOverlay" role="button" tabindex="0" aria-label="Choose a video clip">
           <div class="io-plus"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
           <div class="io-title">Tap to choose a clip</div>
@@ -373,11 +381,11 @@
 
 <div id="errBox"></div>
 
-<script src="/scripts/mp4box.js?v=20261015a"></script>
-<script src="/scripts/clip-engine.js?v=20261015a"></script>
+<script src="/scripts/mp4box.js?v=20261015b"></script>
+<script src="/scripts/clip-engine.js?v=20261015b"></script>
 <script src="/scripts/cd-upload.js?v=20261014a"></script>
 <script type="module">
-  import('/scripts/mediabunny.mjs?v=20261015a').then(function (MB) {
+  import('/scripts/mediabunny.mjs?v=20261015b').then(function (MB) {
     if (window.ClipEngine) window.ClipEngine.setMuxer(MB);
     var b = document.getElementById('btnExport');
     if (b && window.__clipReady && window.__clipInfo) { b.disabled = false; b.textContent = 'Export'; }
@@ -462,6 +470,8 @@
       state.duration = v.duration || 0;
       state.trimIn = 0;
       state.trimOut = state.duration;
+      state.stillsMode = false;
+      $('stillsNote').classList.add('hidden');
       $('clipLabel').querySelector('span').textContent = fmt(state.duration);
       setTrimInputs(0, state.duration);
       $('importOverlay').style.display = 'none';
@@ -471,13 +481,14 @@
       $('panelZone').classList.remove('hidden');
       $('dock').classList.remove('hidden');
       sizeTimeline();
-      buildThumbs();
-      window.__clipInfo = null;
-      window.ClipEngine.demuxFile(file).then(function (info) {
-        window.__clipInfo = info;
-        state.info = info;
-        wireExportReady();
-      }).catch(function (err) { showErr(err.message || 'Could not read this clip.'); });
+      runPaintCheck(function (paints) {
+        state.stillsMode = !paints;
+        $('stillsNote').classList.toggle('hidden', paints);
+        if (paints) buildThumbs();
+        ensureDemuxed(function () {
+          if (state.stillsMode) paintStillsFromDecoder(10);
+        });
+      });
     };
   }
 
@@ -502,6 +513,79 @@
     updateOverlays();
   });
   stage.addEventListener('seeked', function () { drawTimeline(); updateOverlays(); });
+
+  /* ---- demux once: shared by thumbs-stills and export ---- */
+  var demuxBusy = false, demuxQueue = [];
+  function ensureDemuxed(cb) {
+    if (state.info) { if (cb) cb(); return; }
+    if (cb) demuxQueue.push(cb);
+    if (demuxBusy) return;
+    demuxBusy = true;
+    window.__clipInfo = null;
+    window.ClipEngine.demuxFile(state.file).then(function (info) {
+      window.__clipInfo = info;
+      state.info = info;
+      wireExportReady();
+      demuxBusy = false;
+      var q = demuxQueue; demuxQueue = [];
+      q.forEach(function (c) { try { c(); } catch (e) {} });
+    }).catch(function (err) {
+      demuxBusy = false;
+      demuxQueue = [];
+      showErr(err.message || 'Could not read this clip.');
+    });
+  }
+
+  /* ---- paint check: does the <video> element actually paint this file? ----
+     Safari initializes the audio track of some HEVC files while refusing the
+     video track in the element (black preview + black drawImage thumbs), even
+     though the same device's WebCodecs decoder handles it. If the element
+     can't paint, the visual side switches to decoder-painted stills. */
+  function runPaintCheck(done) {
+    if (/[?&]forcestills=1/.test(window.location.search || '')) { done(false); return; }
+    var v = $('stage'), finished = false;
+    function finish(paints) {
+      if (finished) return;
+      finished = true;
+      v.removeEventListener('seeked', onSeek);
+      done(paints);
+    }
+    function sample() {
+      try {
+        var c = document.createElement('canvas');
+        c.width = 32; c.height = 18;
+        var cx = c.getContext('2d');
+        cx.drawImage(v, 0, 0, 32, 18);
+        var px = cx.getImageData(0, 0, 32, 18).data;
+        var mx = 0;
+        for (var i = 0; i < px.length; i += 4) {
+          var lum = px[i] + px[i + 1] + px[i + 2];
+          if (lum > mx) mx = lum;
+        }
+        return mx > 48;
+      } catch (e) { return false; }
+    }
+    var probes = [Math.min(0.1, (state.duration || 1) * 0.25), (state.duration || 0) * 0.5];
+    var pi = 0;
+    function onSeek() {
+      if (sample()) { finish(true); return; }
+      pi++;
+      if (pi < probes.length && probes[pi] > probes[pi - 1]) v.currentTime = probes[pi];
+      else finish(false);
+    }
+    v.addEventListener('seeked', onSeek);
+    setTimeout(function () { finish(false); }, 3000);
+    v.currentTime = probes[0];
+  }
+
+  /* If the element errors on the source outright, fall back the same way. */
+  stage.addEventListener('error', function () {
+    if (!state.url || state.stillsMode) return;
+    if ($('timelineZone').classList.contains('hidden')) return;
+    state.stillsMode = true;
+    $('stillsNote').classList.remove('hidden');
+    ensureDemuxed(function () { paintStillsFromDecoder(10); });
+  });
 
   /* ---- trim: hidden range inputs keep the same event contract, timeline drags feed them ---- */
   function setTrimInputs(inV, outV) {
@@ -730,113 +814,93 @@
   }
   window.__renderTextChips = renderTextChips;
 
-  /* test hook: fill the filmstrip + a stage poster from REAL decoded frames.
-     Headless Chromium cannot paint <video> frames, so on real devices the
-     normal video elements supply these pixels; this hook lets the harness
-     screenshot the true design with the actual clip's pixels. */
-  window.__testThumbsFromDecoder = async function (n) {
+  /* Production stills path: when the <video> element cannot paint this file
+     (Safari initializes the audio track of some HEVC files while refusing the
+     video track in the element), the filmstrip and stage poster are filled
+     from WebCodecs-decoded frames. Transport and trim keep working off the
+     video element's timing (its audio still plays). Export is full motion. */
+  window.paintStillsFromDecoder = async function (n) {
     n = n || 10;
     var info = state.info;
-    if (!info || !info.avccBytes) return 0;
+    if (!info || !info.configBytes || !state.duration || !info.samples || !info.samples.length) { window.__stillsPicked = 0; return 0; }
     var vt = info.videoTimescale || 90000;
-    var targets = [];
-    for (var i = 0; i < n; i++) targets.push((state.duration * i) / (n - 1) * 1e6);
-    var got = [];
-    var dec = new VideoDecoder({
-      output: function (f) { got.push(f); },
-      error: function () {}
-    });
-    dec.configure({
-      codec: info.videoCodec || 'avc1.640028',
-      description: info.avccBytes,
-      codedWidth: info.width, codedHeight: info.height
-    });
-    info.samples.forEach(function (s) {
+    var d = state.duration;
+    var frames = [];
+    var dec = null;
+    try {
+      dec = new VideoDecoder({
+        output: function (f) { frames.push(f); },
+        error: function () {}
+      });
+      dec.configure({
+        codec: info.videoCodec || 'avc1.640028',
+        description: info.configBytes,
+        codedWidth: info.width, codedHeight: info.height
+      });
+    } catch (e) { window.__stillsPicked = 0; return 0; }
+    var samples = info.samples;
+    function feed(s) {
       dec.decode(new EncodedVideoChunk({
         type: s.isSync ? 'key' : 'delta',
         timestamp: Math.round(s.dts * 1e6 / vt),
         duration: Math.max(1, Math.round(s.duration * 1e6 / vt)),
         data: s.data
       }));
-    });
-    try { await dec.flush(); } catch (e) {}
-    var picked = targets.map(function (tt) {
-      var best = null, bd = Infinity;
-      got.forEach(function (f) {
-        var d = Math.abs(f.timestamp - tt);
-        if (d < bd) { bd = d; best = f; }
-      });
-      return best;
-    }).filter(Boolean);
-    /* In headless Chromium the software decoder yields black frames; detect
-       that and fall back to labeled synthetic thumbs so screenshots show the
-       real layout. On real devices the decoded frames carry actual pixels. */
-    var real = false;
-    if (picked.length) {
-      var tc = document.createElement('canvas');
-      tc.width = 32; tc.height = 18;
-      tc.getContext('2d').drawImage(picked[0], 0, 0, 32, 18);
-      var px = tc.getContext('2d').getImageData(0, 0, 32, 18).data;
-      var ps = 0;
-      for (var pi = 0; pi < px.length; pi += 12) ps += px[pi] + px[pi + 1] + px[pi + 2];
-      real = ps > 200;
     }
-    window.__thumbsSynthetic = !real;
-    if (real) {
-      state.thumbs = picked.map(function (f) {
+    var thumbs = [];
+    var picked = 0;
+    for (var ti = 0; ti < n; ti++) {
+      var targetUs = Math.round((d * ti) / (n - 1) * 1e6);
+      /* nearest sample at-or-after the target, then walk back to its keyframe */
+      var idx = samples.length - 1;
+      for (var i = 0; i < samples.length; i++) {
+        var sus = Math.round(samples[i].dts * 1e6 / vt);
+        if (sus + Math.round(samples[i].duration * 1e6 / vt) >= targetUs) { idx = i; break; }
+      }
+      while (idx > 0 && !samples[idx].isSync) idx--;
+      frames = [];
+      for (var j = idx; j < samples.length; j++) {
+        feed(samples[j]);
+        if (Math.round(samples[j].dts * 1e6 / vt) >= targetUs) break;
+      }
+      try { await dec.flush(); } catch (e) {}
+      var best = null, bd = Infinity;
+      frames.forEach(function (f) {
+        var dd = Math.abs(f.timestamp - targetUs);
+        if (dd < bd) { bd = dd; best = f; }
+      });
+      if (best) {
         var c = document.createElement('canvas');
         c.width = 96; c.height = 54;
-        c.getContext('2d').drawImage(f, 0, 0, 96, 54);
-        return c;
-      });
-    } else {
-      state.thumbs = [];
-      for (var si = 0; si < n; si++) {
-        var sc = document.createElement('canvas');
-        sc.width = 96; sc.height = 54;
-        var g = sc.getContext('2d');
-        var grad = g.createLinearGradient(0, 0, 96, 54);
-        var hue = (si * 47) % 360;
-        grad.addColorStop(0, 'hsl(' + hue + ',45%,26%)');
-        grad.addColorStop(1, 'hsl(' + ((hue + 40) % 360) + ',50%,14%)');
-        g.fillStyle = grad;
-        g.fillRect(0, 0, 96, 54);
-        g.fillStyle = 'rgba(0,0,0,0.35)';
-        g.fillRect(0, 40, 96, 14);
-        state.thumbs.push(sc);
+        try { c.getContext('2d').drawImage(best, 0, 0, 96, 54); } catch (e) {}
+        thumbs.push(c);
+        picked++;
       }
+      frames.forEach(function (f) { try { f.close(); } catch (e) {} });
     }
-    /* stage poster from the trim midpoint */
-    var mid = (state.trimIn + state.trimOut) / 2 * 1e6;
-    var bf = null, bd2 = Infinity;
-    got.forEach(function (f) {
-      var d = Math.abs(f.timestamp - mid);
-      if (d < bd2) { bd2 = d; bf = f; }
-    });
-    if (real && bf) {
+    try { dec.close(); } catch (e) {}
+    if (thumbs.length) {
+      state.thumbs = thumbs;
+      /* stage poster from the frame nearest the trim midpoint */
+      var midUs = Math.round((state.trimIn + state.trimOut) / 2 * 1e6);
+      var mi = 0, mbd = Infinity;
+      thumbs.forEach(function (c, ci) {
+        var tt = Math.round((d * ci) / (Math.max(1, thumbs.length - 1)) * 1e6);
+        var dd = Math.abs(tt - midUs);
+        if (dd < mbd) { mbd = dd; mi = ci; }
+      });
       var pc = document.createElement('canvas');
       pc.width = 360; pc.height = 202;
-      pc.getContext('2d').drawImage(bf, 0, 0, 360, 202);
+      pc.getContext('2d').drawImage(thumbs[mi], 0, 0, 360, 202);
       try { $('stage').poster = pc.toDataURL('image/jpeg', 0.7); } catch (e) {}
-    } else if (!real) {
-      var pc2 = document.createElement('canvas');
-      pc2.width = 360; pc2.height = 202;
-      var g2 = pc2.getContext('2d');
-      var gr2 = g2.createLinearGradient(0, 0, 360, 202);
-      gr2.addColorStop(0, 'hsl(150,40%,20%)');
-      gr2.addColorStop(1, 'hsl(190,45%,10%)');
-      g2.fillStyle = gr2;
-      g2.fillRect(0, 0, 360, 202);
-      g2.fillStyle = 'rgba(0,0,0,0.4)';
-      g2.fillRect(0, 150, 360, 52);
-      try { $('stage').poster = pc2.toDataURL('image/jpeg', 0.7); } catch (e) {}
     }
-    got.forEach(function (f) { try { f.close(); } catch (e) {} });
-    try { dec.close(); } catch (e) {}
     window.__thumbsReady = true;
+    window.__stillsPicked = picked;
     drawTimeline();
-    return picked.length;
+    return picked;
   };
+  /* keep the old hook name working */
+  window.__testThumbsFromDecoder = window.paintStillsFromDecoder;
 
   /* captions */
   function addCapRow(text, start, end) {
