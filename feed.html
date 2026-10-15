@@ -877,8 +877,13 @@ async function loadFeed() {
         try{ await navigator.clipboard.writeText(url); }catch(e){}
       }
     }
-    // delegate action bar clicks
-    feedList.addEventListener('click', function(e){
+    // Delegate action bar clicks. loadFeed re-runs on every auth
+    // change and filter switch, so the previous registration is
+    // removed first: stacked handlers made each tap fire twice —
+    // comments opened and instantly closed, and Delete skipped
+    // its confirm tap entirely.
+    if (feedList._clickHandler) feedList.removeEventListener('click', feedList._clickHandler);
+    feedList._clickHandler = function(e){
       const act = e.target.closest('[data-act]');
       if(act){
         const itemId = act.dataset.id;
@@ -893,13 +898,16 @@ async function loadFeed() {
       }
       const cs = e.target.closest('[data-csend]');
       if(cs){ sendComment(cs.dataset.csend); return; }
-    });
-    feedList.addEventListener('keypress', function(e){
+    };
+    feedList.addEventListener('click', feedList._clickHandler);
+    if (feedList._keyHandler) feedList.removeEventListener('keypress', feedList._keyHandler);
+    feedList._keyHandler = function(e){
       if(e.key === 'Enter'){
         const inp = e.target.closest('[data-cinput]');
         if(inp) sendComment(inp.dataset.cinput);
       }
-    });
+    };
+    feedList.addEventListener('keypress', feedList._keyHandler);
 
     /* Deep link: feed.html#<itemId> scrolls to that card and halos it.
        Runs once per page load. If the card isn't in the newest 50 (or is
