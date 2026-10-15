@@ -89,6 +89,7 @@
     .founder-name{position:relative;font-weight:700;font-size:16px;color:#fff;margin-bottom:4px;}
     .founder-business{position:relative;font-family:'Space Mono',monospace;font-size:12px;
       color:#e0b12d;letter-spacing:1px;margin-bottom:10px;}
+    .founder-stars { display: block; height: 14px; width: auto; margin: 8px auto 0; }
     .founder-quote{position:relative;font-size:13.5px;color:#a8a8a8;line-height:1.6;font-style:italic;
       margin:0 0 12px;}
     .founder-website{position:relative;font-family:'Space Mono',monospace;font-size:12px;
@@ -250,6 +251,30 @@
       catch (e) { return u; }
     }
 
+    /* A member's link may be a website OR a social handle —
+       either one satisfies the field. Handles resolve to their
+       Instagram profile; a bare domain gets its scheme. */
+    function f200handleOf(v) {
+      if (typeof v !== 'string') return '';
+      var t = v.trim();
+      return /^@?[A-Za-z0-9._\-]{2,30}$/.test(t) ? t.replace(/^@/, '') : '';
+    }
+    function f200linkFor(v) {
+      if (typeof v !== 'string' || !v.trim()) return null;
+      var t = v.trim();
+      if (f200isHttpUrl(t)) return { href: t, label: f200hostOf(t) };
+      if (/^[A-Za-z0-9.\-]+\.[A-Za-z]{2,}(\/\S*)?$/.test(t)) {
+        return { href: 'https://' + t, label: f200hostOf('https://' + t) };
+      }
+      var h = f200handleOf(t);
+      if (h) return { href: 'https://instagram.com/' + h, label: '@' + h };
+      return null;
+    }
+    function f200letterBadge(name) {
+      var ch = (String(name || '?').trim().charAt(0) || '?').toUpperCase();
+      return "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22%231A1A1A%22 stroke=%22%23e0b12d%22 stroke-width=%222%22/%3E%3Ctext x=%2250%22 y=%2259%22 text-anchor=%22middle%22 fill=%22%238deb00%22 font-family=%22Space Mono%22 font-size=%2234%22%3E" + encodeURIComponent(ch) + "%3C/text%3E%3C/svg%3E";
+    }
+
     var f200founders = [];
     var f200itemsPerPage = 20;
     var f200currentPage = 1;
@@ -270,17 +295,20 @@
     }
 
     function f200card(f) {
-      var imgSrc = (typeof f.photoUrl === 'string' && f.photoUrl) ? f.photoUrl : F200_FALLBACK_BADGE;
+      var letter = f200letterBadge(f.name);
+      var imgSrc = (typeof f.photoUrl === 'string' && f.photoUrl) ? f.photoUrl : letter;
       var web = '';
-      if (f200isHttpUrl(f.website)) {
-        web = '<a href="' + f200esc(f.website) + '" target="_blank" rel="noopener" class="founder-website">' + f200esc(f200hostOf(f.website)) + '</a>';
+      var link = f200linkFor(f.website);
+      if (link) {
+        web = '<a href="' + f200esc(link.href) + '" target="_blank" rel="noopener" class="founder-website">' + f200esc(link.label) + '</a>';
       }
       return '<div class="founder-card">' +
-        '<img src="' + f200esc(imgSrc) + '" alt="' + f200esc(f.name) + ' badge" class="founder-badge" loading="lazy" onerror="this.onerror=null;this.src=\'' + F200_FALLBACK_BADGE + '\';">' +
+        '<img src="' + f200esc(imgSrc) + '" alt="' + f200esc(f.name) + ' badge" class="founder-badge" loading="lazy" onerror="this.onerror=null;this.src=\'' + letter + '\';">' +
         '<div class="founder-name">' + f200esc(f.name) + '</div>' +
         '<div class="founder-business">' + f200esc(f.business) + '</div>' +
         web +
         '<p class="founder-quote">&ldquo;' + f200esc(f.quote) + '&rdquo;</p>' +
+        '<img src="/founding-stars.png" alt="Five star review" class="founder-stars" loading="lazy" onerror="this.remove()">' +
       '</div>';
     }
 
@@ -388,7 +416,7 @@
         '<form class="claim-form" id="claimForm" novalidate>' +
           '<div><label for="cfName">YOUR NAME</label><input type="text" id="cfName" maxlength="80" autocomplete="name" required></div>' +
           '<div><label for="cfBusiness">BUSINESS</label><input type="text" id="cfBusiness" maxlength="80" autocomplete="organization" required></div>' +
-          '<div><label for="cfWebsite">BUSINESS WEBSITE</label><input type="url" id="cfWebsite" placeholder="https://yourbusiness.com" required></div>' +
+          '<div><label for="cfWebsite">WEBSITE OR SOCIAL HANDLE</label><input type="text" id="cfWebsite" placeholder="https://yourbusiness.com or @yourhandle" required></div>' +
           '<div><label for="cfQuote">YOUR WORDS (MAX 140)</label><textarea id="cfQuote" maxlength="140" required></textarea><div class="char-count"><span id="cfCount">0</span>/140</div></div>' +
           '<div><label for="cfPhoto">PHOTO (OPTIONAL)</label><input type="file" id="cfPhoto" accept="image/*"></div>' +
           '<div class="claim-error" id="cfError" role="alert"></div>' +
@@ -435,7 +463,7 @@
       f200setClaimError('');
       if (!name) { f200setClaimError('Please enter your name.'); return; }
       if (!business) { f200setClaimError('Please enter your business name.'); return; }
-      if (!f200isHttpUrl(website)) { f200setClaimError('Please enter a valid website URL starting with http:// or https://.'); return; }
+      if (!f200linkFor(website)) { f200setClaimError('Please enter your website (starting with http:// or https://) or your social handle (like @yourname).'); return; }
       if (!quote) { f200setClaimError('Please add your words (max 140 characters).'); return; }
       if (quote.length > 140) { f200setClaimError('Please keep your words under 140 characters.'); return; }
       if (file) {
@@ -451,7 +479,7 @@
             var ref = firebase.storage().ref('founding200/' + user.uid + '/photo.jpg');
             return ref.put(blob, { contentType: 'image/jpeg' }).then(function () { return ref.getDownloadURL(); });
           })
-        : Promise.resolve('');
+        : Promise.resolve(user.photoURL || '');
 
       photoPromise.then(function (photoUrl) {
         return window.db.collection('founding200').doc(user.uid).set({
