@@ -209,6 +209,13 @@ padding:8px 4px;cursor:pointer;border-radius:8px}
 .feed-act.anim-share svg{animation:share-launch .45s cubic-bezier(.22,1,.36,1)}
 @media(prefers-reduced-motion:reduce){.feed-act svg,.feed-act::after{animation:none !important}}
 .feed-act .cnt{font-size:11px}
+.flash-faces{display:inline-flex;align-items:center;margin-left:2px}
+.flash-faces:empty{display:none}
+.ff{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--surface);margin-left:-6px;
+  background:var(--surface-2);overflow:hidden;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-d);font-size:9px;color:var(--green);flex-shrink:0}
+.ff:first-child{margin-left:0}
+.ff img{width:100%;height:100%;object-fit:cover}
 /* reactions row */
 /* comments */
 .comments{margin-top:10px;border-top:1px solid var(--border);padding-top:10px;display:none}
@@ -363,6 +370,19 @@ async function loadFollowing(db){
   } catch (e) { return new Set(); }
 }
 
+/* Public-profile cache for flasher faces (publicProfiles/{uid}). */
+const profileCache = new Map();
+async function loadPublicProfile(db, uid){
+  if (profileCache.has(uid)) return profileCache.get(uid);
+  let p = null;
+  try {
+    const snap = await db.collection('publicProfiles').doc(uid).get();
+    if (snap.exists) p = snap.data();
+  } catch (e) {}
+  profileCache.set(uid, p);
+  return p;
+}
+
 let activeFilter = 'all';
 const FILTER_TYPES = {
   all: null,
@@ -431,12 +451,12 @@ function updateComposer(){
 }
 // Re-check when auth resolves (fixes composer hidden on launch)
 if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length){
-  firebase.auth().onAuthStateChanged(function(){ updateComposer(); loadFlashStates(); loadFeed(); });
+  firebase.auth().onAuthStateChanged(function(){ updateComposer(); loadFeed(); });
 } else {
   // firebase not ready yet, retry shortly
   setTimeout(function(){
     if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length){
-      firebase.auth().onAuthStateChanged(function(){ updateComposer(); loadFlashStates(); loadFeed(); });
+      firebase.auth().onAuthStateChanged(function(){ updateComposer(); loadFeed(); });
       updateComposer();
     }
   }, 2000);
@@ -636,12 +656,11 @@ async function loadFeed() {
     }
     /* --- feed interactions: reactions, comments, share --- */
     function actionBarHTML(d){
-      const fc = d.flashCount || 0;
       const me = (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) || null;
       const delBtn = (me && d.actorUid === me.uid && ['post','club_post','suggestion'].includes(d.type))
         ? `<button class="feed-act feed-del" data-act="delete" data-id="${d._id}">${TRASH_ICON}<span class="del-label">Delete</span></button>` : '';
       return `<div class="feed-actions">` +
-        `<button class="feed-act" data-act="flash" data-id="${d._id}">${FLASH_ICON}<span class="cnt" data-flash-cnt="${d._id}">${fc||''}</span><span>Flash</span></button>` +
+        `<button class="feed-act" data-act="flash" data-id="${d._id}">${FLASH_ICON}<span class="cnt" data-flash-cnt="${d._id}"></span><span class="flash-faces" data-flash-faces="${d._id}"></span><span>Flash</span></button>` +
         `<button class="feed-act" data-act="comment" data-id="${d._id}">${COMMENT_ICON}<span>Comment</span></button>` +
         `<button class="feed-act" data-act="share" data-id="${d._id}">${SHARE_ICON}<span>Share</span></button>` +
         delBtn +
@@ -653,39 +672,69 @@ async function loadFeed() {
       if(!u) return;
       const db = firebase.firestore();
       const ref = db.collection('feedItems').doc(itemId).collection('reactions').doc(u.uid);
-      const cntEl = document.querySelector(`[data-flash-cnt="${itemId}"]`);
       try{
         const existing = await ref.get();
+        const list = flashState.get(itemId) || [];
         if(existing.exists){
           await ref.delete();
           btn.classList.remove('loved');
-          if(cntEl){ const n = parseInt(cntEl.textContent||'0')-1; cntEl.textContent = n>0?n:''; }
+          flashState.set(itemId, list.filter(x => x !== u.uid));
         } else {
           await ref.set({ type:'flash', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
           btn.classList.add('loved');
           btn.classList.remove('anim-flash'); void btn.offsetWidth;
           btn.classList.add('anim-flash');
           setTimeout(()=>btn.classList.remove('anim-flash'), 600);
-          if(cntEl){ const n = parseInt(cntEl.textContent||'0')+1; cntEl.textContent = n; }
+          flashState.set(itemId, [u.uid].concat(list.filter(x => x !== u.uid)));
         }
+        setFlashCount(itemId, (flashState.get(itemId) || []).length);
+        renderFaces(itemId);
       }catch(e){}
     }
-    async function loadFlashStates(){
+    /* Flash data: real counts + faces, straight from the reactions
+       subcollection (the only record of a flash — the flashCount field
+       on item docs is written by nobody). One read per card, half the
+       old loader's traffic, and it runs for signed-out viewers too:
+       reactions are public-read. */
+    const flashState = new Map();
+    function setFlashCount(itemId, n){
+      const cntEl = document.querySelector(`[data-flash-cnt="${itemId}"]`);
+      if (cntEl) cntEl.textContent = n > 0 ? n : '';
+    }
+    async function renderFaces(itemId){
+      const span = document.querySelector(`[data-flash-faces="${itemId}"]`);
+      if (!span) return;
+      const uids = (flashState.get(itemId) || []).slice(0, 3);
+      const faces = await Promise.all(uids.map(async function(uid){
+        const p = await loadPublicProfile(db, uid);
+        if (p && p.avatarUrl) return `<span class="ff"><img src="${esc(p.avatarUrl)}" alt=""/></span>`;
+        const nm = (p && p.displayName) || '';
+        return `<span class="ff">${esc((nm || '?')[0].toUpperCase())}</span>`;
+      }));
+      span.innerHTML = faces.join('');
+    }
+    async function loadFlashData(){
       const u = firebase.auth().currentUser;
-      if(!u) return;
-      const db = firebase.firestore();
-      document.querySelectorAll('[data-act="flash"]').forEach(async function(btn){
+      const jobs = [];
+      document.querySelectorAll('[data-act="flash"]').forEach(function(btn){
         const itemId = btn.dataset.id;
-        try{
-          // check if I flashed
-          const mine = await db.collection('feedItems').doc(itemId).collection('reactions').doc(u.uid).get();
-          if(mine.exists) btn.classList.add('loved');
-          // count total
-          const snap = await db.collection('feedItems').doc(itemId).collection('reactions').get();
-          const cntEl = document.querySelector(`[data-flash-cnt="${itemId}"]`);
-          if(cntEl && snap.size) cntEl.textContent = snap.size;
-        }catch(e){}
+        jobs.push((async function(){
+          try {
+            const snap = await db.collection('feedItems').doc(itemId).collection('reactions').get();
+            const found = [];
+            snap.forEach(function(doc){
+              const r = doc.data() || {};
+              found.push({ uid: doc.id, t: r.createdAt && r.createdAt.toMillis ? r.createdAt.toMillis() : 0 });
+            });
+            found.sort(function(a, b){ return b.t - a.t; });
+            flashState.set(itemId, found.map(function(x){ return x.uid; }));
+            setFlashCount(itemId, snap.size);
+            if (u && found.some(function(x){ return x.uid === u.uid; })) btn.classList.add('loved');
+            renderFaces(itemId);
+          } catch (e) {}
+        })());
       });
+      await Promise.all(jobs);
     }
     async function toggleComments(itemId, btn){
       const box = document.querySelector(`[data-comments="${itemId}"]`);
@@ -841,7 +890,7 @@ async function loadFeed() {
             if (empty) feedList.innerHTML = '';
             card = renderCard(Object.assign({ _id: doc.id }, doc.data()));
             feedList.prepend(card);
-            if (typeof loadFlashStates === 'function') loadFlashStates();
+            if (typeof loadFlashData === 'function') loadFlashData();
             if (typeof initCarousels === 'function') initCarousels(feedList);
           }
         } catch (e) {}
@@ -957,7 +1006,7 @@ async function loadFeed() {
       return;
     }
     feedList.appendChild(frag);
-    loadFlashStates();
+    loadFlashData();
     initCarousels(feedList);
     openDeepLink();
   } catch(e) {
