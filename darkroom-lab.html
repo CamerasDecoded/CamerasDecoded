@@ -135,6 +135,28 @@
   .fmt-cancel { width: 100%; margin-top: 10px; padding: 12px; border-radius: 14px;
     border: 1px solid var(--border); background: transparent; color: var(--muted);
     font: 600 13px var(--mono); cursor: pointer; }
+  .fmt-seg { display: flex; border: 1px solid var(--border); border-radius: 11px;
+    overflow: hidden; margin-bottom: 10px; }
+  .fmt-seg button { flex: 1; background: none; border: none; color: var(--text-faint);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; padding: 9px 0; cursor: pointer; }
+  .fmt-seg button.active { background: rgba(141,235,0,0.1); color: var(--green); }
+  .wm-row { display: flex; align-items: center; gap: 12px; margin-top: 10px;
+    padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; }
+  .wm-text { flex: 1; min-width: 0; }
+  .wm-label { font: 600 13px var(--mono); letter-spacing: 0.04em; color: #e8f5d0; }
+  .wm-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .wm-switch { width: 44px; height: 25px; border-radius: 13px; cursor: pointer;
+    position: relative; background: rgba(255,255,255,0.1);
+    border: 1px solid var(--border); transition: 0.2s; flex-shrink: 0; }
+  .wm-switch::after { content: ''; position: absolute; top: 2px; left: 2px;
+    width: 19px; height: 19px; border-radius: 50%; background: #fff; transition: 0.2s; }
+  .wm-switch.on { background: rgba(141,235,0,0.35); border-color: rgba(141,235,0,0.5); }
+  .wm-switch.on::after { left: 21px; background: var(--green); }
+  .wm-actions { display: flex; gap: 18px; justify-content: flex-end; margin-top: 8px; }
+  .wm-actions[hidden] { display: none; }
+  .wm-actions button { background: none; border: none; color: var(--muted);
+    font: 600 11px var(--mono); letter-spacing: 0.04em; cursor: pointer; padding: 2px 0; }
 
   /* ============ MODE TOGGLE ============ */
   .modebar {
@@ -1282,6 +1304,109 @@ window.addEventListener('error', function(e) {
     } catch (e) {}
   }
 
+  /* ============ export size + logo watermark ============
+     Set once, remembered. The size segment caps the long edge
+     (Full = untouched). The watermark draws the operator's own
+     logo — kept on this device, downscaled on the way in —
+     bottom-right of the export canvas, and nowhere else. */
+  const EXP_PREFS_KEY = 'cd_develop_export';
+  const EXP_LOGO_KEY = 'cd_develop_logo';
+  const EXP_CAPS = { full: 0, ig: 1080, web: 800 };
+  let exportPrefs = { size: 'full', wm: false };
+  try { Object.assign(exportPrefs, JSON.parse(localStorage.getItem(EXP_PREFS_KEY) || '{}')); } catch (e) {}
+  if (!EXP_CAPS.hasOwnProperty(exportPrefs.size)) exportPrefs.size = 'full';
+  let logoImg = null;
+  function saveExportPrefs() {
+    try { localStorage.setItem(EXP_PREFS_KEY, JSON.stringify(exportPrefs)); } catch (e) {}
+  }
+  function loadLogoImg(cb) {
+    let data = null;
+    try { data = localStorage.getItem(EXP_LOGO_KEY); } catch (e) {}
+    if (!data) { logoImg = null; if (cb) cb(); return; }
+    const im = new Image();
+    im.onload = () => { logoImg = im; if (cb) cb(); };
+    im.onerror = () => { logoImg = null; if (cb) cb(); };
+    im.src = data;
+  }
+  function syncExportUI() {
+    document.querySelectorAll('#fmtSizeSeg button').forEach(b =>
+      b.classList.toggle('active', b.dataset.size === exportPrefs.size));
+    const has = !!logoImg;
+    const on = !!(exportPrefs.wm && has);
+    $('wmSwitch').classList.toggle('on', on);
+    $('wmSwitch').setAttribute('aria-checked', on ? 'true' : 'false');
+    $('wmSub').textContent = !has ? 'No logo saved yet'
+      : (exportPrefs.wm ? 'Stamped bottom-right on export' : 'Saved \u2014 currently off');
+    $('wmActions').hidden = !has;
+  }
+  $('fmtSizeSeg').addEventListener('click', e => {
+    const b = e.target.closest('button[data-size]');
+    if (!b) return;
+    exportPrefs.size = b.dataset.size;
+    saveExportPrefs(); syncExportUI();
+  });
+  function wmToggle() {
+    if (!logoImg) { $('wmFile').click(); return; }
+    exportPrefs.wm = !exportPrefs.wm;
+    saveExportPrefs(); syncExportUI();
+  }
+  $('wmSwitch').addEventListener('click', wmToggle);
+  $('wmSwitch').addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wmToggle(); }
+  });
+  $('wmReplace').addEventListener('click', () => $('wmFile').click());
+  $('wmRemove').addEventListener('click', () => {
+    try { localStorage.removeItem(EXP_LOGO_KEY); } catch (e) {}
+    logoImg = null; exportPrefs.wm = false;
+    saveExportPrefs(); syncExportUI();
+  });
+  $('wmFile').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    const im = new Image();
+    im.onload = () => {
+      URL.revokeObjectURL(url);
+      const sc = Math.min(1, 600 / im.naturalWidth);
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(im.naturalWidth * sc));
+      c.height = Math.max(1, Math.round(im.naturalHeight * sc));
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      try {
+        localStorage.setItem(EXP_LOGO_KEY, c.toDataURL('image/png'));
+      } catch (err) { statusEl.textContent = 'Logo too large to save'; return; }
+      loadLogoImg(() => {
+        exportPrefs.wm = true; saveExportPrefs(); syncExportUI();
+        statusEl.textContent = 'Logo saved';
+        setTimeout(() => { if (statusEl.textContent === 'Logo saved') statusEl.textContent = ''; }, 1600);
+      });
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); statusEl.textContent = 'Could not read that image'; };
+    im.src = url;
+  });
+  function buildExportCanvas() {
+    const cap = EXP_CAPS[exportPrefs.size] || 0;
+    const w = cvAfter.width, h = cvAfter.height;
+    const sc = cap && Math.max(w, h) > cap ? cap / Math.max(w, h) : 1;
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(w * sc));
+    out.height = Math.max(1, Math.round(h * sc));
+    const ctx = out.getContext('2d');
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(cvAfter, 0, 0, out.width, out.height);
+    if (exportPrefs.wm && logoImg) {
+      const lw = Math.round(out.width * 0.18);
+      const lh = Math.round(lw * logoImg.naturalHeight / logoImg.naturalWidth);
+      const m = Math.round(out.width * 0.03);
+      ctx.save(); ctx.globalAlpha = 0.9;
+      ctx.drawImage(logoImg, out.width - lw - m, out.height - lh - m, lw, lh);
+      ctx.restore();
+    }
+    return out;
+  }
+  loadLogoImg(syncExportUI);
+
   async function doExport(fmt) {
     if (!original) return;
     render();
@@ -1291,7 +1416,7 @@ window.addEventListener('error', function(e) {
       const isJpg = fmt === 'jpeg';
       const mime = isJpg ? 'image/jpeg' : 'image/png';
       const ext = isJpg ? 'jpg' : 'png';
-      const blob = await new Promise(res => cvAfter.toBlob(res, mime, isJpg ? 0.92 : undefined));
+      const blob = await new Promise(res => buildExportCanvas().toBlob(res, mime, isJpg ? 0.92 : undefined));
       if (!blob) throw new Error('encode failed');
       const file = new File([blob], 'cd-develop.' + ext, { type: mime });
       // iOS Safari: programmatic <a download> clicks are ignored — use Share sheet
@@ -1350,6 +1475,7 @@ window.addEventListener('error', function(e) {
   });
   $('btnSave').addEventListener('click', () => {
     if (!original) return;
+    syncExportUI();
     $('fmtSheet').classList.add('open');
   });
   $('fmtPng').addEventListener('click', () => doExport('png'));
@@ -2675,11 +2801,28 @@ window.addEventListener('error', function(e) {
   window.addEventListener('resize', () => { if (original) fitCanvases(); });
 </script>
   <div class="fmt-sheet" id="fmtSheet">
-    <div class="fmt-title">Export format</div>
+    <div class="fmt-title">Export</div>
+    <div class="fmt-seg" id="fmtSizeSeg" role="group" aria-label="Export size">
+      <button type="button" data-size="full" class="active">Full</button>
+      <button type="button" data-size="ig">Instagram</button>
+      <button type="button" data-size="web">Web</button>
+    </div>
     <div class="fmt-row">
       <button class="fmt-btn" id="fmtPng">PNG<small>Lossless &middot; larger file</small></button>
       <button class="fmt-btn" id="fmtJpg">JPEG<small>Smaller &middot; share-ready</small></button>
     </div>
+    <div class="wm-row">
+      <div class="wm-text">
+        <div class="wm-label">Logo watermark</div>
+        <div class="wm-sub" id="wmSub">No logo saved yet</div>
+      </div>
+      <div class="wm-switch" id="wmSwitch" role="switch" aria-checked="false" tabindex="0"></div>
+    </div>
+    <div class="wm-actions" id="wmActions" hidden>
+      <button type="button" id="wmReplace">Replace logo</button>
+      <button type="button" id="wmRemove">Remove</button>
+    </div>
+    <input type="file" id="wmFile" accept="image/*" hidden />
     <button class="fmt-cancel" id="fmtCancel">Cancel</button>
   </div>
 </body>
