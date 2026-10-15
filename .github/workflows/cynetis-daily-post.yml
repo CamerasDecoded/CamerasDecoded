@@ -1,0 +1,34 @@
+name: Cynetis-7 daily post
+
+# Once a day, Cynetis-7 posts a transmission (field tip or shoot prompt)
+# to the Signal as itself. The writer is idempotent — the doc id is the
+# Chicago date — so a manual re-run never double-posts.
+#
+# Service-account pattern mirrors arena-close.yml exactly: the whole
+# Firebase service-account JSON lives in the FIREBASE_SERVICE_ACCOUNT
+# repo secret. No secrets in chat, no secrets committed.
+#
+# Cadence: 12:30 UTC daily = 7:30 AM CDT / 6:30 AM CST — a morning post
+# either way; the pick itself rolls over at Chicago midnight.
+
+on:
+  schedule:
+    - cron: '30 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/cynetis-post
+      - name: Post today's transmission
+        run: node post.js
+        working-directory: tools/cynetis-post
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
