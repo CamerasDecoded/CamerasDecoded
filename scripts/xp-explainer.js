@@ -88,7 +88,9 @@
     { amt: 'varies', what: 'Game Arcade', rule: 'First scored play per game, per day' },
     { amt: '+10', what: 'Quiz Arena run', rule: 'First scored run per difficulty, per day · replays are practice' },
     { amt: '+10', what: 'Dashboard quick drill', rule: 'Once per day' },
-    { amt: '+10', what: 'Arena entry', rule: 'Once per round, per lane' },
+    { amt: '+30', what: 'Arena entry', rule: 'Once per round, per lane' },
+    { amt: '+15', what: 'Develop Lab export', rule: 'Once per day \u00b7 first finished export' },
+    { amt: '+20', what: 'Shoot Lab nail-it', rule: 'First nailed exposure per day' },
     { amt: '+10', what: 'Snapshot save', rule: 'Once ever · your first saved card' }
   ];
 
