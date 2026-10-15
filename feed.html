@@ -209,9 +209,11 @@ padding:8px 4px;cursor:pointer;border-radius:8px}
 .feed-act.anim-share svg{animation:share-launch .45s cubic-bezier(.22,1,.36,1)}
 @media(prefers-reduced-motion:reduce){.feed-act svg,.feed-act::after{animation:none !important}}
 .feed-act .cnt{font-size:11px}
-.flash-faces{display:inline-flex;align-items:center;margin-left:2px}
+.flash-row{padding:0 18px 12px;margin-top:-6px}
+.flash-row[hidden]{display:none}
+.flash-faces{display:inline-flex;align-items:center}
 .flash-faces:empty{display:none}
-.ff{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--surface);margin-left:-6px;
+.ff{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--surface);margin-left:-6px;
   background:var(--surface-2);overflow:hidden;display:flex;align-items:center;justify-content:center;
   font-family:var(--font-d);font-size:9px;color:var(--green);flex-shrink:0}
 .ff:first-child{margin-left:0}
@@ -268,7 +270,7 @@ font-size:11px;cursor:pointer}
     </div>
     <div class="feed-search">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></svg>
-      <input id="feedSearch" type="search" placeholder="Search operators, clubs, posts\u2026" autocomplete="off" enterkeyhint="search"/>
+      <input id="feedSearch" type="search" placeholder="Search operators, clubs, posts…" autocomplete="off" enterkeyhint="search"/>
       <button id="feedSearchX" type="button" aria-label="Clear search" hidden><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
     </div>
     <div id="searchResults" hidden></div>
@@ -691,11 +693,12 @@ async function loadFeed() {
       const delBtn = (me && d.actorUid === me.uid && ['post','club_post','suggestion'].includes(d.type))
         ? `<button class="feed-act feed-del" data-act="delete" data-id="${d._id}">${TRASH_ICON}<span class="del-label">Delete</span></button>` : '';
       return `<div class="feed-actions">` +
-        `<button class="feed-act" data-act="flash" data-id="${d._id}">${FLASH_ICON}<span class="cnt" data-flash-cnt="${d._id}"></span><span class="flash-faces" data-flash-faces="${d._id}"></span><span>Flash</span></button>` +
+        `<button class="feed-act" data-act="flash" data-id="${d._id}">${FLASH_ICON}<span class="cnt" data-flash-cnt="${d._id}"></span><span>Flash</span></button>` +
         `<button class="feed-act" data-act="comment" data-id="${d._id}">${COMMENT_ICON}<span>Comment</span></button>` +
         `<button class="feed-act" data-act="share" data-id="${d._id}">${SHARE_ICON}<span>Share</span></button>` +
         delBtn +
       `</div>` +
+      `<div class="flash-row" data-flash-row="${d._id}" hidden><span class="flash-faces" data-flash-faces="${d._id}"></span></div>` +
       `<div class="comments" data-comments="${d._id}"></div>`;
     }
     async function doFlash(itemId, btn){
@@ -736,6 +739,9 @@ async function loadFeed() {
       const span = document.querySelector(`[data-flash-faces="${itemId}"]`);
       if (!span) return;
       const uids = (flashState.get(itemId) || []).slice(0, 3);
+      const row = document.querySelector(`[data-flash-row="${itemId}"]`);
+      if (row) row.hidden = uids.length === 0;
+      if (!uids.length) { span.innerHTML = ''; return; }
       const faces = await Promise.all(uids.map(async function(uid){
         const p = await loadPublicProfile(db, uid);
         if (p && p.avatarUrl) return `<span class="ff"><img src="${esc(p.avatarUrl)}" alt=""/></span>`;
