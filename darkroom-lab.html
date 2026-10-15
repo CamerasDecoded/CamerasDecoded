@@ -845,6 +845,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="/scripts/firebase-init.js?v=20261010a"></script>
+  <script src="/scripts/reward-engine.js?v=20261001a"></script>
 <script src="/scripts/user-state.js?v=20261014a"></script>
 <script src="/scripts/bottom-nav.js?v=20261014a"></script>
 <script src="/scripts/ptr.js?v=20261004a"></script>
@@ -1263,6 +1264,24 @@ window.addEventListener('error', function(e) {
   $('btnBack').addEventListener('click', () => {
     window.location.href = '/darkroom.html';
   });
+  /* +15 XP for a finished export, once per day (localStorage guard, the
+     same pattern as the Arena entry claim). Cancelled shares never reach
+     the call sites, so only delivered exports bank. */
+  function bankDevelopXp() {
+    try {
+      var u = window.USER;
+      if (!window.RewardEngine || !u || !u.uid) return;
+      var d = new Date();
+      var tk = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      var mark = 'develop-xp-' + u.uid + '-' + tk;
+      if (localStorage.getItem(mark)) return;
+      window.RewardEngine.award({
+        uid: u.uid, xp: 15,
+        activity: { type: 'develop', label: 'Develop Lab export', icon: '\u25ce' }
+      }).then(function () { try { localStorage.setItem(mark, '1'); } catch (e) {} }).catch(function () {});
+    } catch (e) {}
+  }
+
   async function doExport(fmt) {
     if (!original) return;
     render();
@@ -1279,12 +1298,14 @@ window.addEventListener('error', function(e) {
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Develop Lab export' });
         statusEl.textContent = 'Shared ' + ext.toUpperCase();
+        bankDevelopXp();
         return;
       }
       // Fallback: open in new tab (user can long-press to save)
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
       statusEl.textContent = 'Opened in new tab';
+      bankDevelopXp();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (err) {
       if (err && err.name === 'AbortError') { statusEl.textContent = 'Export cancelled'; return; }
