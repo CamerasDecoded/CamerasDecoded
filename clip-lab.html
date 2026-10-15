@@ -53,7 +53,8 @@
   /* ---------- stage (preview hero) ---------- */
   #stageZone { flex: 1 1 auto; min-height: 0; padding: 4px 16px 0; display: flex; flex-direction: column; }
   #stageWrap {
-    position: relative; flex: 1 1 auto; min-height: 0;
+    position: relative; margin: auto; width: 100%; max-width: 100%;
+    flex: 0 0 auto; aspect-ratio: 3 / 4;
     border-radius: 18px; overflow: hidden; background: #000;
     border: 1px solid var(--border);
   }
@@ -260,7 +261,7 @@
 <div class="cl-shell">
 
   <header class="cl-topbar">
-    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015b" alt="Clip Lab"
+    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015c" alt="Clip Lab"
          onerror="this.style.display='none';var f=document.getElementById('clTitleFallback');if(f)f.hidden=false;">
     <h1 class="cl-title-fallback" id="clTitleFallback" hidden>CLIP <span class="accent">LAB</span></h1>
     <span class="cl-kicker">Trim · Caption · Ship</span>
@@ -381,11 +382,11 @@
 
 <div id="errBox"></div>
 
-<script src="/scripts/mp4box.js?v=20261015b"></script>
-<script src="/scripts/clip-engine.js?v=20261015b"></script>
+<script src="/scripts/mp4box.js?v=20261015c"></script>
+<script src="/scripts/clip-engine.js?v=20261015c"></script>
 <script src="/scripts/cd-upload.js?v=20261014a"></script>
 <script type="module">
-  import('/scripts/mediabunny.mjs?v=20261015b').then(function (MB) {
+  import('/scripts/mediabunny.mjs?v=20261015c').then(function (MB) {
     if (window.ClipEngine) window.ClipEngine.setMuxer(MB);
     var b = document.getElementById('btnExport');
     if (b && window.__clipReady && window.__clipInfo) { b.disabled = false; b.textContent = 'Export'; }
@@ -481,16 +482,25 @@
       $('panelZone').classList.remove('hidden');
       $('dock').classList.remove('hidden');
       sizeTimeline();
+      $('stageWrap').style.width = '';
+      $('stageWrap').style.height = '';
+      fitStage(v.videoWidth || 0, v.videoHeight || 0);
       runPaintCheck(function (paints) {
         state.stillsMode = !paints;
         $('stillsNote').classList.toggle('hidden', paints);
         if (paints) buildThumbs();
         ensureDemuxed(function () {
+          if (state.info && !(v.videoWidth > 0)) fitStage(state.info.width || 0, state.info.height || 0);
           if (state.stillsMode) paintStillsFromDecoder(10);
         });
       });
     };
   }
+
+  window.addEventListener('resize', function () {
+    if (state.url) fitStage($('stage').videoWidth || (state.info && state.info.width) || 0,
+                            $('stage').videoHeight || (state.info && state.info.height) || 0);
+  });
 
   /* transport */
   var stage = $('stage');
@@ -625,6 +635,27 @@
   /* ---- timeline canvas: filmstrip + trim handles + playhead ---- */
   var tl = $('timeline'), tctx = tl.getContext('2d');
   var RULER_H = 16, FILM_Y = 20, FILM_H = 44, HANDLE_W = 12;
+  /* Fit the stage box to the clip's real aspect: a vertical clip renders a
+     tall centered frame, landscape a wide one — the visible box hugs the
+     frame instead of sitting as a fixed slab. */
+  function fitStage(w, h) {
+    var zone = $('stageZone'), wrap = $('stageWrap');
+    if (!zone || !wrap || !w || !h) return;
+    /* the transport row shares the zone — the wrap must fit beside it, or
+       flex-shrink squishes the explicit height and breaks the ratio */
+    var tr = $('transportRow');
+    var trH = (tr && !tr.classList.contains('hidden')) ? tr.offsetHeight : 0;
+    /* clientWidth INCLUDES padding — subtract it for the true content box */
+    var cs = getComputedStyle(zone);
+    var zw = zone.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+    var zh = zone.clientHeight - trH - parseFloat(cs.paddingTop || 0) - parseFloat(cs.paddingBottom || 0);
+    if (!zw || !zh) return;
+    var r = w / h, zr = zw / zh, bw, bh;
+    if (r > zr) { bw = zw; bh = zw / r; } else { bh = zh; bw = zh * r; }
+    wrap.style.width = Math.round(bw) + 'px';
+    wrap.style.height = Math.round(bh) + 'px';
+  }
+  window.__fitStage = fitStage;
   function sizeTimeline() {
     var w = tl.clientWidth || 320, h = 76;
     var dpr = window.devicePixelRatio || 1;
@@ -823,62 +854,86 @@
     n = n || 10;
     var info = state.info;
     if (!info || !info.configBytes || !state.duration || !info.samples || !info.samples.length) { window.__stillsPicked = 0; return 0; }
+    window.__stillsError = null;
     var vt = info.videoTimescale || 90000;
     var d = state.duration;
-    var frames = [];
-    var dec = null;
+    /* Ten evenly spaced targets across the clip; each output frame is assigned
+       to its nearest target and only the closest frame per target is kept. */
+    var targets = [];
+    for (var ti = 0; ti < n; ti++) targets.push((d * ti) / (n - 1) * 1e6);
+    var best = [];
+    for (var bi = 0; bi < n; bi++) best.push(null);
+    function stillsFail(msg) {
+      window.__stillsError = msg;
+      try { $('stillsNote').title = 'Stills preview issue: ' + msg; } catch (e) {}
+      showErr('Stills preview could not decode frames (' + msg + ') — your export is unaffected.');
+    }
+    var dec = null, decodeErr = null;
     try {
       dec = new VideoDecoder({
-        output: function (f) { frames.push(f); },
-        error: function () {}
+        output: function (f) {
+          var bi2 = 0, bd2 = Math.abs(f.timestamp - targets[0]);
+          for (var i2 = 1; i2 < n; i2++) {
+            var dd2 = Math.abs(f.timestamp - targets[i2]);
+            if (dd2 < bd2) { bd2 = dd2; bi2 = i2; }
+          }
+          var cur = best[bi2];
+          if (!cur || bd2 < cur.dist) {
+            if (cur) { try { cur.frame.close(); } catch (e) {} }
+            best[bi2] = { frame: f, dist: bd2 };
+          } else { try { f.close(); } catch (e) {} }
+        },
+        error: function (e) { decodeErr = e; }
       });
       dec.configure({
         codec: info.videoCodec || 'avc1.640028',
         description: info.configBytes,
         codedWidth: info.width, codedHeight: info.height
       });
-    } catch (e) { window.__stillsPicked = 0; return 0; }
-    var samples = info.samples;
-    function feed(s) {
-      dec.decode(new EncodedVideoChunk({
-        type: s.isSync ? 'key' : 'delta',
-        timestamp: Math.round(s.dts * 1e6 / vt),
-        duration: Math.max(1, Math.round(s.duration * 1e6 / vt)),
-        data: s.data
-      }));
+    } catch (e) {
+      window.__stillsPicked = 0;
+      stillsFail(e && e.message ? e.message : String(e));
+      return 0;
     }
-    var thumbs = [];
-    var picked = 0;
-    for (var ti = 0; ti < n; ti++) {
-      var targetUs = Math.round((d * ti) / (n - 1) * 1e6);
-      /* nearest sample at-or-after the target, then walk back to its keyframe */
-      var idx = samples.length - 1;
-      for (var i = 0; i < samples.length; i++) {
-        var sus = Math.round(samples[i].dts * 1e6 / vt);
-        if (sus + Math.round(samples[i].duration * 1e6 / vt) >= targetUs) { idx = i; break; }
+    /* Export discipline: ONE decoder, samples streamed in file order with the
+       same decodeQueueSize throttle the export path uses, ONE flush at the end. */
+    var samples = info.samples, consumed = 0;
+    function feedMore() {
+      while (consumed < samples.length && dec.decodeQueueSize < 8) {
+        var s = samples[consumed++];
+        dec.decode(new EncodedVideoChunk({
+          type: s.isSync ? 'key' : 'delta',
+          timestamp: Math.round(s.dts * 1e6 / vt),
+          duration: Math.max(1, Math.round(s.duration * 1e6 / vt)),
+          data: s.data
+        }));
       }
-      while (idx > 0 && !samples[idx].isSync) idx--;
-      frames = [];
-      for (var j = idx; j < samples.length; j++) {
-        feed(samples[j]);
-        if (Math.round(samples[j].dts * 1e6 / vt) >= targetUs) break;
+    }
+    try {
+      feedMore();
+      while (true) {
+        if (decodeErr) throw decodeErr;
+        feedMore();
+        if (dec.decodeQueueSize === 0) break;
+        await new Promise(function (r) { setTimeout(r, 4); });
       }
-      try { await dec.flush(); } catch (e) {}
-      var best = null, bd = Infinity;
-      frames.forEach(function (f) {
-        var dd = Math.abs(f.timestamp - targetUs);
-        if (dd < bd) { bd = dd; best = f; }
-      });
-      if (best) {
-        var c = document.createElement('canvas');
-        c.width = 96; c.height = 54;
-        try { c.getContext('2d').drawImage(best, 0, 0, 96, 54); } catch (e) {}
-        thumbs.push(c);
-        picked++;
-      }
-      frames.forEach(function (f) { try { f.close(); } catch (e) {} });
+      await dec.flush();
+      if (decodeErr) throw decodeErr;
+    } catch (e) {
+      window.__stillsPicked = 0;
+      try { dec.close(); } catch (x) {}
+      stillsFail((e && e.message ? e.message : String(e)) || 'decode error');
+      return 0;
     }
     try { dec.close(); } catch (e) {}
+    var thumbs = [], picked = 0;
+    best.forEach(function (b) {
+      if (!b) return;
+      var c = document.createElement('canvas');
+      c.width = 96; c.height = 54;
+      try { c.getContext('2d').drawImage(b.frame, 0, 0, 96, 54); thumbs.push(c); picked++; } catch (e) {}
+      try { b.frame.close(); } catch (e) {}
+    });
     if (thumbs.length) {
       state.thumbs = thumbs;
       /* stage poster from the frame nearest the trim midpoint */
@@ -1002,18 +1057,41 @@
     btn.textContent = 'Export';
   });
 
-  /* download / share */
+  /* download / share: the button must never produce no visible outcome.
+     Share sheet where available; otherwise present the finished clip in the
+     stage itself (the export is H.264, which the element CAN paint) so the
+     user can long-press / share it into Photos from there. */
   $('btnDownload').addEventListener('click', async function () {
     var ex = window.__lastExport;
     if (!ex) return;
+    var note = $('resultNote');
     var file = new File([ex.blob], 'clip-lab.mp4', { type: 'video/mp4' });
-    try {
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    var canShareFiles = false;
+    try { canShareFiles = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })); } catch (e) {}
+    if (canShareFiles) {
+      try {
         await navigator.share({ files: [file], title: 'Clip Lab export' });
+        note.className = '';
+        note.textContent = 'Share sheet opened — choose Save Video to put it in Photos.';
         return;
-      }
-    } catch (e) { /* user cancelled — fall through silently */ }
-    window.open(ex.url, '_blank');
+      } catch (e) { /* dismissed — fall through to the in-page preview */ }
+    }
+    try {
+      var v = $('stage');
+      state.stillsMode = false;
+      $('stillsNote').classList.add('hidden');
+      v.removeAttribute('poster');
+      v.controls = true;
+      v.setAttribute('playsinline', '');
+      v.src = ex.url;
+      v.load();
+      $('clipLabel').querySelector('b').textContent = 'clip-lab-export.mp4';
+      $('clipLabel').querySelector('span').textContent = fmt(state.trimOut - state.trimIn);
+      note.className = '';
+      note.textContent = 'Your finished clip is in the preview above — long-press it and choose Save Video (or use the share button on the video) to put it in Photos.';
+    } catch (e) {
+      window.open(ex.url, '_blank');
+    }
   });
 
   /* upload to cloudinary */
