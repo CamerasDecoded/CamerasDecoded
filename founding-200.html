@@ -133,6 +133,18 @@
     .claim-form input[type="file"]{color:#a8a8a8;font-size:13px;}
     .char-count{font-family:'Space Mono',monospace;font-size:11px;color:#666;text-align:right;margin-top:4px;}
     .claim-error{color:#ff7a7a;font-size:13px;min-height:18px;}
+    .claim-modal{position:fixed;inset:0;z-index:1200;}
+    .claim-modal[hidden]{display:none;}
+    .claim-modal-scrim{position:absolute;inset:0;background:rgba(3,4,3,.66);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);}
+    .claim-modal-sheet{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(560px,100%);max-height:88dvh;overflow-y:auto;background:#0b0b0d;border:1px solid rgba(224,177,45,.35);border-radius:20px 20px 0 0;padding:26px 22px calc(22px + env(safe-area-inset-bottom,0px));box-shadow:0 -18px 60px rgba(0,0,0,.6),0 0 40px rgba(224,177,45,.10),inset 0 1px 0 rgba(255,255,255,.08);}
+    .claim-modal-sheet::before{content:"";position:absolute;inset:0;background:url('/media/dossier-weave.jpg') center/cover;opacity:.4;mix-blend-mode:soft-light;pointer-events:none;}
+    .claim-modal-sheet>*{position:relative;}
+    .claim-modal-medallion{display:block;margin:0 auto 10px;filter:drop-shadow(0 0 12px rgba(224,177,45,.35));}
+    .claim-modal-title{text-shadow:0 0 18px rgba(224,177,45,.35);}
+    @media (min-width:640px){.claim-modal-sheet{bottom:auto;top:50%;transform:translate(-50%,-50%);border-radius:20px;}}
+    .claim-modal-title{font-family:'Space Mono',monospace;font-size:16px;color:#e0b12d;letter-spacing:3px;margin:0 0 18px;text-align:center;}
+    .claim-modal-x{position:absolute;top:12px;right:12px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:none;border:1px solid #242424;border-radius:50%;color:#a8a8a8;cursor:pointer;}
+    body.claim-modal-open{overflow:hidden;}
 
     /* gold chase button — signature style, founding gold */
     @property --f2-angle { syntax:'<angle>'; initial-value:0deg; inherits:false; }
@@ -209,6 +221,18 @@
     <p class="claim-sub">Founding 200 membership is permanent. Your name, your business, your words &mdash; encoded on this wall. Open to annual operators and guide owners &mdash; a spot is claimed, never assigned.</p>
     <div id="claimBody"><div class="dir-status"><div class="spinner" role="status" aria-label="Loading"></div>Checking your status...</div></div>
   </section>
+
+  <div class="claim-modal" id="claimModal" hidden>
+    <div class="claim-modal-scrim" data-claim-close></div>
+    <div class="claim-modal-sheet" role="dialog" aria-modal="true" aria-label="Claim your spot">
+      <button type="button" class="claim-modal-x" data-claim-close aria-label="Close">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+      <svg class="claim-modal-medallion" width="58" height="58" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48" fill="#1A1A1A" stroke="#e0b12d" stroke-width="2"/><circle cx="50" cy="50" r="41" fill="none" stroke="rgba(224,177,45,.45)" stroke-width="1"/><text x="50" y="57" text-anchor="middle" fill="#8deb00" font-family="Space Mono, monospace" font-size="17">200</text></svg>
+      <h3 class="claim-modal-title">CLAIM YOUR SPOT</h3>
+      <div id="claimModalBody"></div>
+    </div>
+  </div>
 
   <footer class="f2-foot">
     <div class="socials">
@@ -411,13 +435,35 @@
       if (f200claimBody) f200claimBody.innerHTML = html;
     }
 
+    var f200modalBody = document.getElementById('claimModalBody');
+    function f200openClaimModal() {
+      var m = document.getElementById('claimModal');
+      if (!m) return;
+      m.hidden = false;
+      document.body.classList.add('claim-modal-open');
+      var first = document.getElementById('cfName');
+      if (first) setTimeout(function () { try { first.focus({ preventScroll: true }); } catch (e) {} }, 60);
+    }
+    function f200closeClaimModal() {
+      var m = document.getElementById('claimModal');
+      if (!m) return;
+      m.hidden = true;
+      document.body.classList.remove('claim-modal-open');
+    }
+    document.addEventListener('click', function (e) {
+      if (e.target && e.target.closest && e.target.closest('[data-claim-close]')) f200closeClaimModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') f200closeClaimModal();
+    });
+
     function f200setClaimError(msg) {
       var el = document.getElementById('cfError');
       if (el) el.textContent = msg;
     }
 
     function f200renderClaimForm(user) {
-      f200claimMessage(
+      if (f200modalBody) f200modalBody.innerHTML =
         '<form class="claim-form" id="claimForm" novalidate>' +
           '<div><label for="cfName">YOUR NAME</label><input type="text" id="cfName" maxlength="80" autocomplete="name" required></div>' +
           '<div><label for="cfBusiness">BUSINESS</label><input type="text" id="cfBusiness" maxlength="80" autocomplete="organization" required></div>' +
@@ -426,8 +472,12 @@
           '<div><label for="cfPhoto">PHOTO (OPTIONAL)</label><input type="file" id="cfPhoto" accept="image/*"></div>' +
           '<div class="claim-error" id="cfError" role="alert"></div>' +
           '<div><button type="submit" class="btn-gold" id="cfSubmit">Claim My Spot</button></div>' +
-        '</form>'
-      );
+        '</form>';
+      f200claimMessage('<p class="claim-sub">Your name, your business, your words \u2014 posted on this wall for every operator to see.</p>' +
+        '<button type="button" class="btn-gold" id="cfOpen">Claim Your Spot</button>');
+      var openBtn = document.getElementById('cfOpen');
+      if (openBtn) openBtn.addEventListener('click', f200openClaimModal);
+      if (window.location.hash === '#claim') f200openClaimModal();
       var quoteEl = document.getElementById('cfQuote');
       var countEl = document.getElementById('cfCount');
       quoteEl.addEventListener('input', function () { countEl.textContent = String(quoteEl.value.length); });
@@ -497,8 +547,11 @@
           joinedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
       }).then(function () {
-        f200claimMessage('<div class="claim-status"><span class="status-pill status-pending">PENDING APPROVAL</span>' +
-          '<p class="claim-sub">Your spot is claimed, ' + f200esc(name) + '. It will appear on the wall once approved.</p></div>');
+        var doneHtml = '<div class="claim-status"><span class="status-pill status-pending">PENDING APPROVAL</span>' +
+          '<p class="claim-sub">Your spot is claimed, ' + f200esc(name) + '. It will appear on the wall once approved.</p></div>';
+        f200claimMessage(doneHtml);
+        if (f200modalBody) f200modalBody.innerHTML = doneHtml +
+          '<div style="text-align:center;margin-top:18px;"><button type="button" class="btn-gold" data-claim-close>Done</button></div>';
       }).catch(function (err) {
         console.warn('claim failed:', err);
         btn.disabled = false;
