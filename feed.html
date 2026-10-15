@@ -107,6 +107,15 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 .spot-avatar img{width:100%;height:100%;object-fit:cover}
 .spot-name{font-weight:800;font-size:16px}
 .spot-label{font-family:var(--font-d);font-size:10px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
+/* arena challenge drop */
+.feed-card.arena-drop{border-color:var(--green-border);background:linear-gradient(135deg,var(--surface),#0c120a)}
+.drop-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.drop-status{margin-left:auto;font-family:var(--font-d);font-size:11px;color:var(--muted);text-align:right}
+.drop-title{font-size:19px;font-weight:800;line-height:1.3;margin-bottom:6px}
+.drop-brief{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:12px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.drop-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.drop-entries{font-family:var(--font-d);font-size:11px;color:var(--muted-2)}
 .feed-empty{text-align:center;padding:60px 20px;color:var(--muted)}
 .filter-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding:10px 4px;
 --jr-green:var(--green,#8deb00)}
@@ -248,7 +257,7 @@ font-size:11px;cursor:pointer}
 <script>
 (function(){
 const feedList = document.getElementById('feedList');
-const TYPE_LABELS = { arena_entry:'Arena Entry', arena_winner:'Winner', xp_milestone:'Milestone', club_post:'Club', suggestion:'Idea', post:'Post', blog_post:'Article', protocol:'Protocol', podcast:'Podcast', featured_operator:'Spotlight' };
+const TYPE_LABELS = { arena_entry:'Arena Entry', arena_winner:'Winner', xp_milestone:'Milestone', club_post:'Club', suggestion:'Idea', post:'Post', blog_post:'Article', protocol:'Protocol', podcast:'Podcast', featured_operator:'Spotlight', arena_drop:'Arena Challenge' };
 
 function timeAgo(ts) {
   if (!ts) return '';
@@ -267,10 +276,63 @@ const COMMENT_ICON = '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4
 const TRASH_ICON = '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a2 2 0 01-2 2H8a2 2 0 01-2-2V6M10 11v6M14 11v6"/></svg>';
 
 
+/* Mirror of missions.html FALLBACK_PROMPTS — keep in sync. Used only when
+   today's round doc hasn't been seeded, so the drop card never goes dark. */
+const FALLBACK_PROMPTS = [
+  { t: 'Morning Ritual', b: 'Shoot the first hour of your day \u2014 coffee steam, the commute, the light through your window. Any subject, as long as it is unmistakably morning.' },
+  { t: 'One Color', b: 'Build the whole frame around a single color. Let it carry the composition \u2014 everything else is supporting cast.' },
+  { t: 'Reflections', b: 'Puddles, windows, chrome, sunglasses. Find a second version of your subject in a reflective surface.' },
+  { t: 'Hands at Work', b: 'Someone doing something with their hands. Sharp focus on the action, context kept to a whisper.' },
+  { t: 'Minimal Geometry', b: 'Strip a scene down to lines, shapes, and negative space. If it needs a caption, it is too busy.' },
+  { t: 'Blue Hour', b: 'Shoot the twenty minutes after sunset. Balance the dying ambient against anything artificial.' },
+  { t: 'Textures', b: 'Get close enough that the subject becomes pure texture \u2014 rust, bark, fabric, peeling paint.' },
+  { t: 'Motion Blur', b: 'Drag the shutter on purpose. Show movement as streaks, ghosts, or graceful smears.' },
+  { t: 'Frames Within Frames', b: 'Shoot through something \u2014 a doorway, a fence, branches, a crowd. Layer the frame.' },
+  { t: 'Golden Hour Portrait', b: 'One person, backlit by low sun. Rim light is the brief; mood is the grade.' },
+  { t: 'Symmetry', b: 'Find or build perfect symmetry. Then break it with exactly one small detail.' },
+  { t: 'Street Stranger', b: 'A candid frame of someone you have never met. Respect first \u2014 distance is part of the craft.' },
+  { t: 'Leading Lines', b: 'One dominant line pulling the eye from the foreground to the subject. Roads, rails, shadows, fences.' },
+  { t: 'Night Neon', b: 'After dark, hunt artificial light. Color fringing and glow are features, not bugs.' }
+];
+function dropStatus(r){
+  function ts(v){ return v && v.toMillis ? v.toMillis() : (typeof v === 'number' ? v : null); }
+  function tstr(ms){ try { return new Date(ms).toLocaleTimeString('en-US', { timeZone:'America/Chicago', hour:'numeric', minute:'2-digit' }); } catch(e){ return ''; } }
+  const nowMs = Date.now();
+  const closes = ts(r.closesAt), voting = ts(r.votingAt);
+  if (closes && nowMs >= closes) return 'Winner crowned \u2014 see the results';
+  if (voting && nowMs >= voting) return 'Voting is open' + (closes ? ' \u00B7 Winner ' + tstr(closes) : '');
+  if (voting) return 'Entries open \u00B7 Voting ' + tstr(voting);
+  return 'Entries open now';
+}
+async function todaysDropItem(db){
+  try{
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+    const item = {
+      _id: 'arena-drop-' + dateStr, type: 'arena_drop', synthetic: true,
+      createdAt: { seconds: Math.floor(now.getTime()/1000), toDate: function(){ return now; }, toMillis: function(){ return now.getTime(); } }
+    };
+    const snap = await db.collection('arenaRounds').doc('c-' + dateStr).get();
+    if (snap.exists) {
+      const r = snap.data() || {};
+      item.title = r.title || 'Today\u2019s Challenge';
+      item.text = r.brief || r.text || '';
+      item.status = dropStatus(r);
+      if (typeof r.entryCount === 'number') item.entryCount = r.entryCount;
+    } else {
+      const doy = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000);
+      const p = FALLBACK_PROMPTS[doy % FALLBACK_PROMPTS.length];
+      item.title = p.t; item.text = p.b;
+      item.status = 'Live now in the Arena';
+    }
+    return item;
+  }catch(e){ return null; }
+}
+
 let activeFilter = 'all';
 const FILTER_TYPES = {
   all: null,
-  arena: ['arena_entry','arena_winner'],
+  arena: ['arena_entry','arena_winner','arena_drop'],
   clubs: ['club_post'],
   ideas: ['suggestion'],
   milestones: ['xp_milestone'],
@@ -435,6 +497,8 @@ async function loadFeed() {
       if(types && !types.includes(d.type)) return;
       items.push(d);
     });
+    const dropItem = await todaysDropItem(db);
+    if (dropItem && (!types || types.includes('arena_drop'))) items.unshift(dropItem);
     function dayKey(d){
       const t = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null;
       if(!t || isNaN(t.getTime())) return '9999-12-31';
@@ -449,9 +513,11 @@ async function loadFeed() {
     const ordered = [];
     Array.from(byDay.keys()).sort().reverse().forEach(k => {
       const dayItems = byDay.get(k);
+      const drops = dayItems.filter(d => d.type === 'arena_drop');
       const featured = dayItems.filter(d => d.type === 'featured_operator');
       const editorial = dayItems.filter(d => ['blog_post','protocol','podcast'].includes(d.type));
-      const social = dayItems.filter(d => !['featured_operator','blog_post','protocol','podcast'].includes(d.type));
+      const social = dayItems.filter(d => !['featured_operator','arena_drop','blog_post','protocol','podcast'].includes(d.type));
+      ordered.push(...drops);
       ordered.push(...featured);
       let ei = 0;
       social.forEach((d, i) => {
@@ -753,6 +819,20 @@ async function loadFeed() {
     function renderCard(d){
       const el = document.createElement('div');
       el.dataset.itemId = d._id || '';
+      /* arena challenge drop: today's round, announced — no action bar;
+         it's a pointer to the Arena, not a post you react to */
+      if(d.type === 'arena_drop'){
+        el.className = 'feed-card arena-drop';
+        el.innerHTML =
+          `<div class="drop-head"><div class="feed-type">Today's Arena Challenge</div>` +
+          (d.status ? `<div class="drop-status">${esc(d.status)}</div>` : '') + `</div>` +
+          (d.title ? `<div class="drop-title">${esc(d.title)}</div>` : '') +
+          (d.text ? `<div class="drop-brief">${esc(d.text)}</div>` : '') +
+          `<div class="drop-foot"><span class="drop-entries">${typeof d.entryCount === 'number' ? d.entryCount + (d.entryCount === 1 ? ' entry' : ' entries') + ' so far' : ''}</span>` +
+          `<a class="ed-cta" href="/missions.html">Enter the Arena</a></div>`;
+        el._feedData = d;
+        return el;
+      }
       /* editorial: title-forward */
       if(['blog_post','protocol','podcast'].includes(d.type)){
         el.className = 'feed-card editorial';
