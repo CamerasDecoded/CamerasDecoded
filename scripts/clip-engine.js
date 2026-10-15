@@ -1,6 +1,6 @@
 /* ================================================================
    clip-engine.js — Clip Lab on-device finishing engine (fast path).
-   ?v=20261015a
+   ?v=20261015b
 
    Decode with WebCodecs (hardware), composite on a 2D canvas
    (WebGPU is headroom for v2 filters — v1 composites in 2D, which
@@ -69,6 +69,51 @@
     return new Uint8Array(out);
   }
 
+  /* Serialize an HEVC hvcC box into a WebCodecs decoder description
+     (HEVCDecoderConfigurationRecord, ISO 14496-15 8.3.3.1.2).
+     Field names mirror this repo's vendored mp4box.js parse:
+     nalu_arrays[i] is an Array of {data: Uint8Array} with named props
+     completeness and nalu_type on the array itself. */
+  function readHvcC(entry) {
+    var box = entry && entry.hvcC;
+    if (!box || !box.nalu_arrays || !box.nalu_arrays.length) return null;
+    var out = [];
+    function u8(x) { out.push(x & 255); }
+    function u16(x) { out.push((x >> 8) & 255, x & 255); }
+    function u32(x) { out.push((x >>> 24) & 255, (x >>> 16) & 255, (x >>> 8) & 255, x & 255); }
+    u8(box.configurationVersion || 1);
+    u8(((box.general_profile_space || 0) << 6) | ((box.general_tier_flag || 0) << 5) | ((box.general_profile_idc || 0) & 31));
+    u32(box.general_profile_compatibility || 0);
+    var ci = box.general_constraint_indicator;
+    for (var i = 0; i < 6; i++) u8(ci && ci.length === 6 ? ci[i] : 0);
+    u8(box.general_level_idc || 0);
+    var mss = box.min_spatial_segmentation_idc || 0;
+    u8(0xF0 | ((mss >> 8) & 15)); u8(mss & 255);
+    u8(0xFC | ((box.parallelismType || 0) & 3));
+    u8(0xFC | ((box.chroma_format_idc || 1) & 3));
+    u8(0xF8 | ((box.bit_depth_luma_minus8 || 0) & 7));
+    u8(0xF8 | ((box.bit_depth_chroma_minus8 || 0) & 7));
+    u16(box.avgFrameRate || 0);
+    u8((((box.constantFrameRate || 0) & 3) << 6) | (((box.numTemporalLayers || 1) & 7) << 3) |
+      (((box.temporalIdNested || 0) & 1) << 2) | ((box.lengthSizeMinusOne || 3) & 3));
+    var arrays = box.nalu_arrays;
+    u8(arrays.length);
+    arrays.forEach(function (a) {
+      var nalus = [];
+      for (var j = 0; j < a.length; j++) {
+        var d = (a[j] && a[j].data) ? a[j].data : a[j];
+        if (d && d.length) nalus.push(d);
+      }
+      u8(((a.completeness ? 1 : 0) << 7) | ((a.nalu_type || 0) & 63));
+      u16(nalus.length);
+      nalus.forEach(function (n) {
+        u16(n.length);
+        for (var k = 0; k < n.length; k++) u8(n[k]);
+      });
+    });
+    return new Uint8Array(out);
+  }
+
   function ascBytes(sampleRate, channels) {
     var rates = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
     var idx = rates.indexOf(sampleRate);
@@ -117,7 +162,8 @@
         function buildInfo() {
           var trak = findTrak(mp4, vTrack.id);
           var entry = trak && trak.mdia && trak.mdia.minf.stbl.stsd.entries[0];
-          var avcc = readAvcC(entry || {});
+          /* decoder config: H.264 avcC or HEVC hvcC — one generalized config */
+          var cfgBytes = readAvcC(entry || {}) || readHvcC(entry || {});
           var vt = vTrack.timescale || 90000;
           var cw = (entry && entry.width) || (vTrack.video && vTrack.video.width) || vTrack.track_width || 0;
           var ch = (entry && entry.height) || (vTrack.video && vTrack.video.height) || vTrack.track_height || 0;
@@ -128,7 +174,7 @@
             fps: 30,
             videoCodec: vTrack.codec,
             videoTimescale: vt,
-            avccBytes: avcc,
+            configBytes: cfgBytes,
             samples: vSamples.map(function (s) {
               return { data: s.data, dts: s.dts, cts: s.cts, duration: s.duration, isSync: !!s.is_sync };
             }),
@@ -294,7 +340,7 @@
 
     /* decode — only the trimmed window, streaming frames straight to encode */
     var codec = info.videoCodec || 'avc1.640028';
-    if (!info.avccBytes) throw new Error('This clip uses a video format Clip Lab cannot decode yet.');
+    if (!info.configBytes) throw new Error('This clip uses a video format Clip Lab cannot decode yet.');
     var frameQueue = [];
     var decodeDone = false, decodeErr = null;
     var decoder = new VideoDecoder({
@@ -308,7 +354,7 @@
        elsewhere. */
     decoder.configure({
       codec: codec,
-      description: info.avccBytes,
+      description: info.configBytes,
       codedWidth: info.width,
       codedHeight: info.height
     });
