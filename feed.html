@@ -247,6 +247,19 @@ border-radius:20px;color:var(--text);font-size:13px;padding:9px 14px;font-family
 .comment-form button{background:var(--green-soft);border:1px solid var(--green-border);
 color:var(--green);border-radius:20px;padding:9px 16px;font-family:var(--font-d);
 font-size:11px;cursor:pointer}
+.wire{display:flex;align-items:center;gap:8px;margin:0 2px 12px;cursor:pointer;min-height:18px}
+.wire[hidden]{display:none}
+.wire-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;
+  box-shadow:0 0 8px rgba(141,235,0,.8);animation:wirePulse 2.2s ease-in-out infinite}
+@keyframes wirePulse{0%,100%{opacity:1}50%{opacity:.35}}
+.wire-txt{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;transition:opacity .35s}
+.wire-txt.fade{opacity:0}
+@media (prefers-reduced-motion: reduce){ .wire-dot{animation:none} .wire-txt{transition:none} }
+.search-toggle-row{display:flex;justify-content:flex-end;margin-bottom:14px}
+#searchToggle{width:38px;height:38px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+#searchToggle svg{width:17px;height:17px;stroke:var(--muted);fill:none;stroke-width:2}
 .feed-search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);
   border-radius:12px;padding:0 12px;margin-bottom:14px}
 .feed-search>svg{width:17px;height:17px;stroke:var(--muted-2);fill:none;stroke-width:2;flex-shrink:0}
@@ -278,6 +291,10 @@ font-size:11px;cursor:pointer}
         onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
       <h1 hidden>THE SIGNAL</h1>
     </div>
+    <div class="wire" id="wire" hidden role="button" tabindex="0" aria-label="Latest community activity">
+      <span class="wire-dot"></span>
+      <span class="wire-txt" id="wireTxt"></span>
+    </div>
     <div class="composer" id="composer" style="display:none">
       <button id="composerPill" type="button" aria-label="Write a post">
         <span class="cp-av" id="composerPillAv"></span>
@@ -303,7 +320,10 @@ font-size:11px;cursor:pointer}
       </div>
           </div>
     </div>
-    <div class="feed-search">
+    <div class="search-toggle-row">
+      <button id="searchToggle" type="button" aria-label="Search the Signal"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></svg></button>
+    </div>
+    <div class="feed-search" style="display:none">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></svg>
       <input id="feedSearch" type="search" placeholder="Search operators, clubs, posts…" autocomplete="off" enterkeyhint="search"/>
       <button id="feedSearchX" type="button" aria-label="Clear search" hidden><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
@@ -1101,6 +1121,7 @@ async function loadFeed() {
     feedList.appendChild(frag);
     loadFlashData();
     initCarousels(feedList);
+    buildWire(ordered);
     openDeepLink();
   } catch(e) {
     feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
@@ -1191,7 +1212,100 @@ searchInput.addEventListener('input', function(){
   const v = searchInput.value;
   searchTimer = setTimeout(() => runSearch(v), 250);
 });
-searchX.addEventListener('click', function(){ exitSearch(); searchInput.focus(); });
+/* The Wire: the newest community events as one rotating line
+   under the title. Built from the items the feed just loaded —
+   nothing new is fetched or written. A tap lands on the post
+   (or the article's own page). */
+var wireItems = [], wireIdx = 0, wireTimer = null;
+function wireFirstLine(text){ return (text || '').split('\n')[0].trim(); }
+function wireLine(d){
+  var name = d.actorName || 'An operator';
+  var t = (d.title || '').trim();
+  switch (d.type) {
+    case 'arena_entry': return name + ' entered the Arena' + (t ? ' \u2014 ' + t : '');
+    case 'arena_winner': return name + ' won the Arena' + (t ? ' \u2014 ' + t : '');
+    case 'xp_milestone': return name + ' ' + wireFirstLine(d.text);
+    case 'club_post': return name + ' posted in ' + (d.clubName || 'a club');
+    case 'suggestion': return name + ' suggested an idea' + (t ? ' \u2014 ' + t : '');
+    case 'cynetis_post': return 'Cynetis-7: ' + wireFirstLine(d.text || d.title);
+    case 'blog_post': return 'New article: ' + (t || 'On the blog');
+    case 'post': return name + ' posted on the Signal';
+    default: return null;
+  }
+}
+function buildWire(items){
+  var el = document.getElementById('wire');
+  var txt = document.getElementById('wireTxt');
+  if (!el || !txt) return;
+  if (wireTimer) { clearInterval(wireTimer); wireTimer = null; }
+  wireItems = [];
+  for (var i = 0; i < items.length && wireItems.length < 6; i++) {
+    var line = wireLine(items[i]);
+    if (line) wireItems.push({ id: items[i]._id, line: line, actionUrl: items[i].actionUrl || null });
+  }
+  if (!wireItems.length) { el.hidden = true; return; }
+  wireIdx = 0;
+  el.hidden = false;
+  txt.textContent = wireItems[0].line;
+  txt.classList.remove('fade');
+  if (wireItems.length > 1 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    wireTimer = setInterval(function(){
+      txt.classList.add('fade');
+      setTimeout(function(){
+        wireIdx = (wireIdx + 1) % wireItems.length;
+        txt.textContent = wireItems[wireIdx].line;
+        txt.classList.remove('fade');
+      }, 360);
+    }, 4500);
+  }
+}
+function wireHit(card){
+  card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  card.classList.add('deep-hit');
+  setTimeout(function(){ card.classList.remove('deep-hit'); }, 3200);
+}
+function wireGo(){
+  var w = wireItems[wireIdx];
+  if (!w) return;
+  if (w.actionUrl) {
+    try { location.href = new URL(w.actionUrl, location.href).href; } catch (e) {}
+    return;
+  }
+  var card = document.querySelector('[data-item-id="' + w.id + '"]');
+  if (card) { wireHit(card); return; }
+  if (activeFilter !== 'all') {
+    var allChip = document.querySelector('.jelly-chip');
+    if (allChip) allChip.click();
+    var tries = 0;
+    var iv = setInterval(function(){
+      tries++;
+      var c = document.querySelector('[data-item-id="' + w.id + '"]');
+      if (c || tries > 6) { clearInterval(iv); if (c) wireHit(c); }
+    }, 350);
+  }
+}
+document.getElementById('wire').addEventListener('click', wireGo);
+document.getElementById('wire').addEventListener('keydown', function(e){ if (e.key === 'Enter') wireGo(); });
+
+/* Search stays above the filter pills, collapsed to an icon
+   until tapped; then it is the full bar it has always been. */
+const searchBarEl = document.querySelector('.feed-search');
+const searchToggle = document.getElementById('searchToggle');
+function setSearchOpen(open){
+  searchBarEl.style.display = open ? '' : 'none';
+  searchToggle.style.display = open ? 'none' : '';
+  if (open) searchInput.focus();
+}
+searchToggle.addEventListener('click', function(){ setSearchOpen(true); });
+searchInput.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') { exitSearch(); setSearchOpen(false); }
+});
+searchX.addEventListener('click', function(){
+  var had = !!searchInput.value;
+  exitSearch();
+  if (had) { setSearchOpen(true); searchInput.focus(); }
+  else setSearchOpen(false);
+});
 searchBox.addEventListener('click', function(e){
   const a = e.target.closest('[data-jump]');
   if (!a) return;
