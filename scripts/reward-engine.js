@@ -114,6 +114,19 @@
     /* feed: milestone announcements (best-effort, never blocks) */
     try {
       const actorName = pick(data, ['displayName', 'name', 'username'], 'Operator');
+      const actorAvatar = pick(data, ['photoURL'], null);
+      function badgeNamesFor(ids) {
+        try {
+          const defs = window.BADGE_DEFS || {};
+          return ids.map(function (id) { return (defs[id] && defs[id].name) || id; });
+        } catch (e) { return ids.slice(); }
+      }
+      function badgeColorFor(ids) {
+        try {
+          const defs = window.BADGE_DEFS || {};
+          return (ids.length === 1 && defs[ids[0]] && defs[ids[0]].color) || null;
+        } catch (e) { return null; }
+      }
       const feed = window.db.collection('feedItems');
       const FV2 = window.firebase && window.firebase.firestore && window.firebase.firestore.FieldValue;
       const ts = FV2 ? FV2.serverTimestamp() : new Date();
@@ -124,7 +137,10 @@
           type: 'xp_milestone',
           actorUid: uid,
           actorName: actorName,
+          actorAvatar: actorAvatar,
           text: actorName + ' hit a ' + newStreak + '-day streak',
+          milestoneKind: 'streak',
+          streakDays: newStreak,
           targetType: 'profile',
           targetId: uid,
           createdAt: ts,
@@ -137,7 +153,12 @@
           type: 'xp_milestone',
           actorUid: uid,
           actorName: actorName,
+          actorAvatar: actorAvatar,
           text: actorName + ' unlocked ' + newlyUnlocked.length + ' new badge' + (newlyUnlocked.length > 1 ? 's' : ''),
+          milestoneKind: 'badge',
+          badgeIds: newlyUnlocked.slice(),
+          badgeNames: badgeNamesFor(newlyUnlocked),
+          badgeColor: badgeColorFor(newlyUnlocked),
           targetType: 'profile',
           targetId: uid,
           createdAt: ts,

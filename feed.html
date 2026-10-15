@@ -119,6 +119,17 @@ body{display:block !important;justify-content:normal !important;align-items:norm
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .drop-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .drop-entries{font-family:var(--font-d);font-size:11px;color:var(--muted-2)}
+/* milestone event cards */
+.feed-card.milestone{background:linear-gradient(160deg,var(--surface),#0d110a)}
+.ms-stage{display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 6px 16px}
+.ms-medal{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  margin-bottom:10px;border:1.5px solid var(--green-border);color:var(--green);
+  background:radial-gradient(circle at 50% 35%,rgba(141,235,0,.22),rgba(141,235,0,.05) 70%)}
+.ms-medal.gold{border-color:rgba(245,192,68,.45);color:var(--gold);
+  background:radial-gradient(circle at 50% 35%,rgba(245,192,68,.22),rgba(245,192,68,.05) 70%)}
+.ms-medal svg{width:30px;height:30px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ms-headline{font-size:16px;font-weight:800;line-height:1.35}
+.ms-sub{font-family:var(--font-d);font-size:11px;color:var(--muted);margin-top:5px;letter-spacing:.04em}
 .feed-empty{text-align:center;padding:60px 20px;color:var(--muted)}
 .filter-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding:10px 4px;
 --jr-green:var(--green,#8deb00)}
@@ -276,6 +287,8 @@ function dec(s){ const t=document.createElement('textarea'); t.innerHTML=s||''; 
 const FLASH_ICON = '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
 const SHARE_ICON = '<svg viewBox="0 0 24 24"><path d="M4 12v8a1 1 0 001 1h14a1 1 0 001-1v-8M16 6l-4-4-4 4M12 2v13"/></svg>';
 const COMMENT_ICON = '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>';
+const FLAME_ICON = '<svg viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>';
+const AWARD_ICON = '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>';
 const TRASH_ICON = '<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a2 2 0 01-2 2H8a2 2 0 01-2-2V6M10 11v6M14 11v6"/></svg>';
 
 
@@ -833,6 +846,33 @@ async function loadFeed() {
           (d.text ? `<div class="drop-brief">${esc(d.text)}</div>` : '') +
           `<div class="drop-foot"><span class="drop-entries">${typeof d.entryCount === 'number' ? d.entryCount + (d.entryCount === 1 ? ' entry' : ' entries') + ' so far' : ''}</span>` +
           `<a class="ed-cta" href="/missions.html">Enter the Arena</a></div>`;
+        el._feedData = d;
+        return el;
+      }
+      /* milestone: event card — medallion stage, so streak and badge
+         posts read as events instead of plain text */
+      if(d.type === 'xp_milestone'){
+        el.className = 'feed-card milestone';
+        const kind = d.milestoneKind || (/streak/i.test(d.text||'') ? 'streak' : (/badge/i.test(d.text||'') ? 'badge' : 'xp'));
+        const icon = kind === 'streak' ? FLAME_ICON : (kind === 'badge' ? AWARD_ICON : FLASH_ICON);
+        const medalStyle = (kind === 'badge' && d.badgeColor)
+          ? ` style="border-color:${esc(d.badgeColor)};color:${esc(d.badgeColor)}"` : '';
+        const avatarHtml = d.actorAvatar ? `<img src="${esc(d.actorAvatar)}" alt=""/>` : esc((d.actorName||'?')[0].toUpperCase());
+        let sub = '';
+        if (kind === 'badge' && Array.isArray(d.badgeNames) && d.badgeNames.length) sub = d.badgeNames.map(esc).join(' \u00B7 ');
+        else if (kind === 'streak') sub = 'STREAK MILESTONE';
+        else if (kind === 'badge') sub = 'BADGE UNLOCKED';
+        el.innerHTML =
+          `<div class="feed-card-header">` +
+            `<div class="feed-avatar">${avatarHtml}</div>` +
+            `<div class="feed-meta"><div class="feed-actor">${esc(d.actorName||'Operator')}</div>` +
+            `<div class="feed-time">${timeAgo(d.createdAt)}</div></div>` +
+            `<div class="feed-type">Milestone</div>` +
+          `</div>` +
+          `<div class="ms-stage"><div class="ms-medal${kind === 'badge' ? ' gold' : ''}"${medalStyle}>${icon}</div>` +
+          `<div class="ms-headline">${esc(d.text||'')}</div>` +
+          (sub ? `<div class="ms-sub">${sub}</div>` : '') + `</div>` +
+          actionBarHTML(d);
         el._feedData = d;
         return el;
       }
