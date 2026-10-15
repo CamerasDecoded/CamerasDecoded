@@ -1,11 +1,12 @@
 /* ================================================================
    clip-engine.js — Clip Lab on-device finishing engine (fast path).
-   ?v=20261015b
+   ?v=20261015c
 
    Decode with WebCodecs (hardware), composite on a 2D canvas
    (WebGPU is headroom for v2 filters — v1 composites in 2D, which
    keeps frames in GPU-backed canvas surfaces and is the standard
-   v1 shape), hardware H.264 encode, AAC audio round-trip, and
+   v1 shape), hardware H.264 encode, AAC packet-copy audio (decode->re-encode
+   fallback when the muxer rejects the source frames), and
    mux to MP4 with mediabunny (EncodedVideo/AudioPacketSource —
    it writes correct avcC/esds descriptors from the encoder output,
    which mp4box.js's generator API cannot do from byte arrays).
@@ -185,10 +186,23 @@
           }
           if (aTrack) {
             var at = aTrack.timescale || 44100;
+            /* real audio config: the mp4a sample entry's esds carries the file's
+               own AudioSpecificConfig — far more reliable than synthesizing one */
+            var realAsc = null;
+            try {
+              var aTrak = findTrak(mp4, aTrack.id);
+              var aEntry = aTrak && aTrak.mdia && aTrak.mdia.minf.stbl.stsd.entries[0];
+              var esd = aEntry && aEntry.esds && aEntry.esds.esd;
+              var dcd = esd && esd.findDescriptor && esd.findDescriptor(4);
+              var dsi = dcd && dcd.findDescriptor && dcd.findDescriptor(5);
+              if (dsi && dsi.data && dsi.data.length) realAsc = new Uint8Array(dsi.data);
+            } catch (e) { realAsc = null; }
             info.audio = {
               sampleRate: aTrack.audio ? (aTrack.audio.sample_rate || 44100) : 44100,
               channels: aTrack.audio ? (aTrack.audio.channel_count || 2) : 2,
               timescale: at,
+              codec: aTrack.codec || 'mp4a.40.2',
+              asc: realAsc,
               samples: aSamples.map(function (s) {
                 return { data: s.data, dts: s.dts, duration: s.duration };
               })
@@ -315,26 +329,39 @@
     var vSrc = new MB.EncodedVideoPacketSource('avc');
     var vTrack = output.addVideoTrack(vSrc, { width: dims.w, height: dims.h });
 
-    /* audio viability is decided up front: tracks must exist before output.start() */
-    var audioViable = false, audioNote = null, au = null;
+    /* Audio viability is decided up front: tracks must exist before output.start().
+       Packet-copy is the primary path — the clip's own AAC frames are carried
+       through untouched (no device audio decoder needed; the file's real
+       AudioSpecificConfig rides the first packet). The decode->re-encode path
+       stays as fallback. The "without sound" note fires only if both fail. */
+    var audioMode = null, audioNote = null, au = null, aDecoderCfg = null, aSrc = null;
     if (info.audio && info.audio.samples.length) {
+      au = info.audio;
+      var ascReal = (au.asc && au.asc.length) ? au.asc : ascBytes(au.sampleRate, au.channels);
+      aDecoderCfg = {
+        codec: au.codec || 'mp4a.40.2',
+        sampleRate: au.sampleRate,
+        numberOfChannels: au.channels,
+        description: ascReal
+      };
       try {
-        au = info.audio;
-        var probe = new AudioDecoder({ output: function () {}, error: function () {} });
-        probe.configure({
-          codec: 'mp4a.40.2', sampleRate: au.sampleRate,
-          numberOfChannels: au.channels, description: ascBytes(au.sampleRate, au.channels)
-        });
-        probe.close();
-        audioViable = true;
-      } catch (e) {
-        audioNote = 'Exported without sound — this device could not process the clip audio.';
+        aSrc = new MB.EncodedAudioPacketSource('aac');
+        output.addAudioTrack(aSrc);
+        audioMode = 'copy';
+      } catch (e) { aSrc = null; }
+      if (!audioMode) {
+        /* muxer rejected the packet-copy track: probe whether this device can
+           decode+re-encode with the real config instead */
+        try {
+          var probe = new AudioDecoder({ output: function () {}, error: function () {} });
+          probe.configure(aDecoderCfg);
+          probe.close();
+          aSrc = new MB.EncodedAudioPacketSource('aac');
+          output.addAudioTrack(aSrc);
+          audioMode = 'decode';
+        } catch (e2) { aSrc = null; }
       }
-    }
-    var aSrc = null;
-    if (audioViable) {
-      aSrc = new MB.EncodedAudioPacketSource('aac');
-      output.addAudioTrack(aSrc);
+      if (!audioMode) audioNote = 'Exported without sound — this device could not process the clip audio.';
     }
     await output.start();
 
@@ -445,18 +472,50 @@
     await decoder.flush();
     await encoder.flush();
 
-    /* audio: decode the trimmed window, re-encode AAC, mux interleaved */
-    if (audioViable) {
+    /* Build AAC packet-copy packets from the source samples overlapping the
+       trim window. Timestamps are rebased so the kept window starts at 0,
+       mirroring the video rebase. Construction happens first so a throw can
+       still switch to the decode path before any audio reaches the muxer. */
+    function buildAudioCopyPackets() {
+      var at = au.timescale || 44100;
+      var pkts = [];
+      au.samples.forEach(function (s) {
+        var ts = Math.round(s.dts * 1e6 / at);
+        var dur = Math.max(1, Math.round(s.duration * 1e6 / at));
+        if (ts + dur < trimStartUs || ts >= trimEndUs) return;
+        var chunk = new EncodedAudioChunk({
+          type: 'key',
+          timestamp: Math.max(0, ts - trimStartUs),
+          duration: dur,
+          data: s.data
+        });
+        pkts.push(MB.EncodedPacket.fromEncodedChunk(chunk));
+      });
+      return pkts;
+    }
+
+    /* audio: packet-copy first; decode the trimmed window + re-encode AAC fallback */
+    if (audioMode) {
+      if (audioMode === 'copy') {
+        try {
+          var pkts = buildAudioCopyPackets();
+          var firstPkt = true;
+          pkts.forEach(function (p) {
+            if (firstPkt) { firstPkt = false; aSrc.add(p, { decoderConfig: aDecoderCfg }); }
+            else aSrc.add(p);
+          });
+        } catch (e) { audioMode = 'decode'; }
+      }
+      if (audioMode === 'decode') {
       try {
         var at = au.timescale || 44100;
-        var asc = ascBytes(au.sampleRate, au.channels);
         var aQueue = [];
         var aDone = false, aErr = null;
         var aDec = new AudioDecoder({
           output: function (ad) { aQueue.push(ad); },
           error: function (e) { aErr = e; }
         });
-        aDec.configure({ codec: 'mp4a.40.2', sampleRate: au.sampleRate, numberOfChannels: au.channels, description: asc });
+        aDec.configure(aDecoderCfg);
         au.samples.forEach(function (s) {
           var ts = Math.round(s.dts * 1e6 / at);
           if (ts + Math.round(s.duration * 1e6 / at) < trimStartUs || ts >= trimEndUs) return;
@@ -504,6 +563,7 @@
         await aEnc.flush();
       } catch (e) {
         audioNote = 'Exported without sound — this device could not process the clip audio.';
+      }
       }
     }
 
