@@ -91,6 +91,7 @@
         { href: '/ai-workbench.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
         { href: '/shoot-lab.html',          icon: 'practice', title: 'Shoot Lab', sub: 'Nail the exposure triangle' },
         { href: '/darkroom-lab.html',          icon: 'sliders', title: 'Develop Lab', sub: 'Pro photo editor' },
+        { href: '/clip-lab.html',             icon: 'camera',  title: 'Clip Lab',   sub: 'Trim, caption, finish clips' },
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
         { href: '/protocols.html',       icon: 'library', title: 'Protocols',   sub: 'Training archive' },
         // Community cut for launch — returns as a post-launch web-app update.
