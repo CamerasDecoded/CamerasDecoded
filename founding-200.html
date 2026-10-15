@@ -121,6 +121,9 @@
       color:#e0b12d;letter-spacing:3px;margin:0 0 10px;
       text-shadow:0 0 18px rgba(224,177,45,.35);}
     .claim-section .claim-sub{position:relative;color:#b4b4b4;font-size:14.5px;margin:0 0 26px;line-height:1.6;}
+    .claim-doors{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:14px 0 4px;}
+    .claim-doors .page-btn{text-decoration:none;display:inline-block;padding:10px 18px;}
+    .claim-sub.claim-hint{opacity:.75;font-size:12px;margin-top:12px;}
     .claim-form{position:relative;display:grid;gap:14px;text-align:left;max-width:520px;margin:0 auto;}
     .claim-form label{display:block;font-family:'Space Mono',monospace;font-size:11px;
       letter-spacing:1.5px;color:#e0b12d;margin-bottom:6px;}
@@ -587,13 +590,33 @@
           return window.db.collection('users').doc(user.uid).get().then(function (uDoc) {
             var u = uDoc.exists ? (uDoc.data() || {}) : {};
             var isPro = u.tier === 'pro';
+            var isAnnual = isPro && u.proPlan === 'annual';
+            var isGuideOwner = u.guideOwner === true;
             var isAdmin = u.role === 'Admin' || u.role === 'admin';
-            if (isPro || isAdmin) {
+            var showTwoDoors = function (legacyNote) {
+              f200claimMessage('<p class="claim-sub"><strong>Two ways in.</strong></p>' +
+                '<p class="claim-sub">Founding 200 is open to annual operators and guide owners. A spot is claimed, never assigned.</p>' +
+                '<div class="claim-doors">' +
+                  '<a href="/why-pro.html" class="page-btn">See annual</a>' +
+                  '<a href="/camera-confidence-guide.html" class="page-btn">Get the guide</a>' +
+                '</div>' +
+                (legacyNote ? '<p class="claim-sub claim-hint">Already annual? Your plan may predate our records &mdash; contact support and we will set it right.</p>' : ''));
+            };
+            if (isAnnual || isGuideOwner || isAdmin) {
               f200renderClaimForm(user);
-            } else {
-              f200claimMessage('<p class="claim-sub">Founding 200 is a Pro member benefit.</p>' +
-                '<a href="products.html" class="btn-gold">Go Pro</a>');
+              return;
             }
+            if (isPro && !u.proPlan) {
+              // Pro accounts that predate the plan record: the request ledger
+              // still knows which plan was bought. Honor it as the annual
+              // signal rather than locking anyone out silently.
+              return window.db.collection('proRequests').doc(user.uid).get().then(function (rDoc) {
+                var plan = rDoc.exists ? ((rDoc.data() || {}).plan) : null;
+                if (plan === 'annual') { f200renderClaimForm(user); }
+                else { showTwoDoors(true); }
+              }).catch(function () { showTwoDoors(true); });
+            }
+            showTwoDoors(false);
           });
         }).catch(function (err) {
           console.warn('claim status failed:', err);
