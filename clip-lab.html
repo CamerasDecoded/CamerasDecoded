@@ -103,6 +103,11 @@
     overflow: hidden; background: #000;
   }
   #stage { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+  /* live fit: #stageZone's height is measured by JS (fitLayout) so the column
+     sums exactly to the real screen. Re-fits animate Edits-style; the
+     fit-drag class kills the transition during resize bursts. */
+  #stageZone { transition: height 180ms ease; }
+  .cl-shell.fit-drag #stageZone { transition: none; }
   /* slim sub-line under the header: filename · duration (the export pill
      now lives in the topbar row) */
   #stageBar {
@@ -315,7 +320,7 @@
 <div class="cl-shell">
 
   <header class="cl-topbar">
-    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015j" alt="Clip Lab"
+    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015k" alt="Clip Lab"
          onerror="this.style.display='none';var f=document.getElementById('clTitleFallback');if(f)f.hidden=false;">
     <h1 class="cl-title-fallback" id="clTitleFallback" hidden>CLIP <span class="accent">LAB</span></h1>
     <span class="cl-kicker">Trim · Caption · Ship</span>
@@ -435,11 +440,11 @@
 
 <div id="errBox"></div>
 
-<script src="/scripts/mp4box.js?v=20261015j"></script>
-<script src="/scripts/clip-engine.js?v=20261015j"></script>
-<script src="/scripts/cd-upload.js?v=20261015j"></script>
+<script src="/scripts/mp4box.js?v=20261015k"></script>
+<script src="/scripts/clip-engine.js?v=20261015k"></script>
+<script src="/scripts/cd-upload.js?v=20261015k"></script>
 <script type="module">
-  import('/scripts/mediabunny.mjs?v=20261015j').then(function (MB) {
+  import('/scripts/mediabunny.mjs?v=20261015k').then(function (MB) {
     if (window.ClipEngine) window.ClipEngine.setMuxer(MB);
     var b = document.getElementById('btnExport');
     if (b && window.__clipReady && window.__clipInfo) { b.disabled = false; b.textContent = 'Export'; }
@@ -486,12 +491,152 @@
   }, 500);
   setTimeout(function () { clearInterval(muxPoll); }, 20000);
 
+  /* ---------- live layout fit (Edits-style) ----------
+     Every CSS mechanism for full-height (fixed inset:0,
+     -webkit-fill-available, 100dvh) has under-measured the real screen on
+     iOS: the column ended ~14% short with a dead band under the dock. So the
+     app measures the real viewport itself and fits the stage explicitly,
+     re-fitting whenever the column's height can change. All overrides are
+     inline styles; the flex CSS below remains the no-JS fallback. A fit bug
+     must never blank the editor, so everything here is defensive. */
+  var fitT = null, fitDragT = null, fitDiag = null;
+  function measuredVh() {
+    try {
+      if (window.visualViewport && typeof window.visualViewport.height === 'number' && window.visualViewport.height > 0)
+        return Math.round(window.visualViewport.height);
+    } catch (e) {}
+    return window.innerHeight || 0;
+  }
+  function isFittedMode() {
+    try { return document.documentElement.classList.contains('standalone'); } catch (e) { return false; }
+  }
+  function visibleH(el) {
+    if (!el) return 0;
+    try {
+      var cs = window.getComputedStyle(el);
+      if (!cs || cs.display === 'none' || cs.visibility === 'hidden') return 0;
+      return el.offsetHeight || 0;
+    } catch (e) { return 0; }
+  }
+  function updateFitDiag(vh) {
+    if (!fitDiag) return;
+    try {
+      var shell = document.querySelector('.cl-shell');
+      var lines = [
+        'mode: ' + (isFittedMode() ? 'standalone' : 'browser'),
+        'navigator.standalone: ' + (typeof navigator !== 'undefined' ? navigator.standalone : '?'),
+        'inner: ' + window.innerWidth + 'x' + window.innerHeight,
+        'visualViewport: ' + (window.visualViewport ? Math.round(window.visualViewport.height) : 'n/a'),
+        'screen: ' + (window.screen ? window.screen.height : 'n/a'),
+        'shell: ' + (shell ? shell.offsetHeight : '?'),
+        'stage: ' + visibleH($('stageZone')),
+        'dpr: ' + (window.devicePixelRatio || 1),
+        '(tap to dismiss)'
+      ];
+      fitDiag.textContent = lines.join('\n');
+    } catch (e) {}
+  }
+  function fitLayout() {
+    try {
+      var shell = document.querySelector('.cl-shell');
+      var zone = $('stageZone');
+      var app = $('app');
+      if (!shell || !zone) return;
+      if (app && app.classList.contains('hidden')) return; /* gate not passed yet */
+      var vh = measuredVh();
+      if (!vh || vh < 300) return; /* never fit to a garbage number */
+      if (isFittedMode()) {
+        /* pin the shell to the measured screen — overrides inset:0 sizing
+           when iOS reports a short layout viewport */
+        shell.style.height = vh + 'px';
+      }
+      var padTop = 0, padBottom = 0;
+      try {
+        var cs = window.getComputedStyle(shell);
+        padTop = parseFloat(cs.paddingTop) || 0;
+        padBottom = parseFloat(cs.paddingBottom) || 0;
+      } catch (e) {}
+      var chrome =
+        visibleH(document.querySelector('.cl-topbar')) +
+        visibleH($('stageBar')) +
+        visibleH(document.querySelector('.cl-transport')) +
+        visibleH($('timelineZone')) +
+        visibleH($('panelZone')) +
+        visibleH($('dock'));
+      var stageH = Math.round(vh - chrome - padTop - padBottom);
+      if (stageH < 240) stageH = 240;
+      zone.style.flex = '0 0 auto';
+      zone.style.height = stageH + 'px';
+      updateFitDiag(vh);
+    } catch (e) { /* fit is advisory — a fit bug must never blank the editor */ }
+  }
+  window.__fitLayout = fitLayout;
+  function requestFit() {
+    if (fitT) clearTimeout(fitT);
+    fitT = setTimeout(fitLayout, 50);
+  }
+  (function fitInit() {
+    try {
+      if (/[?&]diag=1/.test(window.location.search || '')) {
+        fitDiag = document.createElement('div');
+        fitDiag.id = 'fitDiag';
+        fitDiag.style.cssText = 'position:fixed;top:8px;left:8px;z-index:9999;font-family:monospace;font-size:10px;line-height:1.5;color:#8deb00;background:rgba(0,0,0,0.85);border:1px solid rgba(141,235,0,0.4);border-radius:8px;padding:8px 10px;white-space:pre;cursor:pointer;';
+        fitDiag.title = 'tap to dismiss';
+        fitDiag.addEventListener('click', function () { fitDiag.style.display = 'none'; });
+        document.body.appendChild(fitDiag);
+      }
+    } catch (e) {}
+    /* explicit triggers */
+    window.addEventListener('resize', function () {
+      try {
+        var shell = document.querySelector('.cl-shell');
+        if (shell) shell.classList.add('fit-drag');
+        if (fitDragT) clearTimeout(fitDragT);
+        fitDragT = setTimeout(function () {
+          var s = document.querySelector('.cl-shell');
+          if (s) s.classList.remove('fit-drag');
+        }, 160);
+      } catch (e) {}
+      requestFit();
+    });
+    window.addEventListener('orientationchange', requestFit);
+    try {
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', requestFit);
+    } catch (e) {}
+    try {
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { requestFit(); });
+    } catch (e) {}
+    /* backstop: any DOM change that can alter the column height re-fits.
+       Our own inline-style churn on shell/stageZone (and the diag box) is
+       filtered out so the observer can never loop on itself. */
+    try {
+      var shell = document.querySelector('.cl-shell');
+      if (shell && window.MutationObserver) {
+        var mo = new MutationObserver(function (muts) {
+          for (var i = 0; i < muts.length; i++) {
+            var m = muts[i], t = m.target;
+            if (t && (t === shell || t.id === 'stageZone' || t.id === 'fitDiag')) {
+              if (m.type === 'attributes' && m.attributeName === 'style') continue;
+            }
+            requestFit();
+            return;
+          }
+        });
+        mo.observe(shell, { childList: true, attributes: true, attributeFilter: ['class', 'style'], subtree: true });
+      }
+    } catch (e) {}
+    /* first fit once the gate reveals the app (class removal fires the
+       observer, but an explicit call covers the gate-failed path too) */
+    requestFit();
+  })();
+
   /* dock + panels */
   function switchPanel(name) {
     ['Trim', 'Text', 'Format'].forEach(function (n) {
       $('panel' + n).classList.toggle('active', n === name);
       $('dock' + n).classList.toggle('active', n === name);
     });
+    requestFit(); /* active panel height changes the column — re-fit the stage */
   }
   window.__switchPanel = switchPanel;
   ['Trim', 'Text', 'Format'].forEach(function (n) {
