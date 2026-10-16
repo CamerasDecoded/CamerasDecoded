@@ -535,7 +535,7 @@
 <div id="errBox"></div>
 
 <script src="/scripts/mp4box.js?v=20261015m"></script>
-<script src="/scripts/clip-engine.js?v=20261015m"></script>
+<script src="/scripts/clip-engine.js?v=20261015n"></script>
 <script src="/scripts/cd-upload.js?v=20261015m"></script>
 <script type="module">
   import('/scripts/mediabunny.mjs?v=20261015m').then(function (MB) {
@@ -631,6 +631,13 @@
         'dpr: ' + (window.devicePixelRatio || 1),
         'cv mine: ' + (window.__cvCheck && window.__cvCheck.mine ? window.__cvCheck.mine : '?'),
         'cv live: ' + (window.__cvCheck && window.__cvCheck.live ? window.__cvCheck.live : '?'),
+        (function () {
+          var d = window.__asrDiag;
+          if (!d) return 'asr: not run';
+          var p = function (x) { return (x == null || x < 0) ? 'n/a' : x.toFixed(4); };
+          return 'asr: ' + d.path + ' wa=' + p(d.peakWebAudio) + ' dec=' + p(d.peakDecoder) +
+                 ' peak=' + p(d.peak) + ' words=' + (d.words == null ? '?' : d.words);
+        })(),
         '(tap to dismiss)'
       ];
       fitDiag.textContent = lines.join('\n');
@@ -1450,6 +1457,32 @@
     asrModelReady = false;
   }
 
+  /* ---- ASR artifact filter ----
+     Whisper emits non-speech tokens for stretches without speech — [BLANK_AUDIO],
+     [Music], (silence) — and the tokenizer can surface them as bare words
+     ("blank"). They must never become captions: drop bracketed tokens and a
+     small denylist BEFORE cue building. Real words adjacent to artifacts stay. */
+  var ASR_NON_SPEECH = { blank_audio: 1, blank: 1, inaudible: 1, silence: 1 };
+  function isNonSpeechToken(t) {
+    var s = String(t == null ? '' : t);
+    if (/^\s*\[.*\]\s*$/.test(s) || /^\s*\(.*\)\s*$/.test(s)) return true;
+    return !!ASR_NON_SPEECH[s.toLowerCase().replace(/[^a-z0-9]/g, '')];
+  }
+  function filterSpeechWords(words) {
+    return (words || []).filter(function (w) { return w && !isNonSpeechToken(w.text); });
+  }
+  /* peak amplitude of the Float32 PCM that is actually fed to the recognizer.
+     Guards the (Safari-proven) case where the Web Audio extraction succeeds
+     but returns digital silence for a clip that has audio. */
+  function pcmPeak(pcm) {
+    var p = 0;
+    for (var i = 0; i < pcm.length; i++) { var a = Math.abs(pcm[i]); if (a > p) p = a; }
+    return p;
+  }
+  function refreshAsrDiag() {
+    try { if (typeof updateFitDiag === 'function') updateFitDiag(window.innerHeight); } catch (e) {}
+  }
+
   /* group word timings (full-clip seconds) into cues, mapped into trim space */
   function wordsToCues(words, trimIn, trimOut) {
     var cues = [], cur = null;
@@ -1533,9 +1566,15 @@
           var ad = queue.shift();
           if (!ad) { if (done) return finish(); return void setTimeout(pump, 8); }
           var frames = ad.numberOfFrames, ch = ad.numberOfChannels;
-          var pcm = new Float32Array(frames * ch);
-          try { ad.copyTo(pcm, { format: 'f32' }); }
-          catch (e) { ad.close(); return reject(e); }
+          var pcm = null;
+          try { pcm = (window.ClipEngine && window.ClipEngine.copyAudioF32) ? window.ClipEngine.copyAudioF32(ad) : null; }
+          catch (e) { pcm = null; }
+          if (!pcm) {
+            /* legacy Safari-style copyTo as a last resort (no engine helper) */
+            try { var fb = new Float32Array(frames * ch); ad.copyTo(fb, { format: 'f32' }); pcm = fb; }
+            catch (e2) {}
+          }
+          if (!pcm) { ad.close(); return reject(new Error('Could not read decoded audio.')); }
           for (var i = 0; i < frames; i++) {
             var sm = 0;
             for (var k = 0; k < ch; k++) sm += pcm[i * ch + k];
@@ -1561,11 +1600,17 @@
       var actx = new AC();
       try {
         var decoded = await actx.decodeAudioData(buf.slice(0));
-        if (decoded && decoded.length) return mixToMono(decoded);
+        if (decoded && decoded.length) {
+          var m = mixToMono(decoded);
+          m.path = 'webaudio';
+          return m;
+        }
       } catch (e) { /* fall through to the AudioDecoder path */ }
       finally { try { actx.close(); } catch (e2) {} }
     }
-    return await decodeAudioFallback(au);
+    var fb = await decodeAudioFallback(au);
+    fb.path = 'decoder';
+    return fb;
   }
   async function resample16k(mono) {
     var Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
@@ -1636,32 +1681,70 @@
       var t0 = Date.now();
       var words;
       if (window.__asrStub) {
-        /* harness path: injected word timings, no worker involved */
+        /* harness path: injected word timings, no audio/worker involved */
         words = window.__asrStub;
         await new Promise(function (r) { setTimeout(r, 10); });
+        state.asrWords = filterSpeechWords(words);
+        window.__asrDiag = { peakWebAudio: -1, peakDecoder: -1, path: 'stub',
+                             peak: -1, words: state.asrWords.length };
+        refreshAsrDiag();
       } else {
         asrStatus('Reading audio&hellip;', 'busy');
         var mono = await getMonoAudio();
         if (myRun !== asrRunId) return;
         var pcm16 = await resample16k(mono);
         if (myRun !== asrRunId) return;
-        var wk = getAsrWorker();
-        if (!asrModelReady) {
-          asrStatus('Downloading speech model&hellip;', 'busy');
-          wk.postMessage({ type: 'load' });
-          await waitForAsrReady();
+        /* Peak guard on the exact PCM the worker will get. Safari's
+           decodeAudioData can SUCCEED yet return digital silence for a clip
+           that has audio — retry through the demux+AudioDecoder chain (the
+           path the export work proved on this device class) rather than
+           another Web Audio variant. */
+        var peakWA = pcmPeak(pcm16), peakDec = null, pcmPath = mono.path || 'webaudio';
+        var hasAu = !!(state.info && state.info.audio && state.info.audio.samples &&
+                       state.info.audio.samples.length);
+        if (peakWA < 0.001 && hasAu && pcmPath === 'webaudio') {
+          try {
+            var mono2 = await decodeAudioFallback(state.info.audio);
+            if (myRun !== asrRunId) return;
+            var pcm2 = await resample16k(mono2);
+            peakDec = pcmPeak(pcm2);
+            if (peakDec >= 0.001) { pcm16 = pcm2; pcmPath = 'decoder'; }
+          } catch (e2) { /* keep the Web Audio result */ }
         }
-        if (myRun !== asrRunId) return;
-        asrStatus('Listening&hellip;', 'busy');
-        var doneP = new Promise(function (resolve, reject) { asrPending = { resolve: resolve, reject: reject }; });
-        wk.postMessage({ type: 'transcribe', pcm: pcm16 }, [pcm16.buffer]);
-        words = await doneP;
+        var effPeak = (pcmPath === 'decoder' && peakDec != null) ? peakDec : peakWA;
+        window.__asrDiag = { peakWebAudio: peakWA, peakDecoder: peakDec, path: pcmPath,
+                             peak: effPeak, words: 0 };
+        refreshAsrDiag();
+        if (effPeak < 0.001 && hasAu) {
+          asrStatus('The audio in this clip came through silent &mdash; nothing to transcribe.');
+          return;
+        }
+        if (window.__asrStubTranscribe) {
+          /* harness path: real audio extraction (peak guard exercised),
+             injected transcription words, no worker involved */
+          words = window.__asrStubTranscribe;
+          await new Promise(function (r) { setTimeout(r, 10); });
+        } else {
+          var wk = getAsrWorker();
+          if (!asrModelReady) {
+            asrStatus('Downloading speech model&hellip;', 'busy');
+            wk.postMessage({ type: 'load' });
+            await waitForAsrReady();
+          }
+          if (myRun !== asrRunId) return;
+          asrStatus('Listening&hellip;', 'busy');
+          var doneP = new Promise(function (resolve, reject) { asrPending = { resolve: resolve, reject: reject }; });
+          wk.postMessage({ type: 'transcribe', pcm: pcm16 }, [pcm16.buffer]);
+          words = await doneP;
+        }
+        state.asrWords = filterSpeechWords(words);
+        window.__asrDiag.words = state.asrWords.length;
+        refreshAsrDiag();
       }
       if (myRun !== asrRunId) return;
-      state.asrWords = words;
       rebuildAutoCues();
-      if (!words.length) {
-        asrStatus('No speech detected in this clip.');
+      if (!state.asrWords.length) {
+        asrStatus('No speech heard in this clip.');
       } else {
         var secs = Math.round((Date.now() - t0) / 1000);
         var autoCount = document.querySelectorAll('#capList [data-auto]').length;
