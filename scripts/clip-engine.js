@@ -291,7 +291,7 @@
     return { w: Math.round(sw * scale / 2) * 2, h: Math.round(sh * scale / 2) * 2 };
   }
 
-  function drawFrame(ctx, frame, dims, info, tRel, title, captions) {
+  function drawFrame(ctx, frame, dims, info, tRel, title, captions, capStyle) {
     var W = dims.w, H = dims.h;
     /* the decoded frame is in coded orientation; rotate it into the display
        orientation the <video> stage shows natively (canvas positive angle is
@@ -338,21 +338,115 @@
       if (tRel >= captions[i].start && tRel < captions[i].end) { cap = captions[i]; break; }
     }
     if (cap) {
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      var cfs = Math.round(W * 0.052);
-      ctx.font = '700 ' + cfs + 'px Montserrat, sans-serif';
-      var clines = wrapText(ctx, cap.text, W * 0.9);
-      var clh = cfs * 1.3;
-      var blockH = clines.length * clh + cfs * 0.7;
-      var by = H * 0.97 - blockH;
-      ctx.fillStyle = 'rgba(0,0,0,0.62)';
-      ctx.fillRect(0, by, W, blockH);
-      ctx.fillStyle = '#ffffff';
-      clines.forEach(function (ln, i2) { ctx.fillText(ln, W / 2, by + cfs * 0.35 + clh * (i2 + 0.5)); });
-      ctx.restore();
+      var cstyle = capStyle || 'classic';
+      if (cstyle === 'karaoke') drawCaptionKaraoke(ctx, cap, tRel, W, H);
+      else if (cstyle === 'clean') drawCaptionClean(ctx, cap, W, H);
+      else if (cstyle === 'block') drawCaptionBlock(ctx, cap, W, H);
+      else drawCaptionClassic(ctx, cap, W, H);
     }
+  }
+
+  /* word timings for export burn-in; mirrors the page's wordSlots helper */
+  function capWordSlots(cap) {
+    if (cap.words && cap.words.length) return cap.words;
+    var parts = String(cap.text || '').split(/\s+/).filter(Boolean);
+    var n = parts.length;
+    if (!n) return [];
+    var dur = Math.max(0.05, cap.end - cap.start) / n;
+    return parts.map(function (w, i) {
+      return { text: w, start: cap.start + i * dur, end: cap.start + (i + 1) * dur };
+    });
+  }
+
+  /* classic: the original pill, pixel-unchanged */
+  function drawCaptionClassic(ctx, cap, W, H) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    var cfs = Math.round(W * 0.052);
+    ctx.font = '700 ' + cfs + 'px Montserrat, sans-serif';
+    var clines = wrapText(ctx, cap.text, W * 0.9);
+    var clh = cfs * 1.3;
+    var blockH = clines.length * clh + cfs * 0.7;
+    var by = H * 0.97 - blockH;
+    ctx.fillStyle = 'rgba(0,0,0,0.62)';
+    ctx.fillRect(0, by, W, blockH);
+    ctx.fillStyle = '#ffffff';
+    clines.forEach(function (ln, i2) { ctx.fillText(ln, W / 2, by + cfs * 0.35 + clh * (i2 + 0.5)); });
+    ctx.restore();
+  }
+
+  /* karaoke: classic-style pill hugging the words, active word in brand green */
+  function drawCaptionKaraoke(ctx, cap, tRel, W, H) {
+    ctx.save();
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    var cfs = Math.round(W * 0.052);
+    var words = capWordSlots(cap);
+    function totalW() {
+      var t = 0;
+      words.forEach(function (w) { t += ctx.measureText(w.text).width; });
+      t += ctx.measureText(' ').width * Math.max(0, words.length - 1);
+      return t;
+    }
+    ctx.font = '700 ' + cfs + 'px Montserrat, sans-serif';
+    while (totalW() > W * 0.9 && cfs > 10) { cfs -= 1; ctx.font = '700 ' + cfs + 'px Montserrat, sans-serif'; }
+    var spaceW = ctx.measureText(' ').width;
+    var clh = cfs * 1.3;
+    var blockH = clh + cfs * 0.7;
+    var by = H * 0.97 - blockH;
+    var padX = Math.round(cfs * 0.9);
+    var bw = totalW() + padX * 2, bx = (W - bw) / 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.62)';
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(bx, by, bw, blockH, Math.round(cfs * 0.35)); ctx.fill(); }
+    else ctx.fillRect(bx, by, bw, blockH);
+    var ai = -1;
+    words.forEach(function (w, i) { if (tRel >= w.start && tRel < w.end) ai = i; });
+    var x = bx + padX, cy = by + blockH / 2;
+    words.forEach(function (w, i) {
+      ctx.fillStyle = (i === ai) ? '#8deb00' : '#ffffff';
+      ctx.fillText(w.text, x, cy);
+      x += ctx.measureText(w.text).width + spaceW;
+    });
+    ctx.restore();
+  }
+
+  /* clean: no pill, heavy white text with a soft dark shadow */
+  function drawCaptionClean(ctx, cap, W, H) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    var cfs = Math.round(W * 0.052);
+    ctx.font = '800 ' + cfs + 'px Montserrat, sans-serif';
+    ctx.shadowColor = 'rgba(0,0,0,0.85)';
+    ctx.shadowBlur = Math.round(cfs * 0.5);
+    ctx.shadowOffsetY = 2;
+    var clines = wrapText(ctx, cap.text, W * 0.9);
+    var clh = cfs * 1.3;
+    var by = H * 0.97 - clines.length * clh;
+    ctx.fillStyle = '#ffffff';
+    clines.forEach(function (ln, i) { ctx.fillText(ln, W / 2, by + clh * (i + 0.5)); });
+    ctx.restore();
+  }
+
+  /* block: solid brand-green bar hugging the text, black heavy uppercase */
+  function drawCaptionBlock(ctx, cap, W, H) {
+    ctx.save();
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    var cfs = Math.round(W * 0.052);
+    ctx.font = '800 ' + cfs + 'px Montserrat, sans-serif';
+    var text = String(cap.text || '').toUpperCase();
+    while (text.length > 4 && ctx.measureText(text).width > W * 0.8) text = text.slice(0, -2) + '…';
+    var tw = ctx.measureText(text).width;
+    var padX = Math.round(cfs * 1.0), padY = Math.round(cfs * 0.55);
+    var barH = cfs + padY * 2, barW = tw + padX * 2;
+    var bx = (W - barW) / 2, by = H * 0.97 - barH;
+    ctx.fillStyle = '#8deb00';
+    ctx.fillRect(bx, by, barW, barH);
+    ctx.fillStyle = '#0a0c08';
+    ctx.fillText(text, bx + padX, by + barH / 2);
+    ctx.restore();
   }
 
   function wrapText(ctx, text, maxW) {
@@ -527,7 +621,7 @@
       if (encoded > 0 && rawTs <= lastOutTs) { frame.close(); return; }
       var outTs = (encoded === 0) ? 0 : Math.max(rawTs, lastOutTs + 1000);
       lastOutTs = outTs;
-      drawFrame(ctx, frame, dims, info, tRel, title, captions);
+      drawFrame(ctx, frame, dims, info, tRel, title, captions, opts.captionStyle);
       frame.close();
       /* encode the COMPOSITED canvas (video + title + captions), not the raw frame */
       var nf = new VideoFrame(canvas, { timestamp: outTs, duration: Math.round(1e6 / fps) });

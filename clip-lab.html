@@ -205,6 +205,28 @@
     pointer-events: none; text-align: center;
   }
   #capOverlay span { display: inline-block; font-weight: 700; font-size: 15px; color: #fff; background: rgba(0,0,0,0.62); padding: 6px 14px; border-radius: 8px; margin-bottom: 8px; max-width: 92%; }
+  /* caption styles: preview overlay variants (classic = the rule above) */
+  #capOverlay[data-style="clean"] span { background: none; font-weight: 800; text-shadow: 0 1px 10px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.9); padding: 6px 8px; }
+  #capOverlay[data-style="block"] span { background: #8deb00; color: #0a0c08; font-weight: 800; text-transform: uppercase; border-radius: 4px; padding: 8px 16px; text-align: left; }
+  #capOverlay[data-style="karaoke"] span .w { color: #fff; }
+  #capOverlay[data-style="karaoke"] span .w.w-on { color: #8deb00; }
+  /* text panel: auto-captions + style picker (same vocabulary as the rest of the panel) */
+  .cl-btn.cl-primary { background: #8deb00; color: #0a0c08; font-weight: 700; border: none; }
+  .cl-btn.cl-primary:disabled { opacity: .5; }
+  .asr-status { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-top: 6px; min-height: 17px; line-height: 1.5; }
+  .asr-status.busy { color: #8deb00; }
+  .asr-status.err { color: #ff9d7a; }
+  .style-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 2px; }
+  .style-chips button { padding: 9px 4px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: var(--text-dim); font-family: var(--mono); font-size: 10.5px; letter-spacing: .02em; cursor: pointer; }
+  .style-chips button.active { border-color: rgba(141,235,0,0.6); color: #8deb00; background: rgba(141,235,0,0.08); }
+  .style-preview { margin-top: 10px; min-height: 48px; display: flex; align-items: flex-end; justify-content: center; text-align: center; }
+  .style-preview > span { display: inline-block; font-weight: 700; font-size: 14px; color: #fff; background: rgba(0,0,0,0.62); padding: 6px 14px; border-radius: 8px; max-width: 94%; }
+  .style-preview[data-style="clean"] > span { background: none; font-weight: 800; text-shadow: 0 1px 10px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.9); padding: 6px 8px; }
+  .style-preview[data-style="block"] > span { background: #8deb00; color: #0a0c08; font-weight: 800; text-transform: uppercase; border-radius: 4px; padding: 8px 16px; }
+  .style-preview[data-style="karaoke"] > span .w.w-on { color: #8deb00; }
+  .cap-row[data-auto] .cap-text { opacity: .7; }
+  .cap-auto-tag { font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; color: #8deb00; text-transform: uppercase; align-self: center; margin: 0 2px; white-space: nowrap; }
+  .asr-note { margin-top: 10px; font-size: 10.5px; color: var(--text-faint); line-height: 1.55; }
   /* stills note: slim pill overlaid at the stage's top (stills mode only —
      the stage stays 100% picture in normal mode) */
   #stillsNote {
@@ -380,7 +402,7 @@
 <div class="cl-shell">
 
   <header class="cl-topbar">
-    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015l" alt="Clip Lab"
+    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015m" alt="Clip Lab"
          onerror="this.style.display='none';var f=document.getElementById('clTitleFallback');if(f)f.hidden=false;">
     <h1 class="cl-title-fallback" id="clTitleFallback" hidden>CLIP <span class="accent">LAB</span></h1>
     <span class="cl-kicker">Trim · Caption · Ship</span>
@@ -457,6 +479,18 @@
         <input class="cl-input" id="titleInput" type="text" maxlength="80" placeholder="Title card — shown for the first 2 seconds">
         <div id="capList"></div>
         <button class="cl-btn cl-add" id="btnAddCap">Add caption line</button>
+        <div class="plabel" style="margin-top:12px">Auto-captions</div>
+        <button class="cl-btn cl-primary" id="btnAutoCap">Auto-captions from speech</button>
+        <div id="asrStatus" class="asr-status" aria-live="polite"></div>
+        <div class="plabel" style="margin-top:12px">Caption style</div>
+        <div class="style-chips" id="styleChips">
+          <button type="button" data-style="classic" class="active">Classic</button>
+          <button type="button" data-style="karaoke">Karaoke</button>
+          <button type="button" data-style="clean">Clean</button>
+          <button type="button" data-style="block">Block</button>
+        </div>
+        <div id="stylePreview" class="style-preview" data-style="classic"></div>
+        <div class="asr-note">Speech is transcribed on your device &mdash; nothing is uploaded.</div>
       </div>
 
       <div class="cl-panel" id="panelFormat">
@@ -500,11 +534,11 @@
 
 <div id="errBox"></div>
 
-<script src="/scripts/mp4box.js?v=20261015l"></script>
-<script src="/scripts/clip-engine.js?v=20261015l"></script>
-<script src="/scripts/cd-upload.js?v=20261015l"></script>
+<script src="/scripts/mp4box.js?v=20261015m"></script>
+<script src="/scripts/clip-engine.js?v=20261015m"></script>
+<script src="/scripts/cd-upload.js?v=20261015m"></script>
 <script type="module">
-  import('/scripts/mediabunny.mjs?v=20261015l').then(function (MB) {
+  import('/scripts/mediabunny.mjs?v=20261015m').then(function (MB) {
     if (window.ClipEngine) window.ClipEngine.setMuxer(MB);
     var b = document.getElementById('btnExport');
     if (b && window.__clipReady && window.__clipInfo) { b.disabled = false; b.textContent = 'Export'; }
@@ -518,7 +552,11 @@
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
-  var state = { file: null, info: null, url: null, format: 'original', captions: [], trimIn: 0, trimOut: 0, duration: 0, thumbs: [] };
+  var state = { file: null, info: null, url: null, format: 'original', captions: [], trimIn: 0, trimOut: 0, duration: 0, thumbs: [], captionStyle: 'classic', asrWords: null, asrRunning: false };
+  try {
+    var pcs = localStorage.getItem('cd_caption_style');
+    if (pcs === 'karaoke' || pcs === 'clean' || pcs === 'block') state.captionStyle = pcs;
+  } catch (e) {}
   window.__clipReady = false;
 
   function fmt(t) {
@@ -732,6 +770,12 @@
       state.duration = v.duration || 0;
       state.trimIn = 0;
       state.trimOut = state.duration;
+      /* a new clip drops any previous transcription */
+      state.asrWords = null;
+      killAsrWorker();
+      state.asrRunning = false; setAutoBtn(false);
+      asrStatus('');
+      Array.prototype.slice.call($('capList').querySelectorAll('[data-auto]')).forEach(function (r) { r.remove(); });
       state.stillsMode = false;
       $('stillsNote').classList.add('hidden');
       $('clipLabel').querySelector('span').textContent = fmt(state.duration);
@@ -870,6 +914,7 @@
     $('trimInVal').textContent = fmt(state.trimIn);
     $('trimOutVal').textContent = fmt(state.trimOut);
     $('trimDur').textContent = 'Exporting ' + fmt(state.trimOut - state.trimIn) + ' of ' + fmt(state.duration);
+    rebuildAutoCues();
     drawTimeline();
     renderTextChips();
     updateOverlays();
@@ -1077,9 +1122,62 @@
   function capAt(t) {
     for (var i = 0; i < state.captions.length; i++) {
       var c = state.captions[i];
-      if (t >= c.start && t < c.end) return c.text;
+      if (t >= c.start && t < c.end) return c;
     }
     return null;
+  }
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  /* word timings for a cue, in trim-space seconds. Auto captions carry real
+     word timings; hand-typed captions get even synthetic slots across the cue. */
+  function wordSlots(cap) {
+    if (cap.words && cap.words.length) return cap.words;
+    var parts = String(cap.text || '').split(/\s+/).filter(Boolean);
+    var n = parts.length;
+    if (!n) return [];
+    var dur = Math.max(0.05, cap.end - cap.start) / n;
+    return parts.map(function (w, i) {
+      return { text: w, start: cap.start + i * dur, end: cap.start + (i + 1) * dur };
+    });
+  }
+  function activeWordIndex(words, t) {
+    for (var i = 0; i < words.length; i++) {
+      if (t >= words[i].start && t < words[i].end) return i;
+    }
+    return -1;
+  }
+  function renderCueOverlay(co, cap, t) {
+    var el = $('capOverlayText');
+    var style = state.captionStyle || 'classic';
+    if (co._cue !== cap || co._style !== style) {
+      /* rebuild only when the cue or the style changes */
+      el.innerHTML = '';
+      var words = wordSlots(cap);
+      if (style === 'karaoke') {
+        words.forEach(function (w) {
+          var s = document.createElement('span');
+          s.className = 'w'; s.textContent = w.text;
+          el.appendChild(s);
+          el.appendChild(document.createTextNode(' '));
+        });
+      } else {
+        el.textContent = cap.text;
+      }
+      co.setAttribute('data-style', style);
+      co._cue = cap; co._style = style; co._words = words; co._ai = -2;
+    }
+    if (style === 'karaoke') {
+      var ai = activeWordIndex(co._words || [], t);
+      if (ai !== co._ai) {
+        var kids = el.querySelectorAll('.w');
+        if (co._ai >= 0 && kids[co._ai]) kids[co._ai].classList.remove('w-on');
+        if (ai >= 0 && kids[ai]) kids[ai].classList.add('w-on');
+        co._ai = ai;
+      }
+    }
   }
   function updateOverlays() {
     var t = stage.currentTime - state.trimIn;
@@ -1087,10 +1185,10 @@
     var to = $('titleOverlay');
     if (ti && t >= 0 && t < 2.0) { to.style.display = 'flex'; $('titleOverlayText').textContent = ti; }
     else to.style.display = 'none';
-    var ct = t >= 0 ? capAt(t) : null;
+    var cap = t >= 0 ? capAt(t) : null;
     var co = $('capOverlay');
-    if (ct) { co.style.display = 'block'; $('capOverlayText').textContent = ct; }
-    else co.style.display = 'none';
+    if (cap) { co.style.display = 'block'; renderCueOverlay(co, cap, t); }
+    else { co.style.display = 'none'; co._cue = null; co._ai = null; }
   }
 
   /* ---- text track chips ---- */
@@ -1275,7 +1373,7 @@
   window.__testThumbsFromDecoder = window.paintStillsFromDecoder;
 
   /* captions */
-  function addCapRow(text, start, end) {
+  function addCapRow(text, start, end, words) {
     var row = document.createElement('div');
     row.className = 'cap-row';
     row.innerHTML = '<input class="cl-input cap-text" type="text" maxlength="90" placeholder="Caption text">' +
@@ -1284,8 +1382,18 @@
       '<button class="cap-x" aria-label="Remove caption">&times;</button>';
     var inputs = row.querySelectorAll('input');
     if (text) inputs[0].value = text;
-    inputs[1].value = start != null ? start : '';
-    inputs[2].value = end != null ? end : '';
+    inputs[1].value = start != null ? Math.round(start * 10) / 10 : '';
+    inputs[2].value = end != null ? Math.round(end * 10) / 10 : '';
+    if (words) {
+      /* auto-generated cue: word timings ride along on the row so trim
+         rebuilds and exports keep them; the text is display-only */
+      row.setAttribute('data-auto', '1');
+      row._words = words;
+      inputs[0].disabled = true;
+      var tag = document.createElement('span');
+      tag.className = 'cap-auto-tag'; tag.textContent = 'auto';
+      row.insertBefore(tag, row.querySelector('.cap-x'));
+    }
     row.querySelector('.cap-x').addEventListener('click', function () { row.remove(); syncCaptions(); });
     Array.prototype.forEach.call(inputs, function (inp) {
       inp.addEventListener('input', syncCaptions);
@@ -1300,18 +1408,339 @@
       var text = inputs[0].value.trim();
       var s = parseFloat(inputs[1].value), e = parseFloat(inputs[2].value);
       if (!text || isNaN(s) || isNaN(e) || e <= s) return;
-      out.push({
+      var cue = {
         text: text,
         start: Math.max(0, Math.min(s, state.trimOut - state.trimIn)),
         end: Math.max(0.1, Math.min(e, state.trimOut - state.trimIn))
-      });
+      };
+      if (row.hasAttribute('data-auto') && row._words) cue.words = row._words;
+      out.push(cue);
     });
     out.sort(function (a, b) { return a.start - b.start; });
     state.captions = out;
     renderTextChips();
+    renderStylePreview();
   }
   $('btnAddCap').addEventListener('click', function () { addCapRow(); });
   $('titleInput').addEventListener('input', function () { renderTextChips(); updateOverlays(); });
+
+  /* ---- auto-captions: on-device speech recognition (Whisper tiny.en) ----
+     The heavy lifting runs in scripts/clip-asr-worker.js (module worker,
+     transformers.js pinned CDN, single-threaded ONNX). This side prepares
+     16kHz mono audio, drives the worker, and turns word timings into cues.
+     window.__asrStub (array of {text,start,end}) bypasses the worker for
+     harness verification when the model CDN is unreachable. */
+  var ASR_WORKER_URL = '/scripts/clip-asr-worker.js?v=20261015m';
+  var asrWorker = null, asrRunId = 0, asrModelReady = false;
+  var asrPending = null, asrLoadWait = null;
+
+  function asrStatus(html, cls) {
+    var el = $('asrStatus');
+    el.innerHTML = html || '';
+    el.className = 'asr-status' + (cls ? ' ' + cls : '');
+  }
+  function setAutoBtn(busy) {
+    var b = $('btnAutoCap');
+    b.disabled = !!busy;
+    b.textContent = busy ? 'Stop' : 'Auto-captions from speech';
+  }
+  function killAsrWorker() {
+    asrRunId++;
+    if (asrWorker) { try { asrWorker.terminate(); } catch (e) {} asrWorker = null; }
+    asrModelReady = false;
+  }
+
+  /* group word timings (full-clip seconds) into cues, mapped into trim space */
+  function wordsToCues(words, trimIn, trimOut) {
+    var cues = [], cur = null;
+    function flush() {
+      if (cur && cur.words.length) {
+        cues.push({
+          start: cur.words[0].start,
+          end: cur.words[cur.words.length - 1].end,
+          text: cur.words.map(function (w) { return w.text; }).join(' '),
+          words: cur.words
+        });
+      }
+      cur = null;
+    }
+    (words || []).forEach(function (w) {
+      if (!(w.end > trimIn) || !(w.start < trimOut)) return;
+      var span = Math.max(0.01, trimOut - trimIn);
+      var s = Math.max(0, Math.min(span, w.start - trimIn));
+      var e = Math.max(0, Math.min(span, w.end - trimIn));
+      if (!(e > s)) return;
+      if (cur && cur.words.length) {
+        var prev = cur.words[cur.words.length - 1];
+        if ((s - prev.end) > 0.5 || /[.!?…]$/.test(prev.text) ||
+            cur.words.length >= 6 || (e - cur.words[0].start) > 2.4) flush();
+      }
+      if (!cur) cur = { words: [] };
+      cur.words.push({ text: w.text, start: s, end: e });
+    });
+    flush();
+    return cues;
+  }
+
+  /* rebuild auto cue rows from the stored word list (no re-transcription);
+     called on every trim change via syncTrimLabels */
+  function rebuildAutoCues() {
+    if (!state.asrWords || !state.asrWords.length) return;
+    var cues = wordsToCues(state.asrWords, state.trimIn, state.trimOut);
+    var list = $('capList');
+    Array.prototype.slice.call(list.querySelectorAll('[data-auto]')).forEach(function (r) { r.remove(); });
+    cues.forEach(function (c) { addCapRow(c.text, c.start, c.end, c.words); });
+    syncCaptions();
+  }
+
+  /* 16kHz mono Float32 for the recognizer: Web Audio first, the engine's
+     demuxed audio samples through AudioDecoder as fallback */
+  function mixToMono(ab) {
+    var n = ab.length, nCh = ab.numberOfChannels;
+    var mono = new Float32Array(n);
+    for (var c = 0; c < nCh; c++) {
+      var d = ab.getChannelData(c);
+      for (var i = 0; i < n; i++) mono[i] += d[i] / nCh;
+    }
+    return { samples: mono, sampleRate: ab.sampleRate };
+  }
+  function decodeAudioFallback(au) {
+    return new Promise(function (resolve, reject) {
+      try {
+        var queue = [], done = false, failed = null;
+        var dec = new AudioDecoder({
+          output: function (ad) { queue.push(ad); },
+          error: function (e) { failed = e; }
+        });
+        dec.configure({
+          codec: au.codec || 'mp4a.40.2',
+          sampleRate: au.sampleRate, numberOfChannels: au.channels,
+          description: au.asc
+        });
+        var at = au.timescale || au.sampleRate || 44100;
+        au.samples.forEach(function (s) {
+          dec.decode(new EncodedAudioChunk({
+            type: 'key',
+            timestamp: Math.round(s.dts * 1e6 / at),
+            duration: Math.max(1, Math.round(s.duration * 1e6 / at)),
+            data: s.data
+          }));
+        });
+        dec.flush().then(function () { done = true; }).catch(function (e) { failed = e; });
+        var parts = [];
+        (function pump() {
+          if (failed) { try { dec.close(); } catch (e) {} return reject(failed); }
+          var ad = queue.shift();
+          if (!ad) { if (done) return finish(); return void setTimeout(pump, 8); }
+          var frames = ad.numberOfFrames, ch = ad.numberOfChannels;
+          var pcm = new Float32Array(frames * ch);
+          try { ad.copyTo(pcm, { format: 'f32' }); }
+          catch (e) { ad.close(); return reject(e); }
+          for (var i = 0; i < frames; i++) {
+            var sm = 0;
+            for (var k = 0; k < ch; k++) sm += pcm[i * ch + k];
+            parts.push(sm / ch);
+          }
+          ad.close();
+          pump();
+        })();
+        function finish() {
+          try { dec.close(); } catch (e) {}
+          resolve({ samples: new Float32Array(parts), sampleRate: au.sampleRate });
+        }
+      } catch (e) { reject(e); }
+    });
+  }
+  async function getMonoAudio() {
+    if (!state.file) throw new Error('Load a clip first.');
+    var au = state.info && state.info.audio;
+    if (!au || !au.samples || !au.samples.length) throw new Error('No audio track in this clip');
+    var buf = await state.file.arrayBuffer();
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) {
+      var actx = new AC();
+      try {
+        var decoded = await actx.decodeAudioData(buf.slice(0));
+        if (decoded && decoded.length) return mixToMono(decoded);
+      } catch (e) { /* fall through to the AudioDecoder path */ }
+      finally { try { actx.close(); } catch (e2) {} }
+    }
+    return await decodeAudioFallback(au);
+  }
+  async function resample16k(mono) {
+    var Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!Offline) throw new Error('Audio processing is not available on this browser.');
+    var n = Math.max(1, Math.ceil(mono.samples.length * 16000 / mono.sampleRate));
+    var oc = new Offline(1, n, 16000);
+    var b = oc.createBuffer(1, mono.samples.length, mono.sampleRate);
+    b.getChannelData(0).set(mono.samples);
+    var src = oc.createBufferSource();
+    src.buffer = b; src.connect(oc.destination); src.start(0);
+    var out = await oc.startRendering();
+    return out.getChannelData(0);
+  }
+
+  function getAsrWorker() {
+    if (asrWorker) return asrWorker;
+    asrWorker = new Worker(ASR_WORKER_URL, { type: 'module' });
+    asrWorker.onmessage = onAsrMessage;
+    asrWorker.onerror = function () {
+      onAsrMessage({ data: { type: 'error', message: 'The speech worker could not start.' } });
+    };
+    return asrWorker;
+  }
+  function onAsrMessage(ev) {
+    var m = (ev && ev.data) || {};
+    if (m.type === 'ready') {
+      asrModelReady = true;
+      if (asrLoadWait) { var w = asrLoadWait; asrLoadWait = null; w.resolve(); }
+      return;
+    }
+    if (m.type === 'error') {
+      var msg = m.message || 'Speech recognition failed.';
+      if (asrLoadWait) { var w2 = asrLoadWait; asrLoadWait = null; w2.reject(new Error(msg)); return; }
+      var p = asrPending; asrPending = null;
+      if (p) p.reject(new Error(msg));
+      return;
+    }
+    var q = asrPending;
+    if (!q) return;
+    if (m.type === 'model-progress') {
+      asrStatus('Downloading speech model&hellip; ' + (m.pct != null ? m.pct + '%' : Math.round((m.loaded || 0) / 1024) + ' KB'), 'busy');
+    } else if (m.type === 'transcribe-progress') {
+      asrStatus('Listening&hellip;' + (m.pct != null ? ' ' + m.pct + '%' : ''), 'busy');
+    } else if (m.type === 'result') {
+      asrPending = null; q.resolve(m.words || []);
+    }
+  }
+  function waitForAsrReady() {
+    return new Promise(function (resolve, reject) {
+      if (asrModelReady) return resolve();
+      asrLoadWait = { resolve: resolve, reject: reject };
+      setTimeout(function () {
+        if (asrLoadWait) { asrLoadWait = null; reject(new Error('The speech model took too long to load.')); }
+      }, 240000);
+    });
+  }
+
+  async function runAutoCaptions() {
+    if (state.asrRunning) return;
+    if (!state.file) { showErr('Load a clip first.'); return; }
+    if (!window.Worker) { asrStatus('Web workers are not available in this browser.', 'err'); return; }
+    var trimLen = state.trimOut - state.trimIn;
+    if (!(trimLen > 0.5)) { asrStatus('Set a trim range first.', 'err'); return; }
+    var myRun = ++asrRunId;
+    state.asrRunning = true; setAutoBtn(true); hideErr();
+    try {
+      if (trimLen > 180) asrStatus('Long clip &mdash; transcription can take a while.', 'busy');
+      var t0 = Date.now();
+      var words;
+      if (window.__asrStub) {
+        /* harness path: injected word timings, no worker involved */
+        words = window.__asrStub;
+        await new Promise(function (r) { setTimeout(r, 10); });
+      } else {
+        asrStatus('Reading audio&hellip;', 'busy');
+        var mono = await getMonoAudio();
+        if (myRun !== asrRunId) return;
+        var pcm16 = await resample16k(mono);
+        if (myRun !== asrRunId) return;
+        var wk = getAsrWorker();
+        if (!asrModelReady) {
+          asrStatus('Downloading speech model&hellip;', 'busy');
+          wk.postMessage({ type: 'load' });
+          await waitForAsrReady();
+        }
+        if (myRun !== asrRunId) return;
+        asrStatus('Listening&hellip;', 'busy');
+        var doneP = new Promise(function (resolve, reject) { asrPending = { resolve: resolve, reject: reject }; });
+        wk.postMessage({ type: 'transcribe', pcm: pcm16 }, [pcm16.buffer]);
+        words = await doneP;
+      }
+      if (myRun !== asrRunId) return;
+      state.asrWords = words;
+      rebuildAutoCues();
+      if (!words.length) {
+        asrStatus('No speech detected in this clip.');
+      } else {
+        var secs = Math.round((Date.now() - t0) / 1000);
+        var autoCount = document.querySelectorAll('#capList [data-auto]').length;
+        asrStatus(autoCount + ' caption' + (autoCount === 1 ? '' : 's') + ' added' + (window.__asrStub ? ' (test).' : ' (' + secs + 's).'));
+      }
+    } catch (err) {
+      var msg = (err && err.message) ? err.message : String(err);
+      if (msg === 'cancelled') { asrStatus('Cancelled.'); }
+      else {
+        asrStatus(escHtml(msg), 'err');
+        if (/download|network|fetch|took too long|not start/i.test(msg)) {
+          showErr('The speech model could not be downloaded — check your connection and try again.');
+        } else if (/^No audio track/.test(msg)) {
+          showErr(msg + '.');
+        }
+      }
+    } finally {
+      if (myRun === asrRunId) { state.asrRunning = false; setAutoBtn(false); }
+    }
+  }
+  $('btnAutoCap').addEventListener('click', function () {
+    if (state.asrRunning) {
+      killAsrWorker();
+      state.asrRunning = false; setAutoBtn(false);
+      if (asrPending) { var p = asrPending; asrPending = null; p.reject(new Error('cancelled')); }
+      if (asrLoadWait) { var w = asrLoadWait; asrLoadWait = null; w.reject(new Error('cancelled')); }
+      asrStatus('Cancelled.');
+      return;
+    }
+    runAutoCaptions();
+  });
+
+  /* ---- caption style ---- */
+  function setCaptionStyle(s, silent) {
+    if (s !== 'karaoke' && s !== 'clean' && s !== 'block') s = 'classic';
+    state.captionStyle = s;
+    try { localStorage.setItem('cd_caption_style', s); } catch (e) {}
+    Array.prototype.forEach.call($('styleChips').children, function (b) {
+      b.classList.toggle('active', b.getAttribute('data-style') === s);
+    });
+    renderStylePreview();
+    if (!silent) { var co = $('capOverlay'); co._cue = null; updateOverlays(); }
+  }
+  function renderStylePreview() {
+    var p = $('stylePreview');
+    if (!p) return;
+    var s = state.captionStyle || 'classic';
+    p.setAttribute('data-style', s);
+    var cap = state.captions[0] || { text: 'Your caption will look like this', start: 0, end: 2 };
+    var words = wordSlots(cap);
+    p.innerHTML = '';
+    var sp = document.createElement('span');
+    if (s === 'karaoke' && words.length) {
+      words.forEach(function (w, i) {
+        var ws = document.createElement('span');
+        ws.className = 'w' + (i === 0 ? ' w-on' : '');
+        ws.textContent = w.text;
+        sp.appendChild(ws);
+        sp.appendChild(document.createTextNode(i < words.length - 1 ? ' ' : ''));
+      });
+    } else {
+      sp.textContent = cap.text;
+    }
+    p.appendChild(sp);
+  }
+  Array.prototype.forEach.call($('styleChips').children, function (b) {
+    b.addEventListener('click', function () { setCaptionStyle(b.getAttribute('data-style')); });
+  });
+  setCaptionStyle(state.captionStyle, true);
+
+  /* test hooks (harness): words(), running(), cues builder, style, manual run */
+  window.__asr = {
+    words: function () { return state.asrWords; },
+    running: function () { return state.asrRunning; },
+    cues: wordsToCues,
+    style: function () { return state.captionStyle; },
+    setStyle: setCaptionStyle,
+    run: runAutoCaptions
+  };
 
   /* format segmented */
   Array.prototype.forEach.call($('fmtSeg').querySelectorAll('button'), function (b) {
@@ -1349,6 +1778,7 @@
         trimEnd: state.trimOut,
         title: $('titleInput').value,
         captions: state.captions,
+        captionStyle: state.captionStyle,
         format: state.format,
         onProgress: function (p) {
           var pct = Math.round(p * 100);
