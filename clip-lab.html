@@ -131,10 +131,16 @@
     max-width: 560px;
     margin: 0 auto;
   }
-  /* standalone mode: fixed no-scroll shell, fitted to the real screen */
+  /* standalone mode: fixed no-scroll shell, fitted to the real screen.
+     The shell carries NO bottom padding here: #dock already pads its own
+     content with env(safe-area-inset-bottom), so its surface reaches the
+     shell's bottom edge like a native tab bar instead of stranding a band
+     of bare shell background under the dock. (Browser mode keeps the shell
+     padding below.) */
   html.standalone .cl-shell {
     position: fixed; inset: 0;
     min-height: -webkit-fill-available;
+    padding-bottom: 0;
   }
   /* in browser mode the stage keeps AT LEAST its standalone-target height and
      absorbs any slack (no dead band under the dock); when a tall panel opens
@@ -188,22 +194,13 @@
   .sb-clip b { color: var(--text); font-weight: 700; }
   .cl-export-pill {
     position: relative; flex-shrink: 0;
-    font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
     color: #061003; background: var(--green); border: none; border-radius: 999px;
-    height: 30px; padding: 0 14px; cursor: pointer; line-height: 1;
+    height: 28px; padding: 0 11px; cursor: pointer; line-height: 1;
     display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
   }
   .cl-export-pill[hidden] { display: none !important; }
   .cl-export-pill:disabled { opacity: 0.5; cursor: default; }
-  .cl-export-pill.chase::after {
-    content: ''; position: absolute; inset: -3px; border-radius: 999px; pointer-events: none;
-    background: conic-gradient(from var(--a, 0deg), transparent 0 70%, rgba(141,235,0,0.9) 82%, transparent 94%);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor; mask-composite: exclude; padding: 2px;
-    animation: chase 2.4s linear infinite;
-  }
-  @property --a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-  @keyframes chase { to { --a: 360deg; } }
   #titleOverlay {
     position: absolute; inset: 0; display: none;
     align-items: center; justify-content: center;
@@ -412,12 +409,12 @@
 <div class="cl-shell">
 
   <header class="cl-topbar">
-    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015p" alt="Clip Lab"
+    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015q" alt="Clip Lab"
          onerror="this.style.display='none';var f=document.getElementById('clTitleFallback');if(f)f.hidden=false;">
     <h1 class="cl-title-fallback" id="clTitleFallback" hidden>CLIP <span class="accent">LAB</span></h1>
     <span class="cl-kicker">Trim · Caption · Ship</span>
     <span class="t-spacer"></span>
-    <button class="cl-export-pill chase" id="btnExport" hidden disabled>Loading…</button>
+    <button class="cl-export-pill" id="btnExport" hidden disabled>Loading…</button>
   </header>
 
   <div id="gate" class="cl-card">
@@ -546,11 +543,11 @@
 
 <div id="errBox"></div>
 
-<script src="/scripts/mp4box.js?v=20261015p"></script>
-<script src="/scripts/clip-engine.js?v=20261015p"></script>
-<script src="/scripts/cd-upload.js?v=20261015p"></script>
+<script src="/scripts/mp4box.js?v=20261015q"></script>
+<script src="/scripts/clip-engine.js?v=20261015q"></script>
+<script src="/scripts/cd-upload.js?v=20261015q"></script>
 <script type="module">
-  import('/scripts/mediabunny.mjs?v=20261015p').then(function (MB) {
+  import('/scripts/mediabunny.mjs?v=20261015q').then(function (MB) {
     if (window.ClipEngine) window.ClipEngine.setMuxer(MB);
     var b = document.getElementById('btnExport');
     if (b && window.__clipReady && window.__clipInfo) { b.disabled = false; b.textContent = 'Export'; }
@@ -1534,7 +1531,7 @@
      16kHz mono audio, drives the worker, and turns word timings into cues.
      window.__asrStub (array of {text,start,end}) bypasses the worker for
      harness verification when the model CDN is unreachable. */
-  var ASR_WORKER_URL = '/scripts/clip-asr-worker.js?v=20261015p';
+  var ASR_WORKER_URL = '/scripts/clip-asr-worker.js?v=20261015q';
   var asrWorker = null, asrRunId = 0, asrModelReady = false;
   var asrPending = null, asrLoadWait = null;
 
@@ -1945,7 +1942,6 @@
     switchPanel('Format');
     var btn = this;
     btn.disabled = true;
-    btn.classList.remove('chase');
     btn.textContent = 'Working…';
     $('exportProg').style.display = 'block';
     $('exportBar').style.width = '0%';
@@ -1980,7 +1976,6 @@
       showErr(err && err.message ? err.message : 'Export failed.');
     }
     btn.disabled = false;
-    btn.classList.add('chase');
     btn.textContent = 'Export';
   });
 
