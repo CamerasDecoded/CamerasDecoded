@@ -3,6 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<script>
+/* installed-app detection BEFORE first paint: the installed (standalone)
+   build is the primary surface — fitted, no-scroll, stage-maximized.
+   Browser users get the same layout and may scroll. ?standalone=1 forces it. */
+(function(){try{
+  var mm = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+  var ios = (typeof navigator !== 'undefined') && navigator.standalone === true;
+  if (mm || ios || /[?&]standalone=1/.test(location.search))
+    document.documentElement.classList.add('standalone');
+}catch(e){}})();
+</script>
 <title>Clip Lab — Cameras Decoded</title>
 <meta name="description" content="Trim it. Caption it. Ship it. On-device clip finishing for Cameras Decoded videographers.">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -20,7 +31,11 @@
     --sans: 'Montserrat', sans-serif;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; overscroll-behavior: none; }
+  /* iOS standalone sizing chain: -webkit-fill-available is the canonical
+     cure for the standalone web view under-measuring its viewport
+     (the installed app rendered the shell at ~85% height despite
+     position:fixed inset:0 in the wild) */
+  html, body { height: 100%; height: -webkit-fill-available; overscroll-behavior: none; }
   body {
     background: var(--dark);
     color: var(--text);
@@ -31,8 +46,10 @@
     padding: 0 !important;
     overflow: hidden;
   }
+  /* browser mode (default): the page flows and may scroll */
+  html:not(.standalone) body { overflow-y: auto; overflow-x: hidden; }
   .cl-shell {
-    position: fixed; inset: 0;
+    position: relative; height: auto; min-height: 100dvh;
     display: flex;
     flex-direction: column;
     padding-top: env(safe-area-inset-top, 0px);
@@ -40,6 +57,15 @@
     max-width: 560px;
     margin: 0 auto;
   }
+  /* standalone mode: fixed no-scroll shell, fitted to the real screen */
+  html.standalone .cl-shell {
+    position: fixed; inset: 0;
+    min-height: -webkit-fill-available;
+  }
+  /* in browser mode the stage keeps AT LEAST its standalone-target height and
+     absorbs any slack (no dead band under the dock); when a tall panel opens
+     the stage holds its floor and the page scrolls instead */
+  html:not(.standalone) #stageZone { flex: 1 1 auto; height: auto; min-height: min(560px, 62dvh); }
   /* ---------- top bar ---------- */
   .cl-topbar {
     display: flex; align-items: center; gap: 10px;
@@ -390,7 +416,7 @@
 <div id="errBox"></div>
 
 <script src="/scripts/mp4box.js?v=20261015e"></script>
-<script src="/scripts/clip-engine.js?v=20261015f"></script>
+<script src="/scripts/clip-engine.js?v=20261015g"></script>
 <script src="/scripts/cd-upload.js?v=20261015e"></script>
 <script type="module">
   import('/scripts/mediabunny.mjs?v=20261015e').then(function (MB) {
@@ -975,11 +1001,13 @@
       try {
         var tc = c.getContext('2d');
         var tscale = Math.max(thW / svw, 54 / svh);
-        var tdw = svw * tscale, tdh = svh * tscale;
+        /* same crossed-axes fix as drawFrame: draw the coded bitmap at its
+           coded dims times the uniform cover scale, not the display rect */
+        var bcw = b.frame.codedWidth, bch = b.frame.codedHeight;
         tc.save();
         tc.translate(thW / 2, 27);
         if (sRot) tc.rotate(-sRot * Math.PI / 180);
-        tc.drawImage(b.frame, -tdw / 2, -tdh / 2, tdw, tdh);
+        tc.drawImage(b.frame, -bcw * tscale / 2, -bch * tscale / 2, bcw * tscale, bch * tscale);
         tc.restore();
         thumbs.push(c); picked++;
       } catch (e) {}

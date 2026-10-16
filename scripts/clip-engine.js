@@ -301,15 +301,17 @@
     var cw = frame.codedWidth, ch = frame.codedHeight;
     var vw = (rot === 90 || rot === 270) ? ch : cw;
     var vh = (rot === 90 || rot === 270) ? cw : ch;
-    /* cover crop in DISPLAY space */
+    /* cover scale computed in DISPLAY space; inside the rotated context the
+       bitmap must be drawn at its CODED dims scaled by that same scale —
+       using the display-sized rect here crosses the axes and stretches
+       every shape (corners stay correct, proportions do not) */
     var scale = Math.max(W / vw, H / vh);
-    var dw = vw * scale, dh = vh * scale;
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
     ctx.save();
     ctx.translate(W / 2, H / 2);
     if (rot) ctx.rotate(-rot * Math.PI / 180);
-    ctx.drawImage(frame, -dw / 2, -dh / 2, dw, dh);
+    ctx.drawImage(frame, -cw * scale / 2, -ch * scale / 2, cw * scale, ch * scale);
     ctx.restore();
     /* title and captions are authored in display space already — untouched */
 
