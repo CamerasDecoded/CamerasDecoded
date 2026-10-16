@@ -24,6 +24,66 @@
     document.documentElement.classList.add('standalone');
 }catch(e){}})();
 </script>
+<script>
+/* stale self-heal: iOS standalone web apps RESUME the suspended page instance
+   instead of reloading, and this page registers no service worker — so a
+   merged fix can stay invisible on the installed app indefinitely. On resume
+   (pageshow after a real navigation, and visibilitychange -> visible) this
+   compares OUR clip-engine ?v= stamp against the LIVE page's stamp and reloads
+   once when they differ. Silent, throttled, dependency-free; a failed check
+   never changes the page and it cannot block the capability gate. */
+(function staleGuard(){
+  try {
+    window.__cvCheck = { mine: null, live: null };
+    /* our own <script> tag sits later in the document than this head block,
+       so the stamp is read lazily: on DOMContentLoaded and on every check */
+    function readMine(){
+      if (window.__cvCheck.mine) return window.__cvCheck.mine;
+      try {
+        var tag = document.querySelector('script[src*="clip-engine.js"]');
+        var m = tag && /clip-engine\.js\?v=([a-z0-9]+)/.exec(tag.getAttribute('src') || '');
+        if (m) window.__cvCheck.mine = m[1];
+      } catch (e) {}
+      return window.__cvCheck.mine;
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', readMine);
+    } else { readMine(); }
+    var lastRun = 0, firstShow = true, KEY = 'cl_cv_reloaded';
+    async function check(){
+      var now = Date.now();
+      if (now - lastRun < 60000) return; /* at most one check per minute */
+      lastRun = now;
+      var mine = readMine();
+      if (!mine) return;
+      try {
+        var r = await fetch(location.pathname + '?_cv=' + now, { cache: 'no-store' });
+        if (!r || !r.ok) return;
+        var html = await r.text();
+        var m1 = /clip-engine\.js\?v=([a-z0-9]+)/.exec(html);
+        if (!m1) return;
+        var live = m1[1];
+        window.__cvCheck.live = live;
+        try { if (window.__fitLayout) window.__fitLayout(); } catch (e) {} /* refresh ?diag=1 */
+        if (live !== mine) {
+          try { if (sessionStorage.getItem(KEY)) return; } catch (e) {} /* already reloaded once — stop */
+          try { sessionStorage.setItem(KEY, '1'); } catch (e) {}
+          location.reload();
+        } else {
+          try { sessionStorage.removeItem(KEY); } catch (e) {}
+        }
+      } catch (e) { /* offline or fetch blocked — leave the page exactly as-is */ }
+    }
+    window.addEventListener('pageshow', function () {
+      if (firstShow) { firstShow = false; return; } /* skip the initial load */
+      check();
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') check();
+    });
+  } catch (e) {}
+})();
+</script>
 <title>Clip Lab — Cameras Decoded</title>
 <meta name="description" content="Trim it. Caption it. Ship it. On-device clip finishing for Cameras Decoded videographers.">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -320,7 +380,7 @@
 <div class="cl-shell">
 
   <header class="cl-topbar">
-    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015k" alt="Clip Lab"
+    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015l" alt="Clip Lab"
          onerror="this.style.display='none';var f=document.getElementById('clTitleFallback');if(f)f.hidden=false;">
     <h1 class="cl-title-fallback" id="clTitleFallback" hidden>CLIP <span class="accent">LAB</span></h1>
     <span class="cl-kicker">Trim · Caption · Ship</span>
@@ -440,11 +500,11 @@
 
 <div id="errBox"></div>
 
-<script src="/scripts/mp4box.js?v=20261015k"></script>
-<script src="/scripts/clip-engine.js?v=20261015k"></script>
-<script src="/scripts/cd-upload.js?v=20261015k"></script>
+<script src="/scripts/mp4box.js?v=20261015l"></script>
+<script src="/scripts/clip-engine.js?v=20261015l"></script>
+<script src="/scripts/cd-upload.js?v=20261015l"></script>
 <script type="module">
-  import('/scripts/mediabunny.mjs?v=20261015k').then(function (MB) {
+  import('/scripts/mediabunny.mjs?v=20261015l').then(function (MB) {
     if (window.ClipEngine) window.ClipEngine.setMuxer(MB);
     var b = document.getElementById('btnExport');
     if (b && window.__clipReady && window.__clipInfo) { b.disabled = false; b.textContent = 'Export'; }
@@ -531,6 +591,8 @@
         'shell: ' + (shell ? shell.offsetHeight : '?'),
         'stage: ' + visibleH($('stageZone')),
         'dpr: ' + (window.devicePixelRatio || 1),
+        'cv mine: ' + (window.__cvCheck && window.__cvCheck.mine ? window.__cvCheck.mine : '?'),
+        'cv live: ' + (window.__cvCheck && window.__cvCheck.live ? window.__cvCheck.live : '?'),
         '(tap to dismiss)'
       ];
       fitDiag.textContent = lines.join('\n');
