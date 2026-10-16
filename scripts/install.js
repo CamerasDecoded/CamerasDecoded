@@ -98,6 +98,12 @@
     'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8"/></svg>';
 
+  /* page-menu glyph in Safari's address bar (rounded rect over two lines) */
+  const PAGE_SVG = '<svg class="cdi-share-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<rect x="7" y="3" width="10" height="7" rx="2"/>' +
+    '<path d="M8 15h8"/><path d="M8 19h8"/></svg>';
+
   let scrim = null;
   let lastFocus = null;
 
@@ -168,12 +174,14 @@
     if (m === 'ios') {
       body.innerHTML =
         '<ol class="cdi-steps">' +
-          '<li><span class="cdi-n">1</span><div><b>Tap the Share button ' + SHARE_SVG + '</b>' +
-            '<span>In Safari&rsquo;s toolbar at the bottom of the screen.</span></div></li>' +
+          '<li><span class="cdi-n">1</span><div><b>Tap the page icon ' + PAGE_SVG + '</b>' +
+            '<span>At the left of Safari&rsquo;s address bar — it opens this page&rsquo;s menu.</span></div></li>' +
           '<li><span class="cdi-n">2</span><div><b>Tap &ldquo;Add to Home Screen&rdquo;</b>' +
-            '<span>Scroll down the share sheet if you don&rsquo;t see it right away.</span></div></li>' +
-          '<li><span class="cdi-n">3</span><div><b>Tap Add</b>' +
-            '<span>Cameras Decoded lands on your Home Screen with its own icon — no App Store needed.</span></div></li>' +
+            '<span>If you see Share first, tap it, then choose Add to Home Screen. Scroll if you don&rsquo;t see it right away.</span></div></li>' +
+          '<li><span class="cdi-n">3</span><div><b>Name it Cameras Decoded</b>' +
+            '<span>In the name field at the top, make sure it says Cameras Decoded.</span></div></li>' +
+          '<li><span class="cdi-n">4</span><div><b>Tap Add</b>' +
+            '<span>Top right. Cameras Decoded lands on your Home Screen — no App Store needed.</span></div></li>' +
         '</ol>' +
         '<button type="button" class="cdi-cta" data-cdi-dismiss>Got it</button>';
       return;
@@ -184,7 +192,7 @@
           '<span>On Android use Chrome; on iPhone use Safari.</span></div></li>' +
         '<li><span class="cdi-n">2</span><div><b>Use the browser menu</b>' +
           '<span>Chrome: menu &rsaquo; <b>Install app</b>. Safari: Share ' + SHARE_SVG +
-          ' &rsaquo; <b>Add to Home Screen</b>.</span></div></li>' +
+          ' &rsaquo; <b>Add to Home Screen</b> — and name it Cameras Decoded if you&rsquo;re asked.</span></div></li>' +
       '</ol>' +
       '<button type="button" class="cdi-cta" data-cdi-dismiss>Got it</button>';
   }
