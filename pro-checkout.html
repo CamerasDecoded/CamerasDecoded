@@ -392,23 +392,26 @@
         return 'annual';
       }
 
-      /* Founding Decoder: live spots-left from config/founding.
-         Hides silently when the counter is unavailable. */
+      /* Founding Decoder: live spots-left derived from the founding200
+         collection (approved claims only). The count is derived fresh on
+         every page load — no stored counter — so approving a claim lowers
+         it, and removing or un-approving a claim (admin revert, member
+         backing out) raises it again automatically.
+         Hides silently when the count is unavailable. */
       function loadFounding() {
         var banner = document.getElementById('foundingBanner');
         var count = document.getElementById('foundingCount');
         if (!banner || !window.db) return;
         try {
-          window.db.collection('config').doc('founding').get().then(function (snap) {
-            var data = (snap.exists && snap.data()) || {};
-            var cap = Number(data.cap) || 200;
-            var claimed = Number(data.claimed) || 0;
-            var left = Math.max(0, cap - claimed);
+          window.db.collection('founding200').where('approved', '==', true).get().then(function (snap) {
+            var approved = (snap && typeof snap.size === 'number') ? snap.size : 0;
+            var cap = 200;
+            var left = Math.max(0, cap - approved);
             count.textContent = left > 0
               ? left + ' of ' + cap + ' founding spots remaining'
               : 'All ' + cap + ' founding spots claimed';
             banner.hidden = false;
-          }).catch(function () { /* counter unavailable: banner stays hidden */ });
+          }).catch(function () { /* wall count unavailable: banner stays hidden */ });
         } catch (e) {}
       }
 
