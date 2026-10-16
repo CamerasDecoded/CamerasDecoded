@@ -1,6 +1,6 @@
 /* ================================================================
    clip-engine.js — Clip Lab on-device finishing engine (fast path).
-   ?v=20261015c
+   ?v=20261015f
 
    Decode with WebCodecs (hardware), composite on a 2D canvas
    (WebGPU is headroom for v2 filters — v1 composites in 2D, which
@@ -130,6 +130,34 @@
     return null;
   }
 
+  /* Display-rotation from the video track's tkhd matrix (16.16 fixed point,
+     raw int32 as parsed by this repo's vendored mp4box.js). iPhone .mov
+     files store coded pixels landscape and rotate via the matrix; the
+     decoder hands back the coded frames, so the exporter must rotate.
+     Returns { rotation: 0|90|180|270, displayWidth, displayHeight } where
+     the display dims are the coded dims swapped for 90/270. tkhd's own
+     width/height are NOT trusted as display dims (ffmpeg leaves them coded
+     even on rotated files) — the matrix is the signal. */
+  function readRotation(trak, cw, ch) {
+    var rot = 0;
+    try {
+      var m = trak && trak.tkhd && trak.tkhd.matrix;
+      if (m && m.length === 9) {
+        var a = Math.round(m[0] / 65536), b = Math.round(m[1] / 65536),
+            c = Math.round(m[3] / 65536), d = Math.round(m[4] / 65536);
+        /* QuickTime rotation conventions; ffprobe prints "rotation=90" for the
+           [0,-1,0; 1,0,0] matrix, so 90 labels that one. */
+        if (a === 1 && b === 0 && c === 0 && d === 1) rot = 0;
+        else if (a === 0 && b === -1 && c === 1 && d === 0) rot = 90;
+        else if (a === -1 && b === 0 && c === 0 && d === -1) rot = 180;
+        else if (a === 0 && b === 1 && c === -1 && d === 0) rot = 270;
+      }
+    } catch (e) { rot = 0; }
+    var dw = cw, dh = ch;
+    if (rot === 90 || rot === 270) { dw = ch; dh = cw; }
+    return { rotation: rot, displayWidth: dw, displayHeight: dh };
+  }
+
   function demuxFile(file) {
     return file.arrayBuffer().then(function (buf) {
       return new Promise(function (resolve, reject) {
@@ -168,16 +196,35 @@
           var vt = vTrack.timescale || 90000;
           var cw = (entry && entry.width) || (vTrack.video && vTrack.video.width) || vTrack.track_width || 0;
           var ch = (entry && entry.height) || (vTrack.video && vTrack.video.height) || vTrack.track_height || 0;
+          var disp = readRotation(trak, cw, ch);
+          /* Presentation timestamps: use cts when it looks like real presentation
+             time (non-negative, one distinct value per sample — a valid
+             stream has unique presentation times; a degenerate cts series
+             like all-zeros falls back to dts). Feeding decode timestamps as
+             chunk timestamps makes players judder, worst on VFR. Note this
+             is NOT a monotonicity test in file order: with B-frames, cts in
+             decode order legitimately jumps around; WebCodecs only needs each
+             chunk stamped with its own presentation time. */
+          var useCts = vSamples.length > 0;
+          var seenCts = {};
+          for (var ci = 0; ci < vSamples.length; ci++) {
+            var cc = vSamples[ci].cts;
+            if (!(cc >= 0) || seenCts[cc]) { useCts = false; break; }
+            seenCts[cc] = 1;
+          }
           var info = {
             duration: (vTrack.movie_duration || vTrack.duration || 0) / (info_timescale()),
             width: cw,
             height: ch,
+            rotation: disp.rotation,
+            displayWidth: disp.displayWidth,
+            displayHeight: disp.displayHeight,
             fps: 30,
             videoCodec: vTrack.codec,
             videoTimescale: vt,
             configBytes: cfgBytes,
             samples: vSamples.map(function (s) {
-              return { data: s.data, dts: s.dts, cts: s.cts, duration: s.duration, isSync: !!s.is_sync };
+              return { data: s.data, dts: s.dts, cts: s.cts, pts: useCts ? s.cts : s.dts, duration: s.duration, isSync: !!s.is_sync };
             }),
             audio: null
           };
@@ -237,7 +284,9 @@
       var q = cap || 1080;
       return { w: q, h: q };
     }
-    var sw = info.width || 1280, sh = info.height || 720;
+    /* 'original' works in DISPLAY space (rotation-aware); coded dims stay
+       the decoder's business only */
+    var sw = info.displayWidth || info.width || 1280, sh = info.displayHeight || info.height || 720;
     var maxEdge = cap || 1920;
     var scale = Math.min(1, maxEdge / Math.max(sw, sh));
     return { w: Math.round(sw * scale / 2) * 2, h: Math.round(sh * scale / 2) * 2 };
@@ -245,14 +294,24 @@
 
   function drawFrame(ctx, frame, dims, info, tRel, title, captions) {
     var W = dims.w, H = dims.h;
-    var sw = frame.codedWidth, sh = frame.codedHeight;
-    /* cover crop */
-    var scale = Math.max(W / sw, H / sh);
-    var dw = sw * scale, dh = sh * scale;
-    var dx = (W - dw) / 2, dy = (H - dh) / 2;
+    /* the decoded frame is in coded orientation; rotate it into the display
+       orientation the <video> stage shows natively (canvas positive angle is
+       clockwise, QuickTime rotations are counter-clockwise) */
+    var rot = info.rotation || 0;
+    var cw = frame.codedWidth, ch = frame.codedHeight;
+    var vw = (rot === 90 || rot === 270) ? ch : cw;
+    var vh = (rot === 90 || rot === 270) ? cw : ch;
+    /* cover crop in DISPLAY space */
+    var scale = Math.max(W / vw, H / vh);
+    var dw = vw * scale, dh = vh * scale;
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, W, H);
-    ctx.drawImage(frame, dx, dy, dw, dh);
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    if (rot) ctx.rotate(-rot * Math.PI / 180);
+    ctx.drawImage(frame, -dw / 2, -dh / 2, dw, dh);
+    ctx.restore();
+    /* title and captions are authored in display space already — untouched */
 
     if (title && tRel < 2.0) {
       ctx.save();
@@ -422,12 +481,40 @@
     var canvas = document.createElement('canvas');
     canvas.width = dims.w; canvas.height = dims.h;
     var ctx = canvas.getContext('2d', { alpha: false });
-    var baseUs = null, encoded = 0, lastKf = -1e12;
+    var baseUs = null, encoded = 0, lastKf = -1e12, lastOutTs = -1;
+
+    /* composite one decoded frame (video + title + captions) and encode it */
+    function pumpFrame(frame) {
+      var fts = frame.timestamp;
+      if (fts < trimStartUs || fts >= trimEndUs) { frame.close(); return; }
+      if (baseUs === null) baseUs = fts;
+      var tRel = (fts - trimStartUs) / 1e6;
+      /* pacing: output stamps must be strictly increasing — a duplicate or
+         backward stamp makes muxers/players drop or hold frames (judder).
+         True duplicates are skipped; the 1ms floor is invisible and only
+         guards pathological zero-step stamps. */
+      var rawTs = fts - baseUs;
+      if (encoded > 0 && rawTs <= lastOutTs) { frame.close(); return; }
+      var outTs = (encoded === 0) ? 0 : Math.max(rawTs, lastOutTs + 1000);
+      lastOutTs = outTs;
+      drawFrame(ctx, frame, dims, info, tRel, title, captions);
+      frame.close();
+      /* encode the COMPOSITED canvas (video + title + captions), not the raw frame */
+      var nf = new VideoFrame(canvas, { timestamp: outTs, duration: Math.round(1e6 / fps) });
+      var kf = (encoded === 0) || (outTs - lastKf >= 2e6);
+      if (kf) lastKf = outTs;
+      encoder.encode(nf, { keyFrame: kf });
+      nf.close();
+      encoded++;
+      progress(Math.min(0.98, encoded / totalFrames));
+    }
 
     function feedMore() {
       while (consumed < samples.length && decoder.decodeQueueSize < 8) {
         var s = samples[consumed++];
-        var ts = Math.round(s.dts * 1e6 / vt);
+        /* chunk timestamps are PRESENTATION times (s.pts = cts when sane,
+           dts otherwise) — stamping decode times makes players judder */
+        var ts = Math.round(s.pts * 1e6 / vt);
         if (ts >= trimEndUs + 2e6) break;
         decoder.decode(new EncodedVideoChunk({
           type: s.isSync ? 'key' : 'delta',
@@ -448,28 +535,22 @@
         await new Promise(function (r) { setTimeout(r, 4); });
         continue;
       }
-      var frame = frameQueue.shift();
-      var fts = frame.timestamp;
+      pumpFrame(frameQueue.shift());
       feedMore();
-      if (fts < trimStartUs || fts >= trimEndUs) { frame.close(); continue; }
-      if (baseUs === null) baseUs = fts;
-      var tRel = (fts - trimStartUs) / 1e6;
-      var outTs = fts - baseUs;
-      drawFrame(ctx, frame, dims, info, tRel, title, captions);
-      frame.close();
-      /* encode the COMPOSITED canvas (video + title + captions), not the raw frame */
-      var nf = new VideoFrame(canvas, { timestamp: outTs, duration: Math.round(1e6 / fps) });
-      var kf = (encoded === 0) || (outTs - lastKf >= 2e6);
-      if (kf) lastKf = outTs;
-      encoder.encode(nf, { keyFrame: kf });
-      nf.close();
-      encoded++;
-      progress(Math.min(0.98, encoded / totalFrames));
       while (encoder.encodeQueueSize > 6) await new Promise(function (r) { setTimeout(r, 4); });
       if (decodeErr) throw decodeErr;
     }
 
     await decoder.flush();
+    if (decodeErr) throw decodeErr;
+    /* the decoder releases its B-frame reorder tail at flush — those frames
+       land in frameQueue after the loop above has exited, so drain them here
+       or the export silently loses its last 1-3 frames */
+    while (frameQueue.length) {
+      pumpFrame(frameQueue.shift());
+      while (encoder.encodeQueueSize > 6) await new Promise(function (r) { setTimeout(r, 4); });
+    }
+
     await encoder.flush();
 
     /* Build AAC packet-copy packets from the source samples overlapping the
