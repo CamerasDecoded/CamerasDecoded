@@ -1170,12 +1170,19 @@
     // Founding Decoder spot (first 200) when any remain.
     // ================================================================
     function loadFoundingStatus() {
-      db.collection('config').doc('founding').get().then(function (snap) {
+      // Cap stays a static setting on the config doc (defaults to 200);
+      // the claimed count is derived live from the founding200 collection,
+      // so it self-corrects on every page load (approvals raise it,
+      // un-approvals/removals lower it again). Nothing is written here.
+      var capP = db.collection('config').doc('founding').get().then(function (snap) {
         var data = (snap.exists && snap.data()) || {};
-        var cap = Number(data.cap) || 200;
-        var claimed = Number(data.claimed) || 0;
+        return Number(data.cap) || 200;
+      }).catch(function () { return 200; });
+      var claimedP = db.collection('founding200').where('approved', '==', true).get()
+        .then(function (snap) { return snap.size; });
+      Promise.all([capP, claimedP]).then(function (vals) {
         document.getElementById('foundingStatus').textContent =
-          'Founding Decoder: ' + claimed + '/' + cap + ' claimed';
+          'Founding Decoder: ' + vals[1] + '/' + vals[0] + ' claimed';
       }).catch(function () {
         document.getElementById('foundingStatus').textContent = 'Founding Decoder: counter unavailable';
       });
