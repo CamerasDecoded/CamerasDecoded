@@ -465,6 +465,51 @@
       if (el) el.textContent = msg;
     }
 
+    // Shared eligibility verdict, computed from a fresh users/{uid} snapshot.
+    // f200initClaim and f200submitClaim both use this so the render-time gate
+    // and the submit-time gate can never drift apart.
+    // Returns 'eligible' | 'legacy' (Pro without a plan record: the
+    // proRequests ledger decides) | 'ineligible'.
+    function f200eligibility(u) {
+      var isPro = u.tier === 'pro';
+      var isAnnual = isPro && u.proPlan === 'annual';
+      var isGuideOwner = u.guideOwner === true;
+      var isAdmin = u.role === 'Admin' || u.role === 'admin';
+      if (isAnnual || isGuideOwner || isAdmin) return 'eligible';
+      if (isPro && !u.proPlan) return 'legacy';
+      return 'ineligible';
+    }
+
+    // Legacy branch: Pro accounts that predate the plan record still know
+    // which plan was bought in the request ledger. Honor it as the annual
+    // signal rather than locking anyone out silently.
+    function f200legacyAnnual(uid) {
+      return window.db.collection('proRequests').doc(uid).get().then(function (rDoc) {
+        var plan = rDoc.exists ? ((rDoc.data() || {}).plan) : null;
+        return plan === 'annual';
+      }).catch(function () { return false; });
+    }
+
+    // The standard "two ways in" state (approved copy + links). Same surface
+    // whether it comes from the render-time gate or the submit-time gate.
+    function f200showClaimTwoDoors(legacyNote) {
+      f200claimMessage('<p class="claim-sub"><strong>Two ways in.</strong></p>' +
+        '<p class="claim-sub">Founding 200 is open to annual operators and guide owners. A spot is claimed, never assigned.</p>' +
+        '<div class="claim-doors">' +
+          '<a href="/why-pro.html" class="page-btn">See annual</a>' +
+          '<a href="/camera-confidence-guide.html" class="page-btn">Get the guide</a>' +
+        '</div>' +
+        (legacyNote ? '<p class="claim-sub claim-hint">Already annual? Your plan may predate our records &mdash; contact support and we will set it right.</p>' : ''));
+    }
+
+    // Submit-time gate verdict "not eligible": close the modal, tear the
+    // stale form down so it cannot be resubmitted, show the two-doors state.
+    function f200submitGateClosed(legacyNote) {
+      f200closeClaimModal();
+      if (f200modalBody) f200modalBody.innerHTML = '';
+      f200showClaimTwoDoors(legacyNote);
+    }
+
     function f200renderClaimForm(user) {
       if (f200modalBody) f200modalBody.innerHTML =
         '<form class="claim-form" id="claimForm" novalidate>' +
@@ -512,6 +557,33 @@
     }
 
     function f200submitClaim(user) {
+      f200setClaimError('');
+      // Submit-time gate: re-verify eligibility against a FRESH users/{uid}
+      // snapshot before anything is validated or written. Covers a form left
+      // open in a stale tab after a plan change.
+      var btn = document.getElementById('cfSubmit');
+      if (btn) { btn.disabled = true; btn.textContent = 'Claiming...'; }
+      window.db.collection('users').doc(user.uid).get().then(function (uDoc) {
+        var u = uDoc.exists ? (uDoc.data() || {}) : {};
+        var verdict = f200eligibility(u);
+        if (verdict === 'eligible') { f200submitClaimBody(user, btn); return; }
+        if (verdict === 'legacy') {
+          return f200legacyAnnual(user.uid).then(function (isLegacyAnnual) {
+            if (isLegacyAnnual) { f200submitClaimBody(user, btn); }
+            else { f200submitGateClosed(true); }
+          });
+        }
+        f200submitGateClosed(false);
+      }).catch(function (err) {
+        // Fail closed for the write, kindly: keep the form, restore the
+        // button, and explain the retry.
+        console.warn('claim eligibility check failed:', err);
+        f200setClaimError('Could not verify your status. Please try again.');
+        if (btn) { btn.disabled = false; btn.textContent = 'Claim My Spot'; }
+      });
+    }
+
+    function f200submitClaimBody(user, btn) {
       var name = document.getElementById('cfName').value.trim();
       var business = document.getElementById('cfBusiness').value.trim();
       var website = document.getElementById('cfWebsite').value.trim();
@@ -519,18 +591,19 @@
       var fileInput = document.getElementById('cfPhoto');
       var file = fileInput.files && fileInput.files[0];
       f200setClaimError('');
-      if (!name) { f200setClaimError('Please enter your name.'); return; }
-      if (!business) { f200setClaimError('Please enter your business name.'); return; }
-      if (!f200linkFor(website)) { f200setClaimError('Please enter your website (starting with http:// or https://) or your social handle (like @yourname).'); return; }
-      if (!quote) { f200setClaimError('Please add your words (max 140 characters).'); return; }
-      if (quote.length > 140) { f200setClaimError('Please keep your words under 140 characters.'); return; }
+      var restoreBtn = function () {
+        if (btn) { btn.disabled = false; btn.textContent = 'Claim My Spot'; }
+      };
+      if (!name) { f200setClaimError('Please enter your name.'); restoreBtn(); return; }
+      if (!business) { f200setClaimError('Please enter your business name.'); restoreBtn(); return; }
+      if (!f200linkFor(website)) { f200setClaimError('Please enter your website (starting with http:// or https://) or your social handle (like @yourname).'); restoreBtn(); return; }
+      if (!quote) { f200setClaimError('Please add your words (max 140 characters).'); restoreBtn(); return; }
+      if (quote.length > 140) { f200setClaimError('Please keep your words under 140 characters.'); restoreBtn(); return; }
       if (file) {
-        if (!file.type || file.type.indexOf('image/') !== 0) { f200setClaimError('Photo must be an image file.'); return; }
-        if (file.size > 2 * 1024 * 1024) { f200setClaimError('Photo must be under 2MB.'); return; }
+        if (!file.type || file.type.indexOf('image/') !== 0) { f200setClaimError('Photo must be an image file.'); restoreBtn(); return; }
+        if (file.size > 2 * 1024 * 1024) { f200setClaimError('Photo must be under 2MB.'); restoreBtn(); return; }
       }
-      var btn = document.getElementById('cfSubmit');
-      btn.disabled = true;
-      btn.textContent = 'Claiming...';
+      if (btn) { btn.disabled = true; btn.textContent = 'Claiming...'; }
 
       var photoPromise = file
         ? f200resizePhoto(file).then(function (blob) {
@@ -557,8 +630,7 @@
           '<div style="text-align:center;margin-top:18px;"><button type="button" class="btn-gold" data-claim-close>Done</button></div>';
       }).catch(function (err) {
         console.warn('claim failed:', err);
-        btn.disabled = false;
-        btn.textContent = 'Claim My Spot';
+        restoreBtn();
         f200setClaimError('Something went wrong. Please try again.');
       });
     }
@@ -589,34 +661,16 @@
           }
           return window.db.collection('users').doc(user.uid).get().then(function (uDoc) {
             var u = uDoc.exists ? (uDoc.data() || {}) : {};
-            var isPro = u.tier === 'pro';
-            var isAnnual = isPro && u.proPlan === 'annual';
-            var isGuideOwner = u.guideOwner === true;
-            var isAdmin = u.role === 'Admin' || u.role === 'admin';
-            var showTwoDoors = function (legacyNote) {
-              f200claimMessage('<p class="claim-sub"><strong>Two ways in.</strong></p>' +
-                '<p class="claim-sub">Founding 200 is open to annual operators and guide owners. A spot is claimed, never assigned.</p>' +
-                '<div class="claim-doors">' +
-                  '<a href="/why-pro.html" class="page-btn">See annual</a>' +
-                  '<a href="/camera-confidence-guide.html" class="page-btn">Get the guide</a>' +
-                '</div>' +
-                (legacyNote ? '<p class="claim-sub claim-hint">Already annual? Your plan may predate our records &mdash; contact support and we will set it right.</p>' : ''));
-            };
-            if (isAnnual || isGuideOwner || isAdmin) {
-              f200renderClaimForm(user);
-              return;
+            // Shared verdict with the submit-time gate: the two paths cannot drift.
+            var verdict = f200eligibility(u);
+            if (verdict === 'eligible') { f200renderClaimForm(user); return; }
+            if (verdict === 'legacy') {
+              return f200legacyAnnual(user.uid).then(function (isLegacyAnnual) {
+                if (isLegacyAnnual) { f200renderClaimForm(user); }
+                else { f200showClaimTwoDoors(true); }
+              });
             }
-            if (isPro && !u.proPlan) {
-              // Pro accounts that predate the plan record: the request ledger
-              // still knows which plan was bought. Honor it as the annual
-              // signal rather than locking anyone out silently.
-              return window.db.collection('proRequests').doc(user.uid).get().then(function (rDoc) {
-                var plan = rDoc.exists ? ((rDoc.data() || {}).plan) : null;
-                if (plan === 'annual') { f200renderClaimForm(user); }
-                else { showTwoDoors(true); }
-              }).catch(function () { showTwoDoors(true); });
-            }
-            showTwoDoors(false);
+            f200showClaimTwoDoors(false);
           });
         }).catch(function (err) {
           console.warn('claim status failed:', err);
