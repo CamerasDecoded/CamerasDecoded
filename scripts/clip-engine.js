@@ -122,6 +122,38 @@
     return new Uint8Array([0x10 | (idx >> 1), ((idx & 1) << 7) | ((channels & 15) << 3)]);
   }
 
+  /* AudioData.copyTo signature varies by engine: some builds require the full
+     options (planeIndex, frameOffset, frameCount) and throw on {format}-only,
+     others accept format-only or no options at all. Planar sources want the
+     planar format per plane with a frames-sized buffer; a non-planar format
+     on a planar source needs a frames*channels buffer instead. Layered
+     attempts so the decode works everywhere.
+     Returns Float32Array of frames*channels in interleaved (sample-major)
+     layout, or null if every incantation fails. */
+  function copyAudioF32(ad) {
+    var frames = ad.numberOfFrames, ch = ad.numberOfChannels;
+    var out = new Float32Array(frames * ch);
+    function once(buf, plane, fmt) {
+      try { ad.copyTo(buf, { format: fmt, planeIndex: plane, frameOffset: 0, frameCount: frames }); return true; }
+      catch (e) {}
+      try { ad.copyTo(buf, { format: fmt }); return true; }
+      catch (e2) {}
+      try { ad.copyTo(buf); return true; }
+      catch (e3) {}
+      return false;
+    }
+    if (/-planar$/.test(ad.format || '')) {
+      for (var k = 0; k < ch; k++) {
+        var plane = new Float32Array(frames);
+        if (!once(plane, k, 'f32-planar') && !once(plane, k, 'f32')) return null;
+        for (var i = 0; i < frames; i++) out[i * ch + k] = plane[i];
+      }
+    } else {
+      if (!once(out, 0, 'f32')) return null;
+    }
+    return out;
+  }
+
   function findTrak(mp4file, trackId) {
     var traks = (mp4file.moov && mp4file.moov.traks) || [];
     for (var i = 0; i < traks.length; i++) {
@@ -758,8 +790,8 @@
           if (!ad) { await new Promise(function (r) { setTimeout(r, 4); }); continue; }
           if (ad.timestamp < trimStartUs || ad.timestamp >= trimEndUs) { ad.close(); continue; }
           var nFrames = ad.numberOfFrames, nCh = ad.numberOfChannels;
-          var pcm = new Float32Array(nFrames * nCh);
-          ad.copyTo(pcm, { format: 'f32' });
+          var pcm = copyAudioF32(ad);
+          if (!pcm) { ad.close(); throw new Error('Could not read decoded audio.'); }
           var shifted = new AudioData({
             format: 'f32', sampleRate: ad.sampleRate,
             numberOfFrames: nFrames, numberOfChannels: nCh,
@@ -789,6 +821,7 @@
     exportClip: exportClip,
     targetDims: targetDims,
     setMuxer: setMuxer,
-    testCap: testCap
+    testCap: testCap,
+    copyAudioF32: copyAudioF32
   };
 })();
