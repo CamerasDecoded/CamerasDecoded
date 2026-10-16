@@ -390,7 +390,7 @@
 <div id="errBox"></div>
 
 <script src="/scripts/mp4box.js?v=20261015e"></script>
-<script src="/scripts/clip-engine.js?v=20261015e"></script>
+<script src="/scripts/clip-engine.js?v=20261015f"></script>
 <script src="/scripts/cd-upload.js?v=20261015e"></script>
 <script type="module">
   import('/scripts/mediabunny.mjs?v=20261015e').then(function (MB) {
@@ -960,11 +960,29 @@
     }
     try { dec.close(); } catch (e) {}
     var thumbs = [], picked = 0;
+    /* stills follow the DISPLAY orientation (the browser does this natively
+       for the stage path; the decoder path must rotate by hand) */
+    var sRot = info.rotation || 0;
+    var sDw = info.displayWidth || info.width || 640;
+    var sDh = info.displayHeight || info.height || 360;
+    var thW = Math.max(26, Math.min(120, Math.round(54 * sDw / sDh)));
+    var svw = (sRot === 90 || sRot === 270) ? info.height : info.width;
+    var svh = (sRot === 90 || sRot === 270) ? info.width : info.height;
     best.forEach(function (b) {
       if (!b) return;
       var c = document.createElement('canvas');
-      c.width = 96; c.height = 54;
-      try { c.getContext('2d').drawImage(b.frame, 0, 0, 96, 54); thumbs.push(c); picked++; } catch (e) {}
+      c.width = thW; c.height = 54;
+      try {
+        var tc = c.getContext('2d');
+        var tscale = Math.max(thW / svw, 54 / svh);
+        var tdw = svw * tscale, tdh = svh * tscale;
+        tc.save();
+        tc.translate(thW / 2, 27);
+        if (sRot) tc.rotate(-sRot * Math.PI / 180);
+        tc.drawImage(b.frame, -tdw / 2, -tdh / 2, tdw, tdh);
+        tc.restore();
+        thumbs.push(c); picked++;
+      } catch (e) {}
       try { b.frame.close(); } catch (e) {}
     });
     if (thumbs.length) {
@@ -978,8 +996,8 @@
         if (dd < mbd) { mbd = dd; mi = ci; }
       });
       var pc = document.createElement('canvas');
-      pc.width = 360; pc.height = 202;
-      pc.getContext('2d').drawImage(thumbs[mi], 0, 0, 360, 202);
+      pc.width = 360; pc.height = Math.max(64, Math.round(360 * sDh / sDw));
+      pc.getContext('2d').drawImage(thumbs[mi], 0, 0, pc.width, pc.height);
       try { $('stage').poster = pc.toDataURL('image/jpeg', 0.7); } catch (e) {}
     }
     window.__thumbsReady = true;
