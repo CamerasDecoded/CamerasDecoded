@@ -384,7 +384,7 @@
     if (document.querySelector('script[src*="install.js"]')) return;
     if (window.CDInstall) return;
     const script = document.createElement('script');
-    script.src = '/scripts/install.js?v=20260930a';
+    script.src = '/scripts/install.js?v=20261015a';
     document.body.appendChild(script);
   }
 
