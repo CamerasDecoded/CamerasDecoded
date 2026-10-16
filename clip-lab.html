@@ -315,7 +315,7 @@
 <div class="cl-shell">
 
   <header class="cl-topbar">
-    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015i" alt="Clip Lab"
+    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015j" alt="Clip Lab"
          onerror="this.style.display='none';var f=document.getElementById('clTitleFallback');if(f)f.hidden=false;">
     <h1 class="cl-title-fallback" id="clTitleFallback" hidden>CLIP <span class="accent">LAB</span></h1>
     <span class="cl-kicker">Trim · Caption · Ship</span>
@@ -435,11 +435,11 @@
 
 <div id="errBox"></div>
 
-<script src="/scripts/mp4box.js?v=20261015i"></script>
-<script src="/scripts/clip-engine.js?v=20261015i"></script>
-<script src="/scripts/cd-upload.js?v=20261015i"></script>
+<script src="/scripts/mp4box.js?v=20261015j"></script>
+<script src="/scripts/clip-engine.js?v=20261015j"></script>
+<script src="/scripts/cd-upload.js?v=20261015j"></script>
 <script type="module">
-  import('/scripts/mediabunny.mjs?v=20261015i').then(function (MB) {
+  import('/scripts/mediabunny.mjs?v=20261015j').then(function (MB) {
     if (window.ClipEngine) window.ClipEngine.setMuxer(MB);
     var b = document.getElementById('btnExport');
     if (b && window.__clipReady && window.__clipInfo) { b.disabled = false; b.textContent = 'Export'; }
@@ -951,9 +951,14 @@
     try {
       dec = new VideoDecoder({
         output: function (f) {
-          var bi2 = 0, bd2 = Math.abs(f.timestamp - targets[0]);
+          /* f.timestamp is the chunk's DTS stamp (Safari-safe feed); slot
+             the frame by its true presentation time via the dtsToPts map,
+             mirroring the export path's feed discipline. */
+          var ptu = dtsToPts[f.timestamp];
+          var t = (ptu === undefined) ? f.timestamp : ptu;
+          var bi2 = 0, bd2 = Math.abs(t - targets[0]);
           for (var i2 = 1; i2 < n; i2++) {
-            var dd2 = Math.abs(f.timestamp - targets[i2]);
+            var dd2 = Math.abs(t - targets[i2]);
             if (dd2 < bd2) { bd2 = dd2; bi2 = i2; }
           }
           var cur = best[bi2];
@@ -975,14 +980,20 @@
       return 0;
     }
     /* Export discipline: ONE decoder, samples streamed in file order with the
-       same decodeQueueSize throttle the export path uses, ONE flush at the end. */
+       same decodeQueueSize throttle the export path uses, ONE flush at the end.
+       Chunks are stamped with DTS (monotonic, Safari-safe); the dtsToPts map
+       below recovers true presentation time for slotting frames to targets. */
     var samples = info.samples, consumed = 0;
+    var dtsToPts = {}, ctsSane = !!info.ctsSane;
     function feedMore() {
       while (consumed < samples.length && dec.decodeQueueSize < 8) {
         var s = samples[consumed++];
+        var ts = Math.round(s.dts * 1e6 / vt);
+        var ctsOk = (typeof s.cts === 'number') && (s.cts >= 0);
+        dtsToPts[ts] = Math.round(((ctsSane && ctsOk) ? s.cts : s.dts) * 1e6 / vt);
         dec.decode(new EncodedVideoChunk({
           type: s.isSync ? 'key' : 'delta',
-          timestamp: Math.round(s.dts * 1e6 / vt),
+          timestamp: ts,
           duration: Math.max(1, Math.round(s.duration * 1e6 / vt)),
           data: s.data
         }));

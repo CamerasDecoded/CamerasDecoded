@@ -197,19 +197,17 @@
           var cw = (entry && entry.width) || (vTrack.video && vTrack.video.width) || vTrack.track_width || 0;
           var ch = (entry && entry.height) || (vTrack.video && vTrack.video.height) || vTrack.track_height || 0;
           var disp = readRotation(trak, cw, ch);
-          /* Presentation timestamps: use cts when it looks like real presentation
-             time (non-negative, one distinct value per sample — a valid
-             stream has unique presentation times; a degenerate cts series
-             like all-zeros falls back to dts). Feeding decode timestamps as
-             chunk timestamps makes players judder, worst on VFR. Note this
-             is NOT a monotonicity test in file order: with B-frames, cts in
-             decode order legitimately jumps around; WebCodecs only needs each
-             chunk stamped with its own presentation time. */
-          var useCts = vSamples.length > 0;
+          /* Whether the sample cts values look like real presentation times
+             (non-negative, one distinct value per sample). A degenerate cts
+             series (e.g. all-zeros) is rejected here; the feed path also
+             falls back to dts per-sample for any sample whose own cts is
+             missing. The decoder feed stamps DECODE (dts) times — see the
+             feed-discipline note in exportClip's feedMore() for why. */
+          var ctsSane = vSamples.length > 0;
           var seenCts = {};
           for (var ci = 0; ci < vSamples.length; ci++) {
             var cc = vSamples[ci].cts;
-            if (!(cc >= 0) || seenCts[cc]) { useCts = false; break; }
+            if (!(cc >= 0) || seenCts[cc]) { ctsSane = false; break; }
             seenCts[cc] = 1;
           }
           var info = {
@@ -223,8 +221,9 @@
             videoCodec: vTrack.codec,
             videoTimescale: vt,
             configBytes: cfgBytes,
+            ctsSane: ctsSane,
             samples: vSamples.map(function (s) {
-              return { data: s.data, dts: s.dts, cts: s.cts, pts: useCts ? s.cts : s.dts, duration: s.duration, isSync: !!s.is_sync };
+              return { data: s.data, dts: s.dts, cts: s.cts, duration: s.duration, isSync: !!s.is_sync };
             }),
             audio: null
           };
@@ -485,17 +484,46 @@
     var ctx = canvas.getContext('2d', { alpha: false });
     var baseUs = null, encoded = 0, lastKf = -1e12, lastOutTs = -1;
 
+    /* Decode-order (dts) chunk stamp -> presentation (cts) time, both in
+       rounded microseconds. The decoder feed (feedMore, below) stamps
+       chunks with DTS: dts is monotonic in file order by construction, and
+       Safari's VideoDecoder rejects non-monotonic chunk stamps outright
+       ("Decoder failure") — iPhone screen recordings with a varying
+       composition offset at the head of the stream produce exactly that
+       when stamped with cts (PR #647 learned this the hard way; Chromium
+       tolerates it, which is why the harness stayed green). The decoder
+       still emits frames in presentation order; each output frame's
+       timestamp equals its chunk's dts stamp, so pumpFrame translates it
+       through this map to the TRUE presentation time. That keeps #647's
+       pacing gains — strictly increasing output stamps, duplicate/backward
+       frame skip, keyframe cadence, flush-tail drain — keyed on the
+       correct clock. */
+    var dtsToPts = {};
+
+    /* Safari's decoder failure surfaces as a bare DOMException with a thin
+       message; the page's error box shows err.message, so rethrow with the
+       original detail attached instead of the bare object. */
+    function throwDecoderError() {
+      var m = (decodeErr && decodeErr.message) || String(decodeErr);
+      throw new Error('Decoder failure: ' + m);
+    }
+
     /* composite one decoded frame (video + title + captions) and encode it */
     function pumpFrame(frame) {
       var fts = frame.timestamp;
-      if (fts < trimStartUs || fts >= trimEndUs) { frame.close(); return; }
-      if (baseUs === null) baseUs = fts;
-      var tRel = (fts - trimStartUs) / 1e6;
+      /* fts is the chunk's DTS stamp; translate to the true presentation
+         time for the trim test, the title/caption timing, and pacing. A
+         frame missing from the map (shouldn't happen) keeps its stamp. */
+      var ptsUs = dtsToPts[fts];
+      if (ptsUs === undefined) ptsUs = fts;
+      if (ptsUs < trimStartUs || ptsUs >= trimEndUs) { frame.close(); return; }
+      if (baseUs === null) baseUs = ptsUs;
+      var tRel = (ptsUs - trimStartUs) / 1e6;
       /* pacing: output stamps must be strictly increasing — a duplicate or
          backward stamp makes muxers/players drop or hold frames (judder).
          True duplicates are skipped; the 1ms floor is invisible and only
          guards pathological zero-step stamps. */
-      var rawTs = fts - baseUs;
+      var rawTs = ptsUs - baseUs;
       if (encoded > 0 && rawTs <= lastOutTs) { frame.close(); return; }
       var outTs = (encoded === 0) ? 0 : Math.max(rawTs, lastOutTs + 1000);
       lastOutTs = outTs;
@@ -514,9 +542,13 @@
     function feedMore() {
       while (consumed < samples.length && decoder.decodeQueueSize < 8) {
         var s = samples[consumed++];
-        /* chunk timestamps are PRESENTATION times (s.pts = cts when sane,
-           dts otherwise) — stamping decode times makes players judder */
-        var ts = Math.round(s.pts * 1e6 / vt);
+        /* Chunk stamps are DTS-derived microseconds — monotonic in file
+           order, which is what Safari's decoder requires (see the
+           dtsToPts note above). Presentation time is recovered per-frame
+           in pumpFrame via the map. */
+        var ts = Math.round(s.dts * 1e6 / vt);
+        var ctsOk = (typeof s.cts === 'number') && (s.cts >= 0);
+        dtsToPts[ts] = Math.round(((info.ctsSane && ctsOk) ? s.cts : s.dts) * 1e6 / vt);
         if (ts >= trimEndUs + 2e6) break;
         decoder.decode(new EncodedVideoChunk({
           type: s.isSync ? 'key' : 'delta',
@@ -529,7 +561,7 @@
     feedMore();
 
     while (true) {
-      if (decodeErr) throw decodeErr;
+      if (decodeErr) throwDecoderError();
       if (frameQueue.length === 0) {
         if (decodeDone) break;
         feedMore();
@@ -540,11 +572,11 @@
       pumpFrame(frameQueue.shift());
       feedMore();
       while (encoder.encodeQueueSize > 6) await new Promise(function (r) { setTimeout(r, 4); });
-      if (decodeErr) throw decodeErr;
+      if (decodeErr) throwDecoderError();
     }
 
     await decoder.flush();
-    if (decodeErr) throw decodeErr;
+    if (decodeErr) throwDecoderError();
     /* the decoder releases its B-frame reorder tail at flush — those frames
        land in frameQueue after the loop above has exited, so drain them here
        or the export silently loses its last 1-3 frames */
