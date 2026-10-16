@@ -77,9 +77,12 @@
     window.addEventListener('pageshow', function () {
       if (firstShow) { firstShow = false; return; } /* skip the initial load */
       check();
+      try { if (window.__fitLayout) window.__fitLayout(); } catch (e) {} /* resumed standalone pages refit to the live viewport */
     });
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') check();
+      if (document.visibilityState !== 'visible') return;
+      check();
+      try { if (window.__fitLayout) window.__fitLayout(); } catch (e) {} /* app/tab refocus refits alongside the freshness check */
     });
   } catch (e) {}
 })();
@@ -409,7 +412,7 @@
 <div class="cl-shell">
 
   <header class="cl-topbar">
-    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015o" alt="Clip Lab"
+    <img class="cl-title-img" src="/custom-site-titles/clip-lab.png?v=20261015p" alt="Clip Lab"
          onerror="this.style.display='none';var f=document.getElementById('clTitleFallback');if(f)f.hidden=false;">
     <h1 class="cl-title-fallback" id="clTitleFallback" hidden>CLIP <span class="accent">LAB</span></h1>
     <span class="cl-kicker">Trim · Caption · Ship</span>
@@ -543,11 +546,11 @@
 
 <div id="errBox"></div>
 
-<script src="/scripts/mp4box.js?v=20261015o"></script>
-<script src="/scripts/clip-engine.js?v=20261015o"></script>
-<script src="/scripts/cd-upload.js?v=20261015o"></script>
+<script src="/scripts/mp4box.js?v=20261015p"></script>
+<script src="/scripts/clip-engine.js?v=20261015p"></script>
+<script src="/scripts/cd-upload.js?v=20261015p"></script>
 <script type="module">
-  import('/scripts/mediabunny.mjs?v=20261015o').then(function (MB) {
+  import('/scripts/mediabunny.mjs?v=20261015p').then(function (MB) {
     if (window.ClipEngine) window.ClipEngine.setMuxer(MB);
     var b = document.getElementById('btnExport');
     if (b && window.__clipReady && window.__clipInfo) { b.disabled = false; b.textContent = 'Export'; }
@@ -607,12 +610,50 @@
      inline styles; the flex CSS below remains the no-JS fallback. A fit bug
      must never blank the editor, so everything here is defensive. */
   var fitT = null, fitDragT = null, fitDiag = null;
+  var fitVhSource = '?';
   function measuredVh() {
     try {
       if (window.visualViewport && typeof window.visualViewport.height === 'number' && window.visualViewport.height > 0)
         return Math.round(window.visualViewport.height);
     } catch (e) {}
     return window.innerHeight || 0;
+  }
+  /* orientation-matched CSS-px screen dimension: the screen's VERTICAL
+     extent in the current orientation (portrait: screen.height,
+     landscape: screen.width) */
+  function screenDim() {
+    try {
+      var s = window.screen;
+      if (!s) return 0;
+      var w = s.width || 0, h = s.height || 0;
+      if (w <= 0 || h <= 0) return 0;
+      var landscape = (window.innerWidth || 0) > (window.innerHeight || 0);
+      return Math.round(landscape ? w : h);
+    } catch (e) { return 0; }
+  }
+  /* In fitted (standalone) mode the browser's own viewport number can
+     under-report the physical screen (~14% on the owner's device — a dead
+     band under the dock) while the webview itself is full-screen. So the
+     shell anchors to the physical screen dimension when it is sane.
+     Guardrail: a screen value wildly bigger than the measured viewport
+     (desktop-with-big-monitor class of edge case) is distrusted and we
+     keep the measured number. */
+  function anchorVh() {
+    var m = measuredVh();
+    fitVhSource = '?';
+    try {
+      if (window.visualViewport && typeof window.visualViewport.height === 'number' && window.visualViewport.height > 0)
+        fitVhSource = 'visualViewport';
+      else if (m > 0) fitVhSource = 'inner';
+    } catch (e) {}
+    if (isFittedMode()) {
+      var sd = screenDim();
+      if (sd > m && sd < 2000 && sd <= Math.round(m * 1.5)) {
+        fitVhSource = 'screen';
+        return sd;
+      }
+    }
+    return m;
   }
   function isFittedMode() {
     try { return document.documentElement.classList.contains('standalone'); } catch (e) { return false; }
@@ -665,7 +706,8 @@
         'navigator.standalone: ' + (typeof navigator !== 'undefined' ? navigator.standalone : '?'),
         'inner: ' + window.innerWidth + 'x' + window.innerHeight,
         'visualViewport: ' + (window.visualViewport ? Math.round(window.visualViewport.height) : 'n/a'),
-        'screen: ' + (window.screen ? window.screen.height : 'n/a'),
+        'screen: ' + (window.screen ? (window.screen.width + 'x' + window.screen.height) : 'n/a'),
+        'vh: ' + vh + ' (' + fitVhSource + ')',
         'shell: ' + (shell ? shell.offsetHeight : '?'),
         'stage: ' + visibleH($('stageZone')),
         'pic: ' + (picRect.w ? picRect.w + 'x' + picRect.h : '?'),
@@ -691,7 +733,7 @@
       var app = $('app');
       if (!shell || !zone) return;
       if (app && app.classList.contains('hidden')) return; /* gate not passed yet */
-      var vh = measuredVh();
+      var vh = anchorVh();
       if (!vh || vh < 300) return; /* never fit to a garbage number */
       if (isFittedMode()) {
         /* pin the shell to the measured screen — overrides inset:0 sizing
@@ -1492,7 +1534,7 @@
      16kHz mono audio, drives the worker, and turns word timings into cues.
      window.__asrStub (array of {text,start,end}) bypasses the worker for
      harness verification when the model CDN is unreachable. */
-  var ASR_WORKER_URL = '/scripts/clip-asr-worker.js?v=20261015o';
+  var ASR_WORKER_URL = '/scripts/clip-asr-worker.js?v=20261015p';
   var asrWorker = null, asrRunId = 0, asrModelReady = false;
   var asrPending = null, asrLoadWait = null;
 
