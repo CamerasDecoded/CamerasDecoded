@@ -1,11 +1,11 @@
-/* scripts/install.js — window.CDInstall
+/* scripts/install.js &mdash; window.CDInstall
    "Install the app" experience: registers the service worker and opens a
-   premium bottom sheet that adapts to the platform —
-     • Android/desktop Chrome with an install prompt captured: true one-tap install.
-     • iPhone/iPad: the Share → Add to Home Screen walkthrough (Apple allows no
+   premium bottom sheet that adapts to the platform &mdash;
+     &bull; Android/desktop Chrome with an install prompt captured: true one-tap install.
+     &bull; iPhone/iPad: the Share &rarr; Add to Home Screen walkthrough (Apple allows no
        programmatic install; this is the sanctioned path).
-     • Already running standalone: quiet confirmation state.
-     • Anything else: generic browser-menu guidance.
+     &bull; Already running standalone: quiet confirmation state.
+     &bull; Anything else: generic browser-menu guidance.
    Self-contained CSS (cdi-*), reduced-motion safe, Escape/backdrop/Got-it dismiss.
    The beforeinstallprompt event is captured early by master-loader into
    window.__cdDeferredPrompt (it can fire before this script loads); a second
@@ -98,12 +98,6 @@
     'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8"/></svg>';
 
-  /* page-menu glyph in Safari's address bar (rounded rect over two lines) */
-  const PAGE_SVG = '<svg class="cdi-share-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<rect x="7" y="3" width="10" height="7" rx="2"/>' +
-    '<path d="M8 15h8"/><path d="M8 19h8"/></svg>';
-
   let scrim = null;
   let lastFocus = null;
 
@@ -120,12 +114,12 @@
     scrim.innerHTML =
       '<section class="cdi-sheet" role="dialog" aria-modal="true" aria-labelledby="cdiTitle" style="position:relative">' +
         '<div class="cdi-handle"></div>' +
-        '<button type="button" class="cdi-close" data-cdi-close aria-label="Close">✕</button>' +
+        '<button type="button" class="cdi-close" data-cdi-close aria-label="Close">&#10005;</button>' +
         '<div class="cdi-hero">' +
           '<span class="cdi-icon"><img src="/apple-touch-icon.png" alt="" ' +
             'onerror="this.style.display=\'none\'"></span>' +
           '<div><h2 id="cdiTitle">Install Cameras Decoded</h2>' +
-          '<p>Your darkroom on the Home Screen — one tap to open, no browser chrome.</p>' +
+          '<p>Your darkroom on the Home Screen &mdash; one tap to open, no browser chrome.</p>' +
           '<p class="cdi-tagline" style="font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#8deb00;margin:8px 0 0;font-size:13px;">Join. Learn. Play.</p></div>' +
         '</div>' +
         '<div data-cdi-body></div>' +
@@ -147,7 +141,7 @@
     const body = scrim.querySelector('[data-cdi-body]');
     if (m === 'installed') {
       body.innerHTML =
-        '<div class="cdi-done"><div class="cdi-check">✓</div>' +
+        '<div class="cdi-done"><div class="cdi-check">&#10003;</div>' +
         '<p>You&rsquo;re already running the installed app.<br>Cameras Decoded is on your Home Screen.</p></div>' +
         '<button type="button" class="cdi-cta" data-cdi-dismiss>Got it</button>';
       return;
@@ -174,14 +168,14 @@
     if (m === 'ios') {
       body.innerHTML =
         '<ol class="cdi-steps">' +
-          '<li><span class="cdi-n">1</span><div><b>Tap the page icon ' + PAGE_SVG + '</b>' +
-            '<span>At the left of Safari&rsquo;s address bar — it opens this page&rsquo;s menu.</span></div></li>' +
+          '<li><span class="cdi-n">1</span><div><b>Tap the &bull;&bull;&bull; button</b>' +
+            '<span>At the bottom right of Safari&rsquo;s toolbar &mdash; it opens the menu.</span></div></li>' +
           '<li><span class="cdi-n">2</span><div><b>Tap &ldquo;Add to Home Screen&rdquo;</b>' +
-            '<span>If you see Share first, tap it, then choose Add to Home Screen. Scroll if you don&rsquo;t see it right away.</span></div></li>' +
+            '<span>It&rsquo;s right in that menu.</span></div></li>' +
           '<li><span class="cdi-n">3</span><div><b>Name it Cameras Decoded</b>' +
             '<span>In the name field at the top, make sure it says Cameras Decoded.</span></div></li>' +
           '<li><span class="cdi-n">4</span><div><b>Tap Add</b>' +
-            '<span>Top right. Cameras Decoded lands on your Home Screen — no App Store needed.</span></div></li>' +
+            '<span>Top right. Cameras Decoded lands on your Home Screen &mdash; no App Store needed.</span></div></li>' +
         '</ol>' +
         '<button type="button" class="cdi-cta" data-cdi-dismiss>Got it</button>';
       return;
@@ -192,7 +186,7 @@
           '<span>On Android use Chrome; on iPhone use Safari.</span></div></li>' +
         '<li><span class="cdi-n">2</span><div><b>Use the browser menu</b>' +
           '<span>Chrome: menu &rsaquo; <b>Install app</b>. Safari: Share ' + SHARE_SVG +
-          ' &rsaquo; <b>Add to Home Screen</b> — and name it Cameras Decoded if you&rsquo;re asked.</span></div></li>' +
+          ' &rsaquo; <b>Add to Home Screen</b> &mdash; and name it Cameras Decoded if you&rsquo;re asked.</span></div></li>' +
       '</ol>' +
       '<button type="button" class="cdi-cta" data-cdi-dismiss>Got it</button>';
   }
