@@ -107,6 +107,8 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 .feed-card.cynetis .feed-avatar{border-color:var(--green-border)}
 /* plasma edge must never be clipped by the card (PR B) */
 .feed-card.cynetis.cdp-edge-live{overflow:visible}
+/* arena winners wear the plasma edge as the celebration record (PR C) */
+.feed-card.winner.cdp-edge-live{overflow:visible}
 /* spotlight */
 .feed-card.spotlight{border-color:rgba(245,192,68,.3);background:linear-gradient(135deg,var(--surface),#141007)}
 .spot-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
@@ -371,7 +373,8 @@ function cdpRefreshTransmissionEdges(){
 }
 /* Tap a transmission card to open that transmission in the plasma modal.
    Buttons, links, inputs, the action bar and comments are untouched —
-   they return earlier in the delegated click handler below. */
+   they return earlier in the delegated click handler below.
+   Winner cards get NO modal (PR C) — tapping them behaves as before. */
 function cdpOpenTransmission(d){
   if(!window.CDPlasmaModal || !d) return;
   window.CDPlasmaModal.open({
@@ -381,6 +384,25 @@ function cdpOpenTransmission(d){
     body: d.text || '',
     footer: 'From the Signal' + (d.createdAt ? ' \u00B7 ' + timeAgo(d.createdAt) : ''),
     avatarSrc: d.actorAvatar || 'https://camerasdecoded.com/cynetis-avatar.png'
+  });
+}
+
+/* --- PLASMA (PR C): Arena winner-announcement cards wear the plasma edge
+   as the celebration record. Winner items (type arena_winner, posted by
+   the Arena closer) are marked 'feed-card winner' at render. Same
+   refresh-pass discipline as the transmission pass above: destroy-first
+   per element, WeakMap keyed on the element, runs after every render,
+   survives filter switches and re-renders. No clock gating — a crowned
+   winner stays lit. No modal on winner cards. */
+var cdpWinnerEdges = new WeakMap();
+function cdpRefreshWinnerEdges(){
+  if(!window.CDPlasmaEdge || !feedList) return;
+  feedList.querySelectorAll('.feed-card.winner').forEach(function(el){
+    var prev = cdpWinnerEdges.get(el);
+    if(prev) prev.destroy();
+    el.classList.add('cdp-edge-live');
+    var h = window.CDPlasmaEdge.attach(el);
+    if(h) cdpWinnerEdges.set(el, h);
   });
 }
 
@@ -1139,7 +1161,7 @@ async function loadFeed() {
         return el;
       }
       /* social: default */
-      el.className = d.type === 'cynetis_post' ? 'feed-card cynetis' : 'feed-card';
+      el.className = d.type === 'cynetis_post' ? 'feed-card cynetis' : (d.type === 'arena_winner' ? 'feed-card winner' : 'feed-card');
       const typeCls = d.type === 'arena_winner' ? 'feed-type winner' : 'feed-type';
       const avatarHtml = d.actorAvatar ? `<img src="${esc(d.actorAvatar)}" alt=""/>` : esc((d.actorName||'?')[0].toUpperCase());
       el.innerHTML =
@@ -1169,6 +1191,7 @@ async function loadFeed() {
     initCarousels(feedList);
     buildWire(ordered);
     cdpRefreshTransmissionEdges();
+    cdpRefreshWinnerEdges();
     openDeepLink();
   } catch(e) {
     feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
