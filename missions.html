@@ -28,6 +28,10 @@
   <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
   <script src="/scripts/user-state.js?v=20261014a"></script>
 
+  <!-- ===== PLASMA (electric border, shared component) ===== -->
+  <link rel="stylesheet" href="/scripts/cd-plasma.css?v=20261016a">
+  <script src="/scripts/cd-plasma.js?v=20261016a"></script>
+
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="header.js?v=20261002a"></script>
   <script src="/scripts/desktop-sidebar.js?v=20260930a"></script>
@@ -184,6 +188,10 @@ button{font-family:inherit;cursor:pointer}
 }
 .am-round-body>*{position:relative;z-index:1}
 .am-round.is-closed{border-color:rgba(212,175,55,.4);box-shadow:0 0 34px rgba(212,175,55,.06)}
+/* PLASMA (PR C): the edge canvas extends 64px past the card — the card's
+   own overflow:hidden must yield while the edge is live, or the glow
+   gets sliced exactly like the demo defect. */
+.am-round.cdp-edge-live{overflow:visible;}
 .am-round.is-closed::after{background:linear-gradient(90deg,transparent,var(--gold),transparent)}
 .am-declass{font:700 10px var(--font-d);letter-spacing:.26em;text-transform:uppercase;color:var(--gold);margin:14px 0 6px}
 .am-round::after{
@@ -1163,6 +1171,34 @@ button{font-family:inherit;cursor:pointer}
       if (roundEl) roundEl.classList.toggle('is-closed', phase === 'closed');
       var declass = el('amDeclass' + L);
       if (declass) declass.hidden = phase !== 'closed';
+      if (laneKey === 'daily') amRefreshArenaEdge();
+    }
+
+    /* --- PLASMA (PR C): the daily challenge card wears the live edge
+       only while its round is in the voting phase (7–11 PM Chicago).
+       The phase comes from the page's own phaseOf(round) — derived from
+       the round's votingAt/closesAt timestamps, not a parallel clock.
+       This runs at the end of every renderRoundCard (boot, tab switch,
+       countdown roll at 19:00/23:00 via refreshLane) plus a 60s backstop
+       interval, so a member sitting on the page sees the edge ignite at
+       19:00 and die at 23:00 with no reload. No modal here — the card's
+       job is entering and voting; the edge canvas is pointer-events:none
+       and must never obstruct taps. */
+    var amArenaEdge = null;
+    function amRefreshArenaEdge() {
+      var card = el('amRoundDaily');
+      var st = (typeof lanes !== 'undefined' && lanes) ? lanes.daily : null;
+      var live = !!(window.CDPlasmaEdge && card && st && st.round && !st.empty && st.phase === 'voting');
+      if (live) {
+        card.classList.add('cdp-edge-live');
+        if (!amArenaEdge) {
+          try { amArenaEdge = window.CDPlasmaEdge.attach(card); } catch (e) { amArenaEdge = null; }
+        }
+        if (amArenaEdge && amArenaEdge.setActive) { try { amArenaEdge.setActive(true); } catch (e) {} }
+      } else {
+        if (card) card.classList.remove('cdp-edge-live');
+        if (amArenaEdge) { try { amArenaEdge.destroy(); } catch (e) {} amArenaEdge = null; }
+      }
     }
 
     function tickCountdowns() {
@@ -1885,6 +1921,9 @@ button{font-family:inherit;cursor:pointer}
         refreshLane('daily');
       });
       countTimer = setInterval(tickCountdowns, reduced ? 30000 : 1000);
+      /* PR C backstop: re-evaluate the arena edge on its own cadence so the
+         19:00 ignite / 23:00 die happen even if the countdown tick is quiet. */
+      setInterval(function () { amRefreshArenaEdge(); }, 60000);
     }
     /* vault masonry: rebuild columns only when the breakpoint actually changes */
     var rsTimer = null;
