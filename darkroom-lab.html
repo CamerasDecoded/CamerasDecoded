@@ -432,6 +432,10 @@
     color: #0a0a0a; background: var(--gold); border-radius: 999px; padding: 9px 20px; font-weight: 700;
   }
 
+  /* ============ LOOKS ============ */
+  .look-hint { font-size: 11px; color: var(--text-faint); line-height: 1.5; margin-top: 10px; }
+  .look-hint b { color: var(--text-dim); font-weight: 600; }
+
   /* ============ LEARN MODE ============ */
   .learn-wrap {
     flex: 1; min-height: 0; overflow-y: auto;
@@ -784,6 +788,11 @@
       <span>Presets</span>
       <span class="dock-pro hidden" data-probadge>&#9679;</span>
     </button>
+    <button class="dock-tab" data-dock="looks">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9.5h18M3 14.5h18M7.5 5v14M16.5 5v14"/></svg>
+      <span>Looks</span>
+      <span class="dock-pro hidden" data-probadge>&#9679;</span>
+    </button>
     <button class="dock-tab" data-dock="crop">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v16a2 2 0 0 0 2 2h16"/><path d="M2 6h16a2 2 0 0 1 2 2v16"/></svg>
       <span>Crop</span>
@@ -869,6 +878,7 @@
 <script src="/scripts/firebase-init.js?v=20261010a"></script>
   <script src="/scripts/reward-engine.js?v=20261014b"></script>
 <script src="/scripts/user-state.js?v=20261014a"></script>
+<script src="/scripts/cd-looks.js?v=20261016a"></script>
 <script src="/scripts/bottom-nav.js?v=20261014a"></script>
 <script src="/scripts/ptr.js?v=20261004a"></script>
 <script>
@@ -901,6 +911,22 @@ window.addEventListener('error', function(e) {
   let dividerPos = 50;
   let thumbsBuiltFor = null;
   let history = [], hIndex = -1;
+
+  /* ================= looks (one-tap film/camera looks) =================
+     The look is a pipeline STAGE, not a sticker: it applies on top of the
+     user's current edit, non-destructively. lookId/lookIntensity live outside
+     S/masks, so edits, undo/redo, copy/paste and reset never disturb them.
+     Preview == export: the stage runs inside render() and is flushed
+     synchronously before the export canvas is built. */
+  let lookId = 'original';
+  let lookIntensity = 70;            // 0..100
+  let lookGradeTimer = null;
+  let lookBlendRaf = 0;
+  let editSig = 0;                   // increments on every base render
+  let lookBase = null;               // last edited (pre-look) frame, ImageData
+  let lookShown = null;              // last composited (look-applied) frame
+  let lookCache = { sig: -1, id: null, img: null }; // full-strength look frame
+  let lookHoldTimer = null, lookHolding = false;
 
   /* ================= masking state ================= */
   let masks = [];               // Mask objects: {id,name,visible,invert,components,adjust}
@@ -1076,6 +1102,15 @@ window.addEventListener('error', function(e) {
         return;
       }
       ctxA.putImageData(new ImageData(new Uint8ClampedArray(out), original.width, original.height), 0, 0);
+      editSig++;
+      // The look stage grades from this un-looked base, never from the
+      // composited canvas — otherwise looks would stack on each other.
+      if (lookEngine()) {
+        lookBase = lookIsActive()
+          ? new ImageData(new Uint8ClampedArray(out), original.width, original.height)
+          : null;   // release the copy when no look is selected
+      }
+      scheduleLook();   // no-op unless a look is active; debounced so slider drags stay live
       statusEl.style.display = 'none';
       statusEl.classList.add('live');
     } catch (err) {
@@ -1410,6 +1445,7 @@ window.addEventListener('error', function(e) {
   async function doExport(fmt) {
     if (!original) return;
     render();
+    await ensureLookForExport();   // the exported file carries the look, exactly as previewed
     $('fmtSheet').classList.remove('open');
     statusEl.textContent = 'Preparing export\u2026';
     try {
@@ -1494,6 +1530,7 @@ window.addEventListener('error', function(e) {
     pc.innerHTML = '';
     $('panel').classList.toggle('mask-tall', activeDock === 'mask');
     if (activeDock === 'presets') { renderPresetPanel(pc); return; }
+    if (activeDock === 'looks') { renderLooksPanel(pc); return; }
     if (activeDock === 'crop') { renderCropPanel(pc); return; }
     if (activeDock === 'mask') { renderMaskPanel(pc); return; }
     // tool row
@@ -2551,6 +2588,169 @@ window.addEventListener('error', function(e) {
     });
     drawMaskOverlay();
   }
+
+  /* ================= LOOKS =================
+     One-tap film/camera looks. Recipes live in /scripts/cd-looks.js (ported
+     from the owner-judged prototype). This section is the Lab wiring:
+       - looks dock panel (strip + intensity + hold-to-compare hint)
+       - the look stage: runs after the wasm base render, debounced so slider
+         drags stay live; the look snaps back on settle
+       - export flush: doExport awaits ensureLookForExport() so the exported
+         file carries exactly the grade the preview showed
+     Frequency separation (pro-spec skin layer) is a queued follow-up — NOT here. */
+  function lookEngine() { return (window.CDLooks || null); }
+  function lookIsActive() { return lookId !== 'original'; }
+
+  function scheduleLook(immediate) {
+    clearTimeout(lookGradeTimer);
+    if (!lookIsActive() || !original || !lookEngine()) return;
+    lookGradeTimer = setTimeout(runLookPass, immediate ? 0 : 180);
+  }
+  /* Grade the current base frame and composite at the current intensity. */
+  function runLookPass() {
+    clearTimeout(lookGradeTimer);
+    if (!lookIsActive() || !original || !lookEngine() || !lookBase) return;
+    if (lookCache.sig !== editSig || lookCache.id !== lookId) {
+      lookCache = { sig: editSig, id: lookId, img: lookEngine().grade(lookBase, lookId) };
+    }
+    compositeLook();
+    if (activeDock === 'looks') rebuildLookThumbs();
+  }
+  function compositeLook() {
+    if (!lookBase || !lookEngine()) return;
+    if (lookIntensity <= 0 || !lookCache.img) { lookShown = lookBase; return; }
+    lookShown = lookEngine().blend(lookBase, lookCache.img, lookIntensity / 100);
+    ctxA.putImageData(lookShown, 0, 0);
+  }
+  /* Export path: flush the debounced stage synchronously before the export
+     canvas is built, so preview == export by construction. */
+  function ensureLookForExport() {
+    if (!lookIsActive() || !original || !lookEngine()) return;
+    clearTimeout(lookGradeTimer);
+    runLookPass();
+  }
+
+  /* ---------- looks panel ---------- */
+  function renderLooksPanel(pc) {
+    const head = document.createElement('div');
+    head.className = 'bigslider-head';
+    head.style.marginBottom = '8px';
+    head.innerHTML = `<span class="bigslider-label">Looks <span class="pro-flag">PRO</span></span>` +
+      `<span class="bigslider-val" style="font-size:11px;color:var(--text-faint);">tap to preview</span>`;
+    pc.appendChild(head);
+    const strip = document.createElement('div');
+    strip.className = 'preset-strip';
+    strip.id = 'lookStrip';
+    pc.appendChild(strip);
+    for (const id of lookEngine().IDS) {
+      const m = lookEngine().meta(id);
+      const b = document.createElement('button');
+      b.className = 'preset-card' + (lookId === id ? ' active' : '');
+      b.dataset.look = id;
+      b.innerHTML = `<canvas></canvas><div class="preset-name">${m.name}</div><div class="preset-desc">${m.desc}</div>`;
+      b.addEventListener('click', () => selectLook(id));
+      strip.appendChild(b);
+    }
+    const ihead = document.createElement('div');
+    ihead.className = 'bigslider-head';
+    ihead.style.marginTop = '10px';
+    ihead.innerHTML = `<span class="bigslider-label" style="font-size:12px;">Intensity</span>` +
+      `<span class="bigslider-val" id="lookIntensityVal">${lookIntensity}</span>`;
+    pc.appendChild(ihead);
+    const slider = document.createElement('input');
+    slider.type = 'range'; slider.className = 'big';
+    slider.id = 'lookIntensity';
+    slider.min = '0'; slider.max = '100'; slider.step = '1'; slider.value = String(lookIntensity);
+    slider.setAttribute('aria-label', 'Look intensity');
+    slider.addEventListener('input', () => {
+      if (!isPro) { showPaywall(); slider.value = String(lookIntensity); return; }
+      lookIntensity = parseInt(slider.value, 10) || 0;
+      const v = $('lookIntensityVal');
+      if (v) v.textContent = String(lookIntensity);
+      if (lookBlendRaf) cancelAnimationFrame(lookBlendRaf);
+      lookBlendRaf = requestAnimationFrame(() => {
+        lookBlendRaf = 0;
+        if (!lookIsActive()) return;
+        if (!lookBase || !lookCache.img || lookCache.id !== lookId || lookCache.sig !== editSig) {
+          scheduleLook(true);   // grade first, then composite
+          return;
+        }
+        compositeLook();
+      });
+    });
+    pc.appendChild(slider);
+    const hint = document.createElement('div');
+    hint.className = 'look-hint';
+    hint.innerHTML = `<b>Hold the photo</b> to compare with your edit — release to return to the look.`;
+    pc.appendChild(hint);
+    rebuildLookThumbs();
+  }
+  function selectLook(id) {
+    if (!isPro) { showPaywall(); return; }
+    if (lookId === id) return;
+    const wasActive = lookIsActive();
+    lookId = id;
+    if (!wasActive) {
+      // cvAfter currently shows the un-looked base (nothing composited yet)
+      const w = cvAfter.width, h = cvAfter.height;
+      lookBase = (w && h) ? ctxA.getImageData(0, 0, w, h) : null;
+    }
+    // switching looks: lookBase already holds the true base (stashed by render())
+    lookCache.id = null;   // force regrade for the new look
+    scheduleLook(true);
+    renderPanel();         // refresh active chip + name
+  }
+  /* Thumbnails are the current edit through the real pipeline, per look. */
+  function lookThumbSource() {
+    if (lookBase && lookIsActive()) return lookBase;
+    const w = cvAfter.width, h = cvAfter.height;
+    return (w && h) ? ctxA.getImageData(0, 0, w, h) : null;
+  }
+  function rebuildLookThumbs() {
+    const strip = $('lookStrip');
+    if (!strip || !original || !lookEngine()) return;
+    const src = lookThumbSource();
+    if (!src) return;
+    const tw = 96, th = Math.max(1, Math.round(tw * src.height / src.width));
+    const sc = document.createElement('canvas');
+    sc.width = src.width; sc.height = src.height;
+    sc.getContext('2d').putImageData(src, 0, 0);
+    const tc = document.createElement('canvas');
+    tc.width = tw; tc.height = th;
+    const tx = tc.getContext('2d', { willReadFrequently: true });
+    tx.drawImage(sc, 0, 0, tw, th);
+    const timg = tx.getImageData(0, 0, tw, th);
+    strip.querySelectorAll('.preset-card').forEach(card => {
+      const cv = card.querySelector('canvas');
+      cv.width = tw; cv.height = th;
+      cv.getContext('2d').putImageData(lookEngine().grade(timg, card.dataset.look), 0, 0);
+    });
+  }
+
+  /* ---------- hold-to-compare (looks panel only) ---------- */
+  (function wireLookCompare() {
+    const wrap = $('compareWrap');
+    wrap.addEventListener('pointerdown', e => {
+      if (activeDock !== 'looks' || !lookIsActive() || !lookBase) return;
+      if (compareMode || maskPaintMode || maskDrawMode || maskSampleMode) return;
+      clearTimeout(lookHoldTimer);
+      lookHoldTimer = setTimeout(() => {
+        lookHolding = true;
+        ctxA.putImageData(lookBase, 0, 0);   // the edit, before the look
+      }, 200);
+    });
+    const endHold = () => {
+      clearTimeout(lookHoldTimer);
+      if (lookHolding) {
+        lookHolding = false;
+        if (lookShown) ctxA.putImageData(lookShown, 0, 0);
+      }
+    };
+    wrap.addEventListener('pointerup', endHold);
+    wrap.addEventListener('pointercancel', endHold);
+    wrap.addEventListener('pointerleave', endHold);
+    wrap.addEventListener('contextmenu', e => { if (activeDock === 'looks') e.preventDefault(); });
+  })();
 
   /* ================= dock ================= */
   document.querySelectorAll('.dock-tab').forEach(tab => {
