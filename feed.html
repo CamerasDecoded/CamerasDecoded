@@ -18,6 +18,10 @@
   <script src="/scripts/firebase-init.js?v=20261007b"></script>
   <script src="/scripts/cd-upload.js?v=20261014b"></script>
 
+  <!-- ===== PLASMA EDGE + MODAL (shared component, PR #667) ===== -->
+  <link rel="stylesheet" href="/scripts/cd-plasma.css?v=20261016a">
+  <script src="/scripts/cd-plasma.js?v=20261016a"></script>
+
   <!-- ===== USER STATE ===== -->
   <script src="/scripts/user-state.js?v=20261014a"></script>
 
@@ -101,6 +105,8 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 /* cynetis-7 transmissions */
 .feed-card.cynetis{border-color:rgba(141,235,0,.28);background:linear-gradient(135deg,var(--surface),#0a0f06)}
 .feed-card.cynetis .feed-avatar{border-color:var(--green-border)}
+/* plasma edge must never be clipped by the card (PR B) */
+.feed-card.cynetis.cdp-edge-live{overflow:visible}
 /* spotlight */
 .feed-card.spotlight{border-color:rgba(245,192,68,.3);background:linear-gradient(135deg,var(--surface),#141007)}
 .spot-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
@@ -344,6 +350,39 @@ font-size:11px;cursor:pointer}
 (function(){
 const feedList = document.getElementById('feedList');
 const TYPE_LABELS = { arena_entry:'Arena Entry', arena_winner:'Winner', xp_milestone:'Milestone', club_post:'Club', suggestion:'Idea', post:'Post', blog_post:'Article', protocol:'Protocol', podcast:'Podcast', featured_operator:'Spotlight', arena_drop:'Arena Challenge', cynetis_post:'Transmission' };
+
+/* --- PLASMA (PR B): the live edge on Cynetis-7 transmission cards ---
+   The daily transmission is the live broadcast of the Signal, so every
+   cynetis_post card wears the plasma edge — no clock gating here (Arena
+   timing arrives in PR C) and no other card type gets one. loadFeed
+   rebuilds the whole card list on every auth change / filter switch, so
+   this runs after every render, destroy-first per card (WeakMap keyed on
+   the element itself). */
+var cdpTxEdges = new WeakMap();
+function cdpRefreshTransmissionEdges(){
+  if(!window.CDPlasmaEdge || !feedList) return;
+  feedList.querySelectorAll('.feed-card.cynetis').forEach(function(el){
+    var prev = cdpTxEdges.get(el);
+    if(prev) prev.destroy();
+    el.classList.add('cdp-edge-live');
+    var h = window.CDPlasmaEdge.attach(el);
+    if(h) cdpTxEdges.set(el, h);
+  });
+}
+/* Tap a transmission card to open that transmission in the plasma modal.
+   Buttons, links, inputs, the action bar and comments are untouched —
+   they return earlier in the delegated click handler below. */
+function cdpOpenTransmission(d){
+  if(!window.CDPlasmaModal || !d) return;
+  window.CDPlasmaModal.open({
+    kicker: 'CYNETIS-7 // DAILY TRANSMISSION',
+    chipText: 'Transmission',
+    title: d.actorName || 'Cynetis-7',
+    body: d.text || '',
+    footer: 'From the Signal' + (d.createdAt ? ' \u00B7 ' + timeAgo(d.createdAt) : ''),
+    avatarSrc: d.actorAvatar || 'https://camerasdecoded.com/cynetis-avatar.png'
+  });
+}
 
 function timeAgo(ts) {
   if (!ts) return '';
@@ -964,6 +1003,13 @@ async function loadFeed() {
         else if(act.dataset.act === 'delete') handleDelete(act, itemId, card);
         return;
       }
+      /* Plasma (PR B): a tap on a transmission card's body opens that
+         transmission in the Cynetis plasma modal. Interactive elements
+         (links, buttons, inputs, the action bar, comments) returned above
+         or are excluded here — they keep their own behavior. */
+      if(e.target.closest('a, button, input, textarea, select, .comments, .flash-row')) return;
+      const cynCard = e.target.closest('.feed-card.cynetis');
+      if(cynCard && cynCard._feedData) cdpOpenTransmission(cynCard._feedData);
       const cs = e.target.closest('[data-csend]');
       if(cs){ sendComment(cs.dataset.csend); return; }
     };
@@ -1122,6 +1168,7 @@ async function loadFeed() {
     loadFlashData();
     initCarousels(feedList);
     buildWire(ordered);
+    cdpRefreshTransmissionEdges();
     openDeepLink();
   } catch(e) {
     feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
