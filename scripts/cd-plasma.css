@@ -1,0 +1,278 @@
+/* ============================================================
+   CD PLASMA — shared engine
+   The crackling plasma edge (and the modal card that carries it),
+   approved on the owner's iPhone 2026-10-16.
+   All classes are namespaced .cdp-*. Brand green only.
+
+   Surfaces so far: the Founding claim card (live window edge) via
+   CDPlasmaEdge.attach; the Cynetis transmission modal via
+   CDPlasmaModal.open/close (wired by the Signal work).
+   ============================================================ */
+
+:root {
+  --cdp-green: #8deb00;
+  --cdp-green-pale: #dcffb5;
+  --cdp-surface: #0a0f0a;
+  --cdp-surface-2: #0d130c;
+  --cdp-hairline: rgba(141, 235, 0, 0.25);
+  --cdp-ink: #eef6e4;
+  --cdp-ink-dim: rgba(238, 246, 228, 0.66);
+  --cdp-radius: 22px;
+  --cdp-z: 12000;
+}
+
+/* ---- Standalone edge: canvas injected by CDPlasmaEdge.attach ----
+   The canvas box extends PLASMA_MARGIN (64px) past the host element on
+   every side — that headroom is what keeps the glow from being sliced
+   at the bitmap edge (see scripts/cd-plasma.js). Never shrink this via
+   an ancestor's overflow:hidden while an edge is live. */
+.cdp-edge-canvas {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ================= Modal ================= */
+
+/* Root overlay — fixed, covers the viewport */
+.cdp-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--cdp-z);
+  display: block;
+  overscroll-behavior: contain;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Tinted + blurred backdrop (tapping closes) */
+.cdp-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 10, 4, 0.55);
+  -webkit-backdrop-filter: blur(14px) saturate(0.8);
+  backdrop-filter: blur(14px) saturate(0.8);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.cdp-root.cdp-open .cdp-backdrop {
+  opacity: 1;
+}
+
+/* Stage: centers the card, carries the 3D perspective */
+.cdp-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  perspective: 900px;
+  -webkit-perspective: 900px;
+  pointer-events: none;
+}
+
+/* Breathing halo behind the card */
+.cdp-halo {
+  position: absolute;
+  width: min(86vw, 460px);
+  height: min(60vh, 480px);
+  border-radius: 40px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(141, 235, 0, 0.22) 0%,
+    rgba(141, 235, 0, 0.08) 45%,
+    rgba(141, 235, 0, 0) 70%
+  );
+  filter: blur(40px);
+  -webkit-filter: blur(40px);
+  opacity: 0.3;
+  transform: scale(1);
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+/* The 3D-tilted wrapper */
+.cdp-tilt {
+  position: relative;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  will-change: transform;
+  pointer-events: auto;
+}
+
+/* The card itself — CD dossier surface */
+.cdp-card {
+  position: relative;
+  width: min(86vw, 400px);
+  border-radius: var(--cdp-radius);
+  background:
+    linear-gradient(160deg, rgba(141, 235, 0, 0.055) 0%, rgba(141, 235, 0, 0) 38%),
+    var(--cdp-surface);
+  border: 1px solid var(--cdp-hairline);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--cdp-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  overflow: visible;
+  opacity: 0;
+  transform: translateY(14px) scale(0.97);
+  transition: opacity 0.3s ease, transform 0.34s cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+.cdp-root.cdp-open .cdp-card {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Plasma canvas — the crackling edge.
+   The canvas box extends PLASMA_MARGIN px beyond the card on every side
+   (must match the PLASMA_MARGIN constant in cd-plasma.js): the seam
+   path is drawn SEAM_OFFSET px outside the card border, leaving real
+   headroom for the full glow (shadowBlur + lineWidth + noise wander +
+   spit flares) to fade out inside the bitmap. The bitmap edge must
+   NEVER become the visible cutoff of the glow. */
+.cdp-plasma {
+  position: absolute;
+  inset: -64px;
+  width: calc(100% + 128px);
+  height: calc(100% + 128px);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Sheen that slides against the tilt */
+.cdp-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--cdp-radius);
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.09) 48%,
+    rgba(255, 255, 255, 0) 66%
+  );
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 2;
+  will-change: transform;
+}
+
+/* Card content */
+.cdp-content {
+  position: relative;
+  z-index: 1;
+  padding: 26px 24px 22px;
+}
+
+.cdp-toprow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-right: 38px; /* clears the absolute close button */
+}
+
+.cdp-kicker {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+  color: var(--cdp-green);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cdp-chip {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  font-weight: 800;
+  color: #0a0f0a;
+  background: var(--cdp-green);
+  border-radius: 999px;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  box-shadow: 0 0 14px rgba(141, 235, 0, 0.55);
+}
+
+.cdp-herorow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.cdp-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--cdp-hairline);
+  box-shadow: 0 0 16px rgba(141, 235, 0, 0.35);
+  transform: translateZ(18px);
+  background: #050705;
+}
+
+.cdp-title {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.25;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  transform: translateZ(10px);
+}
+
+.cdp-body {
+  margin: 0 0 16px;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--cdp-ink-dim);
+}
+
+.cdp-footer {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(141, 235, 0, 0.75);
+  letter-spacing: 0.04em;
+}
+
+/* Close button — SVG glyph only */
+.cdp-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.cdp-close:hover {
+  border-color: var(--cdp-green);
+}
+
+.cdp-close svg {
+  width: 14px;
+  height: 14px;
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* Reduced motion — the component script also handles this */
+@media (prefers-reduced-motion: reduce) {
+  .cdp-card,
+  .cdp-backdrop {
+    transition: none;
+  }
+}

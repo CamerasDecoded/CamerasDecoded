@@ -15,6 +15,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <script src="/scripts/master-loader.js?v=20261015c"></script>
+  <link rel="stylesheet" href="/scripts/cd-plasma.css?v=20261016a">
+  <script src="/scripts/cd-plasma.js?v=20261016a"></script>
   <script src="/header.js?v=20261002a"></script>
   <script src="/scripts/desktop-sidebar.js?v=20260930a"></script>
   <!-- bottom-nav.js is loaded by master-loader - do not load it again -->
@@ -114,6 +116,10 @@
     .claim-section{position:relative;overflow:hidden;margin:56px auto 0;padding:36px 30px;
       background:#0b0b0d;border:1px solid rgba(224,177,45,.35);border-radius:18px;
       box-shadow:0 0 40px rgba(224,177,45,.10);text-align:center;max-width:720px;}
+    /* While the Founding window is live, the claim card carries the plasma
+       edge — the canvas extends 64px past the card and must never be
+       clipped by this container. */
+    .claim-section.cdp-edge-live{overflow:visible;}
     .claim-section::before{content:"";position:absolute;inset:0;
       background:url('/media/dossier-weave.jpg') center/cover;
       opacity:.4;mix-blend-mode:soft-light;pointer-events:none;}
@@ -425,10 +431,37 @@
         f200founders = list;
         f200updateCounter();
         f200renderPage(1);
+        f200refreshEdge(list.length);
       }).catch(function (err) {
         console.warn('founding200 load failed:', err);
         f200container.innerHTML = '<div class="dir-status">The directory is waking up. Check back soon.</div>';
+        f200refreshEdge(999); // no count → fails safe: no edge
       });
+    }
+
+    // --- FOUNDING WINDOW PLASMA EDGE ---
+    // The claim card carries the live plasma edge while the Founding window
+    // is open: now >= Sat 2026-10-17 17:00:00Z (noon Chicago) AND fewer
+    // than 200 approved claims. At/after 200, the edge dies — the card
+    // keeps its quiet gold styling. The approved count is reused from the
+    // wall query above; nothing else is read or written.
+    var F200_WINDOW_OPEN_MS = Date.parse('2026-10-17T17:00:00Z');
+    var f200edge = null;
+    function f200edgeShouldShow(approvedCount) {
+      return Date.now() >= F200_WINDOW_OPEN_MS && approvedCount < 200;
+    }
+    function f200refreshEdge(approvedCount) {
+      var section = document.querySelector('section.claim-section');
+      if (!section) return;
+      if (f200edgeShouldShow(approvedCount) && window.CDPlasmaEdge) {
+        // Destroy-first: exactly one edge ever exists on this page.
+        if (f200edge) f200edge.destroy();
+        section.classList.add('cdp-edge-live');
+        f200edge = window.CDPlasmaEdge.attach(section);
+      } else {
+        section.classList.remove('cdp-edge-live');
+        if (f200edge) { f200edge.destroy(); f200edge = null; }
+      }
     }
 
     // --- CLAIM YOUR SPOT ---
