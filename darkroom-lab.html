@@ -935,7 +935,7 @@ window.addEventListener('error', function(e) {
      beyond a skin-aware cache key. skinTrueBase is the un-looked, un-skinned
      stash the skin stage works from; the separation (low/smooth/mask) is
      cached per editSig, so slider drags only re-run the cheap recompose. */
-  let skinAmount = 35;               // 0..100, default tasteful
+  let skinAmount = 0;                // 0..100 — starts OFF. Owner rule: a photo opens as the untouched original; the user's hand engages retouch, per photo.
   let skinTimer = null;
   let skinTrueBase = null;           // true base stash (ImageData) for the skin stage
   let skinSepCache = { sig: -1, sep: null };  // frequency separation + mask
@@ -1236,6 +1236,15 @@ window.addEventListener('error', function(e) {
     masks = []; maskSeq = 1; activeMaskId = null;
     maskPaintMode = null; maskDrawMode = null;
     paintStroke = null; drawAnchor = null; drawCurrent = null;
+    // Looks reset (owner rule): a fresh photo opens as the untouched original —
+    // no look, no skin retouch, default intensities. Features engage only by the
+    // user's hand, per photo. This does not touch the classic sliders S (the
+    // upload/sample paths reset those via resetSettings(); the handoff path
+    // deliberately keeps the sender's S — see boot handoff below).
+    lookId = 'original';
+    lookIntensity = 70;
+    skinAmount = 0;
+    lookBase = null; skinTrueBase = null; lookShown = null;   // drop stale stage frames
     fitCanvases();
     drawBefore();
     thumbsBuiltFor = null;
@@ -3079,6 +3088,7 @@ window.addEventListener('error', function(e) {
           c.width = img.naturalWidth; c.height = img.naturalHeight;
           c.getContext('2d').drawImage(img, 0, 0);
           setPhoto(c.getContext('2d').getImageData(0, 0, c.width, c.height));
+          renderPanel();   // panel must reflect the looks reset (Original / 0 / 70)
           hideDlInvite();
         } catch (e) {}
       };
