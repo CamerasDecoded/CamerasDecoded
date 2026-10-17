@@ -241,6 +241,23 @@
 
   function loadParticles() { /* optional – skip if not used */ }
 
+  // Cloudflare Web Analytics: privacy-friendly traffic stats (no cookies).
+  // Injected here (not a static page tag) so every loader-served page
+  // reports. Non-blocking by construction: the beacon script executes
+  // asynchronously, carries no page logic, and this function never
+  // throws – a blocked/unreachable CDN simply means no stats for that
+  // view, never a broken page.
+  function loadCfAnalytics() {
+    try {
+      if (document.querySelector('script[data-cf-beacon]')) return; // no double-injection
+      const s = document.createElement('script');
+      s.setAttribute('data-cf-beacon', '{"token": "d2f80af5be2b45e08c6b2e63231edd5d"}');
+      s.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+      s.defer = true;
+      (document.head || document.documentElement).appendChild(s);
+    } catch (e) { /* analytics must never break the page */ }
+  }
+
   // ----- HEADER INJECTION -----
   function injectFloatingHeader() {
     // Remove any existing header to avoid duplicates
@@ -414,6 +431,7 @@
     loadGoogleFonts();
     loadSharedCSS();
     loadParticles();
+    loadCfAnalytics();
     injectFloatingHeader();
     loadHeaderBehavior();
     loadProCheckout();
