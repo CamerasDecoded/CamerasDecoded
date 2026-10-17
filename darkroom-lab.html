@@ -878,7 +878,7 @@
 <script src="/scripts/firebase-init.js?v=20261010a"></script>
   <script src="/scripts/reward-engine.js?v=20261014b"></script>
 <script src="/scripts/user-state.js?v=20261014a"></script>
-<script src="/scripts/cd-looks.js?v=20261016a"></script>
+<script src="/scripts/cd-looks.js?v=20261016b"></script>
 <script src="/scripts/bottom-nav.js?v=20261014a"></script>
 <script src="/scripts/ptr.js?v=20261004a"></script>
 <script>
@@ -923,10 +923,23 @@ window.addEventListener('error', function(e) {
   let lookGradeTimer = null;
   let lookBlendRaf = 0;
   let editSig = 0;                   // increments on every base render
-  let lookBase = null;               // last edited (pre-look) frame, ImageData
+  let lookBase = null;               // pre-look frame: true base + skin smoothing
   let lookShown = null;              // last composited (look-applied) frame
-  let lookCache = { sig: -1, id: null, img: null }; // full-strength look frame
+  let lookCache = { sig: -1, skin: '', id: null, img: null }; // full-strength look frame
   let lookHoldTimer = null, lookHolding = false;
+
+  /* ============ skin stage (frequency-separation retouch) ================
+     Runs BEFORE the look grade: base edit (wasm) -> skin -> look.
+     lookBase is always "pre-look" = (true base with skin smoothing applied),
+     so the look stage grades from the retouched frame and needs no changes
+     beyond a skin-aware cache key. skinTrueBase is the un-looked, un-skinned
+     stash the skin stage works from; the separation (low/smooth/mask) is
+     cached per editSig, so slider drags only re-run the cheap recompose. */
+  let skinAmount = 35;               // 0..100, default tasteful
+  let skinTimer = null;
+  let skinTrueBase = null;           // true base stash (ImageData) for the skin stage
+  let skinSepCache = { sig: -1, sep: null };  // frequency separation + mask
+  let skinShownKey = '';             // skinKey() of the frame currently in lookBase
 
   /* ================= masking state ================= */
   let masks = [];               // Mask objects: {id,name,visible,invert,components,adjust}
@@ -1103,13 +1116,22 @@ window.addEventListener('error', function(e) {
       }
       ctxA.putImageData(new ImageData(new Uint8ClampedArray(out), original.width, original.height), 0, 0);
       editSig++;
-      // The look stage grades from this un-looked base, never from the
-      // composited canvas — otherwise looks would stack on each other.
+      // The look stage grades from lookBase, which the skin stage produces
+      // from this un-looked, un-skinned stash — otherwise looks would stack
+      // on each other (and skin would grade from a looked frame).
       if (lookEngine()) {
-        lookBase = lookIsActive()
-          ? new ImageData(new Uint8ClampedArray(out), original.width, original.height)
-          : null;   // release the copy when no look is selected
+        if (lookIsActive() || skinIsActive()) {
+          skinTrueBase = new ImageData(new Uint8ClampedArray(out), original.width, original.height);
+          if (!skinIsActive()) {
+            // skin bypasses cleanly: lookBase is the base, bit-for-bit
+            lookBase = new ImageData(new Uint8ClampedArray(out), original.width, original.height);
+          }
+        } else {
+          skinTrueBase = null;
+          lookBase = null;   // release the copies when neither stage is active
+        }
       }
+      scheduleSkin();   // no-op unless skin active; debounced like the look stage
       scheduleLook();   // no-op unless a look is active; debounced so slider drags stay live
       statusEl.style.display = 'none';
       statusEl.classList.add('live');
@@ -1445,6 +1467,7 @@ window.addEventListener('error', function(e) {
   async function doExport(fmt) {
     if (!original) return;
     render();
+    ensureSkinForExport();   // skin stage flushes first: base -> skin -> look
     await ensureLookForExport();   // the exported file carries the look, exactly as previewed
     $('fmtSheet').classList.remove('open');
     statusEl.textContent = 'Preparing export\u2026';
@@ -2601,6 +2624,55 @@ window.addEventListener('error', function(e) {
   function lookEngine() { return (window.CDLooks || null); }
   function lookIsActive() { return lookId !== 'original'; }
 
+  /* ---------- skin stage ----------
+     lookBase = (true base with skin smoothing applied). refreshSkinSync is
+     idempotent and memoized: recompute only when the edit or the amount
+     changed. Called by the skin scheduler, by runLookPass (kills the
+     render/look race), and by the export flush. */
+  function skinIsActive() { return isPro && skinAmount > 0; }
+  function skinKey() { return skinIsActive() ? (editSig + ':' + skinAmount) : 'off'; }
+  function refreshSkinSync() {
+    const eng = lookEngine();
+    if (!original || !eng || !skinTrueBase) return;
+    const key = skinKey();
+    if (skinShownKey === key && lookBase) return;   // memoized
+    if (!skinIsActive()) {
+      lookBase = new ImageData(new Uint8ClampedArray(skinTrueBase.data), skinTrueBase.width, skinTrueBase.height);
+    } else {
+      if (skinSepCache.sig !== editSig || !skinSepCache.sep) {
+        skinSepCache = { sig: editSig, sep: eng.skinSeparation(skinTrueBase) };
+      }
+      lookBase = eng.retouch(skinTrueBase, skinSepCache.sep, skinAmount / 100);
+    }
+    skinShownKey = key;
+  }
+  function scheduleSkin(immediate) {
+    clearTimeout(skinTimer);
+    if (!lookEngine() || !original) return;
+    skinTimer = setTimeout(() => runSkinPass(false), immediate ? 0 : 160);
+  }
+  /* live=true: skin-only preview while the slider is being dragged (the look
+     is suppressed and snaps back on settle, the VSCO-style pattern); the
+     separation stays cached, so drags only re-run the cheap recompose. */
+  function runSkinPass(live) {
+    clearTimeout(skinTimer);
+    refreshSkinSync();
+    if (!lookBase) return;
+    if (!live && lookIsActive()) {
+      scheduleLook(true);   // regrade from the new skinned lookBase
+    } else {
+      ctxA.putImageData(lookBase, 0, 0);
+      if (!live && activeDock === 'looks' && !lookIsActive()) rebuildLookThumbs();
+    }
+  }
+  /* Export path: flush the skin stage synchronously before the look flush,
+     so preview == export by construction (stage order: base -> skin -> look). */
+  function ensureSkinForExport() {
+    clearTimeout(skinTimer);
+    refreshSkinSync();
+    if (lookBase && !lookIsActive()) ctxA.putImageData(lookBase, 0, 0);
+  }
+
   function scheduleLook(immediate) {
     clearTimeout(lookGradeTimer);
     if (!lookIsActive() || !original || !lookEngine()) return;
@@ -2609,9 +2681,11 @@ window.addEventListener('error', function(e) {
   /* Grade the current base frame and composite at the current intensity. */
   function runLookPass() {
     clearTimeout(lookGradeTimer);
-    if (!lookIsActive() || !original || !lookEngine() || !lookBase) return;
-    if (lookCache.sig !== editSig || lookCache.id !== lookId) {
-      lookCache = { sig: editSig, id: lookId, img: lookEngine().grade(lookBase, lookId) };
+    if (!lookIsActive() || !original || !lookEngine()) return;
+    refreshSkinSync();   // skin is fresh before the look grades (no render/look race)
+    if (!lookBase) return;
+    if (lookCache.sig !== editSig || lookCache.skin !== skinKey() || lookCache.id !== lookId) {
+      lookCache = { sig: editSig, skin: skinKey(), id: lookId, img: lookEngine().grade(lookBase, lookId) };
     }
     compositeLook();
     if (activeDock === 'looks') rebuildLookThumbs();
@@ -2679,9 +2753,37 @@ window.addEventListener('error', function(e) {
       });
     });
     pc.appendChild(slider);
+    /* ---------- skin retouch ---------- */
+    const shead = document.createElement('div');
+    shead.className = 'bigslider-head';
+    shead.style.marginTop = '10px';
+    shead.innerHTML = `<span class="bigslider-label" style="font-size:12px;">Skin <span style="font-size:10px;color:var(--text-faint);font-weight:400;">retouch</span></span>` +
+      `<span class="bigslider-val" id="skinVal">${skinAmount}</span>`;
+    pc.appendChild(shead);
+    const sslider = document.createElement('input');
+    sslider.type = 'range'; sslider.className = 'big';
+    sslider.id = 'skinAmount';
+    sslider.min = '0'; sslider.max = '100'; sslider.step = '1'; sslider.value = String(skinAmount);
+    sslider.setAttribute('aria-label', 'Skin smoothing');
+    sslider.addEventListener('input', () => {
+      if (!isPro) { showPaywall(); sslider.value = String(skinAmount); return; }
+      skinAmount = parseInt(sslider.value, 10) || 0;
+      const v = $('skinVal');
+      if (v) v.textContent = String(skinAmount);
+      if (!skinTrueBase) {
+        // first touch of the slider: the canvas shows the true base right now
+        const w = cvAfter.width, h = cvAfter.height;
+        skinTrueBase = (w && h) ? ctxA.getImageData(0, 0, w, h) : null;
+      }
+      runSkinPass(true);   // live: skin-only preview, look snaps back on settle
+      clearTimeout(skinTimer);
+      skinTimer = setTimeout(() => runSkinPass(false), 160);
+    });
+    sslider.addEventListener('change', () => { clearTimeout(skinTimer); runSkinPass(false); });
+    pc.appendChild(sslider);
     const hint = document.createElement('div');
     hint.className = 'look-hint';
-    hint.innerHTML = `<b>Hold the photo</b> to compare with your edit — release to return to the look.`;
+    hint.innerHTML = `<b>Hold the photo</b> to compare with your edit — release to return to the look.<br>Skin evens tone under the surface; pores and texture are never touched.`;
     pc.appendChild(hint);
     rebuildLookThumbs();
   }
@@ -2697,7 +2799,15 @@ window.addEventListener('error', function(e) {
     }
     // switching looks: lookBase already holds the true base (stashed by render())
     lookCache.id = null;   // force regrade for the new look
-    scheduleLook(true);
+    if (!lookIsActive()) {
+      // back to Original: the old look is still on the canvas — repaint the
+      // true (possibly skin-smoothed) base immediately
+      if (skinIsActive()) refreshSkinSync();
+      if (lookBase) ctxA.putImageData(lookBase, 0, 0);
+      if (activeDock === 'looks') rebuildLookThumbs();
+    } else {
+      scheduleLook(true);
+    }
     renderPanel();         // refresh active chip + name
   }
   /* Thumbnails are the current edit through the real pipeline, per look. */

@@ -255,6 +255,122 @@
   /* Blur scale follows working size (prototype: k=1 at 854px long edge, 0.18 at thumbs). */
   function blurScale(w, h) { return clamp(Math.min(w, h) / 854, 0.15, 1.5); }
 
+  /* ============ skin stage: frequency separation, chromaticity mask ==========
+     Professional retouch math — no ML, no face warping, no diffusion. The
+     frame is split into a low-frequency color layer (computed at reduced
+     resolution, the standard fast path) and a full-resolution high-frequency
+     texture residual. ONLY the low layer is evened (edge-aware bilateral, so
+     jaw/hair boundaries hold), and only inside a soft-feathered,
+     slightly-eroded skin-chromaticity mask. Pores and texture survive intact.
+     skinSeparation(img) -> sep (cached per edit); retouch(img, sep, t) ->
+     NEW ImageData. Input images are never mutated. */
+  const SKIN_S = 256;   /* separation working size, long edge */
+
+  function f32rgb(img) {
+    const d = img.data, n = img.width * img.height, out = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { out[i * 3] = d[i * 4] / 255; out[i * 3 + 1] = d[i * 4 + 1] / 255; out[i * 3 + 2] = d[i * 4 + 2] / 255; }
+    return out;
+  }
+  /* separable box blur on interleaved-float RGB */
+  function boxBlurF(px, w, h, radius, passes) {
+    let src = px, dst = new Float32Array(px.length);
+    for (let p = 0; p < passes; p++) {
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        let r = 0, g = 0, b = 0, cnt = 0;
+        for (let k = -radius; k <= radius; k++) { const xx = clamp(x + k, 0, w - 1), o = (y * w + xx) * 3; r += src[o]; g += src[o + 1]; b += src[o + 2]; cnt++; }
+        const o = (y * w + x) * 3; dst[o] = r / cnt; dst[o + 1] = g / cnt; dst[o + 2] = b / cnt;
+      }
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        let r = 0, g = 0, b = 0, cnt = 0;
+        for (let k = -radius; k <= radius; k++) { const yy = clamp(y + k, 0, h - 1), o = (yy * w + x) * 3; r += dst[o]; g += dst[o + 1]; b += dst[o + 2]; cnt++; }
+        const o = (y * w + x) * 3; src[o] = r / cnt; src[o + 1] = g / cnt; src[o + 2] = b / cnt;
+      }
+    }
+    return src;
+  }
+  /* edge-aware smoothing of the color layer: evens tone, keeps boundaries */
+  function bilateralF(px, w, h, radius, sigS, sigR) {
+    const src = px, out = new Float32Array(px.length);
+    const s2 = 2 * sigS * sigS, r2 = 2 * sigR * sigR;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const o0 = (y * w + x) * 3, cr = src[o0], cg = src[o0 + 1], cb = src[o0 + 2];
+      let wr = 0, wg = 0, wb = 0, ws = 0;
+      for (let dy = -radius; dy <= radius; dy++) { const yy = clamp(y + dy, 0, h - 1);
+        for (let dx = -radius; dx <= radius; dx++) { const xx = clamp(x + dx, 0, w - 1);
+          const o = (yy * w + xx) * 3;
+          const dr = src[o] - cr, dg = src[o + 1] - cg, db = src[o + 2] - cb;
+          const wgt = Math.exp(-(dx * dx + dy * dy) / s2 - (dr * dr + dg * dg + db * db) / r2);
+          wr += src[o] * wgt; wg += src[o + 1] * wgt; wb += src[o + 2] * wgt; ws += wgt;
+        }
+      }
+      out[o0] = wr / ws; out[o0 + 1] = wg / ws; out[o0 + 2] = wb / ws;
+    }
+    return out;
+  }
+  /* Skin chromaticity: widened YCbCr ellipse (tone-inclusive), soft edges,
+     with soft luminance + chroma sanity guards. */
+  const SK_CX = 109.38, SK_CY = 152.02, SK_TH = 2.53, SK_A = 25.39 * 1.35, SK_B = 14.03 * 1.35;
+  function skinMaskF(px, w, h) {
+    const m = new Float32Array(w * h);
+    const ct = Math.cos(SK_TH), st = Math.sin(SK_TH);
+    for (let i = 0; i < w * h; i++) {
+      const r = px[i * 3] * 255, g = px[i * 3 + 1] * 255, b = px[i * 3 + 2] * 255;
+      const Y = 0.299 * r + 0.587 * g + 0.114 * b;
+      const Cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+      const Cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+      const dx = Cb - SK_CX, dy = Cr - SK_CY;
+      const ex = (ct * dx + st * dy) / SK_A, ey = (-st * dx + ct * dy) / SK_B;
+      const d = ex * ex + ey * ey;
+      let s = 1 - sstep(0.55, 1.0, d);
+      s *= sstep(14, 26, Y) * (1 - sstep(232, 246, Y));
+      const chroma = Math.abs(Cb - 128) + Math.abs(Cr - 128);
+      s *= sstep(6, 14, chroma);
+      m[i] = s;
+    }
+    return m;
+  }
+  /* slight erosion (min filter) keeps the mask off hair/jaw boundaries */
+  function minFilter1(m, w, h) {
+    const out = new Float32Array(m.length);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let mn = 1;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const v = m[clamp(y + dy, 0, h - 1) * w + clamp(x + dx, 0, w - 1)];
+        if (v < mn) mn = v;
+      }
+      out[y * w + x] = mn;
+    }
+    return out;
+  }
+  function blur1(m, w, h, radius) {
+    let src = m, dst = new Float32Array(m.length);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let s = 0, cnt = 0;
+      for (let k = -radius; k <= radius; k++) { s += src[y * w + clamp(x + k, 0, w - 1)]; cnt++; }
+      dst[y * w + x] = s / cnt;
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let s = 0, cnt = 0;
+      for (let k = -radius; k <= radius; k++) { s += dst[clamp(y + k, 0, h - 1) * w + x]; cnt++; }
+      src[y * w + x] = s / cnt;
+    }
+    return src;
+  }
+  function sampleC(p, sw, sh, ch, x, y) {
+    const fx = clamp(x, 0, sw - 1.001), fy = clamp(y, 0, sh - 1.001);
+    const x0 = Math.min(fx | 0, sw - 2), y0 = Math.min(fy | 0, sh - 2);
+    const tx = fx - x0, ty = fy - y0;
+    const i00 = (y0 * sw + x0) * 3 + ch, i10 = i00 + 3, i01 = i00 + sw * 3, i11 = i01 + 3;
+    return (p[i00] * (1 - tx) + p[i10] * tx) * (1 - ty) + (p[i01] * (1 - tx) + p[i11] * tx) * ty;
+  }
+  function sample1(p, sw, sh, x, y) {
+    const fx = clamp(x, 0, sw - 1.001), fy = clamp(y, 0, sh - 1.001);
+    const x0 = Math.min(fx | 0, sw - 2), y0 = Math.min(fy | 0, sh - 2);
+    const tx = fx - x0, ty = fy - y0;
+    const i00 = y0 * sw + x0, i10 = i00 + 1, i01 = i00 + sw, i11 = i01 + 1;
+    return (p[i00] * (1 - tx) + p[i10] * tx) * (1 - ty) + (p[i01] * (1 - tx) + p[i11] * tx) * ty;
+  }
+
   window.CDLooks = {
     IDS: IDS,
     meta: function (id) {
@@ -281,6 +397,50 @@
         od[i + 1] = ad[i + 1] + (bd[i + 1] - ad[i + 1]) * t;
         od[i + 2] = ad[i + 2] + (bd[i + 2] - ad[i + 2]) * t;
         od[i + 3] = 255;
+      }
+      return out;
+    },
+    /* Skin separation: split img into low (color) / smooth (evened color) /
+       mask (feathered skin) at reduced res. Cache per edit; recompute only
+       when the base frame changes. */
+    skinSeparation: function (img) {
+      const W = img.width, H = img.height;
+      const k = SKIN_S / Math.max(W, H);
+      const sw = Math.max(8, Math.round(W * k)), sh = Math.max(8, Math.round(H * k));
+      const full = canvasFactory(W, H);
+      full.getContext('2d').putImageData(img, 0, 0);
+      const sc = canvasFactory(sw, sh), sx = sc.getContext('2d');
+      sx.drawImage(full, 0, 0, sw, sh);
+      const f = f32rgb(sx.getImageData(0, 0, sw, sh));
+      const low = boxBlurF(f, sw, sh, 3, 2);            /* color layer */
+      const smooth = bilateralF(low, sw, sh, 5, 4.0, 0.09); /* evened color, edges kept */
+      let mask = skinMaskF(f, sw, sh);
+      mask = blur1(minFilter1(mask, sw, sh), sw, sh, 2); /* erode off boundaries, feather */
+      return { fw: W, fh: H, sw: sw, sh: sh, low: low, smooth: smooth, mask: mask };
+    },
+    /* Retouch: NEW ImageData = img + mask*t*(smooth - low). Texture is the
+       untouched residual — pores survive by construction. t = 0..1. */
+    retouch: function (img, sep, t) {
+      const W = img.width, H = img.height;
+      const sw = sep.sw, sh = sep.sh, low = sep.low, smooth = sep.smooth, mask = sep.mask;
+      const out = new ImageData(W, H), od = out.data, bd = img.data;
+      const sx = (sw - 1) / Math.max(W - 1, 1), sy = (sh - 1) / Math.max(H - 1, 1);
+      for (let y = 0; y < H; y++) {
+        const py = y * sy;
+        for (let x = 0; x < W; x++) {
+          const px = x * sx;
+          const m = sample1(mask, sw, sh, px, py) * t;
+          const o = (y * W + x) * 4;
+          if (m <= 0.003) {
+            od[o] = bd[o]; od[o + 1] = bd[o + 1]; od[o + 2] = bd[o + 2]; od[o + 3] = 255;
+            continue;
+          }
+          for (let c = 0; c < 3; c++) {
+            const l = sampleC(low, sw, sh, c, px, py), s = sampleC(smooth, sw, sh, c, px, py);
+            od[o + c] = clamp(Math.round(bd[o + c] + m * (s - l) * 255), 0, 255);
+          }
+          od[o + 3] = 255;
+        }
       }
       return out;
     },
