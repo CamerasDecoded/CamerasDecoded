@@ -59,6 +59,7 @@
     gamepad:  svg('<rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v4M5 13h4"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor"/><circle cx="18" cy="14" r="1" fill="currentColor"/>'),
     manual:   svg('<path d="M12 6c-2-1.5-4.5-2-8-2v14c3.5 0 6 .5 8 2 2-1.5 4.5-2 8-2V4c-3.5 0-6 .5-8 2z"/><path d="M12 6v14"/>'),
     guide:    svg('<path d="M6 3h12v18l-6-4.2L6 21z"/>'),
+    gift:     svg('<path d="M3 8h18v4H3z"/><path d="M5 12v9h14v-9"/><path d="M12 8v13"/><path d="M12 8c-4 0-4.6-4-2.8-4.7C11 2.7 12 4.5 12 8z"/><path d="M12 8c4 0 4.6-4 2.8-4.7C13 2.7 12 4.5 12 8z"/>'),
     download: svg('<path d="M12 3v12"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/>'),
     close:    svg('<path d="M6 6l12 12M18 6 6 18"/>')
   };
@@ -89,16 +90,17 @@
       title: 'More',
       sub: 'Secondary destinations.',
       rows: [
-        { href: '/snapshot-library.html', icon: 'camera', title: 'Snapshots',    sub: 'Your saved cards' },
-        { href: '/ai-workbench.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
         { href: '/shoot-lab.html',          icon: 'practice', title: 'Shoot Lab', sub: 'Nail the exposure triangle' },
         { href: '/darkroom-lab.html',          icon: 'sliders', title: 'Develop Lab', sub: 'Pro photo editor' },
         { href: '/clip-lab.html',             icon: 'camera',  title: 'Clip Lab',   sub: 'Trim, caption, finish clips' },
-        { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
+        { href: '/ai-workbench.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
+        { href: '/snapshot-library.html', icon: 'camera', title: 'Snapshots',    sub: 'Your saved cards' },
         { href: '/protocols.html',       icon: 'library', title: 'Protocols',   sub: 'Training archive' },
+        { href: '/free.html',               icon: 'gift',   title: 'Free',         sub: 'Free drops, cards and downloads' },
+        { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
+        { href: '/decoders-crew.html',        icon: 'users',  title: 'Decoders Crew', sub: 'Meet your mentors' },
         // Community cut for launch — returns as a post-launch web-app update.
         { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
-        { href: '/decoders-crew.html',        icon: 'users',  title: 'Decoders Crew', sub: 'Meet your mentors' },
         { action: 'install',              icon: 'download', title: 'Install app', sub: 'Add Cameras Decoded to your Home Screen' },
         { action: 'logout',               icon: 'exit',   title: 'Log out',      sub: 'End this session' }
       ]

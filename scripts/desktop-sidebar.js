@@ -58,9 +58,10 @@
       { id: 'quiz',     label: 'Quiz Arena',    icon: 'fa-clipboard-question', href: '/quiz-full.html' }
     ]},
     { label: 'More', links: [
-      { id: 'snapshots',label: 'Snapshots',     icon: 'fa-camera',           href: '/snapshot-library.html' },
-      { id: 'leaderboard', label: 'Leaderboard', icon: 'fa-trophy',           href: '/leaderboard.html' },
       { id: 'ai',       label: 'AI Workbench',  icon: 'fa-brain',            href: '/ai-workbench.html' },
+      { id: 'snapshots',label: 'Snapshots',     icon: 'fa-camera',           href: '/snapshot-library.html' },
+      { id: 'free',     label: 'Free',          icon: 'fa-gift',             href: '/free.html' },
+      { id: 'leaderboard', label: 'Leaderboard', icon: 'fa-trophy',           href: '/leaderboard.html' },
       { id: 'crew',     label: 'Decoders Crew', icon: 'fa-users',            href: '/decoders-crew.html' },
       { id: 'profile',  label: 'Profile',       icon: 'fa-circle-user',      href: '/profile.html', role: 'profile' }
     ]}
