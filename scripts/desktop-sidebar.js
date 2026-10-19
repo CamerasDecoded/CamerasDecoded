@@ -51,6 +51,7 @@
     ]},
     { label: 'Practice', links: [
       { id: 'manual',   label: 'Field Manual',    icon: 'fa-book',             href: '/field-manual.html' },
+      { id: 'guide',    label: 'The Guide',       icon: 'fa-book-bookmark',    href: '/camera-confidence-guide.html' },
       { id: 'darkroom', label: 'The Darkroom',  icon: 'fa-circle-notch',     href: '/darkroom.html' },
       { id: 'arcade',   label: 'Game Arcade',   icon: 'fa-gamepad',          href: '/arcade.html' },
       { id: 'challenge',label: "Today's Challenge", icon: 'fa-bolt',        href: '/missions.html' },

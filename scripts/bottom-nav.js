@@ -58,6 +58,7 @@
     trophy:   svg('<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5H4a3 3 0 0 0 3 5M17 5h3a3 3 0 0 1-3 5M12 14v4M8 21h8M9 18h6"/>'),
     gamepad:  svg('<rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v4M5 13h4"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor"/><circle cx="18" cy="14" r="1" fill="currentColor"/>'),
     manual:   svg('<path d="M12 6c-2-1.5-4.5-2-8-2v14c3.5 0 6 .5 8 2 2-1.5 4.5-2 8-2V4c-3.5 0-6 .5-8 2z"/><path d="M12 6v14"/>'),
+    guide:    svg('<path d="M6 3h12v18l-6-4.2L6 21z"/>'),
     download: svg('<path d="M12 3v12"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/>'),
     close:    svg('<path d="M6 6l12 12M18 6 6 18"/>')
   };
@@ -77,6 +78,7 @@
       sub: 'Quick drills and daily work.',
       rows: [
         { href: '/field-manual.html',  icon: 'manual',   title: 'Field Manual',      sub: 'The Camera Confidence Guide · Chapters 1–3 free' },
+        { href: '/camera-confidence-guide.html', icon: 'guide', title: 'The Guide', sub: 'Camera Confidence Guide · The book · $47' },
         { href: '/darkroom.html',      icon: 'darkroom', title: 'The Darkroom',      sub: 'Your skill tree' },
         { href: '/arcade.html',        icon: 'gamepad',  title: 'Game Arcade',       sub: 'Play drills, earn XP' },
         { href: '/challenge.html',       icon: 'bolt',     title: "Today's challenge", sub: 'Keep your streak alive' },
