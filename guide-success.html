@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Guide Unlocked — Cameras Decoded</title>
+  <meta name="description" content="Your Camera Confidence Guide is being added to your account.">
+
+  <link rel="stylesheet" href="/styles/design-system.css" />
+  <link rel="stylesheet" href="/styles/components.css" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="/scripts/firebase-init.js?v=20261007b"></script>
+  <script src="/scripts/master-loader.js?v=20261018a"></script>
+
+  <style>
+    body {
+      background: #050705;
+      background-image: radial-gradient(circle at 50% 20%, rgba(141,235,0,0.16) 0%, transparent 55%),
+                        linear-gradient(rgba(141,235,0,0.04) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(141,235,0,0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 24px 24px, 24px 24px;
+      background-attachment: fixed;
+      color: var(--text-primary, #ffffff);
+      font-family: 'Montserrat', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .success-main {
+      flex: 1;
+      width: 100%;
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 110px 20px 120px;
+      text-align: center;
+    }
+    .success-eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 3px;
+      color: #8deb00;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .success-orb {
+      width: 96px; height: 96px;
+      margin: 0 auto 26px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px; color: #8deb00;
+      background: rgba(141,235,0,0.08);
+      border: 1px solid rgba(141,235,0,0.5);
+      box-shadow: 0 0 60px rgba(141,235,0,0.25);
+    }
+    .success-orb.pending { color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.2); box-shadow: none; background: rgba(255,255,255,0.03); }
+    .success-title { font-size: clamp(30px, 7vw, 42px); font-weight: 800; margin: 0 0 12px; line-height: 1.1; }
+    .success-sub { color: rgba(255,255,255,0.65); font-size: 15px; line-height: 1.65; margin: 0 0 30px; }
+    /* signature chase CTA */
+    @property --gs-angle { syntax:'<angle>'; initial-value:120deg; inherits:false; }
+    @keyframes gsSpin { to { --gs-angle:360deg; } }
+    .gs-chase {
+      position: relative; display: inline-flex; align-items: center; justify-content: center;
+      padding: 17px 44px; border-radius: 14px; border: 1px solid transparent;
+      text-decoration: none; cursor: pointer;
+      background:
+        linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,0) 42%),
+        linear-gradient(165deg, rgba(141,235,0,.20) 0%, rgba(141,235,0,.07) 60%, rgba(141,235,0,.13) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 8px 32px rgba(141,235,0,.25);
+    }
+    .gs-chase::before {
+      content:''; position:absolute; inset:-.5px; border-radius:inherit; padding:1.5px; opacity:.45; pointer-events:none;
+      background:conic-gradient(from var(--gs-angle,120deg), transparent 20%, #8deb00 40%, transparent 60%, #8deb00 80%, transparent 100%);
+      -webkit-mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+      -webkit-mask-composite:xor; mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000); mask-composite:exclude;
+      animation: gsSpin 6s linear infinite;
+    }
+    .gs-chase span {
+      font-family:'Space Mono',monospace; font-weight:700; font-size:14px; letter-spacing:.12em; text-transform:uppercase;
+      color:#8deb00; text-shadow:0 0 18px rgba(141,235,0,.45);
+    }
+    .success-alt { display: block; margin-top: 22px; color: rgba(255,255,255,0.55); font-size: 13.5px; text-decoration: none; }
+    .success-alt:active { color: #8deb00; }
+    .spinner {
+      width: 34px; height: 34px;
+      border: 3px solid rgba(141,235,0,0.25);
+      border-top-color: #8deb00;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner, .gs-chase::before { animation: none; }
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="success-main">
+    <div class="success-eyebrow">Camera Confidence Guide</div>
+
+    <div id="pendingView">
+      <div class="success-orb pending"><span class="spinner"></span></div>
+      <h1 class="success-title">Payment received.</h1>
+      <p class="success-sub">We're adding the guide to your account now — this usually takes just a moment. Stay right here.</p>
+    </div>
+
+    <div id="welcomeView" hidden>
+      <div class="success-orb"><i class="fas fa-book-open"></i></div>
+      <h1 class="success-title">The guide is yours.</h1>
+      <p class="success-sub">The full Field Manual is unlocked on your account — every chapter, every lesson. And as a guide owner, you can claim a Founding Decoder spot while the window is open.</p>
+      <a class="gs-chase" href="/founding-200.html"><span>Claim your Founding spot</span></a>
+      <a class="success-alt" href="/field-manual.html">Open the Field Manual</a>
+    </div>
+
+    <div id="signinView" hidden>
+      <div class="success-orb pending"><i class="fas fa-user-lock"></i></div>
+      <h1 class="success-title">One more step.</h1>
+      <p class="success-sub">Your payment went through. Sign in to link the guide to your account — no need to pay again.</p>
+      <a class="gs-chase" href="/login.html"><span>Sign in to unlock the guide</span></a>
+    </div>
+
+    <div id="slowView" hidden>
+      <div class="success-orb pending"><i class="fas fa-clock"></i></div>
+      <h1 class="success-title">Almost there.</h1>
+      <p class="success-sub">Your payment went through — adding the guide is just taking a little longer than usual. It will be on your account shortly; no need to pay again. If it isn't there within the hour, reply to your Stripe receipt and we'll sort it out.</p>
+      <a class="gs-chase" href="/field-manual.html"><span>Open the Field Manual</span></a>
+    </div>
+
+    <div id="nopaidView" hidden>
+      <div class="success-orb pending"><i class="fas fa-book-open"></i></div>
+      <h1 class="success-title">No purchase found here.</h1>
+      <p class="success-sub">This is the page buyers land on after checkout. The guide lives on your account, not on this page — if you already bought it, sign in and it will be waiting in the Field Manual.</p>
+      <a class="gs-chase" href="https://buy.stripe.com/cNiaEZgtPcere7C1Zk3gk05"><span>Get the guide — $47</span></a>
+      <a class="success-alt" href="/login.html" id="nopaidSignin">Already bought it? Sign in</a>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var VIEWS = ['pendingView', 'welcomeView', 'signinView', 'slowView', 'nopaidView'];
+      function show(id) {
+        VIEWS.forEach(function (v) {
+          document.getElementById(v).hidden = (v !== id);
+        });
+      }
+
+      var proceeded = false;
+
+      async function proceed(user) {
+        if (proceeded) return;
+        proceeded = true;
+
+        var paid = new URLSearchParams(location.search).get('paid') === '1';
+        var db = window.db;
+
+        if (paid) {
+          /* Returning from a real Stripe payment: stamp guide ownership.
+             This stamp is the ONLY writer of guideOwner after purchase —
+             the products-page simulation no longer writes it. The stamp
+             opens the Founding claim form; the wall approval is what
+             mints the spot. */
+          show('pendingView');
+          try {
+            await db.collection('users').doc(user.uid).set({ guideOwner: true }, { merge: true });
+            show('welcomeView');
+          } catch (e) {
+            show('slowView');
+          }
+          return;
+        }
+
+        /* No payment flag: if this account already owns the guide, say so.
+           Otherwise be honest — there is nothing to unlock here. */
+        try {
+          var snap = await db.collection('users').doc(user.uid).get();
+          var data = snap && snap.exists ? (snap.data() || {}) : {};
+          if (data.guideOwner) { show('welcomeView'); return; }
+        } catch (e) {}
+        show('nopaidView');
+      }
+
+      function routeSignedOut() {
+        var paid = new URLSearchParams(location.search).get('paid') === '1';
+        if (!paid) { show('nopaidView'); return; }
+        /* Signed out after the Stripe redirect (common on iOS — Stripe can
+           open in a different browser context, losing the Firebase
+           session). Don't lose the payment: stash a return URL so
+           login.html sends the buyer straight back here. */
+        try {
+          sessionStorage.setItem('cd_post_login_redirect', '/guide-success.html' + location.search);
+        } catch (e) {}
+        show('signinView');
+        var auth = window.auth;
+        if (auth && auth.onAuthStateChanged) {
+          auth.onAuthStateChanged(function (u) {
+            if (u) proceed(u);
+          });
+        }
+      }
+
+      /* The "already bought it" link plays by the same return rule. */
+      var alt = document.getElementById('nopaidSignin');
+      if (alt) alt.addEventListener('click', function () {
+        try { sessionStorage.setItem('cd_post_login_redirect', '/guide-success.html'); } catch (e) {}
+      });
+
+      async function boot() {
+        var auth = window.auth;
+        if (!auth) { routeSignedOut(); return; }
+        var wait = 0;
+        while (!auth.currentUser && wait < 50) {
+          await new Promise(function (r) { setTimeout(r, 100); });
+          wait++;
+        }
+        var user = auth.currentUser;
+        if (!user) { routeSignedOut(); return; }
+        proceed(user);
+      }
+
+      /* Safety net: if the pending view is still up after 60s, set
+         expectations instead of spinning forever. */
+      setTimeout(function () {
+        if (!document.getElementById('pendingView').hidden) show('slowView');
+      }, 60000);
+
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+      else boot();
+    })();
+  </script>
+  <script src="/scripts/ptr.js"></script>
+</body>
+</html>

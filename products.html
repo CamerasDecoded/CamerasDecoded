@@ -1312,7 +1312,7 @@
         image: "ccg-mainsite.jpg", 
         badge: "Founding 200", 
         link: "camera-confidence-guide.html",
-        paymentLink: "products.html"
+        paymentLink: "https://buy.stripe.com/cNiaEZgtPcere7C1Zk3gk05"
       },
       { name: "Low Light Preset Pack", category: "presets", price: "$19", description: "10 Lightroom presets for clean low‑light images.", image: "", badge: "", link: "#", paymentLink: "#" },
       { name: "Snapshot Card Template", category: "templates", price: "$9", description: "Canva template for your own snapshot cards.", image: "", badge: "", link: "#", paymentLink: "#" },
@@ -1419,6 +1419,15 @@
         return;
       }
 
+      // Real checkout: an item with a live Stripe payment link leaves the
+      // simulation entirely — payment happens on Stripe, and guide
+      // ownership is stamped by guide-success.html after real payment.
+      const stripeItem = cart.find(item => item.paymentLink && item.paymentLink.indexOf('https://buy.stripe.com/') === 0);
+      if (stripeItem) {
+        window.location.href = stripeItem.paymentLink;
+        return;
+      }
+
       // Calculate total
       const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
       // Simulate purchase: we'll create a purchase record and award commissions
@@ -1446,10 +1455,8 @@
           referredBy: referredBy
         };
         return purchaseRef.set(purchaseData).then(() => {
-          // Guide ownership unlocks Founding 200 eligibility for the buyer.
-          if (cart.some(item => item.name === 'Camera Confidence Guide')) {
-            return userRef.set({ guideOwner: true }, { merge: true });
-          }
+          // Guide ownership is stamped ONLY by guide-success.html after a
+          // real Stripe payment — never by this simulation.
           return Promise.resolve();
         }).then(() => {
           // If referredBy exists, award commission to referrer
