@@ -252,7 +252,7 @@
       '<div class="pw-sheet"><div class="pw-ambient"></div><div class="pw-weave"></div>' +
       '<button class="pw-x" aria-label="Close">\u2715</button>' +
       '<div class="pw-title">' +
-      '<img src="' + titleImg + '" alt="Cameras Decoded Pro" onload="var s=this.closest(\'.pw-sheet\');if(s){s.classList.add(\'pw-bleed\');var f=s.querySelector(\'.pw-feats\');if(f)f.style.display=\'none\';var c=s.querySelector(\'.pw-ctx\');if(c)c.style.display=\'none\';}" onerror="this.style.display=\'none\';var f=this.parentNode.querySelector(\'.pw-title-fallback\');if(f)f.style.display=\'block\';">' +
+      '<img src="' + titleImg + '" alt="Cameras Decoded Pro" onload="var s=this.closest(\'.pw-sheet\');if(s){s.classList.add(\'pw-bleed\');var f=s.querySelector(\'.pw-feats\');if(f)f.style.display=\'none\';var c=s.querySelector(\'.pw-ctx\');if(c&&window.innerWidth<640)c.style.display=\'none\';}" onerror="this.style.display=\'none\';var f=this.parentNode.querySelector(\'.pw-title-fallback\');if(f)f.style.display=\'block\';">' +
       '<div class="pw-title-fallback"><div class="pw-brand">CAMERAS<br>DECODED</div><span class="pw-pro">Pro</span></div>' +
       '</div>' +
       '<div class="pw-body">' +
@@ -305,6 +305,31 @@
   function isPro() {
     try { return window.USER && String(window.USER.tier || '').toLowerCase() === 'pro'; }
     catch (e) { return false; }
+  }
+
+  /* Personalized headline (2026-10-18): when we know the signed-in
+     member's first name AND the headline is one of our own standard
+     contexts, the sheet greets them by name — "{Name}, your plan is
+     ready." — and the door's headline folds into the sub so no
+     information is lost. Pages that pass their own custom headline
+     keep it word-for-word; signed-out visitors see the classic sheet. */
+  var KNOWN_HEADLINES = (function () {
+    var set = {};
+    CONTEXTS.forEach(function (c) { set[c.headline] = true; });
+    set[DEFAULT_CTX.headline] = true;
+    set['Unlock the full Darkroom'] = true;          /* CDPaywall.ctx.darkroom */
+    set['You\u2019ve decoded everything free'] = true; /* CDPaywall.ctx.ceiling */
+    return set;
+  })();
+
+  function firstName() {
+    try {
+      var raw = (window.USER && window.USER.name) || '';
+      if (!raw) { var u = currentUser(); raw = (u && u.displayName) || ''; }
+      var first = String(raw).trim().split(/\s+/)[0] || '';
+      if (!first || first.length > 24 || /[<>&"@/\\]/.test(first)) return '';
+      return first;
+    } catch (e) { return ''; }
   }
 
   function getPaymentLink(plan) {
@@ -421,8 +446,22 @@
         els[k].setAttribute('aria-checked', on ? 'true' : 'false');
       }
     }
-    scrim.querySelector('.pw-h').textContent = ctx.headline || DEFAULT_CTX.headline;
-    scrim.querySelector('.pw-sub').textContent = ctx.sub || DEFAULT_CTX.sub;
+    var headline = ctx.headline || DEFAULT_CTX.headline;
+    var sub = ctx.sub || DEFAULT_CTX.sub;
+    var nm = firstName();
+    if (nm && KNOWN_HEADLINES[headline]) {
+      if (headline !== DEFAULT_CTX.headline) sub = headline + ' \u2014 ' + sub;
+      headline = nm + ', your plan is ready.';
+    }
+    scrim.querySelector('.pw-h').textContent = headline;
+    scrim.querySelector('.pw-sub').textContent = sub;
+    /* The title art hides the headline line on phones (the art IS the
+       pitch there — the approved full-bleed layout). On desktop the
+       sheet is a card with room, so the headline shows: that's where
+       the personalized greeting lives. Set explicitly on every open —
+       the sheet is built once and reused. */
+    var ctxEl = scrim.querySelector('.pw-ctx');
+    if (ctxEl) { try { ctxEl.style.display = window.innerWidth >= 640 ? '' : 'none'; } catch (e) {} }
     /* restart row stagger */
     var feats = scrim.querySelectorAll('.pw-feat');
     for (var i = 0; i < feats.length; i++) {
