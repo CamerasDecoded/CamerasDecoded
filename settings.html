@@ -730,8 +730,12 @@ async function saveDisplayName() {
   var btn = acctEl('saveNameBtn');
   btn.disabled = true;
   try {
-    await userDocRef.update({ displayName: v });
+    // Keep the legacy `name` field in sync: user-state.js builds window.USER
+    // from `name`, and the Arena/feed stamp entries from window.USER.name.
+    // Writing displayName alone left those surfaces on the signup-era name.
+    await userDocRef.update({ displayName: v, name: v });
     acctDocData.displayName = v;
+    acctDocData.name = v;
     acctEl('displayNameDisplay').textContent = v;
     acctEl('nameForm').hidden = true;
     cdToast('Name updated');
