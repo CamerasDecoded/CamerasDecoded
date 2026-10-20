@@ -1,0 +1,51 @@
+name: Founding claims report
+
+# Hourly snapshot of the pending Founding 200 claim queue for the
+# owner-side watcher: reads founding200 where approved == false and
+# publishes a tiny machine-readable status file to the dedicated
+# `watch-state` branch (founding-claims.json). The agent-side check diffs
+# that file each hour and only wakes the owner when a NEW pending claim
+# appears — no tokens burned on empty checks.
+#
+# Mirrors pro-requests-report.yml exactly (including the explicit
+# GITHUB_TOKEN env — its absence killed the first watch on arrival).
+# Service-account pattern: the whole Firebase service-account JSON lives
+# in the FIREBASE_SERVICE_ACCOUNT repo secret. No secrets in chat, no
+# secrets committed.
+#
+# Failure behavior (in report.js): a Firestore read failure exits
+# non-zero WITHOUT touching the status file — a stale file is honest, a
+# wrong empty one would fake "no claims".
+#
+# Cadence: hourly at :37 UTC (off the round hour, clear of the :07
+# pro-requests reader). Runonce/manual dispatch exists for testing
+# after merge.
+
+on:
+  schedule:
+    - cron: '37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: founding-claims-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install --prefix /tmp/fcr firebase-admin@^12.7.0 --no-audit --no-fund
+      - name: Write pending-claims status file
+        working-directory: tools/founding-claims
+        run: NODE_PATH=/tmp/fcr/node_modules node report.js
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
