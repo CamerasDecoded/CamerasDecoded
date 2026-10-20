@@ -1,0 +1,33 @@
+name: Arena entry name fix
+
+# One-off repair: re-stamps Arena entry author names from each account's
+# current displayName (see tools/arena-name-fix/fix.js for why). The fix
+# payload itself is NEVER committed — it arrives per-run as a
+# workflow_dispatch input (base64), so nothing private touches git.
+#
+# Uses the same FIREBASE_SERVICE_ACCOUNT secret as the arena seeder.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fix_b64:
+        description: 'Base64 of JSON.stringify({ roundId: "c-YYYY-MM-DD" })'
+        required: true
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/arena-name-fix
+      - name: Repair Arena entry author names
+        run: node fix.js
+        working-directory: tools/arena-name-fix
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIX_B64: ${{ inputs.fix_b64 }}
