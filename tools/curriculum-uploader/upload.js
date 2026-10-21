@@ -4,9 +4,13 @@
  *   CURRICULUM_VERSION — version string, e.g. "2026-09-21-visuals"
  *   CURRICULUM_B64     — base64 of gzip(JSON.stringify({ version, chapters }))
  *                      (plain base64 JSON also accepted as a fallback)
+ *   CURRICULUM_MANUAL  — optional manual id (the guideContent doc to write).
+ *                      Defaults to "curriculum" (Manual № 01). Field Manuals
+ *                      is a library: each manual's curriculum is its own doc
+ *                      in the same collection (№ 02 "The Finish" = "finish").
  *   SERVICE_ACCOUNT_JSON — repo secret (Firebase service account JSON)
  *
- * Writes guideContent/curriculum = { version, json, updatedAt }, where
+ * Writes guideContent/<manual> = { version, json, updatedAt }, where
  * json is the whole curriculum as one string (lesson blocks are
  * arrays-inside-arrays, which Firestore rejects as nested entities —
  * hence the string envelope). Verifies with a read-back before exiting.
@@ -20,6 +24,16 @@ async function main() {
   const sa = process.env.SERVICE_ACCOUNT_JSON;
   if (!version || !b64 || !sa) {
     console.error("Missing CURRICULUM_VERSION, CURRICULUM_B64, or SERVICE_ACCOUNT_JSON.");
+    process.exit(1);
+  }
+
+  /* Manual id = the guideContent doc this upload writes. Unset means
+     Manual № 01 ("curriculum") — the original behavior, preserved.
+     The slug check keeps the value a single safe doc id: no slashes,
+     no dots, no path tricks, ever. */
+  const manual = (process.env.CURRICULUM_MANUAL || "curriculum").trim();
+  if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(manual)) {
+    console.error("Invalid CURRICULUM_MANUAL " + JSON.stringify(manual) + " — expected a lowercase slug (letters, digits, hyphens).");
     process.exit(1);
   }
 
@@ -41,7 +55,7 @@ async function main() {
 
   initializeApp({ credential: cert(JSON.parse(sa)) });
   const db = getFirestore();
-  const ref = db.collection("guideContent").doc("curriculum");
+  const ref = db.collection("guideContent").doc(manual);
   const before = await ref.get();
   await ref.set({ version, json, updatedAt: FieldValue.serverTimestamp() });
 
@@ -55,7 +69,7 @@ async function main() {
   } catch (e) { ok = false; }
   console.log(
     (before.exists ? "replaced" : "created") +
-    " guideContent/curriculum — " +
+    " guideContent/" + manual + " — " +
     (ok ? "VERIFIED (" + chapters + " chapters, version " + backVersion + ")" : "WRITE FAILED")
   );
   process.exit(ok ? 0 : 1);
