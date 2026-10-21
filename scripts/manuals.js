@@ -47,7 +47,7 @@
       accent: "amber",
       doc: "finish",
       freeChapters: 1,
-      status: "building",
+      status: "live",
       reader: "/field-manual.html?manual=finish"
     }
   ];
