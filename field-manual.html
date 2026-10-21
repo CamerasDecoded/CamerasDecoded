@@ -597,7 +597,7 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
 
     <!-- locked / paywall -->
     <section id="fm-locked" hidden>
-      <p class="fm-kicker rise-in" style="--d:.02s">Field Manual &middot; Pro</p>
+      <p class="fm-kicker rise-in" style="--d:.02s" id="fm-pay-kicker">Field Manual &middot; Pro</p>
       <h1 class="fm-title rise-in" style="--d:.06s" id="fm-pay-title">You decoded Lesson 1.</h1>
       <p class="fm-sub rise-in" style="--d:.1s" id="fm-pay-sub">Decode the full manual, lesson by lesson.</p>
       <div class="fm-card fm-transmission rise-in" style="--d:.14s">
@@ -644,8 +644,8 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     <!-- chapter -->
     <section id="fm-chapter" hidden>
       <p class="fm-kicker" id="fm-ch-kicker">Field Manual</p>
-      <img src="custom-site-titles/field-manual.png" alt="Field Manual" class="fm-title-img" onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
-      <h1 class="fm-title" hidden>Field Manual</h1>
+      <img src="custom-site-titles/field-manual.png" alt="Field Manual" class="fm-title-img" id="fm-ch-titleimg" onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
+      <h1 class="fm-title" id="fm-ch-titletext" hidden>Field Manual</h1>
       <div class="fm-chapters" id="fm-chapters" role="tablist" aria-label="Chapters"></div>
       <p class="fm-chapter-line" id="fm-ch-title"></p>
       <p class="fm-sub fm-mshimmer" id="fm-ch-tagline"></p>
@@ -734,10 +734,33 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
   var tier = "free";
   var progress = null;
   var chapter = null;               /* active chapter object; use setChapter() to change */
-  var CHAPTER_KEY = "fm_chapter";   /* localStorage: last-viewed chapter */
   var quizState = null;
   var lastAward = null;
   var _lbName = null;
+
+  /* The active manual for this session (Field Manuals library): the
+     ?manual= param resolved against the manifest (scripts/manuals.js).
+     No param / unknown id = the default manual (№ 01, the original Field
+     Manual) — every pre-library link keeps its exact meaning. Defined
+     here, before any consumer; resolveManual reads only the manifest,
+     never FM_CURR_DOC (not yet assigned at this point in the script). */
+  function resolveManual(){
+    var list = (window.CD_MANUALS && window.CD_MANUALS.length) ? window.CD_MANUALS : null;
+    if(!list){
+      return { id: "field-manual", num: 1, title: "Field Manual", doctrine: "",
+        category: "Capture", accent: "green", doc: "curriculum", freeChapters: 3,
+        status: "live", reader: "/field-manual.html?manual=field-manual" };
+    }
+    var id = null;
+    try{ id = new URLSearchParams(location.search).get("manual"); }catch(e){}
+    if(id){ for(var i = 0; i < list.length; i++) if(list[i].id === id) return list[i]; }
+    return list[0];
+  }
+  var FM_MANUAL = resolveManual();
+
+  /* localStorage: last-viewed chapter, namespaced per manual (the default
+     manual keeps the original "fm_chapter" key exactly). */
+  function chapterKey(){ return FM_PROGRESS_ID === defaultManualId() ? "fm_chapter" : "fm_chapter_" + FM_PROGRESS_ID; }
 
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
@@ -759,11 +782,17 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
   }
 
   /* ---------------- curriculum delivery ----------------
-     Firestore is the source of truth (guideContent/curriculum); a localStorage
-     copy covers offline and failed fetches. */
+     Firestore is the source of truth (guideContent/<the active manual's
+     doc>); a localStorage copy covers offline and failed fetches. The
+     default manual keeps the original doc + cache key exactly; every
+     later manual namespaces its own. */
   var FM_CURR_COLLECTION = "guideContent";
-  var FM_CURR_DOC = "curriculum";
-  var FM_CURR_CACHE = "fm_curriculum";
+  var FM_CURR_DOC = FM_MANUAL.doc;
+  var FM_CURR_CACHE = (FM_MANUAL.id === defaultManualId()) ? "fm_curriculum" : "fm_curriculum_" + FM_MANUAL.id;
+  /* Storage identity for progress: the guideProgress fields this session
+     reads/writes. Equals FM_MANUAL.id in reader sessions; a shelf-only
+     session for a not-yet-live manual borrows the default (see boot). */
+  var FM_PROGRESS_ID = FM_MANUAL.id;
 
   function readCurriculumCache(){
     try{
@@ -812,7 +841,7 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
   }
 
   function freshProgress(){
-    return { completedLessons:[], quizBest:{}, perfectBonus:[], chapterBonus:[], lastLesson:null, xpClaims:{} };
+    return { completedLessons:[], quizBest:{}, perfectBonus:[], chapterBonus:[], lastLesson:null, xpClaims:{}, manuals:{} };
   }
 
   /* Cross-chapter lookup: lessons are found across every chapter by stable id. */
@@ -826,7 +855,7 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     var ch = chapterById(id);
     if(!ch) return false;
     chapter = ch;
-    try{ localStorage.setItem(CHAPTER_KEY, id); }catch(e){}
+    try{ localStorage.setItem(chapterKey(), id); }catch(e){}
     return true;
   }
   function lessonById(id){
@@ -869,10 +898,32 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     tier = "free";
     progress = freshProgress();
     _lbName = null;
+    /* A not-yet-live manual (its shelf card is still in production) is a
+       library session, never a reader: borrow the default manual's data
+       so the shelf's counts and the member's progress render exactly as
+       the bare page's do, then stop at the shelf. */
+    if(FM_MANUAL.status !== "live"){
+      var defM = manualById(defaultManualId());
+      if(defM){ FM_CURR_DOC = defM.doc; FM_CURR_CACHE = "fm_curriculum"; }
+      FM_PROGRESS_ID = defaultManualId();
+      await loadCurriculum();
+      var dbx = db();
+      if(user && dbx){
+        try{
+          var usnap = await dbx.collection("users").doc(user.uid).get();
+          var udata = usnap.exists ? (usnap.data()||{}) : {};
+          tier = udata.tier || "free";
+          _lbName = udata.displayName || udata.name || null;
+        }catch(e){}
+        await loadProgress();
+      }
+      renderShelf(FM_MANUAL.id);
+      return;
+    }
     /* curriculum first: without it there is nothing to render */
     if(!(await loadCurriculum())){ showView("fm-nodata"); return; }
     var storedChapter = null;
-    try{ storedChapter = localStorage.getItem(CHAPTER_KEY); }catch(e){}
+    try{ storedChapter = localStorage.getItem(chapterKey()); }catch(e){}
     if(!(storedChapter && setChapter(storedChapter))) setChapter(GUIDE_DATA.chapters[0].id);
     var d = db();
     if(user && d){
@@ -894,12 +945,18 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       var snap = await d.collection("guideProgress").doc(user.uid).get();
       if(snap.exists){
         var p = snap.data()||{};
-        progress.completedLessons = p.completedLessons||[];
-        progress.quizBest = p.quizBest||{};
-        progress.perfectBonus = p.perfectBonus||[];
-        progress.chapterBonus = p.chapterBonus||[];
-        progress.lastLesson = p.lastLesson||null;
-        progress.xpClaims = p.xpClaims||{};
+        /* The full manuals map rides along for the shelf (other manuals'
+           states); this session's own state comes from the legacy
+           top-level fields for the default manual, or from its
+           manuals[<id>] sub-object for every later manual. */
+        progress.manuals = p.manuals || {};
+        var src = (FM_PROGRESS_ID === defaultManualId()) ? p : ((p.manuals && p.manuals[FM_PROGRESS_ID]) || {});
+        progress.completedLessons = src.completedLessons||[];
+        progress.quizBest = src.quizBest||{};
+        progress.perfectBonus = src.perfectBonus||[];
+        progress.chapterBonus = src.chapterBonus||[];
+        progress.lastLesson = src.lastLesson||null;
+        progress.xpClaims = src.xpClaims||{};
       }
     }catch(e){}
     /* one-time backfill: anything the old claim arrays (or a legacy perfect best)
@@ -924,16 +981,27 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
   async function saveProgress(){
     var d = db();
     if(!d || !user) return;
+    var fields = {
+      completedLessons: progress.completedLessons,
+      quizBest: progress.quizBest,
+      perfectBonus: progress.perfectBonus,
+      chapterBonus: progress.chapterBonus,
+      lastLesson: progress.lastLesson,
+      xpClaims: progress.xpClaims,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
     try{
-      await d.collection("guideProgress").doc(user.uid).set({
-        completedLessons: progress.completedLessons,
-        quizBest: progress.quizBest,
-        perfectBonus: progress.perfectBonus,
-        chapterBonus: progress.chapterBonus,
-        lastLesson: progress.lastLesson,
-        xpClaims: progress.xpClaims,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge:true });
+      if(FM_PROGRESS_ID === defaultManualId()){
+        /* the default manual writes the legacy top-level fields — the
+           exact pre-library write, unchanged */
+        await d.collection("guideProgress").doc(user.uid).set(fields, { merge:true });
+      } else {
+        /* later manuals namespace under manuals[<id>] (deep-merged, so
+           other manuals' state is never touched) */
+        var wrap = { manuals: {}, updatedAt: fields.updatedAt };
+        wrap.manuals[FM_PROGRESS_ID] = fields;
+        await d.collection("guideProgress").doc(user.uid).set(wrap, { merge:true });
+      }
     }catch(e){}
   }
 
@@ -952,7 +1020,12 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     }catch(e){}
     if(!_hasReader){
       if(!_mq){ renderShelf(null); return; }
-      if(_mq !== defaultManualId()){ renderShelf(_mq); return; }
+      if(_mq !== defaultManualId()){
+        var _mm = manualById(_mq);
+        if(!_mm || _mm.status !== "live"){ renderShelf(_mq); return; }
+        /* a live non-default manual falls through to its reader below —
+           boot already loaded that manual's curriculum */
+      }
     }
     var deep = null, chapQ = null;
     try{ var q = new URLSearchParams(location.search); deep = q.get("lesson"); chapQ = q.get("chapter"); }catch(e){}
@@ -969,19 +1042,23 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     if(!user){ renderLocked(); return; }
     var examQ = null;
     try{ examQ = new URLSearchParams(location.search).get("exam"); }catch(e){}
-    if(examQ && window.CDFinalExams){ CDFinalExams.openExam(); return; }
+    if(examQ && window.CDFinalExams && FM_MANUAL.id === defaultManualId()){ CDFinalExams.openExam(); return; }
     renderChapter();
   }
 
   /* ---------------- locked (paywall) ---------------- */
   function renderLocked(){
-    document.title = "Field Manual — Cameras Decoded";
+    document.title = FM_MANUAL.title + " \u2014 Cameras Decoded";
+    var pk = $("fm-pay-kicker");
+    if(pk) pk.textContent = FM_MANUAL.title + " \u00b7 Pro";
     var decoded = progress.completedLessons.length > 0;
     /* paywall copy is computed from the free chapters — never hardcoded lesson counts */
     var fcs = freeChapters();
     var firstNum = fcs[0] ? (parseInt(chapterNum(fcs[0]), 10) || 1) : 1;
     var lastNum = fcs.length ? (parseInt(chapterNum(fcs[fcs.length - 1]), 10) || firstNum) : firstNum;
     var freeName = lastNum > firstNum ? "Chapters " + firstNum + "\u2013" + lastNum : "Chapter " + firstNum;
+    var freeVerb = lastNum > firstNum ? "are" : "is";
+    var freePronoun = lastNum > firstNum ? "them" : "it";
     var lockedFrom = "Chapter " + (lastNum + 1);
     var firstFree = (fcs[0] && fcs[0].lessons && fcs[0].lessons[0]) || null;
     var row1 = $("fm-pay-row1");
@@ -1003,14 +1080,14 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       $("fm-pay-quiet").href = "javascript:history.back()";
     } else if(user){
       $("fm-pay-title").textContent = "The Manual goes deeper.";
-      $("fm-pay-sub").textContent = freeName + " are free \u2014 decode them on the house. Everything from " + lockedFrom + " on is Pro.";
+      $("fm-pay-sub").textContent = freeName + " " + freeVerb + " free \u2014 decode " + freePronoun + " on the house. Everything from " + lockedFrom + " on is Pro.";
       $("fm-pay-cynetis").textContent = "Start where every operator starts: chapter one, on me.";
       $("fm-pay-quiet").textContent = "Start Chapter " + firstNum + " \u2014 free";
-      $("fm-pay-quiet").href = "/field-manual.html?lesson=" + encodeURIComponent(firstFree ? firstFree.id : "");
+      $("fm-pay-quiet").href = (FM_MANUAL.id === defaultManualId() ? "/field-manual.html?lesson=" : "/field-manual.html?manual=" + FM_MANUAL.id + "&lesson=") + encodeURIComponent(firstFree ? firstFree.id : "");
     } else {
       $("fm-pay-title").textContent = "The Manual goes deeper.";
-      $("fm-pay-sub").textContent = "Log in to check your access \u2014 " + freeName + " are free for every operator.";
-      $("fm-pay-cynetis").textContent = "The full manual is a Pro instrument. Your first " + fcs.length + " chapters are on the house.";
+      $("fm-pay-sub").textContent = "Log in to check your access \u2014 " + freeName + " " + freeVerb + " free for every operator.";
+      $("fm-pay-cynetis").textContent = "The full manual is a Pro instrument. " + (fcs.length === 1 ? "Your first chapter is on the house." : "Your first " + fcs.length + " chapters are on the house.");
       $("fm-pay-quiet").textContent = "Continue with free content";
       $("fm-pay-quiet").href = "javascript:history.back()";
     }
@@ -1070,6 +1147,13 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
      progress.manuals[<id>] once the generalized player (Phase 3) writes
      it; the default manual reads the legacy top-level fields. */
   function defaultManualId(){ return (window.CD_MANUAL_DEFAULT && window.CD_MANUAL_DEFAULT.id) || "field-manual"; }
+
+  function manualById(id){
+    if(window.CD_MANUALS_BY_ID && window.CD_MANUALS_BY_ID[id]) return window.CD_MANUALS_BY_ID[id];
+    var list = manualsList();
+    for(var i = 0; i < list.length; i++) if(list[i].id === id) return list[i];
+    return null;
+  }
 
   function manualsList(){
     if(window.CD_MANUALS && window.CD_MANUALS.length) return window.CD_MANUALS;
@@ -1131,7 +1215,8 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       kicker = "Continue \u2014 " + m.title;
       title = les.title;
       sub = (oc ? "Chapter " + chapterNum(oc) + " \u00b7 " : "") + st.done + " of " + st.total + " lessons decoded";
-      btnText = "Continue \u2014 " + les.title; btnHref = "?lesson=" + encodeURIComponent(st.lastId);
+      btnText = "Continue \u2014 " + les.title;
+      btnHref = (m.id === defaultManualId() ? "?lesson=" : m.reader + "&lesson=") + encodeURIComponent(st.lastId);
     } else {
       kicker = "Start"; title = m.title; sub = m.doctrine;
       btnText = "Begin \u2014 Chapter 1"; btnHref = m.reader;
@@ -1243,8 +1328,17 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
   }
 
   function renderChapter(){
-    document.title = chapter.title + " — Field Manual";
-    $("fm-ch-kicker").textContent = "Chapter " + chapterNum(chapter);
+    var isDef = FM_MANUAL.id === defaultManualId();
+    document.title = chapter.title + " \u2014 " + FM_MANUAL.title;
+    $("fm-ch-kicker").textContent = (isDef ? "" : FM_MANUAL.title + " \u00b7 ") + "Chapter " + chapterNum(chapter);
+    /* the chapter header carries the manual's own title: № 01 keeps its
+       PNG art; every later manual shows its name as text */
+    var timg = $("fm-ch-titleimg"), th1 = $("fm-ch-titletext");
+    if(timg && th1){
+      timg.style.display = isDef ? "" : "none";
+      th1.hidden = isDef;
+      if(!isDef) th1.textContent = FM_MANUAL.title;
+    }
     $("fm-ch-title").textContent = chapter.title;
     $("fm-ch-tagline").textContent = chapter.tagline || "";
     $("fm-ch-transmission").textContent = chapter.transmission || "";
@@ -2027,8 +2121,9 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     }catch(e){}
   }
 
-  /* free tier: the first three chapters are free. Chapter 4 and beyond are Pro. */
-  function freeChapters(){ var chs = (window.GUIDE_DATA && GUIDE_DATA.chapters) || []; return chs.slice(0, 3); }
+  /* free tier: each manual's opening chapters are free (the count is the
+     manual's own — № 01: three, The Finish: one); the rest are Pro. */
+  function freeChapters(){ var chs = (window.GUIDE_DATA && GUIDE_DATA.chapters) || []; return chs.slice(0, FM_MANUAL.freeChapters || 3); }
   function canAccess(lesson){
     if(!lesson || !user) return false;   /* signed-out: nothing opens, paywall decides */
     if(tier === "pro") return true;
@@ -2208,7 +2303,9 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       /* chapter complete — quiet Quiz Arena invite. Win moment only, never mid-lesson. */
       h += '<a class="fm-quiet rise-in" style="--d:.36s" href="/quiz-full.html">Think you know it? <span style="text-decoration:underline">Prove it in the Quiz Arena</span> →</a>';
     }
-    var nm = NEXT_MOVES[lesson.id] || NEXT_MOVES._default;
+    var nm = NEXT_MOVES[lesson.id] || (FM_MANUAL.id === "finish"
+      ? { href: "/develop-lab.html", title: "Open the Develop Lab", sub: "Put the finish to work on a real photo." }
+      : NEXT_MOVES._default);
     h += '<a class="fm-nextmove rise-in" style="--d:.32s" href="' + nm.href + '">'
       + '<p class="fm-kicker">Put it in your hands</p>'
       + '<div class="fm-nextmove-title">' + esc(nm.title) + ' →</div>'
