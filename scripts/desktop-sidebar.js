@@ -17,6 +17,8 @@
 
   var SIDEBAR_WIDTH = 256;
   var DESKTOP_MIN = 821; // matches bottom-nav's mobile breakpoint (max-width:820px)
+  var RAIL_MAX = 1100;   // wide tier: 821–1100px gets an icon rail, not the full sidebar
+  var RAIL_WIDTH = 72;   // (foldable-unfolded / small-tablet widths, e.g. iPhone Duo landscape)
   var VISITOR_MODE = (window.CD_DS_MODE === 'visitor');
 
   // ---------- role-aware routes (mirrors scripts/bottom-nav.js) ----------
@@ -130,6 +132,19 @@
     +   '.cd-ds-foot-note{font-family:"Space Mono",ui-monospace,monospace;font-size:9px;'
     +     'letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.3);text-align:center}'
     + '}'
+    + '@media (min-width:' + DESKTOP_MIN + 'px) and (max-width:' + RAIL_MAX + 'px){'
+    +   'body.cd-ds-on{padding-left:' + RAIL_WIDTH + 'px;--hdr-left:' + (RAIL_WIDTH + 12) + 'px}'
+    +   '.cd-ds-sidebar{width:' + RAIL_WIDTH + 'px;padding:18px 10px 14px}'
+    +   '.cd-ds-brand{justify-content:center;padding:2px 0 14px}'
+    +   '.cd-ds-brand span{display:none}'
+    +   '.cd-ds-label{display:none}'
+    +   '.cd-ds-link{justify-content:center;gap:0;padding:11px 0}'
+    +   '.cd-ds-link span{display:none}'
+    +   '.cd-ds-link i{font-size:17px}'
+    +   '.cd-ds-install{padding:12px 0}'
+    +   '.cd-ds-install span{display:none}'
+    +   '.cd-ds-foot-note{display:none}'
+    + '}'
     + '@media (prefers-reduced-motion:reduce){.cd-ds-link{transition:none}}';
 
   function injectStyles() {
@@ -164,7 +179,7 @@
       g.links.forEach(function (l) {
         var href = resolveHref(l);
         var active = page === href.split('/').pop().toLowerCase().split('#')[0] && href.indexOf('#') === -1;
-        html += '<a class="cd-ds-link" data-cd-ds="' + l.id + '" href="' + href + '"'
+        html += '<a class="cd-ds-link" data-cd-ds="' + l.id + '" href="' + href + '" title="' + l.label + '"'
           + (active ? ' aria-current="page"' : '')
           + (l.role ? ' data-cd-ds-role="' + l.role + '"' : '')
           + '><i class="fas ' + l.icon + '" aria-hidden="true"></i><span>' + l.label + '</span></a>';
@@ -182,7 +197,7 @@
       : '<div class="cd-ds-foot-note">Operator workspace</div>';
     // Installed users don't need the pitch; the sheet itself confirms install state.
     if (!VISITOR_MODE && isStandalone()) return '<div class="cd-ds-foot">' + note + '</div>';
-    var btn = '<button type="button" class="cd-ds-install" data-cd-install>'
+    var btn = '<button type="button" class="cd-ds-install" data-cd-install title="Get the app">'
       + '<i class="fas fa-mobile-screen-button" aria-hidden="true"></i><span>Get the app</span></button>';
     return '<div class="cd-ds-foot">' + btn + note + '</div>';
   }
