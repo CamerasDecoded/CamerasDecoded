@@ -14,11 +14,18 @@ Reads:
 
 Writes (only if missing):
   arenaRounds/c-{YYYY-MM-DD} = {
-      lane: 'daily', title, brief, text, state: 'open',
+      lane: 'challenge', title, brief, text, state: 'open',
       opensAt, votingAt, closesAt, entryCount: 0,
       winnerEntryId: None, winnerUid: None,
       createdAt: serverTimestamp(),
   }
+
+  LANE CONTRACT: the arena closer only advances/closes rounds whose lane is
+  'challenge' or 'mission'. Daily rounds MUST be written as 'challenge' —
+  the legacy 'daily' label made rounds invisible to the closer (Oct 21-23
+  2026 rounds never closed). Phase times match the closer's own convention:
+  votingAt = opensAt + 19h (7 PM Chicago), closesAt = opensAt + 23h
+  (11 PM Chicago).
 
 Exit 0 on success or already-exists. Exit 1 on misconfiguration or
 Firestore errors. Missing prompt -> logs and exits 0 (nothing to do).
@@ -101,14 +108,14 @@ def main():
         opens_at = datetime(
             tomorrow.year, tomorrow.month, tomorrow.day, tzinfo=timezone.utc
         ) + timedelta(hours=5)
-    voting_at = opens_at + timedelta(hours=18)
-    closes_at = opens_at + timedelta(hours=24)
+    voting_at = opens_at + timedelta(hours=19)  # 7 PM Chicago: submissions close
+    closes_at = opens_at + timedelta(hours=23)  # 11 PM Chicago: voting closes
 
     title = text if len(text) <= 80 else text[:77] + "\u2026"
 
     round_ref.set(
         {
-            "lane": "daily",
+            "lane": "challenge",
             "title": title,
             "brief": text,
             "text": text,
@@ -122,7 +129,7 @@ def main():
             "createdAt": firestore.SERVER_TIMESTAMP,
         }
     )
-    print(f"Created arenaRounds/{round_id} (state=open, lane=daily).")
+    print(f"Created arenaRounds/{round_id} (state=open, lane=challenge).")
 
 
 if __name__ == "__main__":
