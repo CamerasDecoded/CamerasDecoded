@@ -130,7 +130,9 @@ async function broadcast(db, { title, body, ttlMs }) {
 /* ---------- phase 1: advance phases ---------- */
 
 async function advancePhases(db, nowMs) {
-  for (const lane of ["challenge", "mission"]) {
+  // "daily" is the legacy label older round openers wrote on challenge
+  // rounds; treat it as challenge so a mislabeled round still advances.
+  for (const lane of ["challenge", "mission", "daily"]) {
     const col = db.collection("arenaRounds");
     // open -> voting
     const toVote = await col
@@ -328,7 +330,8 @@ async function closeRound(db, roundRef, round) {
 
 async function closeRounds(db, nowMs) {
   const col = db.collection("arenaRounds");
-  for (const lane of ["challenge", "mission"]) {
+  // "daily" = legacy challenge label (see advancePhases) — close those too.
+  for (const lane of ["challenge", "mission", "daily"]) {
     for (const state of ["open", "voting"]) {
       const snap = await col.where("lane", "==", lane).where("state", "==", state).get();
       for (const d of snap.docs) {
