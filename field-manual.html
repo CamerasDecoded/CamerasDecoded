@@ -37,7 +37,7 @@
 
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="header.js?v=20261002a"></script>
-  <script src="/scripts/desktop-sidebar.js?v=20261019b"></script>
+  <script src="/scripts/desktop-sidebar.js?v=20261023a"></script>
   <!-- bottom-nav.js is loaded by master-loader – do not load it again -->
 
   <!-- ===== FIELD MANUAL VISUALS (SVG diagrams, tap-to-define glossary) ===== -->
@@ -85,6 +85,38 @@ body{
    which centers an over-wide flex item into symmetric edge clipping.
    The Field Manual manages its own layout, so opt out explicitly. */
 body{display:block !important;justify-content:normal !important;align-items:normal !important;padding:0 !important}
+/* Sidebar clearance: the guard above also kills the desktop sidebar's
+   body.cd-ds-on offset (its rule loses to the !important shorthand), so the
+   sidebar docked over this page at every width >=821px. Restore the left
+   offset only: 256px full sidebar, 72px icon rail in the 821–1100 tier. */
+@media (min-width:1101px){
+  body.cd-ds-on{padding-left:256px !important}
+}
+@media (min-width:821px) and (max-width:1100px){
+  body.cd-ds-on{padding-left:72px !important}
+}
+/* ---------- Wide two-pane (821px and up: foldable unfolded, tablet, desktop) ---------- */
+@media (min-width:821px){
+  /* Chapter and lesson views get the room; shelf/paywall keep the measure. */
+  .fm-wrap:has(> #fm-chapter:not([hidden])),
+  .fm-wrap:has(> #fm-lesson:not([hidden])){max-width:1160px}
+  /* Chapter: chapter info left, lesson list right. */
+  #fm-chapter:not([hidden]){display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);column-gap:30px;align-items:start}
+  #fm-chapter .fm-ch-info{min-width:0}
+  #fm-chapter .fm-ch-main{min-width:0}
+  #fm-chapter #fm-ch-reset,#fm-chapter .fm-quiet{grid-column:1 / -1}
+  /* Lesson: persistent chapter lesson list beside the lesson body. */
+  #fm-lesson:not([hidden]){display:grid;grid-template-columns:300px minmax(0,1fr);grid-template-areas:"head head" "toc body";column-gap:30px;align-items:start}
+  #fm-lesson .fm-page-head{grid-area:head}
+  #fm-lesson-body{grid-area:body;min-width:0}
+  #fm-lesson-toc{grid-area:toc;display:block;position:sticky;top:110px;max-height:calc(100vh - 140px);overflow-y:auto;padding-right:4px}
+}
+@media (max-width:820px){
+  #fm-lesson-toc{display:none}
+}
+.fm-toc-head{font-family:var(--mono);font-weight:700;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
+#fm-toc-list .fm-lesson-row{width:100%;text-align:left}
+#fm-toc-list .fm-lesson-row.current{border-color:rgba(141,235,0,.45);background:rgba(141,235,0,.06)}
 ::selection{background:rgba(141,235,0,.3);color:#fff}
 :focus-visible{outline:2px solid var(--neon);outline-offset:2px}
 .fm-wrap{max-width:720px;margin:0 auto;padding:calc(108px + env(safe-area-inset-top, 0px)) 18px 130px}
@@ -643,6 +675,7 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
 
     <!-- chapter -->
     <section id="fm-chapter" hidden>
+      <div class="fm-ch-info">
       <p class="fm-kicker" id="fm-ch-kicker">Field Manual</p>
       <img src="custom-site-titles/field-manual.png" alt="Field Manual" class="fm-title-img" id="fm-ch-titleimg" onerror="this.style.display='none';this.nextElementSibling.hidden=false;">
       <h1 class="fm-title" id="fm-ch-titletext" hidden>Field Manual</h1>
@@ -662,9 +695,12 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       </div>
       <div class="fm-bar" aria-hidden="true"><i id="fm-ch-bar"></i></div>
       <div id="fm-ch-continue"></div>
+      </div>
+      <div class="fm-ch-main">
       <div id="fm-ch-lessons"></div>
       <div id="fm-ch-bonus"></div>
       <div id="fm-ch-exam"></div>
+      </div>
       <div id="fm-ch-reset"></div>
       <a class="fm-quiet" href="/missions.html">Back to the Arena</a>
     </section>
@@ -677,6 +713,10 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
         <button class="fm-sound" id="fm-sound" aria-label="Toggle sound" aria-pressed="true"><i class="fa-solid fa-volume-high" aria-hidden="true"></i></button>
       </div>
       <div id="fm-lesson-body"></div>
+      <aside id="fm-lesson-toc" aria-label="Lessons in this chapter">
+        <p class="fm-toc-head" id="fm-toc-head"></p>
+        <div id="fm-toc-list"></div>
+      </aside>
     </section>
   </main>
 
@@ -1327,6 +1367,56 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     els.forEach(function(el){ arm(el); io.observe(el); });
   }
 
+  /* Lesson rows are shared by the chapter view and the lesson view's
+     wide-screen table of contents (renderLessonToc). */
+  function lessonRowsHTML(){
+    return chapter.lessons.map(function(l){
+      var isDone = progress.completedLessons.indexOf(l.id) !== -1;
+      var best = progress.quizBest[l.id];
+      var hasQuiz = !!(l.quiz && l.quiz.questions);
+      var mastered = hasQuiz && best === l.quiz.questions.length;
+      var locked = !canAccess(l);
+      var checkSub = (hasQuiz && best != null) ? " · SYSTEM CHECK " + best + "/" + l.quiz.questions.length : "";
+      var sub = locked ? "PRO LESSON"
+        : mastered
+        ? "MASTERED" + checkSub
+        : (isDone
+            ? "DECODED" + checkSub
+            : "LESSON" + (hasQuiz ? " · SYSTEM CHECK" : ""));
+      return '<button class="fm-lesson-row' + (isDone ? " done" : "") + (mastered ? " mastered" : "") + (locked ? " locked" : "") + '" data-lesson="' + l.id + '">'
+        + '<span class="fm-lesson-ico"><i class="fa-solid ' + (locked ? "fa-lock" : (mastered ? "fa-medal" : (isDone ? "fa-check" : "fa-play"))) + '" aria-hidden="true"></i></span>'
+        + '<span class="fm-lesson-main"><span class="fm-lesson-title">' + esc(l.title) + '</span>'
+        + '<span class="fm-lesson-sub" style="display:block">' + sub + '</span></span>'
+        + '<span class="fm-lesson-xp' + (mastered ? " fm-shimmer" : "") + '">+' + l.xp + ' XP</span></button>';
+    }).join("");
+  }
+
+  function bindLessonRows(box){
+    if(!box) return;
+    Array.prototype.forEach.call(box.querySelectorAll("[data-lesson]"), function(el){
+      el.addEventListener("click", function(){
+        var l = lessonById(el.getAttribute("data-lesson"));
+        if(l) openLesson(l, 0);
+      });
+    });
+  }
+
+  /* Wide screens: the lesson view keeps the chapter's lesson list beside
+     the lesson (see the 821px+ grid in the stylesheet). Hidden under 821px
+     by CSS; kept populated at every width so resizing across the fold
+     never shows a stale list. */
+  function renderLessonToc(current){
+    var list = $("fm-toc-list");
+    if(!list) return;
+    $("fm-toc-head").textContent = chapter.title;
+    list.innerHTML = lessonRowsHTML();
+    bindLessonRows(list);
+    if(current){
+      var on = list.querySelector('[data-lesson="' + current.id + '"]');
+      if(on) on.classList.add("current");
+    }
+  }
+
   function renderChapter(){
     var isDef = FM_MANUAL.id === defaultManualId();
     document.title = chapter.title + " \u2014 " + FM_MANUAL.title;
@@ -1369,31 +1459,8 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       });
     }
 
-    $("fm-ch-lessons").innerHTML = chapter.lessons.map(function(l){
-      var isDone = progress.completedLessons.indexOf(l.id) !== -1;
-      var best = progress.quizBest[l.id];
-      var hasQuiz = !!(l.quiz && l.quiz.questions);
-      var mastered = hasQuiz && best === l.quiz.questions.length;
-      var locked = !canAccess(l);
-      var checkSub = (hasQuiz && best != null) ? " · SYSTEM CHECK " + best + "/" + l.quiz.questions.length : "";
-      var sub = locked ? "PRO LESSON"
-        : mastered
-        ? "MASTERED" + checkSub
-        : (isDone
-            ? "DECODED" + checkSub
-            : "LESSON" + (hasQuiz ? " · SYSTEM CHECK" : ""));
-      return '<button class="fm-lesson-row' + (isDone ? " done" : "") + (mastered ? " mastered" : "") + (locked ? " locked" : "") + '" data-lesson="' + l.id + '">'
-        + '<span class="fm-lesson-ico"><i class="fa-solid ' + (locked ? "fa-lock" : (mastered ? "fa-medal" : (isDone ? "fa-check" : "fa-play"))) + '" aria-hidden="true"></i></span>'
-        + '<span class="fm-lesson-main"><span class="fm-lesson-title">' + esc(l.title) + '</span>'
-        + '<span class="fm-lesson-sub" style="display:block">' + sub + '</span></span>'
-        + '<span class="fm-lesson-xp' + (mastered ? " fm-shimmer" : "") + '">+' + l.xp + ' XP</span></button>';
-    }).join("");
-    Array.prototype.forEach.call($("fm-ch-lessons").querySelectorAll("[data-lesson]"), function(el){
-      el.addEventListener("click", function(){
-        var l = lessonById(el.getAttribute("data-lesson"));
-        if(l) openLesson(l, 0);
-      });
-    });
+    $("fm-ch-lessons").innerHTML = lessonRowsHTML();
+    bindLessonRows($("fm-ch-lessons"));
 
     var bonus = "";
     if(progress.chapterBonus.indexOf(chapter.id) !== -1){
@@ -1635,6 +1702,7 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     try{ if(window.CDGlossary) window.CDGlossary.linkify(body); }catch(e){}
 
     wirePager(lesson, pageIdx, pages.length);
+    renderLessonToc(lesson);
     showView("fm-lesson");
   }
 
