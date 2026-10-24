@@ -453,6 +453,60 @@ function dropStatus(r){
   if (voting) return 'Entries open \u00B7 Voting ' + tstr(voting);
   return 'Entries open now';
 }
+/* Round phase from the round doc — same derivation as missions.html
+   phaseOf: the timestamps are the source of truth, state is the fallback.
+   Shared by the drop card and the Arena links on entry/winner cards. */
+function arenaPhaseOf(r){
+  function ts(v){ return v && v.toMillis ? v.toMillis() : (typeof v === 'number' ? v : null); }
+  const nowMs = Date.now();
+  const closes = ts(r.closesAt), voting = ts(r.votingAt), opens = ts(r.opensAt);
+  if (closes && nowMs >= closes) return 'closed';
+  if (voting && nowMs >= voting) return 'voting';
+  if (opens && nowMs >= opens) return 'open';
+  if (r.state === 'closed' || r.state === 'voting' || r.state === 'open') return r.state;
+  return 'open';
+}
+function arenaDropHref(d){
+  return d.roundId ? '/missions.html?round=' + encodeURIComponent(d.roundId) : '/missions.html';
+}
+function arenaDropLabel(d){
+  if (d.phase === 'voting') return 'Vote now';
+  if (d.phase === 'closed') return 'See the results';
+  return 'Enter tonight';
+}
+/* Arena round phases, one read per distinct round id, cached for the page
+   session. Powers the phase-aware Arena links on entry/winner cards. A
+   failed read resolves to 'unknown' — the link still lands on the round,
+   just with a neutral label. */
+const arenaPhaseCache = new Map();
+async function arenaPhaseFor(db, roundId){
+  if (!roundId) return 'unknown';
+  if (arenaPhaseCache.has(roundId)) return arenaPhaseCache.get(roundId);
+  let phase = 'unknown';
+  try {
+    const snap = await db.collection('arenaRounds').doc(roundId).get();
+    if (snap.exists) phase = arenaPhaseOf(snap.data() || {});
+  } catch (e) {}
+  arenaPhaseCache.set(roundId, phase);
+  return phase;
+}
+/* The Arena door on entry/winner cards: lands on the round — and on the
+   entry itself, so a tap during voting opens that shot ready to vote.
+   The Arena side stays blind (aliases until close); this link adds no
+   new information, it only shortens the walk. */
+function arenaCardLinkHTML(d){
+  if (d.type !== 'arena_entry' && d.type !== 'arena_winner') return '';
+  if (!d.targetId) return '';
+  const phase = arenaPhaseCache.get(d.targetId) || 'unknown';
+  let label = 'Open in the Arena';
+  if (d.type === 'arena_winner') label = 'See the winning entry';
+  else if (phase === 'voting') label = 'Vote now';
+  else if (phase === 'open') label = 'Enter tonight';
+  else if (phase === 'closed') label = 'See the entries';
+  let href = '/missions.html?round=' + encodeURIComponent(d.targetId);
+  if (d.actorUid) href += '&entry=' + encodeURIComponent(d.actorUid);
+  return `<a class="feed-action" href="${esc(href)}">${esc(label)}</a>`;
+}
 async function todaysDropItem(db){
   try{
     const now = new Date();
@@ -467,6 +521,9 @@ async function todaysDropItem(db){
       item.title = r.title || 'Today\u2019s Challenge';
       item.text = r.brief || r.text || '';
       item.status = dropStatus(r);
+      item.roundId = 'c-' + dateStr;
+      item.phase = arenaPhaseOf(r);
+      arenaPhaseCache.set(item.roundId, item.phase);
       if (typeof r.entryCount === 'number') item.entryCount = r.entryCount;
     } else {
       const doy = Math.floor((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 0)) / 86400000);
@@ -749,6 +806,15 @@ async function loadFeed() {
       });
       while(ei < editorial.length) ordered.push(editorial[ei++]);
     });
+
+    /* Resolve Arena round phases before rendering, so entry/winner cards
+       carry the right door label (Vote now / Enter tonight / See the
+       entries). One read per distinct round id. */
+    const arenaTargets = new Set();
+    ordered.forEach(d => {
+      if ((d.type === 'arena_entry' || d.type === 'arena_winner') && d.targetId) arenaTargets.add(d.targetId);
+    });
+    await Promise.all(Array.from(arenaTargets).map(id => arenaPhaseFor(db, id)));
 
     let shown = 0;
     const frag = document.createDocumentFragment();
@@ -1100,7 +1166,7 @@ async function loadFeed() {
           (d.title ? `<div class="drop-title">${esc(d.title)}</div>` : '') +
           (d.text ? `<div class="drop-brief">${esc(d.text)}</div>` : '') +
           `<div class="drop-foot"><span class="drop-entries">${typeof d.entryCount === 'number' ? d.entryCount + (d.entryCount === 1 ? ' entry' : ' entries') + ' so far' : ''}</span>` +
-          `<a class="ed-cta" href="/missions.html">Enter the Arena</a></div>`;
+          `<a class="ed-cta" href="${esc(arenaDropHref(d))}">${esc(arenaDropLabel(d))}</a></div>`;
         el._feedData = d;
         return el;
       }
@@ -1173,6 +1239,7 @@ async function loadFeed() {
         `</div>` +
         (d.text ? `<div class="feed-text">${esc(d.text)}</div>` : '') +
         carouselHTML(getImageUrls(d)) +
+        arenaCardLinkHTML(d) +
         (d.actionUrl ? `<a class="feed-action" href="${esc(d.actionUrl)}">${esc(d.actionLabel||'View')}</a>` : '')+
         actionBarHTML(d);
       el._feedData = d;
