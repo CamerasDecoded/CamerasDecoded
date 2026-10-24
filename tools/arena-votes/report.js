@@ -32,8 +32,11 @@
  * Env:
  *   SERVICE_ACCOUNT_JSON — Firebase service-account JSON (repo secret
  *                          FIREBASE_SERVICE_ACCOUNT).
- *   GITHUB_TOKEN         — auto-provided in Actions (permissions:
- *                          contents: write).
+ *   GITHUB_TOKEN         — must be passed explicitly in the workflow
+ *                          step env (GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }});
+ *                          GitHub does NOT auto-inject it as an env var
+ *                          (permissions: contents: write alone is not
+ *                          enough — this was the live-dispatch failure).
  *   GITHUB_REPOSITORY    — auto-provided (owner/repo).
  *   ROUND_ID             — e.g. c-2026-10-24 (required).
  *
