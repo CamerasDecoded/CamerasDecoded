@@ -1,0 +1,51 @@
+name: Arena advance (voting opener)
+
+# Opens Arena voting by running the same closer the nightly close uses.
+#
+# Why this exists: arena-close.yml carries the 7:05 PM Chicago advance in
+# its '5 0,4 * * *' cron — but that 00:05 UTC slot has NEVER executed
+# (verified 2026-10-23: the last 15 runs are all the ~04:xx UTC close slot;
+# 00:05 UTC is one of GitHub's most congested schedule minutes and the run
+# is silently dropped). Rounds sat in state 'open' all evening, and the
+# vote rule (round state must be 'voting') denied every vote with
+# "missing or insufficient permissions".
+#
+# This workflow runs the identical closer job at staggered off-peak
+# minutes. The closer is state- and timestamp-gated, so extra runs are
+# no-ops when nothing is due, and the closer remains the single writer
+# for round state. Slots cover both Central times:
+#   00:12 / 00:42 UTC -> 7:12 / 7:42 PM CDT
+#   01:12 / 01:42 UTC -> 7:12 / 7:42 PM CST (the 00:xx runs are no-ops then)
+# arena-close.yml is unchanged; its 11:05 PM Chicago close still crowns.
+
+on:
+  schedule:
+    - cron: '12 0 * * *'
+    - cron: '42 0 * * *'
+    - cron: '12 1 * * *'
+    - cron: '42 1 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: arena-closer
+  cancel-in-progress: false
+
+jobs:
+  advance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/arena-closer
+      - name: Run the arena closer (advance phases)
+        run: node closer.js
+        working-directory: tools/arena-closer
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
