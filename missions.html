@@ -574,6 +574,15 @@ button{font-family:inherit;cursor:pointer}
   text-align:center;font:700 12px var(--font-d);letter-spacing:.14em;text-transform:uppercase;
   color:var(--green);padding:14px 0;
 }
+/* Signal door in the lightbox — quiet branded link, never a chase border.
+   Rendered only after close (see renderLbBody): the feed item names the
+   author, so this link must never appear while the round is blind. */
+.am-lb-signal{
+  display:block;text-align:center;font:700 12px var(--font-d);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);text-decoration:none;padding:14px 0;
+}
+.am-lb-signal:hover,.am-lb-signal:focus-visible{color:var(--green)}
+.am-declass a{color:var(--green);text-decoration:underline;text-underline-offset:3px}
 
 /* ---------- vault seal ---------- */
 .am-seal{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;
@@ -876,10 +885,30 @@ button{font-family:inherit;cursor:pointer}
     var user = null;
     var myScore = { score: 0, tier: 0 };
     var lanes = {
-      mission: { lane: 'mission', round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, fallback: false, empty: false, followingOnly: false, followingUids: null },
-      daily:   { lane: 'daily',   round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, fallback: false, empty: false, followingOnly: false, followingUids: null }
+      mission: { lane: 'mission', round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, fallback: false, empty: false, followingOnly: false, followingUids: null, feedByUid: {}, winnerFeedId: null, signalLinksReady: false, pendingEntry: null, deepOpened: false },
+      daily:   { lane: 'daily',   round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, fallback: false, empty: false, followingOnly: false, followingUids: null, feedByUid: {}, winnerFeedId: null, signalLinksReady: false, pendingEntry: null, deepOpened: false }
     };
     var activeTab = 'daily';
+    /* ---------- deep link: ?round=<roundId>&entry=<entryUid> ----------
+       Feed links land here: ?round= picks the round (daily c-YYYY-MM-DD
+       or mission m-YYYY-Www), ?entry= opens that entry's lightbox once
+       the wall loads. Both values are strict allowlists — anything else
+       is ignored and the page boots normally. */
+    var deepLink = (function () {
+      try {
+        var q = new URLSearchParams(window.location.search);
+        var r = q.get('round') || '', e = q.get('entry') || '';
+        if (!/^(c-\d{4}-\d{2}-\d{2}|m-\d{4}-W\d{2})$/.test(r)) r = '';
+        if (!/^[A-Za-z0-9]{10,40}$/.test(e)) e = '';
+        return { round: r, entry: e };
+      } catch (err) { return { round: '', entry: '' }; }
+    })();
+    function deepLaneFor(roundId) {
+      if (!roundId) return null;
+      if (roundId.charAt(0) === 'c') return 'daily';
+      if (roundId.charAt(0) === 'm') return 'mission';
+      return null;
+    }
     var countTimer = null;
 
     /* ---------- round ids (UTC) ---------- */
@@ -1062,6 +1091,15 @@ button{font-family:inherit;cursor:pointer}
         rv.className = rank === 1 ? 'rank' : 'votes';
         rv.textContent = (rank === 1 ? 'Winner · ' : '#' + rank + ' · ') + t.weighted + ' weighted votes';
         meta.appendChild(who); meta.appendChild(rv);
+        /* Signal door — closed rounds only. The feed item names the
+           author, so this link must never appear while the round is
+           blind. No feed item on record means no link at all. */
+        var fid = st.feedByUid && st.feedByUid[e.uid];
+        if (fid) {
+          var sl = document.createElement('a'); sl.className = 'am-lb-signal';
+          sl.href = '/feed.html#' + fid; sl.textContent = 'View it in the Signal';
+          vote.appendChild(sl);
+        }
       } else if (phase === 'voting') {
         var mine = st.myEntry && st.myEntry.uid === e.uid;
         if (mine) {
@@ -1201,7 +1239,7 @@ button{font-family:inherit;cursor:pointer}
       var roundEl = el('amRound' + L);
       if (roundEl) roundEl.classList.toggle('is-closed', phase === 'closed');
       var declass = el('amDeclass' + L);
-      if (declass) declass.hidden = phase !== 'closed';
+      if (declass) { declass.hidden = phase !== 'closed'; renderWinnerLink(laneKey); }
       if (laneKey === 'daily') amRefreshArenaEdge();
     }
 
@@ -1482,6 +1520,64 @@ button{font-family:inherit;cursor:pointer}
     }
 
     /* ---------- feed ---------- */
+    /* ---------- Signal links: entry -> feed item, winner -> announcement ----------
+       Resolved once per round load, never blocking the wall. Entry links are
+       only SURFACED after close (renderLbBody gates on phase) — the feed
+       item names the author, so showing the link while voting would hand
+       the voter the name behind a blind card. A missing feed item simply
+       means no link: never link to an id that was not read back. */
+    function loadSignalLinks(laneKey) {
+      var st = lanes[laneKey];
+      st.feedByUid = {}; st.winnerFeedId = null; st.signalLinksReady = false;
+      if (!hasFirebase || !st.round || !st.round._id) return;
+      var rid = st.round._id;
+      db.collection('feedItems').where('targetId', '==', rid).where('type', '==', 'arena_entry').get()
+        .then(function (snap) {
+          snap.forEach(function (d) { var v = d.data() || {}; if (v.actorUid) st.feedByUid[v.actorUid] = d.id; });
+          st.signalLinksReady = true;
+          refreshLbSignalLink(laneKey);
+        })
+        .catch(function () { st.signalLinksReady = true; });
+      db.collection('feedItems').where('targetId', '==', rid).where('type', '==', 'arena_winner').limit(1).get()
+        .then(function (snap) {
+          snap.forEach(function (d) { st.winnerFeedId = d.id; });
+          renderWinnerLink(laneKey);
+        })
+        .catch(function () {});
+    }
+    function refreshLbSignalLink(laneKey) {
+      /* The lightbox is open for this lane and the round is closed: the
+         Signal link can appear now that the feed-item map resolved. */
+      if (!lbCtx || lbCtx.laneKey !== laneKey) return;
+      var st = lanes[laneKey];
+      if (st.phase !== 'closed') return;
+      var e = null;
+      for (var i = 0; i < st.entries.length; i++) if (st.entries[i].uid === lbCtx.entryUid) e = st.entries[i];
+      if (e) renderLbBody(st, e);
+    }
+    function renderWinnerLink(laneKey) {
+      var st = lanes[laneKey];
+      var declass = el('amDeclass' + cap(laneKey));
+      if (!declass) return;
+      if (st.phase === 'closed' && st.winnerFeedId && st.round && st.round.winnerEntryId) {
+        declass.innerHTML = 'Declassified · <a class="am-declass-link" href="/feed.html#' + esc(st.winnerFeedId) + '">See the announcement in the Signal</a>';
+      } else {
+        declass.textContent = 'Declassified';
+      }
+    }
+    function maybeOpenDeepEntry(laneKey) {
+      /* A ?entry= from the feed opens that entry's lightbox once, after
+         the wall renders. One-shot per page load; a Following filter that
+         hides the entry keeps the request alive until the full wall shows. */
+      var st = lanes[laneKey];
+      if (!st.pendingEntry || st.deepOpened) return;
+      var found = null;
+      for (var i = 0; i < st.entries.length; i++) if (st.entries[i].uid === st.pendingEntry) found = st.entries[i];
+      if (!found) { if (!st.followingOnly) st.pendingEntry = null; return; }
+      st.deepOpened = true;
+      st.pendingEntry = null;
+      setTimeout(function () { openLightbox(laneKey, found.uid); }, 60);
+    }
     function loadFeed(laneKey) {
       var st = lanes[laneKey];
       var grid = el('amGrid' + cap(laneKey));
@@ -1505,6 +1601,10 @@ button{font-family:inherit;cursor:pointer}
           if (user) {
             for (var i = 0; i < list.length; i++) if (list[i].uid === user.uid) st.myEntry = list[i];
           }
+          /* Signal links for this round: which feed item each entry maps
+             to, and the winner announcement. Fire-and-forget — the wall
+             renders without it, and the links appear when it resolves. */
+          loadSignalLinks(laneKey);
           if (cnt) cnt.textContent = list.length === 1 ? '1 entry' : list.length + ' entries';
           var sig = el('amSignal' + cap(laneKey));
           if (sig) {
@@ -1753,6 +1853,7 @@ button{font-family:inherit;cursor:pointer}
           setText('amVotes' + cap(laneKey), vn < 10 ? '0' + vn : String(vn));
         }
       }
+      maybeOpenDeepEntry(laneKey);
     }
 
     /* ---------- voting (upvote-only, one per entry, no self-votes by rule) ---------- */
@@ -1857,6 +1958,7 @@ button{font-family:inherit;cursor:pointer}
       var st = lanes[laneKey];
       st.round = null; st.phase = 'open'; st.entries = []; st.myEntry = null;
       st.myVotes = {}; st.tallies = {}; st.fallback = false; st.empty = false;
+      st.pendingEntry = null;
       renderRoundCard(laneKey); renderSubmit(laneKey);
       var grid = el('amGrid' + cap(laneKey));
       if (grid) grid.innerHTML = '';
@@ -1870,6 +1972,12 @@ button{font-family:inherit;cursor:pointer}
 
       var now = new Date();
       var roundId = laneKey === 'mission' ? isoWeekId(now) : 'c-' + ymdChicago(now);
+      /* Deep link: a ?round= from the feed overrides the computed round
+         for its lane, so the link lands on the round it names. */
+      if (deepLink.round && deepLaneFor(deepLink.round) === laneKey) {
+        roundId = deepLink.round;
+        if (deepLink.entry) st.pendingEntry = deepLink.entry;
+      }
       db.collection('arenaRounds').doc(roundId).get()
         .then(function (snap) {
           if (!snap.exists) {
@@ -1925,6 +2033,8 @@ button{font-family:inherit;cursor:pointer}
     /* ---------- boot ---------- */
     function boot() {
       initTabs();
+      /* Deep link from the feed: open the lane the round belongs to. */
+      if (deepLink.round && deepLaneFor(deepLink.round) === 'mission') setTab('mission');
       setupFileInput();
       var sb = el('amScoreBtn');
       if (sb) sb.addEventListener('click', function () { openSheet('amScoreSheet'); });
