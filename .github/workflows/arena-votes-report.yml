@@ -1,0 +1,59 @@
+name: Arena votes report
+
+# On-demand vote tally for the nightly Arena watchdog: reads one round's
+# entries + votes with the project's service account and publishes a tiny
+# machine-readable status file to the dedicated `watch-state` branch
+# (arena-votes.json). The watchdog (11:45 PM Chicago) dispatches this
+# workflow for tonight's round and reads the file — its unauthenticated
+# Firestore REST reads return HTTP 403 on the votes subcollection, so it
+# cannot tell "zero votes" from "unreadable" on its own.
+#
+# Service-account pattern mirrors pro-requests-report.yml exactly: the
+# whole Firebase service-account JSON lives in the FIREBASE_SERVICE_ACCOUNT
+# repo secret. No secrets in chat, no secrets committed.
+#
+# Vote math is NOT reimplemented in tools/arena-votes/report.js: tallies
+# come from tools/arena-closer/arena-logic.js, the same code the closer
+# uses to crown. If this file and the closer ever disagree, the closer
+# wins.
+#
+# Dispatch-only, no schedule: a fixed UTC schedule cannot cover both CDT
+# and CST (the 11 PM close and the 11:45 PM watchdog shift by an hour at
+# the Nov 1 fall-back), so a schedule would publish the wrong round or
+# incomplete totals half the year. The watchdog dispatches with an
+# explicit roundId and polls for the fresh file.
+#
+# Failure behavior (in report.js): a Firestore read failure exits
+# non-zero WITHOUT touching the status file — a stale file is honest, a
+# wrong empty one would fake "no votes".
+
+on:
+  workflow_dispatch:
+    inputs:
+      roundId:
+        description: 'Round id, e.g. c-2026-10-24'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: arena-votes-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install --prefix /tmp/avr firebase-admin@^12.7.0 --no-audit --no-fund
+      - name: Write arena-votes status file
+        working-directory: tools/arena-votes
+        run: NODE_PATH=/tmp/avr/node_modules node report.js
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          ROUND_ID: ${{ inputs.roundId }}
