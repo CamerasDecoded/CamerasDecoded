@@ -1,0 +1,39 @@
+name: Refresh tonight.json
+
+on:
+  schedule:
+    # 05:05 UTC = 00:05 CDT / 23:05 CST. The script computes today's Chicago
+    # date at runtime, so the file is right in both DST states.
+    - cron: '5 5 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-tonight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate tonight.json
+        run: python3 tools/tonight-json/generate.py
+
+      - name: Commit updated file
+        run: |
+          git config user.name "cynetis-7"
+          git config user.email "cynetis-7@users.noreply.github.com"
+          git add tonight.json
+          if git diff --cached --quiet; then
+            echo "tonight.json unchanged, nothing to commit."
+          else
+            git commit -m "Auto-refresh tonight.json"
+            git push
+          fi
