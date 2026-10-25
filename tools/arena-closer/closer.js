@@ -265,10 +265,15 @@ async function closeRound(db, roundRef, round) {
     const winnerEntry = entries.find((e) => e.entryId === winnerEntryId);
     const winnerUser = await db.collection("users").doc(winnerUid).get().catch(() => null);
     const winnerAvatar = winnerUser && winnerUser.exists ? (winnerUser.data() || {}).photoURL || null : null;
+    // Username for the public front door: the landing carousel shows
+    // @username, never a real name. Same user-doc read as the avatar.
+    // A missing username stays null — never a fallback to the real name.
+    const winnerUsername = winnerUser && winnerUser.exists ? (winnerUser.data() || {}).username || null : null;
     batch.set(db.collection("feedItems").doc(), {
       type: "arena_winner",
       actorUid: winnerUid,
       actorName: winnerName,
+      actorUsername: winnerUsername,
       actorAvatar: winnerAvatar,
       text: winnerName + " won the Arena",
       imageUrl: (winnerEntry && winnerEntry.imgUrl) || null,

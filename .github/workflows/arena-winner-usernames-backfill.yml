@@ -1,0 +1,51 @@
+name: Arena winner usernames backfill
+
+# One-time (and re-runnable) stamp of `actorUsername` onto arena_winner
+# feed items written before the closer started stamping it (2026-10-25).
+# The public landing carousel shows @username, never a real name — and
+# the landing cannot resolve a username itself (the users collection is
+# not publicly readable), so the username has to live on the public
+# winner item. Run this once after the carousel PR merges; re-running is
+# a no-op for items that already carry a username.
+#
+# What the script does (tools/arena-closer/backfill-winner-usernames.js):
+# lists arena_winner items, skips crew-battle items and items that
+# already carry actorUsername, reads each winner's user doc with the
+# service account, and writes ONLY { actorUsername } when the user doc
+# carries a non-empty username — then reads the item back to verify.
+# A winner whose user doc has no username is left alone and logged;
+# the carousel renders that win with photo + challenge + date and no
+# name. No username is ever invented, no other field is touched.
+#
+# Service-account pattern mirrors arena-votes-report.yml: the whole
+# Firebase service-account JSON lives in the FIREBASE_SERVICE_ACCOUNT
+# repo secret. No secrets in chat, no secrets committed. No GitHub API
+# calls, so no GITHUB_TOKEN is needed here.
+#
+# Dispatch-only, no schedule, no inputs.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arena-winner-usernames-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install --prefix /tmp/awu firebase-admin@^12.7.0 --no-audit --no-fund
+      - name: Stamp actorUsername on winner items
+        working-directory: tools/arena-closer
+        run: NODE_PATH=/tmp/awu/node_modules node backfill-winner-usernames.js
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
