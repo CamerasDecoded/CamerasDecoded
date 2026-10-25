@@ -1,0 +1,54 @@
+name: Arena close (late / standard-time crown)
+
+# Crowns the winner after clocks fall back — and backs up the crown in
+# daylight time.
+#
+# arena-close.yml crowns from its 04:05 UTC run: 11:05 PM CDT, just after
+# the 11 PM Chicago close. After the November fall-back, Chicago is CST
+# (UTC-6): the round then closes at 05:00 UTC, the 04:05 UTC run lands at
+# 10:05 PM CST — an hour too early, the closer correctly does nothing —
+# and no other run exists until the next night. The crown would sit for
+# ~23 hours.
+#
+# This workflow runs the identical closer job at staggered off-peak
+# minutes after the standard-time close. The closer is state- and
+# timestamp-gated, so every run is a no-op until a round's closesAt has
+# actually passed, and the closer remains the single writer for round
+# state. Slot map:
+#   04:42 UTC -> 11:42 PM CDT (late backup for the 04:05 crown)
+#                10:42 PM CST (too early — no-op)
+#   05:12 UTC -> 11:12 PM CST (the standard-time crown)
+#                12:12 AM CDT (already crowned — no-op)
+#   05:42 UTC -> 11:42 PM CST (backup crown)
+# arena-close.yml and arena-advance.yml are unchanged.
+
+on:
+  schedule:
+    - cron: '42 4 * * *'
+    - cron: '12 5 * * *'
+    - cron: '42 5 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: arena-closer
+  cancel-in-progress: false
+
+jobs:
+  close-late:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/arena-closer
+      - name: Run the arena closer (close rounds)
+        run: node closer.js
+        working-directory: tools/arena-closer
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
