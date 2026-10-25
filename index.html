@@ -375,40 +375,54 @@
     }
     .arena-meta b { color: var(--green); font-weight: 700; }
 
-    /* ---------- S3 — proof ---------- */
-    .proof-card {
-      position: relative; overflow: hidden;
-      display: grid; grid-template-columns: 300px 1fr; gap: 0;
+    /* ---------- S3 — wins carousel ---------- */
+    .wins-carousel { position: relative; }
+    .wins-track {
+      display: flex; gap: 16px; overflow-x: auto;
+      scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; padding: 4px 2px 12px;
+    }
+    .wins-track::-webkit-scrollbar { display: none; }
+    .win-card {
+      flex: 0 0 min(300px, 82vw); scroll-snap-align: start;
       border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 24px;
-      background: var(--card-bg);
+      background: var(--card-bg); overflow: hidden;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
     }
-    .proof-card::after {
-      content: ''; position: absolute; inset: 0; pointer-events: none;
-      background-image: url('/media/dossier-weave.jpg');
-      background-size: 340px 340px; opacity: 0.05; mix-blend-mode: soft-light;
-    }
-    .proof-photo { position: relative; overflow: hidden; min-height: 300px; }
-    .proof-photo img {
+    .win-photo { position: relative; overflow: hidden; aspect-ratio: 4 / 3; }
+    .win-photo img {
       position: absolute; inset: 0; width: 100%; height: 100%;
       object-fit: cover; object-position: center; display: block;
     }
-    .proof-body { padding: 34px 32px; position: relative; z-index: 1; }
-    .proof-body .winner-tag {
-      font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px;
-      text-transform: uppercase; color: var(--amber); margin-bottom: 12px;
+    .win-body { padding: 20px 20px 22px; }
+    .win-who {
+      font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+      color: var(--green); margin-bottom: 6px;
     }
-    .proof-body h3 {
-      font-family: var(--font-sans); font-weight: 800; font-size: 24px;
-      letter-spacing: -0.01em; line-height: 1.25; margin-bottom: 10px;
+    .win-challenge {
+      font-weight: 800; font-size: 18px; letter-spacing: -0.01em;
+      line-height: 1.3; margin-bottom: 6px;
     }
-    .proof-body p { color: var(--text-secondary); font-size: 15px; line-height: 1.65; margin-bottom: 12px; }
-    .proof-body p:last-child { margin-bottom: 0; }
-    .proof-body .proof-line { color: #fff; font-weight: 600; }
-    @media (max-width: 640px) {
-      .proof-card { grid-template-columns: 1fr; }
-      .proof-photo { min-height: 0; aspect-ratio: 16 / 10; }
-      .proof-body { padding: 26px 22px; }
+    .win-date {
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--text-secondary); letter-spacing: 0.02em;
+    }
+    .wins-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+    .wins-dots { display: flex; gap: 2px; }
+    .wins-dot {
+      width: 24px; height: 24px; border: 0; padding: 0; cursor: pointer;
+      background: transparent; display: grid; place-items: center;
+    }
+    .wins-dot::after {
+      content: ''; width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.25);
+      transition: background-color 0.3s var(--ease-out), transform 0.3s var(--ease-out), opacity 0.3s var(--ease-out);
+    }
+    .wins-dot[aria-selected="true"]::after { background: var(--green); transform: scale(1.25); }
+    .wins-count { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+    @media (prefers-reduced-motion: reduce) {
+      .wins-track { scroll-behavior: auto; }
+      .wins-dot::after { transition: none; }
     }
 
     /* ---------- S4 — the free door ---------- */
@@ -699,8 +713,8 @@
       </div>
       <div class="hero-photo rv rv-d2">
         <figure>
-          <img src="https://res.cloudinary.com/l8tkygij/image/upload/v1792783948/t1whmptd6oyvbk5svgx9.jpg" alt="Rheasa Otto's winning Red Accent photograph — a downtown street in gray and blue, one red car at the corner" fetchpriority="high" />
-          <figcaption><b>Rheasa Otto</b> — Red Accent winner, October 23, 2026. Judged blind by photographers — no names, just the photo.</figcaption>
+          <img id="heroWinImg" src="https://res.cloudinary.com/l8tkygij/image/upload/v1792783948/t1whmptd6oyvbk5svgx9.jpg" alt="Winning Red Accent photograph — a downtown street in gray and blue, one red car at the corner" fetchpriority="high" />
+          <figcaption id="heroWinCaption">Red Accent winner, October 23, 2026. Judged blind by photographers — no names, just the photo.</figcaption>
         </figure>
       </div>
     </section>
@@ -720,22 +734,18 @@
       </div>
     </section>
 
-    <!-- S3 — proof: one verified winner, no invented numbers -->
-    <section class="rv">
+    <!-- S3 — proof: the latest Arena wins, @username only, never a real name -->
+    <section class="rv" id="winsSection" hidden>
       <div class="ld-head">
         <div class="eyebrow">// Proof</div>
         <h2 class="ld-h2">Judged blind. Proven nightly.</h2>
-        <p class="ld-lede">This is what the promise looks like in real life: a real photo, a real photographer, a real night.</p>
+        <p class="ld-lede">This is what the promise looks like in real life: real photos, real photographers, real nights.</p>
       </div>
-      <div class="proof-card">
-        <div class="proof-photo">
-          <img src="https://res.cloudinary.com/l8tkygij/image/upload/v1792783948/t1whmptd6oyvbk5svgx9.jpg" alt="Rheasa Otto's winning Red Accent photograph — a downtown street in gray and blue, one red car at the corner" loading="lazy" decoding="async" />
-        </div>
-        <div class="proof-body">
-          <div class="winner-tag">Red Accent winner — October 23, 2026</div>
-          <h3>Rheasa Otto</h3>
-          <p>A downtown street in gray and blue — one red car at the corner. Photographers voted on the photo, not the name.</p>
-          <p class="proof-line">Every night, a new challenge. Every night, a new winner.</p>
+      <div class="wins-carousel" id="winsCarousel">
+        <div class="wins-track" id="winsTrack" tabindex="0" aria-label="Latest Arena wins"></div>
+        <div class="wins-nav">
+          <div class="wins-dots" id="winsDots" role="tablist" aria-label="Choose a win"></div>
+          <div class="wins-count" id="winsCount" aria-live="polite"></div>
         </div>
       </div>
     </section>
@@ -1077,6 +1087,156 @@
             show(data, es ? es.size : 0);
           }).catch(function () { show(data, 0); });
         }).catch(function () { /* stays hidden */ });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
+      else load();
+    })();
+
+    // S3 — wins carousel: the latest Arena wins, @username only.
+    // Reads public arena_winner feedItems (public-read by the rules),
+    // newest first, max 5. The username lives on the winner item itself
+    // (the closer stamps actorUsername at crown time) because the
+    // landing cannot resolve a user — the users collection is not
+    // publicly readable, and entry/round docs carry only the real name.
+    // Crew-battle items (actorUid "crew:…") and items without a photo
+    // are skipped. A win without a username renders with photo +
+    // challenge + date and no name at all — never the real name, never
+    // an invented handle. Any read failure or zero usable wins leaves
+    // the section hidden: no invented content, no empty frame.
+    (function () {
+      var section = document.getElementById('winsSection');
+      var track = document.getElementById('winsTrack');
+      var dotsEl = document.getElementById('winsDots');
+      var countEl = document.getElementById('winsCount');
+      if (!section || !track || !dotsEl || !countEl) return;
+      function load() {
+        if (typeof firebase === 'undefined' || !db) return;
+        db.collection('feedItems').where('type', '==', 'arena_winner').limit(20).get()
+          .then(function (snap) {
+            if (!snap) return;
+            var wins = [];
+            snap.forEach(function (d) {
+              var data = d.data() || {};
+              if (typeof data.actorUid === 'string' && data.actorUid.indexOf('crew:') === 0) return;
+              if (typeof data.imageUrl !== 'string' || !data.imageUrl) return;
+              var ms = 0;
+              if (data.createdAt && typeof data.createdAt.toMillis === 'function') ms = data.createdAt.toMillis();
+              wins.push({ data: data, ms: ms });
+            });
+            wins.sort(function (a, b) { return b.ms - a.ms; });
+            wins = wins.slice(0, 5);
+            if (!wins.length) return;
+            var remaining = wins.length;
+            wins.forEach(function (w) {
+              var targetId = w.data.targetId;
+              if (typeof targetId !== 'string' || !targetId) { w.challenge = null; done(); return; }
+              db.collection('arenaRounds').doc(targetId).get()
+                .then(function (rs) {
+                  var r = (rs && rs.exists) ? (rs.data() || {}) : {};
+                  var raw = String(r.title || '');
+                  w.challenge = raw ? (raw.split(' — ')[0] || raw) : null;
+                  done();
+                })
+                .catch(function () { w.challenge = null; done(); });
+            });
+            function done() {
+              remaining--;
+              if (remaining === 0) render(wins);
+            }
+          })
+          .catch(function () { /* section stays hidden */ });
+      }
+      function fmtDate(win) {
+        var d = null;
+        var c = win.data.createdAt;
+        if (c && typeof c.toDate === 'function') { try { d = c.toDate(); } catch (e) { d = null; } }
+        if (!d && typeof win.data.targetId === 'string') {
+          var m = win.data.targetId.match(/^c-(\d{4})-(\d{2})-(\d{2})$/);
+          if (m) d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12, 0, 0));
+        }
+        if (!d) return null;
+        try {
+          return d.toLocaleDateString('en-US', { timeZone: 'America/Chicago', month: 'long', day: 'numeric', year: 'numeric' });
+        } catch (e) { return null; }
+      }
+      function render(wins) {
+        var reduceMotion = false;
+        try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+        wins.forEach(function (win, i) {
+          var card = document.createElement('article');
+          card.className = 'win-card';
+          var photo = document.createElement('div');
+          photo.className = 'win-photo';
+          var img = document.createElement('img');
+          img.src = win.data.imageUrl;
+          img.alt = 'Winning Arena photograph' + (win.challenge ? ' — ' + win.challenge : '');
+          img.loading = 'lazy';
+          img.decoding = 'async';
+          photo.appendChild(img);
+          card.appendChild(photo);
+          var body = document.createElement('div');
+          body.className = 'win-body';
+          var username = win.data.actorUsername;
+          if (typeof username === 'string' && username) {
+            var who = document.createElement('div');
+            who.className = 'win-who';
+            who.textContent = '@' + username;
+            body.appendChild(who);
+          }
+          if (win.challenge) {
+            var ch = document.createElement('div');
+            ch.className = 'win-challenge';
+            ch.textContent = win.challenge;
+            body.appendChild(ch);
+          }
+          var date = fmtDate(win);
+          if (date) {
+            var dt = document.createElement('div');
+            dt.className = 'win-date';
+            dt.textContent = date;
+            body.appendChild(dt);
+          }
+          card.appendChild(body);
+          track.appendChild(card);
+          var dot = document.createElement('button');
+          dot.type = 'button';
+          dot.className = 'wins-dot';
+          dot.setAttribute('role', 'tab');
+          dot.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+          dot.setAttribute('aria-label', 'Win ' + (i + 1) + ' of ' + wins.length);
+          dot.addEventListener('click', function () {
+            track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: reduceMotion ? 'auto' : 'smooth' });
+          });
+          dotsEl.appendChild(dot);
+        });
+        function sync() {
+          var best = 0;
+          var cards = track.children;
+          for (var i = 0; i < cards.length; i++) {
+            if (Math.abs(cards[i].offsetLeft - track.offsetLeft - track.scrollLeft) <
+                Math.abs(cards[best].offsetLeft - track.offsetLeft - track.scrollLeft)) best = i;
+          }
+          var dots = dotsEl.children;
+          for (var j = 0; j < dots.length; j++) dots[j].setAttribute('aria-selected', j === best ? 'true' : 'false');
+          countEl.textContent = (best + 1) + ' / ' + wins.length;
+        }
+        track.addEventListener('scroll', function () {
+          if (track._syncRaf) return;
+          track._syncRaf = requestAnimationFrame(function () { track._syncRaf = 0; sync(); });
+        }, { passive: true });
+        sync();
+        // Hero credit upgrade: the hero photo IS the Oct 23 win. Once
+        // the backfill stamps its username, the caption shows @username;
+        // until then it stays nameless — never the real name.
+        wins.forEach(function (win) {
+          var username = win.data.actorUsername;
+          if (win.data.targetId !== 'c-2026-10-23' || typeof username !== 'string' || !username) return;
+          var cap = document.getElementById('heroWinCaption');
+          var img = document.getElementById('heroWinImg');
+          if (cap) cap.textContent = '@' + username + ' — Red Accent winner, October 23, 2026. Judged blind by photographers — no names, just the photo.';
+          if (img) img.alt = 'Winning Red Accent photograph by @' + username + ' — a downtown street in gray and blue, one red car at the corner';
+        });
+        section.hidden = false;
       }
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load);
       else load();
