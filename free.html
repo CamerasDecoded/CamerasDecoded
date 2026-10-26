@@ -213,7 +213,7 @@
           <div class="fr-feature-name">The Exposure Triangle</div>
           <p class="fr-feature-desc">The one card every camera bag needs. Aperture, shutter speed, ISO — what each one controls, and what it costs you. Every photo is a trade between the three; this card teaches the trade.</p>
           <div class="fr-feature-btns">
-            <a class="fr-btn-chase" href="/freebies/exposure-triangle.png" download>Download PNG</a>
+            <a class="fr-btn-chase" href="/freebies/exposure-triangle.png" download data-share-download>Download PNG</a>
             <a class="fr-btn-glass" href="/freebies/exposure-triangle.pdf" download>PDF for print</a>
           </div>
           <div class="fr-feature-micro">NO SIGN-IN · NO EMAIL · SHARE IT — IT POINTS BACK HERE</div>
@@ -309,6 +309,45 @@
     }, { threshold: 0.12 });
     els.forEach(function (el) { io.observe(el); });
   })();
+</script>
+<script>
+/* Image downloads in the installed app: iOS standalone ignores <a download>
+   on image files and navigates to the raw file with no back button and no
+   bottom nav, trapping the user on the image. PDFs open in the iOS viewer,
+   which has its own back gesture, so they keep the plain link. Image links
+   marked data-share-download are fetched and handed to the native share
+   sheet (Save Image / Save to Files) instead — the page never navigates. */
+(function () {
+  function shareDownload(url, filename) {
+    fetch(url).then(function (r) {
+      if (!r.ok) throw new Error('fetch failed');
+      return r.blob();
+    }).then(function (blob) {
+      var file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file] });
+      }
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+    }).catch(function (err) {
+      if (err && err.name === 'AbortError') return; /* user closed the share sheet */
+      alert('Could not download — check your connection and try again.');
+    });
+  }
+  document.querySelectorAll('a[data-share-download]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      e.preventDefault();
+      var url = el.getAttribute('href') || '';
+      var filename = url.split('/').pop().split('?')[0] || 'download';
+      shareDownload(url, filename);
+    });
+  });
+})();
 </script>
 <script src="/scripts/ptr.js?v=20261001a"></script>
 </body>
