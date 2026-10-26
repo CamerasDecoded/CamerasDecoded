@@ -318,7 +318,7 @@
     <div class="prp-take"><div class="prp-take-k">Takeaway &mdash; The Blue Hour Ladder</div>
       <p>Scout at 4pm, lock the composition. Meter the sky, walk the shutter down: 1/60s → 8s at f/8, ISO 100, doubling every ~3 minutes. White balance locked at 4000K, RAW always. Tripod + 2s timer, stabilization off, bag as ballast. Shoot early / mid / late blue — three moments, not three exposures. Pack when the sky goes black.</p></div>
     <div class="pr-label">Field Downloads</div>
-    <a class="prp-dl" href="/media/protocol-downloads/p022/blue-hour-exposure-ladder-pocket-cheat-sheet.pdf" download><span class="prp-dl-t">Blue Hour Exposure Ladder — pocket cheat sheet</span><span class="prp-dl-go">&darr;</span></a><a class="prp-dl" href="/media/protocol-downloads/p022/night-ops-packing-checklist.pdf" download><span class="prp-dl-t">Night Ops packing checklist</span><span class="prp-dl-go">&darr;</span></a><a class="prp-dl" href="/media/protocol-downloads/p022/snapshot-card.jpg" download><span class="prp-dl-t">Snapshot card</span><span class="prp-dl-go">&darr;</span></a>
+    <a class="prp-dl" href="/media/protocol-downloads/p022/blue-hour-exposure-ladder-pocket-cheat-sheet.pdf" download><span class="prp-dl-t">Blue Hour Exposure Ladder — pocket cheat sheet</span><span class="prp-dl-go">&darr;</span></a><a class="prp-dl" href="/media/protocol-downloads/p022/night-ops-packing-checklist.pdf" download><span class="prp-dl-t">Night Ops packing checklist</span><span class="prp-dl-go">&darr;</span></a><a class="prp-dl" href="/media/protocol-downloads/p022/snapshot-card.jpg" download data-share-download><span class="prp-dl-t">Snapshot card</span><span class="prp-dl-go">&darr;</span></a>
     <button class="prp-done" id="prpDone">
       <span class="prp-k">Operator sign-off</span>
       <strong><span class="prp-done-ic">&#10003;</span> <span class="prp-done-label">Mark protocol complete</span></strong>
@@ -344,5 +344,44 @@
 <script src="/scripts/protocol-pro.js?v=20260930a"></script>
 <script src="/scripts/ptr.js"></script>
 <script src="/scripts/protocol-deeper.js?v=20261014a"></script>
+<script>
+/* Image downloads in the installed app: iOS standalone ignores <a download>
+   on image files and navigates to the raw file with no back button and no
+   bottom nav, trapping the user on the image. PDFs open in the iOS viewer,
+   which has its own back gesture, so they keep the plain link. Image links
+   marked data-share-download are fetched and handed to the native share
+   sheet (Save Image / Save to Files) instead — the page never navigates. */
+(function () {
+  function shareDownload(url, filename) {
+    fetch(url).then(function (r) {
+      if (!r.ok) throw new Error('fetch failed');
+      return r.blob();
+    }).then(function (blob) {
+      var file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file] });
+      }
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+    }).catch(function (err) {
+      if (err && err.name === 'AbortError') return; /* user closed the share sheet */
+      alert('Could not download — check your connection and try again.');
+    });
+  }
+  document.querySelectorAll('a[data-share-download]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      e.preventDefault();
+      var url = el.getAttribute('href') || '';
+      var filename = url.split('/').pop().split('?')[0] || 'download';
+      shareDownload(url, filename);
+    });
+  });
+})();
+</script>
 </body>
 </html>
