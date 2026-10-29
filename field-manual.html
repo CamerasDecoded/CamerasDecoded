@@ -823,20 +823,30 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
 
   /* ---------------- curriculum delivery ----------------
      Firestore is the source of truth (guideContent/<the active manual's
-     doc>); a localStorage copy covers offline and failed fetches. The
-     default manual keeps the original doc + cache key exactly; every
-     later manual namespaces its own. */
+     free doc> + guideContent/<doc>_pro for Pro — see the split note
+     below); a localStorage copy covers offline and failed fetches. The
+     default manual keeps the original doc name exactly; every later
+     manual namespaces its own. */
   var FM_CURR_COLLECTION = "guideContent";
   var FM_CURR_DOC = FM_MANUAL.doc;
-  var FM_CURR_CACHE = (FM_MANUAL.id === defaultManualId()) ? "fm_curriculum" : "fm_curriculum_" + FM_MANUAL.id;
+  /* guideContent split (2026-10-29): each manual ships as TWO docs — the
+     free doc (<doc>: the free chapters, public read) and the Pro doc
+     (<doc>_pro: the remaining chapters + the finalExams bank, readable
+     only by Pro/admin in the Firestore rules). Cache keys are versioned
+     to v2 so devices still holding the old single-doc full-book cache
+     stop serving Pro content from localStorage; the Pro doc's cache
+     lives under its own key and is only read/written on a Pro load. */
+  var FM_CURR_DOC_PRO = FM_CURR_DOC + "_pro";
+  var FM_CURR_CACHE = (FM_MANUAL.id === defaultManualId()) ? "fm_curriculum_v2" : "fm_curriculum_" + FM_MANUAL.id + "_v2";
+  var FM_CURR_CACHE_PRO = FM_CURR_CACHE + "_pro";
   /* Storage identity for progress: the guideProgress fields this session
      reads/writes. Equals FM_MANUAL.id in reader sessions; a shelf-only
      session for a not-yet-live manual borrows the default (see boot). */
   var FM_PROGRESS_ID = FM_MANUAL.id;
 
-  function readCurriculumCache(){
+  function readCurriculumCache(key){
     try{
-      var raw = localStorage.getItem(FM_CURR_CACHE);
+      var raw = localStorage.getItem(key);
       if(!raw) return null;
       var c = JSON.parse(raw);
       if(!c || !c.data || !c.data.chapters || !c.data.chapters.length) return null;
@@ -844,40 +854,100 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     }catch(e){ return null; }
   }
 
-  function writeCurriculumCache(data){
+  function writeCurriculumCache(key, data){
     try{
-      localStorage.setItem(FM_CURR_CACHE, JSON.stringify({ version: data.version || "unknown", savedAt: Date.now(), data: data }));
+      localStorage.setItem(key, JSON.stringify({ version: data.version || "unknown", savedAt: Date.now(), data: data }));
     }catch(e){}
+  }
+
+  function dropProCache(){
+    try{ localStorage.removeItem(FM_CURR_CACHE_PRO); }catch(e){}
   }
 
   function curriculumValid(d){ return !!(d && d.chapters && d.chapters.length); }
 
-  async function loadCurriculum(){
-    var d = db();
-    if(d){
-      try{
-        var snap = await d.collection(FM_CURR_COLLECTION).doc(FM_CURR_DOC).get();
-        if(snap.exists){
-          var data = snap.data() || {};
-          /* stored as a JSON string (lesson blocks are arrays-in-arrays,
-             which Firestore rejects as nested entities) */
-          var parsed = null;
-          if(typeof data.json === "string"){
-            try{ parsed = JSON.parse(data.json); }catch(e){ parsed = null; }
-          }else if(data.chapters && data.chapters.length){
-            parsed = { version: data.version, chapters: data.chapters };
-          }
-          if(parsed && parsed.chapters && parsed.chapters.length){
-            window.GUIDE_DATA = { version: parsed.version || data.version || "firestore", chapters: parsed.chapters, finalExams: parsed.finalExams || null };
-            writeCurriculumCache(window.GUIDE_DATA);
-            return true;
-          }
-        }
-      }catch(e){ /* fall through to cache, then embedded */ }
+  /* One stored doc -> the GUIDE_DATA shape. The stored json string is the
+     envelope (lesson blocks are arrays-in-arrays, which Firestore rejects
+     as nested entities); a bare chapters field is the fallback shape. */
+  function parseCurriculumDoc(data){
+    if(!data) return null;
+    var parsed = null;
+    if(typeof data.json === "string"){
+      try{ parsed = JSON.parse(data.json); }catch(e){ parsed = null; }
+    }else if(data.chapters && data.chapters.length){
+      parsed = { version: data.version, chapters: data.chapters, finalExams: data.finalExams || null };
     }
-    var cached = readCurriculumCache();
-    if(cached){ window.GUIDE_DATA = cached.data; return true; }
-    return curriculumValid(window.GUIDE_DATA);   /* embedded script tag fallback */
+    if(!parsed || !parsed.chapters || !parsed.chapters.length) return null;
+    return { version: parsed.version || data.version || "firestore", chapters: parsed.chapters, finalExams: parsed.finalExams || null };
+  }
+
+  async function fetchCurriculumDoc(docId){
+    var d = db();
+    if(!d) return null;
+    var snap = await d.collection(FM_CURR_COLLECTION).doc(docId).get();
+    if(!snap.exists) return null;
+    return parseCurriculumDoc(snap.data() || {});
+  }
+
+  /* Merge the Pro doc into the free result: add the chapters whose id is
+     not already present (the Pro doc's order is the book's order, so the
+     merged book keeps its original order) and attach finalExams, which
+     ride only in the Pro doc. Transition-safe both ways: before the split
+     upload, the free doc still holds every chapter and the Pro doc does
+     not exist, so the merge adds nothing and the result is the full book
+     with no duplicates; after the split, a non-Pro load never calls this
+     and never fetches the Pro doc at all. */
+  function mergeProCurriculum(base, pro){
+    if(!pro || !pro.chapters || !pro.chapters.length) return base;
+    var seen = {};
+    base.chapters.forEach(function(c){ seen[c.id] = true; });
+    pro.chapters.forEach(function(c){ if(!seen[c.id]){ base.chapters.push(c); seen[c.id] = true; } });
+    if(pro.finalExams) base.finalExams = pro.finalExams;
+    return base;
+  }
+
+  async function loadCurriculum(isPro){
+    var base = null;
+    if(db()){
+      try{
+        base = await fetchCurriculumDoc(FM_CURR_DOC);
+        if(base){
+          /* The exam bank is Pro content: it is attached only by a Pro
+             merge below, never taken from the free doc — so even a
+             pre-split full-book free doc cannot hand it to a free load. */
+          base.finalExams = null;
+          writeCurriculumCache(FM_CURR_CACHE, base);
+        }
+      }catch(e){ base = null; /* fall through to cache, then embedded */ }
+    }
+    if(!base){
+      var cached = readCurriculumCache(FM_CURR_CACHE);
+      if(cached && cached.data){ base = cached.data; base.finalExams = null; }
+    }
+    if(!base && curriculumValid(window.GUIDE_DATA)){   /* embedded script tag fallback */
+      base = { version: window.GUIDE_DATA.version || "embedded", chapters: window.GUIDE_DATA.chapters, finalExams: null };
+    }
+    if(!base || !curriculumValid(base)) return false;
+    window.GUIDE_DATA = base;
+    if(!isPro){
+      /* a non-Pro load must never keep (or serve) a stale Pro cache */
+      dropProCache();
+      return true;
+    }
+    /* Pro load: fetch the Pro doc and merge it in. Every failure is soft —
+       pre-split the Pro doc does not exist yet and the free doc IS the
+       full book; a denied read or a missing doc leaves the free result. */
+    try{
+      var pro = await fetchCurriculumDoc(FM_CURR_DOC_PRO);
+      if(pro){
+        writeCurriculumCache(FM_CURR_CACHE_PRO, pro);
+        mergeProCurriculum(window.GUIDE_DATA, pro);
+        return true;
+      }
+    }catch(e){ /* fall through to the Pro cache */ }
+    var proCached = readCurriculumCache(FM_CURR_CACHE_PRO);
+    if(proCached && proCached.data) mergeProCurriculum(window.GUIDE_DATA, proCached.data);
+    return true;
   }
 
   function freshProgress(){
@@ -944,7 +1014,7 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
        the bare page's do, then stop at the shelf. */
     if(FM_MANUAL.status !== "live"){
       var defM = manualById(defaultManualId());
-      if(defM){ FM_CURR_DOC = defM.doc; FM_CURR_CACHE = "fm_curriculum"; }
+      if(defM){ FM_CURR_DOC = defM.doc; FM_CURR_DOC_PRO = defM.doc + "_pro"; FM_CURR_CACHE = "fm_curriculum_v2"; FM_CURR_CACHE_PRO = FM_CURR_CACHE + "_pro"; }
       FM_PROGRESS_ID = defaultManualId();
       await loadCurriculum();
       var dbx = db();
@@ -960,11 +1030,10 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       renderShelf(FM_MANUAL.id);
       return;
     }
-    /* curriculum first: without it there is nothing to render */
-    if(!(await loadCurriculum())){ showView("fm-nodata"); return; }
-    var storedChapter = null;
-    try{ storedChapter = localStorage.getItem(chapterKey()); }catch(e){}
-    if(!(storedChapter && setChapter(storedChapter))) setChapter(GUIDE_DATA.chapters[0].id);
+    /* access first: the Pro doc is fetched only when this operator's tier
+       says Pro — users/{uid}.tier, the same field the Firestore rule's
+       isProUser() checks — so tier must be known before the curriculum
+       loads, not after */
     var d = db();
     if(user && d){
       try{
@@ -973,8 +1042,13 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
         tier = data.tier || "free";
         _lbName = data.displayName || data.name || null;
       }catch(e){}
-      await loadProgress();
     }
+    /* curriculum: without it there is nothing to render */
+    if(!(await loadCurriculum(tier === "pro"))){ showView("fm-nodata"); return; }
+    var storedChapter = null;
+    try{ storedChapter = localStorage.getItem(chapterKey()); }catch(e){}
+    if(!(storedChapter && setChapter(storedChapter))) setChapter(GUIDE_DATA.chapters[0].id);
+    if(user && d){ await loadProgress(); }
     route();
   }
 
