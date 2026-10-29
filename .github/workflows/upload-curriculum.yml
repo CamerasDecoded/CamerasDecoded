@@ -1,11 +1,13 @@
 name: Upload Field Manual curriculum
 
 # Private curriculum delivery: writes a manual's curriculum to
-# Firestore guideContent/<manual>. Field Manuals is a library — each
-# manual's curriculum is its own doc in the same collection. The
-# curriculum itself is NEVER committed to this repo — it arrives
-# per-run as a workflow_dispatch input (base64), so nothing private
-# touches git.
+# Firestore as TWO docs — guideContent/<manual> (the free chapters,
+# public read) and guideContent/<manual>_pro (the Pro chapters,
+# Pro-only read). See tools/curriculum-uploader/upload.js. Field
+# Manuals is a library — each manual's curriculum is its own pair of
+# docs in the same collection. The curriculum itself is NEVER
+# committed to this repo — it arrives per-run as a workflow_dispatch
+# input (base64), so nothing private touches git.
 #
 # One-time setup (owner):
 #   1. Firebase console → Project settings → Service accounts →
@@ -29,6 +31,10 @@ on:
         description: 'Manual id — the guideContent doc to write (curriculum = Manual 01, finish = Manual 02 The Finish)'
         required: false
         default: 'curriculum'
+      free_chapters:
+        description: 'Optional: opening chapters that are free for this manual (blank = uploader default from scripts/manuals.js: curriculum 3, finish 1). The upload writes the free doc + the <manual>_pro doc.'
+        required: false
+        default: ''
 
 jobs:
   upload:
@@ -49,3 +55,4 @@ jobs:
           CURRICULUM_VERSION: ${{ inputs.version }}
           CURRICULUM_B64: ${{ inputs.curriculum_b64 }}
           CURRICULUM_MANUAL: ${{ inputs.manual }}
+          CURRICULUM_FREE_CHAPTERS: ${{ inputs.free_chapters }}
