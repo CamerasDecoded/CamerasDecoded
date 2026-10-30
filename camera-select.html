@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Camera Select — Setup, Autofocus, Buttons and Fixes for Your Camera | Cameras Decoded</title>
+<meta name="description" content="Find your camera. Camera-specific setup, autofocus, custom button and fix lessons for mirrorless bodies — Sony first, verified against the maker's own documentation. Setup lessons free; deep tips Pro.">
+<meta property="og:title" content="Camera Select — Cameras Decoded">
+<meta property="og:description" content="The setup, autofocus, buttons and fixes for the body actually in your hand.">
+<meta property="og:image" content="https://camerasdecoded.com/media/camera-select/sony-a7rv.jpg">
+<meta property="og:type" content="website">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="/scripts/firebase-init.js?v=20261007b"></script>
+<script src="/scripts/user-state.js?v=20261014a"></script>
+<script src="/scripts/master-loader.js?v=20261019b"></script>
+<style>
+  body{display:block !important;justify-content:normal !important;align-items:normal !important;padding:0 !important;background:#08080a}
+
+  :root{
+    --green:#8deb00; --green-dim:rgba(141,235,0,.06);
+    --dark:#08080a; --card:#0c0c0e; --border:rgba(255,255,255,.07);
+    --text:#fff; --text2:rgba(255,255,255,.62); --muted:rgba(255,255,255,.38);
+    --amber:#ffb340; --radius:18px;
+    --sans:'Montserrat',system-ui,sans-serif; --mono:'Space Mono',ui-monospace,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--dark);color:var(--text);font-family:var(--sans);padding:22px 16px 52px;max-width:480px;margin:0 auto}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.24em;color:var(--green);text-transform:uppercase}
+  .title-png{display:block;width:min(320px,84%);height:auto;margin:10px 0 4px}
+  h1{font-size:32px;font-weight:800;letter-spacing:-.01em;margin:10px 0 4px}
+  .sub{font-size:14px;color:var(--text2);line-height:1.5;margin:8px 0 6px;max-width:34ch}
+  .row-label{margin:26px 0 11px}
+  .row-label h2{font-size:12px;font-family:var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--text2);font-weight:400}
+
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes swapIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes ringPulse{0%{box-shadow:0 0 0 0 rgba(141,235,0,.45)}100%{box-shadow:0 0 0 12px rgba(141,235,0,0)}}
+  .rise{animation:rise .55s cubic-bezier(.22,.8,.3,1) both}
+  .swap{animation:swapIn .38s cubic-bezier(.22,.8,.3,1) both}
+
+  /* ---- Brand bento, photo-led ---- */
+  .bento{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .brand{position:relative;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;
+    padding:0;text-align:left;color:var(--text);font-family:var(--sans);cursor:pointer;background:var(--card);
+    transition:transform .18s ease,border-color .25s ease}
+  .brand:active{transform:scale(.975)}
+  .brand .bimg{display:block;width:100%;height:104px;object-fit:cover;transition:transform .8s cubic-bezier(.22,.8,.3,1)}
+  .brand.wide .bimg{height:158px}
+  .brand.wide{grid-column:span 2}
+  .brand .bmeta{position:absolute;left:0;right:0;bottom:0;padding:26px 14px 11px;
+    background:linear-gradient(transparent,rgba(4,5,4,.88) 62%)}
+  .brand .bname{font-size:19px;font-weight:800;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+  .brand.wide .bname{font-size:25px}
+  .brand .btags{margin-top:3px;font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;color:rgba(255,255,255,.66);text-transform:uppercase}
+  .brand.sel{border-color:rgba(141,235,0,.7);animation:ringPulse .7s ease-out 1}
+  .brand.sel .bimg{transform:scale(1.045)}
+  .brand.sel .btags{color:var(--green)}
+  .brand .selmark{position:absolute;top:10px;right:10px;font-family:var(--mono);font-size:9px;letter-spacing:.16em;
+    color:#0a0f0b;background:var(--green);border-radius:20px;padding:3px 9px;font-weight:700;display:none;z-index:2}
+  .brand.sel .selmark{display:block}
+
+  /* ---- Model row tracks, photo cards ---- */
+  .track{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 12px;scroll-snap-type:x mandatory;scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(90deg,#000 92%,transparent);mask-image:linear-gradient(90deg,#000 92%,transparent)}
+  .track::-webkit-scrollbar{display:none}
+  .model{flex:0 0 158px;scroll-snap-align:start;background:var(--card);border:1px solid var(--border);border-radius:15px;
+    overflow:hidden;padding:0;text-align:left;color:var(--text);font-family:var(--sans);cursor:pointer;
+    transition:transform .18s ease,border-color .25s ease}
+  .model:active{transform:scale(.97)}
+  .model .mimg{display:block;width:100%;height:92px;object-fit:cover;transition:transform .8s cubic-bezier(.22,.8,.3,1)}
+  .model .mm{padding:10px 12px 11px}
+  .model .mname{font-size:15.5px;font-weight:800;line-height:1.15}
+  .model .mdesc{font-size:11px;color:var(--text2);line-height:1.42;margin-top:4px;min-height:31px}
+  .model .mtag{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+  .model.sel{border-color:rgba(141,235,0,.7);animation:ringPulse .7s ease-out 1}
+  .model.sel .mimg{transform:scale(1.05)}
+  .model.sel .mtag{color:var(--green)}
+  .note{display:none;width:100%;margin-bottom:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:13px 14px;color:var(--text2);font-size:12.5px;line-height:1.55}
+
+  /* ---- Content tiles, photo thumbs ---- */
+  .content-head{margin:30px 0 4px}
+  .content-head h2{font-size:23px;font-weight:800;letter-spacing:-.01em}
+  .content-head p{font-size:13px;color:var(--text2);margin-top:4px}
+  .tiles{display:flex;flex-direction:column;gap:10px;margin-top:15px}
+  .tile{display:flex;align-items:center;gap:13px;background:var(--card);border:1px solid var(--border);
+    border-radius:15px;padding:10px 12px 10px 10px;text-align:left;color:var(--text);font-family:var(--sans);cursor:pointer;width:100%;
+    transition:transform .18s ease,border-color .25s ease}
+  .tile:active{transform:scale(.985)}
+  .tile .timg{flex:0 0 62px;width:62px;height:62px;border-radius:11px;object-fit:cover}
+  .tile .ttitle{font-size:15px;font-weight:700}
+  .tile .tdesc{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.42}
+  .pill{margin-left:auto;flex:0 0 auto;font-family:var(--mono);font-size:9px;letter-spacing:.14em;padding:4px 9px;border-radius:20px;text-transform:uppercase}
+  .pill.free{color:var(--green);border:1px solid rgba(141,235,0,.5)}
+  .pill.pro{color:var(--amber);border:1px solid rgba(255,179,64,.5)}
+
+  .pair{position:relative;margin-top:18px;border:1px solid rgba(141,235,0,.3);border-radius:var(--radius);overflow:hidden}
+  .pair img{display:block;width:100%;height:118px;object-fit:cover;object-position:center 30%}
+  .pair .pover{position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,6,4,.9) 30%,rgba(4,6,4,.35));padding:16px;display:flex;flex-direction:column;justify-content:center}
+  .pair .ptitle{font-size:14.5px;font-weight:800}
+  .pair .pdesc{font-size:12px;color:rgba(255,255,255,.78);margin-top:3px;line-height:1.45;max-width:30ch}
+  .foot{margin-top:30px;font-size:10.5px;color:var(--muted);font-family:var(--mono);letter-spacing:.1em;text-align:center}
+
+  /* ---- Lesson sheet ---- */
+  .sheet{position:fixed;inset:0;background:var(--dark);z-index:50;overflow-y:auto;padding:20px 16px 60px;
+    transform:translateY(3%);opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s cubic-bezier(.22,.8,.3,1)}
+  .sheet.open{transform:none;opacity:1;pointer-events:auto}
+  .sheet .back{background:none;border:1px solid var(--border);color:var(--text2);border-radius:20px;
+    padding:7px 14px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;cursor:pointer}
+  .sheet h2{font-size:26px;font-weight:800;letter-spacing:-.01em;margin:16px 0 4px;line-height:1.15}
+  .sheet .q{font-size:14.5px;color:var(--text2);line-height:1.5}
+  .linkchip{display:flex;align-items:center;gap:8px;margin-top:14px;background:var(--card);border:1px solid var(--border);
+    border-radius:11px;padding:9px 12px;font-family:var(--mono);font-size:11px;color:var(--green);overflow:hidden}
+  .linkchip button{margin-left:auto;flex:0 0 auto;background:var(--green-dim);border:1px solid rgba(141,235,0,.4);color:var(--green);
+    border-radius:8px;padding:5px 10px;font-family:var(--mono);font-size:10px;cursor:pointer}
+  .answer{margin-top:18px;border:1px solid rgba(141,235,0,.45);border-radius:var(--radius);overflow:hidden;
+    background:linear-gradient(165deg,rgba(141,235,0,.10),rgba(141,235,0,.02) 60%)}
+  .answer .ahead{padding:13px 15px 0;font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--green);text-transform:uppercase}
+  .answer .aline{padding:7px 15px 4px;font-size:16.5px;font-weight:800;line-height:1.4}
+  .answer .aset{padding:2px 15px 13px;font-size:12.5px;color:var(--text2);line-height:1.55}
+  .answer .afoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(141,235,0,.2);
+    padding:10px 15px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+  .answer .afoot button{background:var(--green);border:none;color:#0a0f0b;font-weight:700;border-radius:8px;
+    padding:6px 12px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;cursor:pointer}
+  .step{margin-top:14px;background:var(--card);border:1px solid var(--border);border-radius:15px;padding:14px}
+  .step .snum{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--green);text-transform:uppercase}
+  .step h3{font-size:16px;font-weight:700;margin:5px 0 6px}
+  .step p{font-size:13.5px;color:var(--text2);line-height:1.55}
+  .path{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:9px 0}
+  .path .crumb{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:4px 9px;
+    font-family:var(--mono);font-size:10.5px;color:var(--text)}
+  .path .arr{color:var(--muted);font-size:11px}
+  .path .crumb.tab{border-color:rgba(141,235,0,.5);color:var(--green)}
+  .warn{margin-top:10px;border-left:3px solid var(--amber);padding:9px 12px;background:rgba(255,179,64,.06);
+    border-radius:0 11px 11px 0;font-size:12.5px;color:var(--text2);line-height:1.5}
+  .warn b{color:var(--amber)}
+  .visual{margin-top:14px;background:var(--card);border:1px solid var(--border);border-radius:15px;padding:14px}
+  .visual .vlabel{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--text2);text-transform:uppercase;margin-bottom:10px}
+  .tryit{margin-top:16px;border:1px dashed rgba(141,235,0,.4);border-radius:15px;padding:14px;background:rgba(141,235,0,.03)}
+  .tryit .tlabel{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--green);text-transform:uppercase}
+  .tryit p{font-size:13.5px;color:var(--text);line-height:1.55;margin-top:6px}
+  .probar{margin-top:14px;border:1px solid rgba(255,179,64,.45);border-radius:13px;padding:11px 13px;
+    font-size:12px;color:var(--text2);line-height:1.5;background:rgba(255,179,64,.05)}
+  .probar b{color:var(--amber)}
+  .fixrow{display:flex;gap:10px;margin-top:10px;background:var(--card);border:1px solid var(--border);border-radius:13px;padding:12px}
+  .fixrow .sym{flex:0 0 38%;font-size:13px;font-weight:700;line-height:1.4}
+  .fixrow .fix{font-size:12.5px;color:var(--text2);line-height:1.5}
+  .bar-row{display:flex;align-items:center;gap:10px;margin-top:9px;font-size:11.5px}
+  .bar-row .blabel{flex:0 0 118px;color:var(--text2)}
+  .bar-row .btrack{flex:1;height:9px;border-radius:6px;background:rgba(255,255,255,.06);overflow:hidden}
+  .bar-row .bfill{height:100%;border-radius:6px;background:var(--green)}
+  .bar-row .bval{flex:0 0 74px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important}
+  }
+
+  body{max-width:none;padding:0}
+  .cs-wrap{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top, 0px) + 92px) 16px 110px}
+  .cs-credits{margin-top:34px;font-size:10.5px;line-height:1.7;color:rgba(255,255,255,.35)}
+  .cs-credits a{color:rgba(255,255,255,.5)}
+  .cs-pending{display:none;margin-top:16px;border:1px solid rgba(141,235,0,.35);border-radius:16px;padding:16px;background:rgba(141,235,0,.04)}
+  .cs-pending.open{display:block}
+  .cs-pending h3{font-size:17px;font-weight:800;margin-bottom:5px}
+  .cs-pending p{font-size:13px;color:rgba(255,255,255,.62);line-height:1.55}
+  a.tile{text-decoration:none}
+</style>
+</head>
+<body>
+<div class="cs-wrap">
+
+
+  <div class="kicker">Field Manuals</div>
+  <!-- PNG-first title, per the standing title rule: the PNG carries the art,
+       the text is the fallback and renders until the PNG is supplied. -->
+  <img class="title-png" src="/custom-site-titles/camera-select.png?v=20261030a" alt="Camera Select"
+       onerror="this.style.display='none';document.getElementById('fallbackTitle').hidden=false">
+  <h1 id="fallbackTitle" hidden>Camera Select</h1>
+  <p class="sub">Find your camera. The setup, autofocus, buttons and fixes for the body actually in your hand.</p>
+
+  <div class="row-label rise"><h2>Brand</h2></div>
+  <div class="bento rise" id="brands" style="animation-delay:.05s"><button class="brand wide sel" data-brand="sony"><span class="selmark">YOURS</span><img class="bimg" src="/media/camera-select/sony-a7rv.jpg?v=20261030a" alt="Sony camera"><span class="bmeta"><span class="bname">Sony</span><span class="btags" style="display:block">Full frame · APS-C</span></span></button><button class="brand" data-brand="canon"><span class="selmark">YOURS</span><img class="bimg" src="/media/camera-select/canon-r6ii.jpg?v=20261030a" alt="Canon camera"><span class="bmeta"><span class="bname">Canon</span><span class="btags" style="display:block">Full frame · APS-C</span></span></button><button class="brand" data-brand="nikon"><span class="selmark">YOURS</span><img class="bimg" src="/media/camera-select/nikon-z6iii.jpg?v=20261030a" alt="Nikon camera"><span class="bmeta"><span class="bname">Nikon</span><span class="btags" style="display:block">Full frame · APS-C</span></span></button><button class="brand" data-brand="fuji"><span class="selmark">YOURS</span><img class="bimg" src="/media/camera-select/fuji-xt5.jpg?v=20261030a" alt="Fujifilm camera"><span class="bmeta"><span class="bname">Fujifilm</span><span class="btags" style="display:block">APS-C · Medium format</span></span></button><button class="brand" data-brand="lumix"><span class="selmark">YOURS</span><img class="bimg" src="/media/camera-select/lumix-s5ii.jpg?v=20261030a" alt="Lumix camera"><span class="bmeta"><span class="bname">Lumix</span><span class="btags" style="display:block">Full frame · Micro 4/3</span></span></button></div>
+
+  <div class="row-label rise" style="animation-delay:.12s"><h2 id="ffLabel">Full Frame</h2></div>
+  <div class="note" id="ffNote"></div>
+  <div class="track rise" id="ffTrack" style="animation-delay:.16s"><button class="model sel" data-model="a7 IV" data-img="/media/camera-select/sony-a7iv.jpg?v=20261030a"><img class="mimg" src="/media/camera-select/sony-a7iv.jpg?v=20261030a" alt="a7 IV"><span class="mm" style="display:block"><span class="mname">a7 IV</span><span class="mdesc" style="display:block">33MP hybrid all-rounder. The one most people own.</span><span class="mtag">Most owned</span></span></button><button class="model" data-model="a7R V" data-img="/media/camera-select/sony-a7rv.jpg?v=20261030a"><img class="mimg" src="/media/camera-select/sony-a7rv.jpg?v=20261030a" alt="a7R V"><span class="mm" style="display:block"><span class="mname">a7R V</span><span class="mdesc" style="display:block">61MP, AI autofocus unit, 8K video.</span><span class="mtag">Resolution</span></span></button><button class="model" data-model="a7C II" data-img="/media/camera-select/sony-a7cii.jpg?v=20261030a"><img class="mimg" src="/media/camera-select/sony-a7cii.jpg?v=20261030a" alt="a7C II"><span class="mm" style="display:block"><span class="mname">a7C II</span><span class="mdesc" style="display:block">Full frame in a compact body.</span><span class="mtag">Compact</span></span></button><button class="model" data-model="ZV-E1" data-img="/media/camera-select/sony-zve1.jpg?v=20261030a"><img class="mimg" src="/media/camera-select/sony-zve1.jpg?v=20261030a" alt="ZV-E1"><span class="mm" style="display:block"><span class="mname">ZV-E1</span><span class="mdesc" style="display:block">Vlog body, full-frame sensor.</span><span class="mtag">Vlogging</span></span></button><button class="model" data-model="FX3" data-img="/media/camera-select/sony-fx3.jpg?v=20261030a"><img class="mimg" src="/media/camera-select/sony-fx3.jpg?v=20261030a" alt="FX3"><span class="mm" style="display:block"><span class="mname">FX3</span><span class="mdesc" style="display:block">Cinema line body, built for video.</span><span class="mtag">Cinema</span></span></button></div>
+
+  <div class="row-label rise" style="animation-delay:.2s"><h2 id="cropLabel">APS-C</h2></div>
+  <div class="track rise" id="cropTrack" style="animation-delay:.24s"><button class="model" data-model="a6700" data-img="/media/camera-select/sony-a6700.jpg?v=20261030a"><img class="mimg" src="/media/camera-select/sony-a6700.jpg?v=20261030a" alt="a6700"><span class="mm" style="display:block"><span class="mname">a6700</span><span class="mdesc" style="display:block">26MP flagship crop body, AI AF.</span><span class="mtag">Flagship</span></span></button><button class="model" data-model="a6400" data-img="/media/camera-select/sony-a6400.jpg?v=20261030a"><img class="mimg" src="/media/camera-select/sony-a6400.jpg?v=20261030a" alt="a6400"><span class="mm" style="display:block"><span class="mname">a6400</span><span class="mdesc" style="display:block">The long-running starter APS-C.</span><span class="mtag">Starter</span></span></button></div>
+
+  <div id="contentWrap">
+    <div class="content-head">
+      <h2 id="contentTitle">a7 IV — start here</h2>
+      <p>Setup is free. The deep tips are Pro.</p>
+    </div>
+    <div class="tiles" id="tiles"><a class="tile" href="/camera-select/sony/a7-iv/first-setup.html"><img class="timg" src="/media/camera-select/sony-a7iv.jpg?v=20261030a" alt=""><span><span class="ttitle">First Setup</span><span class="tdesc" style="display:block">The out-of-box settings to change before your first shoot.</span></span><span class="pill free">Free</span></a><a class="tile" href="/camera-select/sony/a7-iv/autofocus.html"><img class="timg" src="/media/camera-select/sony-a7iv.jpg?v=20261030a" alt=""><span><span class="ttitle">Autofocus, set up right</span><span class="tdesc" style="display:block">AF areas, subject detection, and the tracking settings that actually hold.</span></span><span class="pill free">Free</span></a><a class="tile" href="/camera-select/sony/a7-iv/custom-buttons.html"><img class="timg" src="/media/camera-select/fuji-xt5.jpg?v=20261030a" alt=""><span><span class="ttitle">Custom button map</span><span class="tdesc" style="display:block">Put the controls you use on the buttons your fingers already reach. Deep tips.</span></span><span class="pill pro">Pro</span></a><a class="tile" href="/camera-select/sony/a7-iv/video-settings.html"><img class="timg" src="/media/camera-select/sony-fx3.jpg?v=20261030a" alt=""><span><span class="ttitle">Video settings, in depth</span><span class="tdesc" style="display:block">Frame rates, codecs, and profiles — the full video setup. Deep tips.</span></span><span class="pill pro">Pro</span></a><a class="tile" href="/camera-select/sony/a7-iv/common-fixes.html"><img class="timg" src="/media/camera-select/nikon-z8.jpg?v=20261030a" alt=""><span><span class="ttitle">Common fixes</span><span class="tdesc" style="display:block">Overheating, AF hunting, buffer stalls — the problems this body is known for.</span></span><span class="pill free">Free</span></a></div>
+
+    <div class="pair">
+      <img src="/media/camera-select/sony-a7rv.jpg?v=20261030a" alt="">
+      <div class="pover">
+        <div class="ptitle">Pairs with Field Manual № 01</div>
+        <div class="pdesc">The craft lessons stay in № 01. This page is only what your camera does differently.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cs-pending" id="csPending"></div>
+  <p class="cs-credits" id="csCredits">Camera photos via Wikimedia Commons: Henry Söderlund (CC BY 2.0) — a7 IV, a7R V, a6700, Z6 III · Dinkun Chen (CC BY-SA 4.0) — R6 II, R3, R7, R10, R50 · Solomon203 (CC BY-SA 4.0) — ZV-E1, FX3 · TurnOnTheNight (CC BY-SA 4.0) — a7C II, Zf · 昼落ち (CC BY-SA 4.0 / CC BY 4.0 / CC0) — R8, Z fc, GFX 100 II, X-S20, Z50 II, X100VI, X-T50 · Harrison Jones (CC BY-SA 4.0) — R5 · Eckhard Henkel (CC BY-SA 3.0) — a6400 · 4300streetcar (CC BY 4.0) — Z8 card slots · Sudo Work (CC BY-SA 4.0) — S5 II · Mateusz Stopczynski (CC BY-SA 4.0) — GH7 · Phiarc (CC BY-SA 4.0) — Z30 · CC0 — Z5 II (TTTNIS), X-T5 (Aps1729), G9 II and S1R (Bautsch).</p>
+  <div class="foot">CAMERA SELECT — SONY FIRST. EVERY MODEL WRITTEN TO THE SAME STANDARD.</div>
+
+  <script>
+var DATA = {
+  sony: { name:'Sony', tags:'Full frame · APS-C', hero:'/media/camera-select/sony-a7rv.jpg?v=20261030a',
+    ff:[ ['a7 IV','/media/camera-select/sony-a7iv.jpg?v=20261030a','33MP hybrid all-rounder. The one most people own.','Most owned'],
+         ['a7R V','/media/camera-select/sony-a7rv.jpg?v=20261030a','61MP, AI autofocus unit, 8K video.','Resolution'],
+         ['a7C II','/media/camera-select/sony-a7cii.jpg?v=20261030a','Full frame in a compact body.','Compact'],
+         ['ZV-E1','/media/camera-select/sony-zve1.jpg?v=20261030a','Vlog body, full-frame sensor.','Vlogging'],
+         ['FX3','/media/camera-select/sony-fx3.jpg?v=20261030a','Cinema line body, built for video.','Cinema'] ],
+    cropLabel:'APS-C',
+    crop:[ ['a6700','/media/camera-select/sony-a6700.jpg?v=20261030a','26MP flagship crop body, AI AF.','Flagship'],
+           ['a6400','/media/camera-select/sony-a6400.jpg?v=20261030a','The long-running starter APS-C.','Starter'] ] },
+  canon: { name:'Canon', tags:'Full frame · APS-C', hero:'/media/camera-select/canon-r6ii.jpg?v=20261030a',
+    ff:[ ['EOS R5','/media/camera-select/canon-r5.jpg?v=20261030a','45MP, 8K raw video.','Flagship'],
+         ['EOS R6 II','/media/camera-select/canon-r6ii.jpg?v=20261030a','24MP hybrid workhorse.','Workhorse'],
+         ['EOS R8','/media/camera-select/canon-r8.jpg?v=20261030a','Full frame, small body, R6 II sensor.','Compact'],
+         ['EOS R3','/media/camera-select/canon-r3.jpg?v=20261030a','Stacked sensor, eye-control AF.','Pro'] ],
+    cropLabel:'APS-C',
+    crop:[ ['EOS R7','/media/camera-select/canon-r7.jpg?v=20261030a','32.5MP crop flagship, IBIS.','Flagship'],
+           ['EOS R10','/media/camera-select/canon-r10.jpg?v=20261030a','Fast, light, mid-range.','Mid-range'],
+           ['EOS R50','/media/camera-select/canon-r50.jpg?v=20261030a','The starter RF-S body.','Starter'] ] },
+  nikon: { name:'Nikon', tags:'Full frame · APS-C', hero:'/media/camera-select/nikon-z6iii.jpg?v=20261030a',
+    ff:[ ['Z8','/media/camera-select/nikon-z8.jpg?v=20261030a','The Z9 in a smaller body. Card slots shown — it takes CFexpress and SD.','Flagship'],
+         ['Z6 III','/media/camera-select/nikon-z6iii.jpg?v=20261030a','Partially stacked, 6K video.','Hybrid'],
+         ['Zf','/media/camera-select/nikon-zf.jpg?v=20261030a','Retro body, modern sensor.','Retro'],
+         ['Z5 II','/media/camera-select/nikon-z5ii.jpg?v=20261030a','Full frame without the flagship price.','Value'] ],
+    cropLabel:'APS-C',
+    crop:[ ['Z fc','/media/camera-select/nikon-zfc.jpg?v=20261030a','Retro crop body, dials everywhere.','Retro'],
+           ['Z50 II','/media/camera-select/nikon-z50ii.jpg?v=20261030a','The current mid-range DX.','Mid-range'],
+           ['Z30','/media/camera-select/nikon-z30.jpg?v=20261030a','Vlog body, no viewfinder.','Vlogging'] ] },
+  fuji: { name:'Fujifilm', tags:'APS-C · Medium format', hero:'/media/camera-select/fuji-xt5.jpg?v=20261030a',
+    ff:[ ['GFX 100 II','/media/camera-select/fuji-gfx100ii.jpg?v=20261030a','102MP medium format — a different class, not full frame.','Medium format'] ],
+    ffNote:'Fujifilm has no full-frame line. X is APS-C; GFX is medium format, bigger than full frame.',
+    cropLabel:'APS-C — the X line',
+    crop:[ ['X-T5','/media/camera-select/fuji-xt5.jpg?v=20261030a','40MP, classic dials, stills-first.','Flagship'],
+           ['X100VI','/media/camera-select/fuji-x100vi.jpg?v=20261030a','Fixed 23mm lens, leaf shutter.','Fixed lens'],
+           ['X-S20','/media/camera-select/fuji-xs20.jpg?v=20261030a','Compact hybrid, strong video.','Hybrid'],
+           ['X-T50','/media/camera-select/fuji-xt50.jpg?v=20261030a','Small body, film sim dial.','Compact'] ] },
+  lumix: { name:'Lumix', tags:'Full frame · Micro 4/3', hero:'/media/camera-select/lumix-s5ii.jpg?v=20261030a',
+    ff:[ ['S5 II','/media/camera-select/lumix-s5ii.jpg?v=20261030a','Phase AF, the video value pick.','Hybrid'],
+         ['S1R','/media/camera-select/lumix-s1r.jpg?v=20261030a','47MP stills-first flagship.','Stills'] ],
+    cropLabel:'Micro Four Thirds',
+    crop:[ ['GH7','/media/camera-select/lumix-gh7.jpg?v=20261030a','The MFT video flagship.','Video'],
+           ['G9 II','/media/camera-select/lumix-g9ii.jpg?v=20261030a','Phase AF stills flagship.','Stills'] ] }
+};
+
+var TILES = [
+  ['setup','First Setup','The out-of-box settings to change before your first shoot.','free'],
+  ['af','Autofocus, set up right','AF areas, subject detection, and the tracking settings that actually hold.','free'],
+  ['buttons','Custom button map','Put the controls you use on the buttons your fingers already reach. Deep tips.','pro'],
+  ['video','Video settings, in depth','Frame rates, codecs, and profiles — the full video setup. Deep tips.','pro'],
+  ['fixes','Common fixes','Overheating, AF hunting, buffer stalls — the problems this body is known for.','free']
+];
+var TILE_IMG = { buttons:'/media/camera-select/fuji-xt5.jpg?v=20261030a', video:'/media/camera-select/sony-fx3.jpg?v=20261030a', fixes:'/media/camera-select/nikon-z8.jpg?v=20261030a' };
+
+var brand='sony', model='a7 IV', modelImg='/media/camera-select/sony-a7iv.jpg?v=20261030a';
+function el(id){ return document.getElementById(id); }
+function retrigger(node, cls){ node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls); }
+
+function renderBrands(){
+  var order=['sony','canon','nikon','fuji','lumix'], h='';
+  order.forEach(function(k,i){
+    var d=DATA[k];
+    h += '<button class="brand'+(i===0?' wide':'')+(k===brand?' sel':'')+'" data-brand="'+k+'">'
+       + '<span class="selmark">YOURS</span>'
+       + '<img class="bimg" src="'+d.hero+'" alt="'+d.name+' camera">'
+       + '<span class="bmeta"><span class="bname">'+d.name+'</span>'
+       + '<span class="btags" style="display:block">'+d.tags+'</span></span></button>';
+  });
+  el('brands').innerHTML=h;
+  Array.prototype.forEach.call(el('brands').children, function(b){
+    b.addEventListener('click', function(){
+      brand=b.getAttribute('data-brand');
+      model=DATA[brand].ff[0][0]; modelImg=DATA[brand].ff[0][1];
+      renderAll(true);
+    });
+  });
+}
+function modelCards(list){
+  return list.map(function(m){
+    return '<button class="model'+(m[0]===model?' sel':'')+'" data-model="'+m[0]+'" data-img="'+m[1]+'">'
+      + '<img class="mimg" src="'+m[1]+'" alt="'+m[0]+'">'
+      + '<span class="mm" style="display:block"><span class="mname">'+m[0]+'</span>'
+      + '<span class="mdesc" style="display:block">'+m[2]+'</span>'
+      + '<span class="mtag">'+m[3]+'</span></span></button>';
+  }).join('');
+}
+function renderModels(){
+  var d=DATA[brand];
+  el('ffLabel').textContent = (brand==='fuji') ? 'Medium Format' : 'Full Frame';
+  el('cropLabel').textContent = d.cropLabel;
+  el('ffTrack').innerHTML = modelCards(d.ff);
+  el('cropTrack').innerHTML = modelCards(d.crop);
+  if(d.ffNote){ el('ffNote').textContent=d.ffNote; el('ffNote').style.display='block'; }
+  else { el('ffNote').style.display='none'; }
+  [el('ffTrack'), el('cropTrack')].forEach(function(t){
+    Array.prototype.forEach.call(t.children, function(c){
+      c.addEventListener('click', function(){
+        model=c.getAttribute('data-model'); modelImg=c.getAttribute('data-img');
+        renderModels(); renderContent(); retrigger(el('contentWrap'),'swap');
+      });
+    });
+  });
+}
+function renderContent(){
+  el('contentTitle').textContent = model+' — start here';
+  el('tiles').innerHTML = TILES.map(function(t){
+    var img = TILE_IMG[t[0]] || modelImg;
+    var live = (brand==='sony' && model==='a7 IV');
+    var slug = ['first-setup','autofocus','custom-buttons','video-settings','common-fixes'][TILES.indexOf(t)];
+    var open = live ? '<a class="tile" href="/camera-select/sony/a7-iv/'+slug+'.html">' : '<button class="tile" data-pending="1">';
+    var close = live ? '</a>' : '</button>';
+    return open + '<img class="timg" src="'+img+'" alt="">'
+      + '<span><span class="ttitle">'+t[1]+'</span>'
+      + '<span class="tdesc" style="display:block">'+t[2]+'</span></span>'
+      + '<span class="pill '+t[3]+'">'+(t[3]==='free'?'Free':'Pro')+'</span>' + close;
+  }).join('');
+}
+function renderAll(animate){
+  renderBrands(); renderModels(); renderContent();
+  if(animate){
+    [el('ffTrack'), el('cropTrack'), el('contentWrap')].forEach(function(n){ retrigger(n,'swap'); });
+  }
+}
+
+/* Live behaviour: deep links from lesson pages (?brand=&model=), and the
+   in-production panel for models whose lessons are not written yet. */
+(function(){
+  var qs = new URLSearchParams(location.search);
+  var qb = qs.get('brand'), qm = qs.get('model');
+  if(qb && DATA[qb]){
+    brand = qb;
+    var all = DATA[qb].ff.concat(DATA[qb].crop);
+    var found = all.filter(function(m){ return m[0] === qm; });
+    if(found.length){ model = found[0][0]; modelImg = found[0][1]; }
+    else { model = DATA[qb].ff[0][0]; modelImg = DATA[qb].ff[0][1]; }
+    renderAll(false);
+  }
+  el('tiles').addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('[data-pending]') : null;
+    if(!b) return;
+    var p = el('csPending');
+    p.innerHTML = '<h3>' + model + ' lessons are in production</h3>'
+      + '<p>The a7 IV set the template — the answer first, visuals, a shareable card, its own link, every menu path verified against the maker\u2019s own documentation. ' + DATA[brand].name + ' models are written to that standard, one at a time. No thin copies.</p>';
+    p.classList.add('open');
+    p.scrollIntoView({behavior:'smooth', block:'nearest'});
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.brand,.model'), function(){});
+  document.addEventListener('click', function(e){
+    if(e.target.closest && (e.target.closest('.brand') || e.target.closest('.model'))){
+      el('csPending').classList.remove('open');
+    }
+  });
+})();
+renderAll(false);
+
+</script>
+<script src="/scripts/ptr.js?v=20261001a"></script>
+</div>
+</body>
+</html>
