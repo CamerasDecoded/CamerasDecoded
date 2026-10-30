@@ -14,8 +14,8 @@
     '.csl{--csl-green:#8deb00;--csl-amber:#ffb340;--csl-red:#ff6b5e;--csl-card:#101013;--csl-border:rgba(255,255,255,.1);--csl-text2:rgba(255,255,255,.64);font-family:Montserrat,sans-serif;color:#fff}',
     '.csl-topbar{display:flex;align-items:center;gap:12px}',
     '.csl-x{font-family:"Space Mono",monospace;color:var(--csl-text2);font-size:15px;background:none;border:0;cursor:pointer;padding:4px;text-decoration:none}',
-    '.csl-progress{flex:1;height:10px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}',
-    '.csl-progress i{display:block;height:100%;width:0;background:var(--csl-green);border-radius:99px;transition:width .5s cubic-bezier(.2,.7,.3,1)}',
+    '.csl-progress{flex:1;height:10px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.5)}',
+    '.csl-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,rgba(141,235,0,.75),var(--csl-green));border-radius:99px;transition:width .5s cubic-bezier(.2,.7,.3,1);box-shadow:0 0 12px rgba(141,235,0,.55)}',
     '.csl-score{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:1px;color:var(--csl-green);border:1px solid rgba(141,235,0,.35);padding:5px 9px;border-radius:99px;white-space:nowrap}',
     '.csl-guide{display:flex;gap:13px;align-items:flex-start;margin-top:20px;min-height:104px}',
     '.csl-avatar-wrap{position:relative;flex:none}',
@@ -28,7 +28,7 @@
     '@keyframes cslRing{0%{transform:scale(.92);opacity:.9}100%{transform:scale(1.25);opacity:0}}',
     '@keyframes cslCheer{0%{transform:translateY(0)}35%{transform:translateY(-13px) scale(1.05)}70%{transform:translateY(2px)}100%{transform:translateY(0)}}',
     '@keyframes cslNudge{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}',
-    '.csl-bubble{flex:1;background:var(--csl-card);border:1px solid var(--csl-border);border-radius:16px;border-top-left-radius:4px;padding:13px 14px}',
+    '.csl-bubble{flex:1;border:1px solid rgba(141,235,0,.16);border-radius:16px;border-top-left-radius:4px;padding:13px 14px;background:linear-gradient(150deg,rgba(255,255,255,.055),rgba(255,255,255,0) 45%),linear-gradient(165deg,rgba(141,235,0,.055),rgba(12,12,14,1) 55%);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 10px 30px rgba(0,0,0,.35)}',
     '.csl-who{font-family:"Space Mono",monospace;font-size:9.5px;letter-spacing:2px;color:var(--csl-green);margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}',
     '.csl-eq{display:none;gap:2.5px;align-items:flex-end;height:11px}',
     '.csl-eq i{width:3px;background:var(--csl-green);border-radius:2px;animation:cslEq .7s ease-in-out infinite}',
@@ -36,7 +36,8 @@
     '@keyframes cslEq{0%,100%{height:4px}50%{height:11px}}',
     '.csl-bubble.speaking .csl-eq{display:flex}',
     '.csl-line{font-size:14.5px;line-height:1.55;min-height:44px}',
-    '.csl-replay{margin-top:8px;background:none;border:1px solid rgba(141,235,0,.4);color:var(--csl-green);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:1px;padding:5px 10px;border-radius:99px;cursor:pointer}',
+    '.csl-replay{margin-top:8px;border:1px solid rgba(141,235,0,.35);color:var(--csl-green);font-family:"Space Mono",monospace;font-size:10px;letter-spacing:1px;padding:6px 11px;border-radius:99px;cursor:pointer;background:linear-gradient(165deg,rgba(141,235,0,.14),rgba(141,235,0,.04));box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}',
+    '.csl-replay:active{transform:scale(.96)}',
     '.csl-stage{margin-top:18px}',
     '.csl-card{animation:cslIn .45s cubic-bezier(.2,.7,.3,1) both}',
     '@keyframes cslIn{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}',
@@ -66,7 +67,9 @@
     '.csl-opts{display:grid;gap:10px;margin-top:16px}',
     '.csl-opt{text-align:left;background:var(--csl-card);border:1.5px solid var(--csl-border);border-radius:14px;padding:15px 14px;font-family:Montserrat,sans-serif;font-size:14.5px;font-weight:600;color:#fff;cursor:pointer}',
     '.csl-opt small{display:block;font-weight:400;font-size:12px;color:var(--csl-text2);margin-top:3px;line-height:1.45}',
-    '.csl-opt.sel{border-color:var(--csl-green);background:rgba(141,235,0,.07)}',
+    '.csl-opt{transition:border-color .2s ease,background .2s ease,transform .15s ease}',
+    '.csl-opt:active{transform:scale(.985)}',
+    '.csl-opt.sel{border-color:rgba(141,235,0,.75);background:linear-gradient(150deg,rgba(255,255,255,.07),rgba(255,255,255,0) 45%),linear-gradient(165deg,rgba(141,235,0,.20),rgba(141,235,0,.06));box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 6px 22px rgba(141,235,0,.10)}',
     '.csl-opt.right{border-color:var(--csl-green);background:rgba(141,235,0,.13)}',
     '.csl-opt:disabled{cursor:default}',
     '.csl-slots{display:flex;flex-wrap:wrap;gap:6px;min-height:38px;border:1px dashed rgba(255,255,255,.2);border-radius:12px;padding:8px;margin-top:16px;align-items:center}',
@@ -79,10 +82,19 @@
     '.csl-feedback{display:none;margin-top:14px;border-radius:12px;padding:12px 14px;font-size:13.5px;line-height:1.55}',
     '.csl-feedback.good{display:block;background:rgba(141,235,0,.1);border:1px solid rgba(141,235,0,.4)}',
     '.csl-feedback.bad{display:block;background:rgba(255,107,94,.09);border:1px solid rgba(255,107,94,.4)}',
-    '.csl-actionbar{padding-top:14px}',
-    '.csl-btn{display:block;width:100%;border:0;border-radius:14px;padding:16px;font-family:Montserrat,sans-serif;font-size:15.5px;font-weight:800;cursor:pointer;background:var(--csl-green);color:#0a0f0a}',
-    '.csl-btn:disabled{opacity:.35;cursor:default}',
-    '.csl-btn.ghost{background:none;color:var(--csl-text2);font-weight:600;font-size:13.5px;padding:10px}',
+    '.csl-actionbar{padding-top:14px;display:flex;gap:10px;align-items:stretch}',
+    '/* Standard action: the CD signature glass (no chase) — green-glass gradient, inset top light, soft green shadow, neon label. */',
+    '.csl-btn{flex:1;border-radius:14px;padding:16px 14px;font-family:Montserrat,sans-serif;font-size:13.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;color:var(--csl-green);text-shadow:0 0 16px rgba(141,235,0,.4);border:1px solid rgba(141,235,0,.30);background:linear-gradient(120deg,rgba(255,255,255,.10),rgba(255,255,255,0) 42%),linear-gradient(165deg,rgba(141,235,0,.20) 0%,rgba(141,235,0,.07) 60%,rgba(141,235,0,.13) 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 6px 22px rgba(141,235,0,.10);transition:transform .15s ease,filter .15s ease,opacity .2s ease}',
+    '.csl-btn:active{transform:scale(.98);filter:brightness(1.22)}',
+    '.csl-btn:disabled{opacity:.32;cursor:default;text-shadow:none}',
+    '/* Solid bright green: reserved for the moments that need a lot of attention. */',
+    '.csl-btn.solid{background:var(--csl-green);color:#0a0f0a;text-shadow:none;border-color:transparent;box-shadow:0 8px 26px rgba(141,235,0,.28)}',
+    '.csl-btn.ghost{flex:none;background:none;box-shadow:none;border:0;color:var(--csl-text2);font-weight:600;font-size:13.5px;padding:10px;text-transform:none;letter-spacing:0;text-shadow:none}',
+    '.csl-back{flex:none;display:none;align-items:center;gap:7px;border-radius:14px;padding:0 16px;font-family:Montserrat,sans-serif;font-size:13px;font-weight:700;letter-spacing:.03em;cursor:pointer;color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.14);background:linear-gradient(150deg,rgba(255,255,255,.08),rgba(255,255,255,.015) 55%);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:transform .15s ease}',
+    '.csl-back:active{transform:scale(.96)}',
+    '.csl-back.show{display:inline-flex}',
+    '.csl-back .arrw{color:var(--csl-green);font-size:15px;line-height:1}',
+    '.csl-subrow{display:block;width:100%}',
     '.csl-xp{text-align:center;margin:10px 0 4px}',
     '.csl-xp .n{font-size:44px;font-weight:800;color:var(--csl-green)}',
     '.csl-xp .l{font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:2px;color:var(--csl-text2)}',
@@ -151,15 +163,17 @@
       '<div class="csl-bubble" id="cslBubble"><div class="csl-who"><span>CYNETIS-7</span><span class="csl-eq"><i></i><i></i><i></i><i></i></span></div>' +
       '<div class="csl-line" id="cslLine"></div><button class="csl-replay" id="cslReplay" type="button">REPLAY VOICE</button></div></div>' +
       '<div class="csl-stage" id="cslStage"></div>' +
-      '<div class="csl-actionbar"><button class="csl-btn" id="cslBtn" type="button">Begin</button>' +
-      '<button class="csl-btn ghost" id="cslSub" type="button" style="display:none">Skip for now</button></div></div>';
+      '<div class="csl-actionbar"><button class="csl-back" id="cslBack" type="button"><span class="arrw">&larr;</span>Back</button>' +
+      '<button class="csl-btn" id="cslBtn" type="button">Begin</button></div>' +
+      '<div class="csl-subrow"><button class="csl-btn ghost" id="cslSub" type="button" style="display:none">Skip for now</button></div></div>';
 
     var wrap = mount.querySelector('#cslWrap'), bubble = mount.querySelector('#cslBubble'),
         lineEl = mount.querySelector('#cslLine'), stage = mount.querySelector('#cslStage'),
         btn = mount.querySelector('#cslBtn'), subBtn = mount.querySelector('#cslSub'),
+        backBtn = mount.querySelector('#cslBack'),
         bar = mount.querySelector('#cslBar'), chip = mount.querySelector('#cslScore');
     var player = new Audio();
-    var S = { idx: 0, firstTry: {}, answered: {}, picked: [], checked: false, pro: false, doneBefore: false, bankedNote: '' };
+    var S = { idx: 0, firstTry: {}, answered: {}, done: {}, picked: [], checked: false, pro: false, doneBefore: false, bankedNote: '' };
     var currentVoice = null, typeTimer = null;
 
     // prior completion (resume state)
@@ -222,6 +236,8 @@
       chip.textContent = 'SCORE ' + score() + '/' + cfg.scored.length;
     }
 
+    function setBack(show) { backBtn.classList.toggle('show', !!show); }
+
     function render() {
       var c = cfg.cards[S.idx];
       if (!cfg.free && cfg.gateAfter !== null && S.idx > cfg.gateAfter && !S.pro) { renderGate(); return; }
@@ -229,16 +245,50 @@
       var html = c.html;
       if (S.idx === 0 && S.doneBefore) html += '<span class="csl-done">COMPLETED BEFORE — XP ALREADY BANKED</span>';
       stage.innerHTML = '<div class="csl-card">' + html + '</div>';
+      btn.classList.remove('solid');
       btn.textContent = c.btn || 'Continue';
       btn.disabled = c.kind === 'quiz' || c.kind === 'order';
       subBtn.style.display = c.sub ? 'block' : 'none';
+      setBack(S.idx > 0 && c.kind !== 'result');
       c._say = c.say;
+      var reviewed = (c.kind === 'quiz' || c.kind === 'order') && !!S.done[c.id];
       if (c.kind === 'result') buildResult(c);
+      else if (reviewed) { speak(c.say, null); }
       else speak(c.say, voiceOf(c));
       if (c.kind === 'quiz') wireQuiz(c);
-      if (c.kind === 'order') wireOrder(c);
+      if (c.kind === 'order' && !reviewed) wireOrder(c);
+      if (reviewed) showReview(c);
       chrome();
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showReview(c) {
+      S.checked = true;
+      var fb = stage.querySelector('#cslFb');
+      if (fb) { fb.className = 'csl-feedback good'; fb.innerHTML = c.good; }
+      if (c.kind === 'quiz') {
+        stage.querySelectorAll('.csl-opt').forEach(function (o) {
+          o.disabled = true;
+          if (o.getAttribute('data-v') === c.correct) o.classList.add('right');
+          if (o.getAttribute('data-v') === S.answered[c.id]) o.classList.add('sel');
+        });
+      } else {
+        var slots = stage.querySelector('#cslSlots');
+        var bank = stage.querySelector('#cslBank');
+        var labelOf = {};
+        bank.querySelectorAll('.csl-chip').forEach(function (ch) {
+          labelOf[ch.getAttribute('data-v')] = ch.textContent;
+          ch.classList.add('used');
+        });
+        slots.innerHTML = '';
+        c.correct.split(',').forEach(function (v) {
+          var s = document.createElement('span');
+          s.className = 'csl-chip'; s.textContent = labelOf[v] || v;
+          slots.appendChild(s);
+        });
+      }
+      btn.textContent = 'Continue';
+      btn.disabled = false;
     }
 
     function renderGate() {
@@ -246,8 +296,10 @@
         '<h3>The deep steps are Pro</h3><p>You have the opening of this lesson free. Pro opens the rest — every step, the checks, and the answer card — for this camera and every model as they ship.</p>' +
         '<p style="margin-top:10px">Already upgraded? The check runs again when you tap Continue.</p></div></div>';
       btn.textContent = 'Unlock with Pro';
+      btn.classList.add('solid');
       btn.disabled = false;
       subBtn.style.display = 'none';
+      setBack(true);
       speak('This is where Pro takes over. The opening was free — the deep steps are behind the door.', null);
       chrome();
     }
@@ -263,6 +315,11 @@
           btn.disabled = false;
         });
       });
+      // Came back before checking? The earlier pick is still here.
+      if (!S.done[c.id] && S.answered[c.id]) {
+        opts.forEach(function (o) { if (o.getAttribute('data-v') === S.answered[c.id]) o.classList.add('sel'); });
+        btn.disabled = false;
+      }
     }
     function wireOrder(c) {
       S.picked = [];
@@ -288,6 +345,7 @@
       if (S.firstTry[c.id] === undefined) S.firstTry[c.id] = ok;
       if (ok) {
         S.checked = true;
+        S.done[c.id] = true;
         fb.className = 'csl-feedback good'; fb.innerHTML = c.good;
         if (c.kind === 'quiz') stage.querySelectorAll('.csl-opt').forEach(function (o) {
           o.disabled = true;
@@ -408,13 +466,20 @@
       if ((c.kind === 'quiz' || c.kind === 'order') && !S.checked) { check(); return; }
       if (c.kind === 'result') {
         if (score() >= cfg.passMark) { btn.disabled = true; btn.textContent = 'Done'; speak('Saved. Next lesson when you are ready.', null); }
-        else { S.idx = 0; S.firstTry = {}; S.answered = {}; render(); }
+        else { S.idx = 0; S.firstTry = {}; S.answered = {}; S.done = {}; render(); }
         return;
       }
       S.idx++;
       render();
     });
     subBtn.addEventListener('click', function () { S.idx++; render(); });
+
+    backBtn.addEventListener('click', function () {
+      // From the gate, back lands on the last free card. Everywhere else, one card back.
+      if (!cfg.free && cfg.gateAfter !== null && S.idx > cfg.gateAfter && !S.pro) S.idx = cfg.gateAfter;
+      else if (S.idx > 0) S.idx--;
+      render();
+    });
 
     render();
   }
