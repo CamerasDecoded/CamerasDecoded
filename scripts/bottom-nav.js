@@ -90,6 +90,7 @@
       title: 'More',
       sub: 'Secondary destinations.',
       rows: [
+        { href: '/ask.html',                icon: 'quiz',   title: 'Ask CD',     sub: 'Ask a camera question · Answered from the checked library' },
         { href: '/shoot-lab.html',          icon: 'practice', title: 'Shoot Lab', sub: 'Nail the exposure triangle' },
         { href: '/darkroom-lab.html',          icon: 'sliders', title: 'Develop Lab', sub: 'Pro photo editor' },
         { href: '/clip-lab.html',             icon: 'camera',  title: 'Clip Lab',   sub: 'Trim, caption, finish clips' },
@@ -324,7 +325,7 @@
       return 'signal';
     }
     // More sheet: secondary destinations.
-    if (matches(['/community.html', '/ai-workbench.html', '/profile.html', '/admin-profile.html',
+    if (matches(['/ask.html', '/community.html', '/ai-workbench.html', '/profile.html', '/admin-profile.html',
                  '/instructor-profile.html', '/partner-profile.html', '/leaderboard.html',
                  '/snapshot-library.html', '/decoders-crew.html', '/blog-updates.html', '/blog-post',
                  '/cynetis-7.html', '/ugc-creator.html', '/founding-200.html', '/inner-signal.html',

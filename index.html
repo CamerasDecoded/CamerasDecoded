@@ -1054,13 +1054,23 @@
     // App-open default: the Arena is the first screen. The dashboard stays
     // one tap away (Dash tab). Deep links never pass through this page, so
     // an explicit destination always wins over this default.
+    // Arena-first fires ONCE per session: a fresh app open (or a fresh
+    // login, which lands on the Arena directly) still starts there, but
+    // after that a deliberate visit to the homepage stays on the homepage
+    // — the landing page is where the Ask CD door lives, and signed-in
+    // members must be able to reach it.
     if (auth) auth.onAuthStateChanged((user) => {
       if (!user) {
         localStorage.removeItem('cameras_decoded_uid');
         return;
       }
       localStorage.setItem('cameras_decoded_uid', user.uid);
-      window.location.replace('missions.html');
+      let arenaFirstDone = false;
+      try { arenaFirstDone = sessionStorage.getItem('cd_arena_first') === '1'; } catch (e) { /* private mode: treat as done */ arenaFirstDone = true; }
+      if (!arenaFirstDone) {
+        try { sessionStorage.setItem('cd_arena_first', '1'); } catch (e) {}
+        window.location.replace('missions.html');
+      }
     });
 
     // Reveal-on-scroll: one calm mechanism for the whole page.
