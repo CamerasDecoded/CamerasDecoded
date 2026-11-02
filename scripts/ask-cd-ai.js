@@ -139,6 +139,7 @@
 
   function realModelCall(prompt) {
     var idx = 0;
+    var errs = [];
     function attempt() {
       var name = MODELS[idx];
       return loadBackend().then(function (b) {
@@ -151,7 +152,13 @@
       }).then(function (res) {
         return res.response.text();
       }).catch(function (err) {
+        // Record each model's own verdict: when the whole chain fails,
+        // the surfaced error names every model and its exact refusal, so
+        // a ?debug=1 readout shows which names Google accepts, not just
+        // the last one tried.
+        errs.push(name + ": " + String((err && err.message) || err || "unknown"));
         if (idx < MODELS.length - 1 && modelUnavailable(err)) { idx++; return attempt(); }
+        if (errs.length > 1) throw new Error(errs.join(" || "));
         throw err;
       });
     }
