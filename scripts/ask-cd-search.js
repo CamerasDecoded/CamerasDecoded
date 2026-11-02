@@ -34,13 +34,42 @@
     return score;
   }
 
-  function search(items, query, limit) {
+  function squash(s) { return norm(s).replace(/ /g, ""); }
+  // Full camera match: same brand AND same model (squash-compared, so
+  // "a7 IV" == "A7IV"). A camera with no model on either side never
+  // counts as a full match — brand-only is handled separately.
+  function camFullMatch(item, cam) {
+    if (!cam || !item.brand || !item.model || !cam.brand || !cam.model) return false;
+    return norm(item.brand) === norm(cam.brand) && squash(item.model) === squash(cam.model);
+  }
+  function camBrandMatch(item, cam) {
+    if (!cam || !item.brand || !cam.brand) return false;
+    return norm(item.brand) === norm(cam.brand);
+  }
+
+  // opts.camera = the effective camera for this question, already resolved
+  // by the caller (a camera named in the question beats the saved primary):
+  // { brand, model|null } or null when no camera is in play.
+  // Guard: model-specific LESSONS (Camera Select) are demoted to a second
+  // tier unless they fully match the effective camera — a generic question
+  // must never be answered as if some default model were in the user's
+  // hands. Matching lessons and matching articles get a boost instead.
+  function search(items, query, limit, opts) {
     var qNorm = norm(query);
     var qTokens = tokens(query);
     if (!qTokens.length) return { hits: [], top: null };
+    var cam = (opts && opts.camera) || null;
     var scored = items.filter(function (i) { return i.type !== "signal-source"; }).map(function (i) {
-      return { item: i, score: scoreItem(i, qTokens, qNorm) };
-    }).filter(function (r) { return r.score >= 6; }).sort(function (a, b) { return b.score - a.score; });
+      var score = scoreItem(i, qTokens, qNorm);
+      var tier = 0;
+      if (camFullMatch(i, cam)) score += 12;
+      else if (camBrandMatch(i, cam)) score += 3;
+      if (i.type === "lesson" && i.model && !camFullMatch(i, cam)) tier = 1;
+      return { item: i, score: score, tier: tier };
+    }).filter(function (r) { return r.score >= 6; }).sort(function (a, b) {
+      if (a.tier !== b.tier) return a.tier - b.tier;
+      return b.score - a.score;
+    });
     return { hits: scored.slice(0, limit || 9), top: scored.length ? scored[0] : null };
   }
 
