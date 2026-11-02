@@ -102,7 +102,7 @@
   var aiModelPromise = null;
   function loadModel() {
     if (aiModelPromise) return aiModelPromise;
-    aiModelPromise = (async function () {
+    var p = (async function () {
       var cfg = root.CD_FIREBASE_CONFIG;
       if (!cfg) throw new Error("firebase config not exposed (window.CD_FIREBASE_CONFIG)");
       var appMod = await import("https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js");
@@ -123,7 +123,12 @@
         generationConfig: GENERATION
       });
     })();
-    return aiModelPromise;
+    aiModelPromise = p;
+    // Never cache a failed load: one bad first attempt (offline SDK fetch,
+    // a refused App Check token) must not poison every later question on
+    // this page. A rejection clears the cache so the next ask retries.
+    p.catch(function () { if (aiModelPromise === p) aiModelPromise = null; });
+    return p;
   }
 
   function realModelCall(prompt) {

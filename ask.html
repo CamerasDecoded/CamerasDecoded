@@ -136,9 +136,11 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 <script>window.CD_FIREBASE_CONFIG = (typeof firebaseConfig !== "undefined") ? firebaseConfig : null; window.CD_APPCHECK_SITE_KEY = "6LceZgsuAAAAAEr58SvWK_xMykG2AUgJkqvWPVN9";</script>
 <script src="/scripts/ask-cd-index.js?v=20261101a"></script>
 <script src="/scripts/ask-cd-search.js?v=20261101b"></script>
-<script src="/scripts/ask-cd-ai.js?v=20261101a"></script>
+<script src="/scripts/ask-cd-ai.js?v=20261101b"></script>
 <script>
 var INDEX = window.ASK_CD_INDEX || [];
+var ASK_DEBUG = false;
+try{ ASK_DEBUG = new URLSearchParams(location.search).get("debug")==="1"; }catch(e){}
 var CHIPS = ["Why do my snow photos come out gray?","Why does my a7 IV focus on the wrong person?","How much should I charge first clients?","What is diffraction?"];
 var TYPEK = {lesson:"CAMERA SELECT LESSON",protocol:"PROTOCOL",article:"ARTICLE",manual:"FIELD MANUAL","manual-chapter":"FIELD MANUAL CHAPTER",product:"PRODUCT",tool:"TOOL"};
 var STATUS = {verified:"Verified against the maker's docs",checked:"Checked against outside sources","tagged":"From CD's own pages","design-note":""};
@@ -232,6 +234,10 @@ function logAsk(q, topId, aiOk){
     }
   }catch(e){}
 }
+function aiDebug(slot, reason, detail){
+  if(!ASK_DEBUG) return;
+  slot.innerHTML='<div class="ai-card" style="border-color:rgba(255,211,77,.5)"><div class="ai-head"><b style="color:#ffd34d">AI DEBUG</b><span>ONLY WITH ?debug=1</span></div><p style="font-family:\'Space Mono\',monospace;font-size:12.5px;line-height:1.6">reason: '+esc(reason||"unknown")+(detail?'<br>'+esc(String(detail).slice(0,600)):"")+'</p></div>';
+}
 function runAI(q, topItems, eff, effLabel, usedModel){
   var slot=document.getElementById("aiSlot"); slot.innerHTML="";
   // The AI only ever sees sources cleared for the effective camera:
@@ -241,20 +247,22 @@ function runAI(q, topItems, eff, effLabel, usedModel){
     if(i.type==="lesson" && i.model){ return !!(eff && eff.model && nz(i.brand)===nz(eff.brand) && sq(i.model)===sq(eff.model)); }
     return true;
   });
-  if(!aiItems.length || !window.CDAskAI || !window.CD_APPCHECK_SITE_KEY){ logAsk(q, topItems.length?topItems[0].id:null, false); return; }
+  if(!aiItems.length || !window.CDAskAI || !window.CD_APPCHECK_SITE_KEY){ aiDebug(slot, !aiItems.length ? "no-ai-sources" : (!window.CDAskAI ? "ai-script-missing" : "appcheck-key-missing"), ""); logAsk(q, topItems.length?topItems[0].id:null, false); return; }
   slot.innerHTML='<div class="ai-card"><div class="ai-wait"><i></i><i></i><i></i> Cynetis-7 is answering from the checked library...</div></div>';
   var logged=false;
-  var timer=setTimeout(function(){ if(!logged){ logged=true; slot.innerHTML=""; logAsk(q, topItems[0].id, false); } }, 12000);
+  var timer=setTimeout(function(){ if(!logged){ logged=true; slot.innerHTML=""; aiDebug(slot, "timeout", "model call did not settle within 20s"); logAsk(q, topItems[0].id, false); } }, 20000);
   window.CDAskAI.ask(q, aiItems).then(function(res){
+    window.__ASK_AI_LAST = res;
     if(logged) return; logged=true; clearTimeout(timer);
     if(res && res.ok){
       slot.innerHTML='<div class="ai-card"><div class="ai-head"><img src="/cynetis-avatar.png" alt=""><b>CYNETIS-7 ANSWERS</b><span>FROM CD SOURCES'+(usedModel && effLabel ? " \u00b7 FOR "+esc(effLabel.toUpperCase()) : "")+'</span></div><p>'+esc(res.text)+'</p></div>';
       logAsk(q, topItems[0].id, true);
     } else {
       slot.innerHTML="";
+      aiDebug(slot, res && res.reason, res && (res.error || (res.bad ? "unverified numbers: "+res.bad.join(", ") : "")));
       logAsk(q, topItems[0].id, false);
     }
-  }).catch(function(){ if(!logged){ logged=true; clearTimeout(timer); slot.innerHTML=""; logAsk(q, topItems[0].id, false); } });
+  }).catch(function(e){ if(!logged){ logged=true; clearTimeout(timer); slot.innerHTML=""; aiDebug(slot, "page-catch", e && e.message); logAsk(q, topItems[0].id, false); } });
 }
 function forLineHtml(named, eff, effLabel, usedModel){
   if(named && named.model && !isSavedCam(named)){
