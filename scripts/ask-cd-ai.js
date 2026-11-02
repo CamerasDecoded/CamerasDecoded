@@ -21,7 +21,12 @@
     "YOUR SHAPE: (1) The answer itself in the first sentence. (2) Why it works, one or two sentences. (3) The exact setting, value, or menu path, stated bare. (4) One closing line naming which entry goes deeper, by its title. Maximum 90 words. Plain paragraphs, no lists, no headings."
   ].join("\n");
 
-  var MODEL = "gemini-2.5-flash";
+  // Google retires model names for new users without notice: on
+  // 2026-11-01 gemini-2.5-flash began returning 404 "no longer available
+  // to new users" on this project, silently killing every AI answer.
+  // The call walks this list when a model reports itself unavailable.
+  var MODELS = ["gemini-3.8-flash", "gemini-2.5-flash"];
+  var MODEL = MODELS[0];
   var GENERATION = { temperature: 0.2, maxOutputTokens: 220 };
 
   function buildPrompt(question, entries) {
@@ -99,9 +104,9 @@
   /* Browser: real model call through Firebase AI Logic (modular SDK loaded
      from the Firebase CDN; CD's pages otherwise use the compat SDK — the AI
      SDK keeps its own app instance, initialized from the same config). */
-  var aiModelPromise = null;
-  function loadModel() {
-    if (aiModelPromise) return aiModelPromise;
+  var backendPromise = null;
+  function loadBackend() {
+    if (backendPromise) return backendPromise;
     var p = (async function () {
       var cfg = root.CD_FIREBASE_CONFIG;
       if (!cfg) throw new Error("firebase config not exposed (window.CD_FIREBASE_CONFIG)");
@@ -117,26 +122,40 @@
         });
       }
       var ai = aiMod.getAI(app, { backend: new aiMod.GoogleAIBackend() });
-      return aiMod.getGenerativeModel(ai, {
-        model: MODEL,
-        systemInstruction: SYSTEM_INSTRUCTION,
-        generationConfig: GENERATION
-      });
+      return { aiMod: aiMod, ai: ai };
     })();
-    aiModelPromise = p;
+    backendPromise = p;
     // Never cache a failed load: one bad first attempt (offline SDK fetch,
     // a refused App Check token) must not poison every later question on
     // this page. A rejection clears the cache so the next ask retries.
-    p.catch(function () { if (aiModelPromise === p) aiModelPromise = null; });
+    p.catch(function () { if (backendPromise === p) backendPromise = null; });
     return p;
   }
 
+  function modelUnavailable(err) {
+    var m = String((err && err.message) || err || "");
+    return /404|no longer available|not found|not supported/i.test(m);
+  }
+
   function realModelCall(prompt) {
-    return loadModel().then(function (model) {
-      return model.generateContent(prompt).then(function (res) {
+    var idx = 0;
+    function attempt() {
+      var name = MODELS[idx];
+      return loadBackend().then(function (b) {
+        var model = b.aiMod.getGenerativeModel(b.ai, {
+          model: name,
+          systemInstruction: SYSTEM_INSTRUCTION,
+          generationConfig: GENERATION
+        });
+        return model.generateContent(prompt);
+      }).then(function (res) {
         return res.response.text();
+      }).catch(function (err) {
+        if (idx < MODELS.length - 1 && modelUnavailable(err)) { idx++; return attempt(); }
+        throw err;
       });
-    });
+    }
+    return attempt();
   }
 
   function ask(question, entries) { return askWith(question, entries, realModelCall); }
@@ -144,6 +163,7 @@
   var api = {
     SYSTEM_INSTRUCTION: SYSTEM_INSTRUCTION,
     MODEL: MODEL,
+    MODELS: MODELS,
     GENERATION: GENERATION,
     buildPrompt: buildPrompt,
     extractNumbers: extractNumbers,
