@@ -47,7 +47,7 @@
 
   <!-- ===== FIELD MANUALS LIBRARY MANIFEST (the shelf's source of truth) ===== -->
   <script src="/scripts/manuals.js?v=20261021b"></script>
-  <script src="/scripts/fm-decks.js?v=20261101a"></script>
+  <script src="/scripts/fm-decks.js?v=20261103a"></script>
 
   <!-- ===== FONTS & ICONS ===== -->
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet" />
@@ -659,6 +659,7 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
 .fmd-figimg img{width:100%;display:block;animation:fmdSettle 1.6s cubic-bezier(.22,.8,.3,1) both}
 .fmd-figcap{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:#8a8a84;text-transform:uppercase;padding-top:9px}
 .fmd-status{font-family:var(--mono);font-size:11px;letter-spacing:.24em;color:#8deb00;text-transform:uppercase}
+.fmd-scenario{margin:10px 0 0;font-size:14px;line-height:1.55;color:#b9c8b4}
 .fmd-status.bad{color:#ff5a4e}
 .fmd-choices{display:grid;gap:10px;margin-top:16px}
 .fmd-choice{text-align:left;background:#15151b;border:1px solid #26262e;color:#f2f2f0;border-radius:14px;padding:14px 15px;font:inherit;font-size:14.5px;font-weight:600;cursor:pointer;transition:border-color .25s,background .25s,transform .12s;animation:fmdRise .5s cubic-bezier(.22,.8,.3,1) both}
@@ -1164,6 +1165,22 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       + '<div class="fmd-prow lit"><span class="fmd-prow-k">This guide</span><span class="fmd-prow-v">Decodes behavior</span><span class="fmd-prow-note">Why the camera does what it does — and how to make it see the way you see.</span></div>'
       + '</div></div>';
   }
+  function deckBoardFor(c){
+    if(c.board === "rows") return deckBoardRows();
+    if(c.board === "visual"){
+      var svg = (window.CDFmVisuals && window.CDFmVisuals.render(c.vis)) || "";
+      return '<div class="fmd-board"><div class="fmd-board-head"><span class="k">Diagram</span><span class="t">' + esc(c.h || "") + '</span></div>'
+        + '<figure class="fm-visual" style="margin:0">' + svg
+        + (c.cap ? '<figcaption>' + esc(c.cap) + '</figcaption>' : '') + '</figure></div>';
+    }
+    if(c.board === "list"){
+      return '<div class="fmd-board"><div class="fmd-board-head"><span class="k">Map</span><span class="t">' + esc(c.h || "") + '</span></div>'
+        + '<div class="fmd-plate">' + (c.rows || []).map(function(r){
+            return '<div class="fmd-prow ' + (r.lit ? 'lit' : 'dim') + '"><span class="fmd-prow-k">' + esc(r.k) + '</span><span class="fmd-prow-v">' + esc(r.v) + '</span></div>';
+          }).join("") + '</div></div>';
+    }
+    return deckBoardMyth();
+  }
   function deckBoardMyth(){
     var step = function(n, t){ return '<div class="fmd-step"><i>' + n + '</i><span>' + t + '</span></div>'; };
     return '<div class="fmd-board"><div class="fmd-board-head"><span class="k">Diagram</span><span class="t">Myth vs. Method</span></div>'
@@ -1201,12 +1218,13 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       deckSpeak(c.t, c.a); st.curText = c.t; st.curKey = c.a;
     } else if(c.k === "board"){
       body.innerHTML = deckGuideHtml() + '<div class="fmd-card"><h2>' + esc(c.h) + '</h2>'
-        + (c.board === "rows" ? deckBoardRows() : deckBoardMyth()) + nav + '</div>';
+        + deckBoardFor(c) + nav + '</div>';
       deckSpeak(c.t, null); st.curText = c.t; st.curKey = null;
     } else {
       var q = lesson.quiz.questions[c.ci];
       var doneA = st.answered[st.i];
       body.innerHTML = deckGuideHtml() + '<div class="fmd-card"><div class="fmd-status">System Check ' + (c.ci + 1) + ' of ' + lesson.quiz.questions.length + '</div>'
+        + (deck.scenario && lesson.quiz.scenario ? '<p class="fmd-scenario">' + esc(lesson.quiz.scenario) + '</p>' : '')
         + '<h2 style="margin-top:8px">' + esc(q.q) + '</h2>'
         + '<div class="fmd-choices">' + q.choices.map(function(x, j){
             return '<button class="fmd-choice" data-j="' + j + '">' + esc(String(x).replace(/^[A-C]\)\s*/, "")) + '</button>';
