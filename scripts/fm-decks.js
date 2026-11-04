@@ -1,5 +1,5 @@
 /* =====================================================================
-   FIELD MANUAL — GUIDED DECKS (Chapters 1–5, Manual № 01)
+   FIELD MANUAL — GUIDED DECKS (Manual № 01 Chapters 1–5 · Manual № 02 "The Finish")
    Duolingo-style card decks for the introduction lessons. Card text is
    the curriculum's own words; System Checks are read live from each
    lesson's quiz at runtime so the deck can never drift from the
@@ -324,6 +324,271 @@ window.FM_DECKS = {
       { k: "say", a: "ch4-l6-keylight", t: "If you are shooting a stationary subject (like a city skyline), use a tripod and a 10-second shutter speed. This allows you to keep your ISO at 100 for a crystal-clear, noise-free image even in pitch black. For people: even in the dark, there is usually a street lamp, a neon sign, or a candle. Position your subject so that the light hits their face at an angle.", h: "Tripod stills, key light for people.", p: "The angled light creates “shape” — and helps your camera's autofocus find a target." },
       { k: "check", ci: 0 },
       { k: "check", ci: 1 }
+    ]
+  },
+  "fin-ch01-l1": {
+    status: "Diagnosed",
+    answer: "Diagnose in one sentence before you move a slider.",
+    scenario: true,
+    close: { a: "fin-ch01-l1-close", t: "When a frame feels 'off' and you cannot name why, that is not a mystery. That is the lesson. Slow down until the sentence arrives." },
+    cards: [
+      { k: "say", a: "fin-ch01-l1-intro", t: "Every edit begins before the first slider moves. Open a photo and ask three questions, in this order. First: where is the light, and what is it doing? Second: what is the color cast? Every scene leans warm, cool, or green — name the lean before you try to correct it. Third, and most editors skip this one: what is already right?", h: "Look first.", p: "A diagnosis is a map of what to fix AND what to protect." },
+      { k: "say", a: "fin-ch01-l1-example", t: "A portrait by a window: the light rakes across her face from camera-left, skin bright and textured on the lit side. The room behind falls dark and cool. What is right: the skin exposure and the light's direction. What needs work: the shadow side of the face sits about a stop under where it wants to be, and the cool cast makes the room feel colder than the moment was.", h: "The worked example.", p: "That paragraph — written before touching anything — is the entire edit, in words. The sliders just execute it." },
+      { k: "say", a: "fin-ch01-l1-sentence", t: "Compress the diagnosis into a single sentence: 'The window light is right, her shadow side is a stop under, and the room leans cold.' If you cannot say it in one sentence, you do not have a diagnosis yet — you have a feeling, and feelings produce random slider walks.", h: "One sentence.", p: "The sentence limits the edit — and gives you a finish line: when the sentence stops being true, the edit is done." },
+      { k: "board", board: "list", chip: "The Failures", t: "Nearly every photograph suffers from some combination of these five — and each has a known tool.", h: "The short list of what goes wrong.", rows: [
+        { k: "Exposure placed wrong", v: "The whole frame lives too bright or too dark.", lit: 1 },
+        { k: "Highlights clipped", v: "The brightest areas have gone flat white and lost their texture.", lit: 1 },
+        { k: "A cast", v: "The light's color is lying about the scene's color.", lit: 1 },
+        { k: "Flat contrast", v: "Everything crowds the middle and nothing separates.", lit: 1 },
+        { k: "Skin color off", v: "The one error the human eye forgives last, because we are built to read faces.", lit: 1 }
+      ] },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch01-l2": {
+    status: "Clean Start",
+    answer: "Every slider position should be a decision you can defend out loud.",
+    scenario: true,
+    close: { a: "fin-ch01-l2-close", t: "A clean start is not a limitation, operator. It is the reason you can afford to be bold. Nothing you do to a copy can harm the truth underneath it." },
+    cards: [
+      { k: "say", a: "fin-ch01-l2-intro", t: "Every photo you bring into the Develop Lab opens as the untouched original. No look applied, no settings carried over from the last photograph you edited. The original is the truth of what your sensor recorded. If the starting point is contaminated by yesterday's decisions, you are no longer editing this photograph. You are negotiating with a stranger's grade.", h: "Why the Lab opens clean.", p: "Think of the film era: every print started from the negative, not from the last print you happened to like." },
+      { k: "say", a: "fin-ch01-l2-defend", t: "In this Lab, nothing applies itself. No slider moves until your hand moves it. Every slider position should be a decision you can defend out loud. If Contrast sits at +40, you should be able to say why. 'It was already there' is not a defense.", h: "Features engage by hand.", p: "Features that engage automatically train operators to accept grades instead of authoring them." },
+      { k: "say", a: "fin-ch01-l2-reset", t: "The reset is a tool, not an admission of failure. When a grade feels muddy and you cannot locate why, zero everything and rebuild only what you can defend. Whatever does not earn its way back was never helping.", h: "Reset like a professional.", p: "Professionals reset mid-edit the way pilots cross-check instruments — not because they are lost, but because drift is invisible from inside the drift." },
+      { k: "board", board: "list", chip: "The Discipline", t: "Three rules that keep every grade honest.", h: "The discipline.", rows: [
+        { k: "Opens Clean", v: "Every photo starts as the untouched original — the reference truth.", lit: 1 },
+        { k: "By Hand Only", v: "Nothing applies itself; every position is a decision you can defend out loud.", lit: 1 },
+        { k: "Reset = Cross-Check", v: "Zero everything and rebuild only what earns its way back.", lit: 1 }
+      ] },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch01-l3": {
+    status: "Order Locked",
+    answer: "White balance first, structure second, surgery last.",
+    scenario: true,
+    close: { a: "fin-ch01-l3-close", t: "Reversing the order means arguing with your own first decision. You will win some of those arguments, operator, but you will have all of them, every time, forever." },
+    cards: [
+      { k: "say", a: "fin-ch01-l3-intro", t: "White balance — Temp and Tint — goes first because temperature defines the palette that every later judgment is made against. Warm that light by 1,500 Kelvin afterward and every relationship you approved was approved under a different sun. Your contrast decision was made in a blue room and now lives in an amber one.", h: "White balance first — always.", p: "The order is not a preference. It is physics and perception stacked in your favor." },
+      { k: "board", board: "list", chip: "The Order", t: "Foundations, structure, surgery. Builders do not hang doors before the frame is up.", h: "The order of operations.", rows: [
+        { k: "1 · White Balance", v: "Temp and Tint first — they decide what the light IS.", lit: 1 },
+        { k: "2 · Exposure + Contrast", v: "The frame's structure — where brightness lives and how hard the tones separate.", lit: 1 },
+        { k: "3 · The Color Mixer", v: "Surgery last — per-channel, calibrated against a palette and structure already settled.", lit: 1 }
+      ] },
+      { k: "say", a: "fin-ch01-l3-cascade", t: "Each stage trusts the one before it. An operator perfects skin in the mixer, then warms the temperature to fix a cold room, and watches the perfected skin slide orange. Nothing broke. The foundation moved, and everything built on it moved too.", h: "What each stage assumes.", p: "A photograph that keeps fighting back is usually a photograph whose foundation moved mid-grade." },
+      { k: "say", a: "fin-ch01-l3-revisit", t: "Does the order forbid revisiting? No — it disciplines it. If you must return to Temp late in a grade, you have issued yourself a checklist: re-audit exposure, re-audit the mixer, in that order, because both were calibrated to the old light.", h: "Late changes are allowed.", p: "Professionals make late changes with their eyes open about the cascade. Amateurs chase the damage channel by channel." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch02-l1": {
+    status: "Placed With Intent",
+    answer: "Place the subject with Exposure. Choose the character with Contrast.",
+    scenario: true,
+    close: { a: "fin-ch02-l1-close", t: "Place the face, operator. The room can be argued with afterward. The face is the photograph's sworn testimony." },
+    cards: [
+      { k: "say", a: "fin-ch02-l1-intro", t: "Exposure does not mean 'brightness.' Exposure places the whole frame on the brightness scale — it answers a question: where does this scene live? A candlelit dinner placed bright looks like a waiting room. A noon portrait placed dark looks like a storm warning.", h: "Exposure places the scene.", p: "The correct exposure is the one where the scene's important tones — almost always skin — sit where the moment says they should." },
+      { k: "say", a: "fin-ch02-l1-limits", t: "Exposure moves everything together, so it cannot rescue a shadow without also lifting the highlights — push far enough and the brightest areas clip: they go flat white and their texture is gone. When a frame has both a bright window and a dark corner, exposure is the wrong tool for the gap between them.", h: "What exposure cannot do.", p: "That gap belongs to Highlights and Shadows. Exposure's job is placement: set the subject's key tone." },
+      { k: "board", board: "visual", vis: "tone-scale", t: "One scale, three territories — and three different tools that govern them.", h: "The tonal scale.", cap: "Exposure places the whole scale. Highlights and Shadows govern its ends. Skin lives in the midtones." },
+      { k: "say", a: "fin-ch02-l1-contrast", t: "Contrast drives bright tones brighter and dark tones darker while compressing the midtones between them — and midtones are where skin lives. A little contrast gives a frame separation and spine. Too much gives you waxy faces, crunchy shadows, and a photograph that shouts.", h: "Contrast is a decision.", p: "Calibrate by subject: an honest portrait often wants +15 to +35. Architecture and hard street scenes can carry +40 to +60. A foggy, intimate frame may want contrast reduced." },
+      { k: "say", a: "fin-ch02-l1-third", t: "When in doubt, add contrast until you notice it, then take back a third. That last third was your enthusiasm, not the photograph's need.", h: "Take back a third.", p: "The professional question is never 'how much contrast can this take?' It is 'what is this photograph's mood, and how much separation serves it?'" },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch02-l2": {
+    status: "Texture Protected",
+    answer: "Protect the lit skin first: on window portraits, Highlights go down.",
+    scenario: true,
+    close: { a: "fin-ch02-l2-close", t: "Glow is light plus texture. Glare is light with the texture removed. The Highlights slider decides which one your subject is wearing." },
+    cards: [
+      { k: "say", a: "fin-ch02-l2-intro", t: "Here is the counterintuitive law of window light: on a portrait lit by a window, Highlights go DOWN. Raised, it pushes that lit skin toward flat white, and texture dies first. Lower it instead — −20 to −40 is a working portrait range — and the light keeps its shape.", h: "Highlights down on window light.", p: "The skin stays luminous AND detailed, which is the entire promise of window light in the first place." },
+      { k: "say", a: "fin-ch02-l2-failure", t: "A concrete failure, from a real grading session: an editor raised Highlights to +72 chasing brightness. The lit side of the face went chalky; the window's soft wrap turned harsh. The repair was not more sliders — it was the same slider, reversed: Highlights −30, and the texture walked back into the frame like it had never left.", h: "The +72 lesson.", p: "Brightness problems in a portrait are rarely highlight problems. When the top of the scale hurts, you pull it down, not push it up." },
+      { k: "board", board: "visual", vis: "tone-scale", t: "This lesson lives at the two ends of the scale.", h: "The ends of the scale.", cap: "Highlights govern the top of the scale — where window light lands on skin. Shadows govern the bottom." },
+      { k: "say", a: "fin-ch02-l2-shadows", t: "Shadows lifts the bottom of the scale, opening detail in the dark areas. Its gift is readability. Its tax is mud. Push Shadows too far and blacks turn milky gray, the frame fogs, and the fog makes you reach for Contrast — now two sliders are fighting, and the frame gets squeezed from both directions.", h: "Shadows: detail, not fog.", p: "Sequence dissolves the fight. Set Contrast first, as a character decision. Then Shadows for one job only: detail — often +30 to +45 on a window portrait — and stop the moment detail arrives." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch02-l3": {
+    status: "Audit Honest",
+    answer: "Better is a verdict the before/after delivers — not a feeling your effort delivers.",
+    scenario: true,
+    close: { a: "fin-ch02-l3-close", t: "The bravest sentence in editing is 'the photograph did not need me.' You will not say it often. But the willingness to say it is what makes your other grades trustworthy." },
+    cards: [
+      { k: "say", a: "fin-ch02-l3-intro", t: "The before/after comparison slider is not a nostalgia feature. It is an audit instrument. Its job is to answer one question with evidence: is the after actually better — or just more? Those are different verdicts, and new editors confuse them constantly because effort feels like improvement.", h: "The comparison is an audit.", p: "You spent twelve minutes on this grade; of course it looks better to you. The audit exists to overrule that bias." },
+      { k: "say", a: "fin-ch02-l3-tensec", t: "Use the ten-second rule. Flip to the full before, look for a slow count of ten, then to the full after. If the after does not win clearly — within those ten seconds, without you arguing its case — the grade is not finished or not honest.", h: "The ten-second rule.", p: "Drag the divider slowly across the frame and interrogate regions, not the whole: what did the face gain? What did the window lose?" },
+      { k: "board", board: "visual", vis: "before-after", t: "The audit instrument, in one picture.", h: "The divider.", cap: "The divider is an interrogation tool: face, window, corners — region by region." },
+      { k: "say", a: "fin-ch02-l3-drunk", t: "Respect the physiology: editors go blind. After twenty minutes of staring at a grade, your eyes adapt to it — its warmth becomes your neutral, its contrast becomes your normal. Professionals call the failure 'edit-drunkenness.' Flip to the before often. Look away from the screen entirely for thirty seconds. And treat the thumbnail test as law.", h: "Edit-drunkenness is real.", p: "If the subject does not read instantly at postage-stamp size, no amount of zoomed-in slider virtue will save it." },
+      { k: "say", a: "fin-ch02-l3-ship", t: "There is a harder verdict the audit sometimes delivers: the original was better. Not better as a starting point — better, full stop. Shipping the near-original is not failure. It is the diagnosis working exactly as designed: you protected what was right, and what was right turned out to be nearly everything.", h: "When the original wins.", p: "Restraint at the audit stage is the difference between an editor and a filter with a subscription." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch03-l1": {
+    status: "Light Declared",
+    answer: "Temperature declares the light. Tint keeps the witnesses — skin and whites — honest.",
+    scenario: true,
+    close: { a: "fin-ch03-l1-close", t: "Every photograph testifies about its light. Temperature is where you decide whether that testimony is a report — or an argument." },
+    cards: [
+      { k: "say", a: "fin-ch03-l1-intro", t: "Temperature is measured in Kelvin, and the number describes the color of light itself. Candlelight burns near 1,900K and glows orange. A tungsten bulb sits near 3,200K. Neutral daylight is about 5,500K. Shade and overcast skies run 6,500K and beyond, leaning blue.", h: "Kelvin: declaring the light.", p: "You are not painting the photo warm or cool. You are declaring what light the photograph was taken in." },
+      { k: "board", board: "visual", vis: "kelvin-scale", t: "The scale the Temp slider carries — from candlelight to shade.", h: "The Kelvin scale.", cap: "Higher Kelvin on the slider, warmer photograph — the scale every grade declares from." },
+      { k: "say", a: "fin-ch03-l1-decision", t: "Set temperature to match the light that was truly there and colors become honest. Set it deliberately off-honest and you are making an argument: warmer than real says evening, intimacy, nostalgia; cooler than real says morning, distance, rain, steel. Both are legitimate. What is not legitimate is a number chosen by drift.", h: "A decision, not a correction.", p: "Audit yours against the scene: does this frame's light match the light that was in the room?" },
+      { k: "say", a: "fin-ch03-l1-tint", t: "Tint is the green-magenta axis, and it lives a quieter life. Fluorescent and cheap LED light leans green, and skin under it goes seasick. Tint moves are small by nature — plus or minus 5 to 15 is a working range, and a tint move you can see at a glance is usually too much.", h: "Tint: the quiet axis.", p: "Judge it on skin and on whites: when a white shirt stops looking green OR pink, you are home." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch03-l2": {
+    status: "Skin Protected",
+    answer: "Faces in the frame: Vibrance leads, Saturation whispers.",
+    scenario: true,
+    close: { a: "fin-ch03-l2-close", t: "If faces live in the frame, your hand belongs on Vibrance. Saturation does not know what a face is. Vibrance was built by people who do." },
+    cards: [
+      { k: "say", a: "fin-ch03-l2-intro", t: "Saturation is the bluntest instrument in the Lab. It raises the intensity of every color in the frame by the same proportion — the red dress, the blue sky, and the skin of every face, all louder together. Push global saturation on a portrait and the first casualty is believable skin, sliding toward sunburn.", h: "Saturation: the blunt instrument.", p: "When people say a photograph 'looks edited,' unchecked saturation is the most common reason why." },
+      { k: "say", a: "fin-ch03-l2-vibrance", t: "Vibrance is the intelligent sibling. It reads the frame first: it raises the muted, quiet colors strongly and touches the already-saturated colors gently — and it specifically protects skin tones, the colors your viewers judge most harshly. Vibrance wakes up a dull scene while leaving faces close to honest.", h: "Vibrance: the intelligent sibling.", p: "Saturation says 'everything louder.' Vibrance says 'whatever is whispering, speak up — the faces are fine.'" },
+      { k: "board", board: "list", chip: "Two Philosophies", t: "Two sliders, two philosophies — the Lab's layout is a philosophy, read aloud.", h: "Two sliders, two philosophies.", rows: [
+        { k: "Saturation", v: "Raises every color by the same proportion — skin included. First casualty on a portrait: believable skin.", lit: 1 },
+        { k: "Vibrance", v: "Lifts the muted colors, touches the loud ones gently, and protects skin tones by design.", lit: 1 }
+      ] },
+      { k: "say", a: "fin-ch03-l2-honest", t: "Saturation still has honest work. A frame with no skin in it — a product shot, a plate of food — can take saturation's equal treatment and shine. But adopt the working order: on any frame containing people, Vibrance first, typically +10 to +25. Only then ask whether saturation adds anything, and answer in single digits.", h: "When saturation is the honest tool.", p: "The sin is not the slider. The sin is reaching for it first, at portrait scale, at plus 30, and then wondering why the bride looks boiled." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch03-l3": {
+    status: "Surgery Disciplined",
+    answer: "Skin lives in Orange. Hue moves in single digits — and never stacked on extreme temperature.",
+    scenario: true,
+    close: { a: "fin-ch03-l3-close", t: "Remember the shape of this failure, because you will meet it again wearing your own face: nothing broke, nothing malfunctioned. Three enthusiasms simply agreed with each other too loudly." },
+    cards: [
+      { k: "say", a: "fin-ch03-l3-intro", t: "The Color Mixer divides the frame's color into eight channels: Red, Orange, Yellow, Green, Aqua, Blue, Purple, and Magenta. Each channel carries two controls. Hue rotates that color family toward its neighbors on the wheel. Saturation raises or drains that family's intensity alone.", h: "Eight channels.", p: "This is surgery after the global grade's general medicine: one family, one intention, small numbers." },
+      { k: "board", board: "visual", vis: "mixer-channels", t: "Eight channels — and one of them is carrying every face in your frame.", h: "The mixer.", cap: "Skin lives overwhelmingly in Orange, with Red in support. Every Orange move is a move on every face." },
+      { k: "say", a: "fin-ch03-l3-skin", t: "Human skin lives overwhelmingly in the Orange channel, with a supporting share in Red. Every mixer move on Orange is a move on every face in the frame — its saturation is their sun, its hue is their blood. Orange saturation up a few points can wake tired skin. Orange hue swung hard can make a healthy person look like a traffic cone.", h: "Skin lives in Orange.", p: "When you open the Mixer on a portrait, you are holding the skin channel in your hand. Handle it like it is connected to a person, because it is." },
+      { k: "say", a: "fin-ch03-l3-lips", t: "Study a real failure. Temperature was pushed to 10,050 Kelvin — an extreme costume of warmth. The Red channel's hue was shifted. Then the Orange channel's hue was shifted the same direction. The subject's red lipstick arrived at orange. The skin tanned into a color no human wears.", h: "The day the lips went orange.", p: "Three moves, each defensible in a whisper, shouted in combination." },
+      { k: "say", a: "fin-ch03-l3-discipline", t: "Hue is the strongest control in the entire Lab; treat its working range as plus or minus 5 to 8 on anything connected to a person. Never stack an extreme temperature on top of hue surgery — each amplifies the other's lies. And when color goes wrong, unwind in reverse order of application: the last move made is the first suspect.", h: "Hue with a short leash.", p: "The portrait was rescued by removing two hue shifts and bringing temperature back to an honest evening. The photograph had been fine. The enthusiasm was the error." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch04-l1": {
+    status: "Recipe Read",
+    answer: "A Look proposes. Your diagnosis disposes.",
+    scenario: true,
+    close: { a: "fin-ch04-l1-close", t: "A recipe is not a chef, operator. It is a chef's notebook, left open. What you cook with it remains your responsibility — and your credit." },
+    cards: [
+      { k: "say", a: "fin-ch04-l1-intro", t: "Strip the romance away and a Look is a humble thing: a saved recipe. It is a bundle of slider decisions recorded once and applied to a photograph all at once. Nothing in a Look knows anything about your photograph. The same recipe will be poured over a bride and a parking garage with identical confidence.", h: "A saved recipe, nothing more.", p: "The question is never 'is this a good Look?' It is 'is this recipe's judgment right for THIS frame, at THIS strength, after MY fundamentals have had their say?'" },
+      { k: "board", board: "list", chip: "The Shelf", t: "Five packaged judgments about light, color, and mood — beside Original, which is no recipe at all.", h: "The shelf.", rows: [
+        { k: "Film 35", v: "One of the Lab's five saved recipes.", lit: 1 },
+        { k: "Direct Flash", v: "One of the Lab's five saved recipes.", lit: 1 },
+        { k: "Golden Hour", v: "One of the Lab's five saved recipes.", lit: 1 },
+        { k: "Halation", v: "One of the Lab's five saved recipes.", lit: 1 },
+        { k: "Noir", v: "One of the Lab's five saved recipes.", lit: 1 },
+        { k: "Original", v: "No recipe at all — the frame, unopinionated.", lit: 1 }
+      ] },
+      { k: "say", a: "fin-ch04-l1-costume", t: "A Look is a starting point wearing the costume of a finish. Because it arrives complete, it tempts you to skip the diagnosis, skip the foundation, and call the photograph done. Resist the costume. Read the frame, set the foundation and structure yourself, and let the Look enter as a strong opinion you are auditioning — not a verdict you are obeying.", h: "The costume of a finish.", p: "Operators who grade this way use Looks as accelerant. Operators who start with Looks use them as autopilot — and their portfolios quietly converge on somebody else's taste." },
+      { k: "say", a: "fin-ch04-l1-ritual", t: "Apply a Look the professional way. First, the audition: look at the whole frame before touching anything. Second, the interrogation: read what the recipe actually DID — with your eyes, because a Look renders on top of your sliders and never moves them; the panels will not confess it. Third, the correction pass: your globals serve this photograph against the recipe's generality.", h: "Audition, interrogate, correct.", p: "You cannot manage a collaborator whose moves you have not read." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch04-l2": {
+    status: "Taste Calibrated",
+    answer: "Validate on flat. Set intensity by the photograph's need, then pull back ten and listen.",
+    scenario: true,
+    close: { a: "fin-ch04-l2-close", t: "Intensity is where taste lives, operator. Two editors can share a recipe and share nothing else — the number they stop at is the signature of their restraint." },
+    cards: [
+      { k: "say", a: "fin-ch04-l2-intro", t: "The Intensity slider is the most honest control in the Develop Lab, because it admits what the other sliders pretend not to know: strength is a choice. At 70, you are taking seventy percent of the recipe's decisions and keeping thirty percent of the frame's own character. At 100, the recipe finishes your photograph for you, in its author's voice.", h: "The honest slider.", p: "New editors default to 100 because the effect is most visible there. Professionals treat 100 the way chefs treat the whole jar of chili: occasionally correct, usually a confession that nobody was tasting." },
+      { k: "board", board: "visual", vis: "intensity-scale", t: "Most honest work lives in the middle of this slider.", h: "The geography of intensity.", cap: "The geography of the slider: seasoning below 40, honest work from 40 to 80, the costume at 100." },
+      { k: "say", a: "fin-ch04-l2-flat", t: "Never judge a recipe on an already-graded photograph. A graded photo has already spent its contrast, warmed its light, arranged its colors. Pour a Look over it and you are measuring the recipe on top of somebody's finished decisions — and you may stack two full grades and blame the Look for the collision. Validate every Look on a FLAT frame: untouched, ungraded, honest.", h: "Validate on flat, never on graded.", p: "The flat frame is the only laboratory where a recipe's true strength shows." },
+      { k: "say", a: "fin-ch04-l2-pullback", t: "The calibration ritual: set the intensity where it pleases you, then pull it back ten points and flip the before/after. If the photograph does not miss those ten points, they were yours, not its. Keep the pullback.", h: "The pullback ritual.", p: "Your taste will quietly migrate toward the photograph's needs and away from your reflexes. That migration IS the development of taste." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch04-l3": {
+    status: "Signature Owned",
+    answer: "Your signature is a pattern of judgments — including the judgment to use nothing.",
+    scenario: true,
+    close: { a: "fin-ch04-l3-close", t: "The empty chair at the table is also a decision. When a frame needs no recipe, operator, your silence in the panels speaks as fluently as your loudest grade." },
+    cards: [
+      { k: "say", a: "fin-ch04-l3-intro", t: "A signature look is not a slider position. It is the pattern across your decisions that survives changing subjects: your temperature leans warm-of-honest; your contrast builds structure but bows to skin; your colors favor one family and quiet another.", h: "Building your signature.", p: "Clients do not hire a recipe; they recognize a pattern — across a wedding, a storefront, and a portrait — and they call it your style." },
+      { k: "say", a: "fin-ch04-l3-codify", t: "Take your three best manual grades — made by hand, through this manual's full order — and read them side by side. The moves they share are your signature trying to introduce itself. Now codify it: write the pattern as a working recipe in plain language, and apply it as your STARTING point on new work — not your finish.", h: "Codify it.", p: "The preset user applies a Look to avoid deciding. The signature owner applies their own distilled decisions to decide FASTER, from a position they authored." },
+      { k: "board", board: "list", chip: "The Signature", t: "A signature, written as a working recipe in plain language.", h: "The recipe card.", rows: [
+        { k: "Foundation Posture", v: "Your temperature lean — warm-of-honest, honest, or cool — declared the same way every time.", lit: 1 },
+        { k: "Contrast Posture", v: "Structure that builds — and bows to skin.", lit: 1 },
+        { k: "Color Direction", v: "The family you favor, and the one you quiet.", lit: 1 },
+        { k: "Intensity Ceiling", v: "The strength your work does not cross without a reason.", lit: 1 }
+      ] },
+      { k: "say", a: "fin-ch04-l3-none", t: "The final skill in this chapter is refusal. Documentary and evidentiary work — journalism, real-estate honesty, anything whose value is its truth-claim — takes fundamentals only; a recipe's character is an editorial comment the frame did not consent to. And some frames carry their own color story so completely that a Look would be a second author fighting the first.", h: "When the answer is none.", p: "A portfolio where some photographs are loudly styled and others are simply, perfectly honest does not read as inconsistency. It reads as judgment." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch05-l1": {
+    status: "Audit Passed",
+    answer: "Zoom in to catch the sins. Zoom out to catch the futility. Ship when the loss column is empty.",
+    scenario: true,
+    close: { a: "fin-ch05-l1-close", t: "The audit is not where photographs become perfect. It is where you stop being surprised by them. Nothing leaves this room unexamined." },
+    cards: [
+      { k: "say", a: "fin-ch05-l1-intro", t: "Every photograph in this manual was graded at arm's length, in miniature, the way your phone shows it. The audit happens at 100 percent zoom, where the truth lives. Three sweeps, in order: the skin, the edges, the light.", h: "The audit at one hundred percent.", p: "A finished frame survives both magnifications without an advocate." },
+      { k: "board", board: "list", chip: "Three Sweeps", t: "Zoom in to catch the sins — sweep in this order, every time.", h: "The three sweeps.", rows: [
+        { k: "The Skin Sweep", v: "Faces at full size: pores present but not craters, color even, no orange residue, no plastic smoothness.", lit: 1 },
+        { k: "The Edges Sweep", v: "Walk the borders and corners, where bright distractions and loud corners pull the eye out of the photograph.", lit: 1 },
+        { k: "The Light Sweep", v: "The brightest area still has texture, the darkest still has detail, and the light's direction still makes sense.", lit: 1 }
+      ] },
+      { k: "say", a: "fin-ch05-l1-thumbnail", t: "The audit also has a size dimension, and it cuts the other way. Shrink the frame back to thumbnail — the size at which the world will actually meet it in a feed. Does the subject read instantly? A grade can be impeccable at 100 percent and dead at forty pixels, because the viewer it was made for never zooms.", h: "The thumbnail test.", p: "The audit at full size catches sins. The thumbnail test catches pointlessness. Pass both, or the frame is not finished." },
+      { k: "say", a: "fin-ch05-l1-ship", t: "Bring the before/after back for its final duty — the ship-or-hold audit. Is every diagnosed problem solved or consciously accepted? Is anything worse than the original? A frame ships when you can no longer find anything your edit made worse — when the ledger of gains and losses has an empty loss column.", h: "Ship, or hold the frame.", p: "Not when it is perfect — perfection is not on offer. When the loss column is empty." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch05-l2": {
+    status: "Shipped Right",
+    answer: "Decide the destination before the export. The grade is the asset; every file is drawn from it, fresh.",
+    scenario: true,
+    close: { a: "fin-ch05-l2-close", t: "The grade is the asset, operator. The exports are its emissaries — each dressed for the country it is visiting, each sent from the same throne." },
+    cards: [
+      { k: "say", a: "fin-ch05-l2-intro", t: "A photograph is finished. It is not yet shipped — because 'the file' is not one thing. A social feed wants the size preset built for it, judged at forty pixels tall. Print wants the opposite covenant: the largest honest file you have, every pixel of quality preserved, because paper shows everything a screen forgives.", h: "One grade, three destinations.", p: "Exporting is not a formality after the real work. Exporting IS a decision in the real work." },
+      { k: "say", a: "fin-ch05-l2-disciplines", t: "Two disciplines govern all of it. First: always export from the audited final grade — never from a near-final variant, because 'final_v3' chaos is how the wrong frame reaches a client's wall. Second: never export an export. JPEG is a lossy format; re-exporting one spends quality you cannot recover, like a photocopy of a photocopy.", h: "Two disciplines.", p: "The Lab keeps your grade; the files it makes are disposable. Treat them that way." },
+      { k: "board", board: "list", chip: "Destinations", t: "Decide the destination BEFORE the export, not after the complaint.", h: "The destinations.", rows: [
+        { k: "The Feed", v: "The Instagram preset — sized for the feed, quick to load, judged at forty pixels tall.", lit: 1 },
+        { k: "Client Preview", v: "Full quality with the watermark on — protected while payment is pending.", lit: 1 },
+        { k: "Paid Delivery", v: "The largest file, delivered clean — a watermark on a purchased product is graffiti.", lit: 1 },
+        { k: "Print", v: "The largest honest file you have — paper forgives nothing a screen would hide.", lit: 1 }
+      ] },
+      { k: "say", a: "fin-ch05-l2-watermark", t: "The watermark asks a business question wearing a design costume: who is this file for, and what do I fear? On a public preview, a watermark protects the work from walking away unpaid. On a final, paid client delivery, the same watermark becomes an insult printed across a purchased product; deliver clean.", h: "The watermark decision.", p: "There is no universal answer. There is a universal sin: never thinking about it, and shipping the default." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
+    ]
+  },
+  "fin-ch05-l3": {
+    status: "Finish Signed",
+    answer: "Ship the frame you would sign — in a set that signs its name the same way, thirty times.",
+    scenario: true,
+    close: { a: "fin-ch05-l3-close", t: "You came to this manual owning a camera. You leave it owning a finish. Guard the originals, operator — and sign only what survives your audit." },
+    cards: [
+      { k: "say", a: "fin-ch05-l3-intro", t: "The Deliver gallery is the artifact by which a client judges whether you are a person with a camera or a professional. They see a set of finished frames, and the set's most powerful quality is consistency — every photograph finished in the same posture: same temperature family, same contrast character, same honesty about skin.", h: "The gallery is the artifact.", p: "A set that coheres reads as authorship. A set where every frame wears a different finish reads as a folder." },
+      { k: "say", a: "fin-ch05-l3-promise", t: "Consistency is also a kindness to your future clients: it makes your portfolio a promise you can actually keep. When a client books the warm, honest finish they saw in your gallery, your grade-by-grade discipline is what lets you deliver that exact promise under different light, in a different room, on a tired Friday.", h: "A promise you can keep.", p: "Diagnose, found, structure, color, taste, audit, export — the finishing system is not ceremony. It is how a promise becomes repeatable." },
+      { k: "say", a: "fin-ch05-l3-wheel", t: "Close the loop this manual opened with. In the Arena and in front of clients, that skill gets proved. And the delivered work teaches you back: the client who zooms will show you an audit you skipped; the frame that shipped too warm will recalibrate your eye for temperature. Learn, prove, earn, learn again — the wheel this entire platform is built on.", h: "The wheel turns.", p: "The rules were never the skill — the judgment that wields and occasionally overrules them is the skill, and it is now demonstrably yours." },
+      { k: "check", ci: 0 },
+      { k: "check", ci: 1 },
+      { k: "check", ci: 2 }
     ]
   }
 };

@@ -469,10 +469,130 @@
     return frame(360, 52 + 9 * 36 + 30, inner);
   }
 
+  function toneScale(){
+    var s = label(18, 30, "THE TONAL SCALE", 12, NEON, "start", 700);
+    s += '<defs><linearGradient id="tsGrad" x1="0" y1="0" x2="1" y2="0">'
+      + '<stop offset="0" stop-color="#141c12"/><stop offset=".45" stop-color="#43563f"/>'
+      + '<stop offset=".75" stop-color="#9db894"/><stop offset="1" stop-color="#eef6ec"/></linearGradient></defs>';
+    s += '<text x="180" y="46" font-family="' + MONO + '" font-size="9.5" fill="' + TEXT + '" text-anchor="middle">EXPOSURE PLACES THE WHOLE SCALE</text>';
+    s += '<line x1="34" y1="56" x2="326" y2="56" stroke="' + DIM + '" stroke-width="1"/><line x1="34" y1="51" x2="34" y2="61" stroke="' + DIM + '"/><line x1="326" y1="51" x2="326" y2="61" stroke="' + DIM + '"/>';
+    s += '<rect x="30" y="72" width="300" height="30" rx="6" fill="url(#tsGrad)" stroke="' + DIM + '"/>';
+    s += '<line x1="130" y1="72" x2="130" y2="102" stroke="#0d120c" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/>';
+    s += '<line x1="230" y1="72" x2="230" y2="102" stroke="#0d120c" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/>';
+    s += '<text x="80" y="122" font-family="' + MONO + '" font-size="10" fill="' + FAINT + '" text-anchor="middle">SHADOWS</text>';
+    s += '<text x="180" y="122" font-family="' + MONO + '" font-size="10" fill="' + TEXT + '" text-anchor="middle">MIDTONES</text>';
+    s += '<text x="180" y="137" font-family="' + MONO + '" font-size="9" fill="' + FAINT + '" text-anchor="middle">where skin lives</text>';
+    s += '<text x="280" y="122" font-family="' + MONO + '" font-size="10" fill="' + FAINT + '" text-anchor="middle">HIGHLIGHTS</text>';
+    s += '<text x="180" y="168" font-family="' + MONO + '" font-size="9" fill="' + FAINT + '" text-anchor="middle">HIGHLIGHTS + SHADOWS SLIDERS WORK THE ENDS</text>';
+    return frame(360, 182, s);
+  }
+
+  function beforeAfter(){
+    var s = label(18, 30, "BEFORE / AFTER — THE AUDIT", 12, NEON, "start", 700);
+    s += '<defs><linearGradient id="baSky" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0" stop-color="#5d8148"/><stop offset="1" stop-color="#2a3d22"/></linearGradient>'
+      + '<radialGradient id="baGlow" cx=".5" cy=".5" r=".5">'
+      + '<stop offset="0" stop-color="#8deb00" stop-opacity=".8"/><stop offset="1" stop-color="#8deb00" stop-opacity="0"/></radialGradient></defs>';
+    /* before: flat scene */
+    s += '<rect x="45" y="42" width="150" height="128" fill="#262e24"/>';
+    s += '<circle cx="88" cy="72" r="11" fill="#5c6b58"/>';
+    s += '<path d="M45 138 L96 100 L132 124 L168 106 L195 122 L195 170 L45 170 Z" fill="#313b2f"/>';
+    s += '<rect x="45" y="140" width="150" height="30" fill="#20261f"/>';
+    /* after: graded scene */
+    s += '<rect x="195" y="42" width="120" height="128" fill="url(#baSky)"/>';
+    s += '<circle cx="238" cy="72" r="24" fill="url(#baGlow)"/>';
+    s += '<circle cx="238" cy="72" r="10" fill="#d9ffb0"/>';
+    s += '<path d="M195 122 L218 106 L252 124 L282 100 L315 138 L315 170 L195 170 Z" fill="#16240f"/>';
+    s += '<path d="M195 122 L218 106 L252 124 L282 100 L315 138" fill="none" stroke="' + NEON + '" stroke-width="1.4" opacity=".75"/>';
+    s += '<rect x="195" y="140" width="120" height="30" fill="#101a0b"/>';
+    /* frame + divider */
+    s += '<rect x="45" y="42" width="270" height="128" fill="none" stroke="' + DIM + '"/>';
+    s += '<line x1="195" y1="38" x2="195" y2="174" stroke="' + NEON + '" stroke-width="2"/>';
+    s += '<circle cx="195" cy="106" r="11" fill="#0d120c" stroke="' + NEON + '" stroke-width="1.6"/>';
+    s += '<polygon points="186,106 192,101 192,111" fill="' + NEON + '"/>';
+    s += '<polygon points="204,106 198,101 198,111" fill="' + NEON + '"/>';
+    s += '<text x="52" y="192" font-family="' + MONO + '" font-size="9.5" fill="' + FAINT + '">BEFORE</text>';
+    s += '<text x="308" y="192" font-family="' + MONO + '" font-size="9.5" fill="' + TEXT + '" text-anchor="end">AFTER</text>';
+    return frame(360, 202, s);
+  }
+
+  function kelvinScale(){
+    var s = label(18, 30, "TEMPERATURE — IN KELVIN", 12, NEON, "start", 700);
+    s += '<defs><linearGradient id="kGrad" x1="0" y1="0" x2="1" y2="0">'
+      + '<stop offset="0" stop-color="#ff8f3f"/><stop offset=".3" stop-color="#ffc37a"/>'
+      + '<stop offset=".55" stop-color="#f2ead8"/><stop offset=".8" stop-color="#b9cdea"/>'
+      + '<stop offset="1" stop-color="#7fb0ff"/></linearGradient></defs>';
+    function stop(x, k, name, above){
+      var y1 = above ? 62 : 118, ty = above ? 56 : 132;
+      return '<line x1="' + x + '" y1="' + (above ? 78 : 98) + '" x2="' + x + '" y2="' + y1 + '" stroke="' + FAINT + '" stroke-width="1"/>'
+        + '<text x="' + x + '" y="' + ty + '" font-family="' + MONO + '" font-size="9.5" fill="' + TEXT + '" text-anchor="middle">' + k + '</text>'
+        + '<text x="' + x + '" y="' + (ty + (above ? -11 : 12)) + '" font-family="' + MONO + '" font-size="8" fill="' + FAINT + '" text-anchor="middle">' + name + '</text>';
+    }
+    s += stop(46, "1,900K", "CANDLELIGHT", false);
+    s += stop(132, "3,200K", "TUNGSTEN", true);
+    s += stop(240, "5,500K", "DAYLIGHT", false);
+    s += stop(306, "6,500K+", "SHADE", true);
+    s += '<rect x="30" y="78" width="300" height="20" rx="6" fill="url(#kGrad)" stroke="rgba(230,240,228,.35)"/>';
+    s += '<text x="180" y="166" font-family="' + MONO + '" font-size="9" fill="' + FAINT + '" text-anchor="middle">RAISING THE SLIDER WARMS THE PHOTO</text>';
+    s += '<text x="180" y="182" font-family="' + MONO + '" font-size="9" fill="' + FAINT + '" text-anchor="middle">DECLARE THE LIGHT THAT WAS THERE</text>';
+    return frame(360, 192, s);
+  }
+
+  function mixerChannels(){
+    var s = label(18, 30, "THE MIXER — EIGHT CHANNELS", 12, NEON, "start", 700);
+    var names = ["RED", "ORANGE", "YELLOW", "GREEN", "AQUA", "BLUE", "PURPLE", "MAGENTA"];
+    var letters = ["R", "O", "Y", "G", "A", "B", "P", "M"];
+    for (var i = 0; i < 8; i++) {
+      var cx = 18 + (i % 4) * 84, cy = 46 + Math.floor(i / 4) * 56;
+      var skin = i === 1;
+      if (skin) s += '<rect x="' + (cx - 3) + '" y="' + (cy - 3) + '" width="82" height="50" rx="10" fill="rgba(141,235,0,.14)"/>';
+      s += '<rect x="' + cx + '" y="' + cy + '" width="76" height="44" rx="8" fill="#10160f" stroke="' + (skin ? NEON : DIM) + '" stroke-width="' + (skin ? 1.6 : 1) + '"/>';
+      s += '<text x="' + (cx + 38) + '" y="' + (cy + 21) + '" font-family="' + MONO + '" font-size="13" fill="' + (skin ? NEON : TEXT) + '" text-anchor="middle">' + letters[i] + '</text>';
+      s += '<text x="' + (cx + 38) + '" y="' + (cy + 36) + '" font-family="' + MONO + '" font-size="7.5" fill="' + FAINT + '" text-anchor="middle">' + names[i] + '</text>';
+    }
+    s += '<rect x="18" y="166" width="9" height="9" fill="' + NEON + '"/>';
+    s += '<text x="34" y="175" font-family="' + MONO + '" font-size="9.5" fill="' + TEXT + '">ORANGE — SKIN LIVES HERE · RED IN SUPPORT</text>';
+    s += '<text x="18" y="196" font-family="' + MONO + '" font-size="8.5" fill="' + FAINT + '">ORANGE · HUE</text>';
+    s += '<rect x="118" y="188" width="212" height="5" rx="2.5" fill="#22301c"/>';
+    s += '<line x1="224" y1="184" x2="224" y2="197" stroke="' + TEXT + '" stroke-width="1.4"/>';
+    s += '<text x="18" y="226" font-family="' + MONO + '" font-size="8.5" fill="' + FAINT + '">ORANGE · SAT</text>';
+    s += '<rect x="118" y="218" width="212" height="5" rx="2.5" fill="#22301c"/>';
+    s += '<rect x="118" y="218" width="132" height="5" rx="2.5" fill="' + DIM + '"/>';
+    s += '<circle cx="250" cy="220.5" r="4" fill="' + NEON + '"/>';
+    return frame(360, 244, s);
+  }
+
+  function intensityScale(){
+    var s = label(18, 30, "INTENSITY — WHERE TASTE LIVES", 12, NEON, "start", 700);
+    s += '<defs><linearGradient id="intGrad" x1="0" y1="0" x2="1" y2="0">'
+      + '<stop offset="0" stop-color="#4a7c2a"/><stop offset="1" stop-color="#8deb00"/></linearGradient></defs>';
+    s += '<text x="240" y="48" font-family="' + MONO + '" font-size="9.5" fill="' + TEXT + '" text-anchor="middle">THE DEFAULT: 70</text>';
+    s += '<text x="240" y="61" font-family="' + MONO + '" font-size="8" fill="' + FAINT + '" text-anchor="middle">not a decision</text>';
+    s += '<polygon points="240,84 234,72 246,72" fill="' + NEON + '"/>';
+    s += '<text x="30" y="80" font-family="' + MONO + '" font-size="9" fill="' + FAINT + '">0</text>';
+    s += '<text x="150" y="80" font-family="' + MONO + '" font-size="9" fill="' + FAINT + '" text-anchor="middle">40</text>';
+    s += '<text x="270" y="80" font-family="' + MONO + '" font-size="9" fill="' + FAINT + '" text-anchor="middle">80</text>';
+    s += '<text x="330" y="80" font-family="' + MONO + '" font-size="9" fill="' + FAINT + '" text-anchor="end">100</text>';
+    s += '<rect x="30" y="88" width="120" height="18" fill="' + DIM + '" opacity=".45"/>';
+    s += '<rect x="150" y="88" width="120" height="18" fill="url(#intGrad)"/>';
+    s += '<rect x="270" y="88" width="60" height="18" fill="' + NEON + '"/>';
+    s += '<rect x="30" y="88" width="300" height="18" fill="none" stroke="rgba(230,240,228,.3)"/>';
+    s += '<text x="90" y="126" font-family="' + MONO + '" font-size="9" fill="' + FAINT + '" text-anchor="middle">SEASONING</text>';
+    s += '<text x="210" y="126" font-family="' + MONO + '" font-size="9.5" fill="' + TEXT + '" text-anchor="middle">HONEST WORK</text>';
+    s += '<text x="300" y="126" font-family="' + MONO + '" font-size="8.5" fill="' + FAINT + '" text-anchor="middle">STYLIZATION</text>';
+    s += '<text x="180" y="158" font-family="' + MONO + '" font-size="9" fill="' + FAINT + '" text-anchor="middle">SET BY THE PHOTOGRAPH — THEN PULL BACK TEN</text>';
+    return frame(360, 170, s);
+  }
+
   var LIB = {
     "fps-shutter": fpsShutter,
     "audio-meter": audioMeter,
     "gamma-curves": gammaCurves,
+    "tone-scale": toneScale,
+    "before-after": beforeAfter,
+    "kelvin-scale": kelvinScale,
+    "mixer-channels": mixerChannels,
+    "intensity-scale": intensityScale,
     "exposure-triangle": exposureTriangle,
     "aperture-dof": apertureDof,
     "iso-noise": isoNoise,
