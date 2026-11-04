@@ -470,6 +470,9 @@
   }
 
   var LIB = {
+    "fps-shutter": fpsShutter,
+    "audio-meter": audioMeter,
+    "gamma-curves": gammaCurves,
     "exposure-triangle": exposureTriangle,
     "aperture-dof": apertureDof,
     "iso-noise": isoNoise,
@@ -485,6 +488,92 @@
     "zebra-demo": zebraDemo,
     "settings-checklist": settingsChecklist
   };
+
+  /* ---------------- fps -> shutter (the 180-degree rule) ---------------- */
+  function fpsShutter(){
+    function chip(x, y, w, text, color, strong){
+      return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="30" rx="9" fill="' + (strong ? 'rgba(141,235,0,.10)' : 'rgba(141,235,0,.03)') + '" stroke="' + color + '" stroke-opacity="' + (strong ? '.8' : '.35') + '"/>' +
+        '<text x="' + (x + w/2) + '" y="' + (y + 20) + '" text-anchor="middle" font-family="' + MONO + '" font-size="12" font-weight="700" fill="' + color + '" letter-spacing="1.5">' + text + '</text>';
+    }
+    function row(y, fps, shutter, desc){
+      return chip(36, y, 104, fps + ' FPS', TEXT, false) +
+        '<line x1="152" y1="' + (y + 15) + '" x2="180" y2="' + (y + 15) + '" stroke="' + FAINT + '" stroke-width="1.5"/>' +
+        '<polygon points="180,' + (y + 11) + ' 188,' + (y + 15) + ' 180,' + (y + 19) + '" fill="' + FAINT + '"/>' +
+        label(170, y + 6, "\u00d72", 9.5, FAINT) +
+        chip(196, y, 128, shutter, NEON, true) +
+        label(40, y + 46, desc, 9, FAINT, "start");
+    }
+    var inner =
+      label(180, 30, "FRAME RATE \u2192 SHUTTER", 12, NEON, "middle", 700) +
+      label(88, 58, "FRAME RATE", 9.5, FAINT) +
+      label(260, 58, "SHUTTER SPEED", 9.5, FAINT) +
+      row(72, "24", "1/50", "THE CINEMA STANDARD") +
+      row(124, "30", "1/60", "TV + VLOGS") +
+      row(176, "60", "1/125", "SLOW MOTION") +
+      label(180, 248, "SHUTTER = DOUBLE THE FRAME RATE", 10.5, NEON, "middle", 700);
+    return frame(360, 262, inner);
+  }
+
+  /* ---------------- audio meter (the -12dB rule) ---------------- */
+  function audioMeter(){
+    /* scale: -40dB at x=44, 0dB at x=316 */
+    function dbx(db){ return Math.round(44 + ((db + 40) / 40) * 272); }
+    var inner =
+      '<defs><linearGradient id="amGrad" x1="0" y1="0" x2="1" y2="0">' +
+      '<stop offset="0%" stop-color="' + DIM + '"/>' +
+      '<stop offset="55%" stop-color="' + NEON + '" stop-opacity=".75"/>' +
+      '<stop offset="88%" stop-color="' + NEON + '"/>' +
+      '<stop offset="100%" stop-color="#ffffff"/></linearGradient>' +
+      '<pattern id="amHatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">' +
+      '<rect width="6" height="6" fill="rgba(230,240,228,.14)"/><line x1="0" y1="0" x2="0" y2="6" stroke="' + TEXT + '" stroke-width="1.6"/></pattern></defs>' +
+      label(180, 30, "AUDIO LEVELS", 12, NEON, "middle", 700) +
+      /* the bounce band: where a voice actually lives */
+      '<rect x="' + dbx(-18) + '" y="82" width="' + (dbx(-9) - dbx(-18)) + '" height="42" rx="6" fill="' + NEON + '" opacity=".08"/>' +
+      label((dbx(-18) + dbx(-9)) / 2, 72, "VOICE BOUNCES HERE", 9, FAINT) +
+      /* the meter bar */
+      '<rect x="44" y="92" width="272" height="22" rx="5" fill="url(#amGrad)"/>' +
+      '<rect x="' + dbx(-3) + '" y="92" width="' + (316 - dbx(-3)) + '" height="22" fill="url(#amHatch)"/>' +
+      '<rect x="44" y="92" width="272" height="22" rx="5" fill="none" stroke="rgba(141,235,0,.35)"/>' +
+      /* target needle at -12dB */
+      '<line x1="' + dbx(-12) + '" y1="80" x2="' + dbx(-12) + '" y2="126" stroke="' + NEON + '" stroke-width="2"/>' +
+      '<polygon points="' + (dbx(-12) - 5) + ',74 ' + (dbx(-12) + 5) + ',74 ' + dbx(-12) + ',81" fill="' + NEON + '"/>' +
+      /* ticks + scale numbers */
+      [ [-40, FAINT, 0], [-24, FAINT, 0], [-12, NEON, 700], [-6, FAINT, 0], [0, TEXT, 700] ].map(function(t){
+        return '<line x1="' + dbx(t[0]) + '" y1="114" x2="' + dbx(t[0]) + '" y2="120" stroke="' + FAINT + '"/>' +
+          label(dbx(t[0]), 136, (t[0] === 0 ? "0" : "\u2212" + Math.abs(t[0])), 10, t[1], "middle", t[2] || undefined);
+      }).join("") +
+      label(44, 162, "WHISPERS + HISS", 9, FAINT, "start") +
+      label(316, 162, "CLIPPING \u2014 RUINED", 9.5, TEXT, "end", 700) +
+      label(180, 192, "PEAK BETWEEN \u221212dB AND \u22126dB", 10.5, NEON, "middle", 700);
+    return frame(360, 206, inner);
+  }
+
+  /* ---------------- gamma curves (standard vs log) ---------------- */
+  function gammaCurves(){
+    var std = "M92 208 C138 122 190 86 240 74 C275 67 305 66 322 66";
+    var log = "M92 208 C165 178 250 130 322 84";
+    var inner =
+      '<defs><linearGradient id="logFill" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="' + NEON + '" stop-opacity=".13"/>' +
+      '<stop offset="100%" stop-color="' + NEON + '" stop-opacity=".01"/></linearGradient></defs>' +
+      label(180, 30, "GAMMA \u2014 TWO CURVES", 12, NEON, "middle", 700) +
+      '<line x1="84" y1="212" x2="330" y2="212" stroke="' + DIM + '" stroke-width="1"/>' +
+      '<line x1="84" y1="212" x2="84" y2="46" stroke="' + DIM + '" stroke-width="1"/>' +
+      label(76, 70, "highlights", 9, FAINT, "end") +
+      label(76, 204, "shadows", 9, FAINT, "end") +
+      '<path d="' + log + ' L322 212 L92 212 Z" fill="url(#logFill)"/>' +
+      '<path d="' + std + '" fill="none" stroke="' + TEXT + '" stroke-width="2.5"/>' +
+      '<path d="' + log + '" fill="none" stroke="' + NEON + '" stroke-width="2.5"/>' +
+      '<circle cx="322" cy="66" r="3.5" fill="' + TEXT + '"/>' +
+      '<circle cx="322" cy="84" r="3.5" fill="' + NEON + '"/>' +
+      label(252, 54, "STANDARD \u2014 DECIDES + CLIPS", 9.5, TEXT, "middle", 700) +
+      label(322, 102, "LOG \u2014 KEEPS THE DATA", 9.5, NEON, "end", 700) +
+      label(134, 152, "THE GAP IS", 9.5, FAINT, "start") +
+      label(134, 165, "YOUR GRADE", 9.5, FAINT, "start") +
+      label(92, 232, "DARK SCENE", 9.5, FAINT, "start") +
+      label(322, 232, "BRIGHT SCENE", 9.5, FAINT, "end");
+    return frame(360, 246, inner);
+  }
 
   window.CDFmVisuals = {
     ids: function(){ return Object.keys(LIB); },
