@@ -24,75 +24,78 @@
   /* ---------------- 1. exposure triangle ---------------- */
   function exposureTriangle(){
     var inner =
-      label(180, 34, "EXPOSURE TRIANGLE", 12, NEON, "middle", 700) +
+      label(180, 30, "EXPOSURE TRIANGLE", 12, NEON, "middle", 700) +
       /* triangle */
-      '<path d="M180 62 L62 210 L298 210 Z" fill="none" stroke="' + NEON + '" stroke-width="2"/>' +
+      '<path d="M180 78 L62 226 L298 226 Z" fill="none" stroke="' + NEON + '" stroke-width="2"/>' +
       /* corner nodes */
-      '<circle cx="180" cy="62" r="7" fill="' + NEON + '"/>' +
-      '<circle cx="62" cy="210" r="7" fill="' + NEON + '"/>' +
-      '<circle cx="298" cy="210" r="7" fill="' + NEON + '"/>' +
+      '<circle cx="180" cy="78" r="7" fill="' + NEON + '"/>' +
+      '<circle cx="62" cy="226" r="7" fill="' + NEON + '"/>' +
+      '<circle cx="298" cy="226" r="7" fill="' + NEON + '"/>' +
       /* corner labels */
-      label(180, 50, "APERTURE", 12, TEXT, "middle", 700) +
-      label(62, 234, "SHUTTER", 12, TEXT, "middle", 700) +
-      label(298, 234, "ISO", 12, TEXT, "middle", 700) +
-      /* sub-ranges */
-      label(180, 84, "f/1.8 \u2194 f/16", 10, FAINT) +
-      label(112, 196, "1/1000 \u2194 30\u2033", 10, FAINT) +
-      label(248, 196, "100 \u2194 12800", 10, FAINT) +
+      label(180, 56, "APERTURE", 12, TEXT, "middle", 700) +
+      label(62, 252, "SHUTTER", 12, TEXT, "middle", 700) +
+      label(298, 252, "ISO", 12, TEXT, "middle", 700) +
+      /* sub-ranges: kept clear of the edges — aperture beside its node,
+         shutter / ISO ranges under their corner labels */
+      label(198, 70, "f/1.8 \u2194 f/16", 10, TEXT, "start") +
+      label(62, 270, "1/1000 \u2194 30\u2033", 10, TEXT) +
+      label(298, 270, "100 \u2194 12800", 10, TEXT) +
       /* center */
-      label(180, 158, "CHANGE ONE \u2014", 10, FAINT) +
-      label(180, 172, "MOVE ANOTHER", 10, FAINT) +
-      label(180, 188, "TO HOLD EXPOSURE", 10, DIM, "middle", 700);
-    return frame(360, 262, inner);
+      label(180, 168, "CHANGE ONE \u2014", 10, FAINT) +
+      label(180, 182, "MOVE ANOTHER", 10, FAINT) +
+      label(180, 198, "TO HOLD EXPOSURE", 10, NEON, "middle", 700);
+    return frame(360, 286, inner);
   }
 
   /* ---------------- 2. aperture vs depth of field (graph) ---------------- */
   function apertureDof(){
-    /* x: f/1.8 (40) -> f/16 (320); y: shallow (200) -> deep (60) */
-    var curve = "M40 196 C110 188 170 150 320 66";
+    /* plot shifted right (axis at x=64) so the y labels sit inside the
+       frame; x: f/1.8 (64) -> f/16 (320); y: shallow (200) -> deep (60) */
+    var curve = "M64 196 C130 188 190 150 320 66";
     var inner =
       label(180, 30, "APERTURE \u2192 DEPTH OF FIELD", 12, NEON, "middle", 700) +
       /* axes */
-      '<line x1="40" y1="210" x2="330" y2="210" stroke="' + DIM + '" stroke-width="1"/>' +
-      '<line x1="40" y1="210" x2="40" y2="46" stroke="' + DIM + '" stroke-width="1"/>' +
+      '<line x1="64" y1="210" x2="330" y2="210" stroke="' + DIM + '" stroke-width="1"/>' +
+      '<line x1="64" y1="210" x2="64" y2="46" stroke="' + DIM + '" stroke-width="1"/>' +
       /* curve */
       '<path d="' + curve + '" fill="none" stroke="' + NEON + '" stroke-width="2.5"/>' +
-      '<circle cx="40" cy="196" r="4" fill="' + NEON + '"/>' +
+      '<circle cx="64" cy="196" r="4" fill="' + NEON + '"/>' +
       '<circle cx="320" cy="66" r="4" fill="' + NEON + '"/>' +
       /* x ticks */
-      label(40, 228, "f/1.8", 10, FAINT) +
-      label(130, 228, "f/4", 10, FAINT) +
-      label(220, 228, "f/8", 10, FAINT) +
+      label(64, 228, "f/1.8", 10, FAINT) +
+      label(150, 228, "f/4", 10, FAINT) +
+      label(236, 228, "f/8", 10, FAINT) +
       label(320, 228, "f/16", 10, FAINT) +
       /* y labels */
-      label(28, 200, "shallow", 10, FAINT, "end") +
-      label(28, 70, "deep", 10, FAINT, "end") +
+      label(56, 200, "shallow", 10, FAINT, "end") +
+      label(56, 70, "deep", 10, FAINT, "end") +
       /* callouts */
-      label(96, 168, "creamy blur", 10, DIM) +
-      label(272, 92, "sharp front-to-back", 10, DIM);
+      label(106, 156, "creamy blur", 10, FAINT) +
+      label(262, 92, "sharp front-to-back", 10, FAINT);
     return frame(360, 248, inner);
   }
 
   /* ---------------- 3. ISO vs noise (graph) ---------------- */
   function isoNoise(){
-    /* log-ish x positions for 100..12800; y: clean (200) -> grainy (60) */
-    var curve = "M48 198 C110 192 160 178 200 150 C240 122 280 92 322 62";
+    /* same right-shifted plot as apertureDof so the y labels stay inside
+       the frame; log-ish x positions for 100..12800; y: clean -> grainy */
+    var curve = "M72 198 C130 192 180 178 216 150 C252 122 288 92 322 62";
     var inner =
       label(180, 30, "ISO \u2192 NOISE", 12, NEON, "middle", 700) +
-      '<line x1="40" y1="210" x2="330" y2="210" stroke="' + DIM + '" stroke-width="1"/>' +
-      '<line x1="40" y1="210" x2="40" y2="46" stroke="' + DIM + '" stroke-width="1"/>' +
+      '<line x1="64" y1="210" x2="330" y2="210" stroke="' + DIM + '" stroke-width="1"/>' +
+      '<line x1="64" y1="210" x2="64" y2="46" stroke="' + DIM + '" stroke-width="1"/>' +
       '<path d="' + curve + '" fill="none" stroke="' + NEON + '" stroke-width="2.5"/>' +
-      '<circle cx="48" cy="198" r="4" fill="' + NEON + '"/>' +
+      '<circle cx="72" cy="198" r="4" fill="' + NEON + '"/>' +
       '<circle cx="322" cy="62" r="4" fill="' + NEON + '"/>' +
-      label(48, 228, "100", 10, FAINT) +
-      label(140, 228, "800", 10, FAINT) +
-      label(232, 228, "3200", 10, FAINT) +
+      label(72, 228, "100", 10, FAINT) +
+      label(152, 228, "800", 10, FAINT) +
+      label(238, 228, "3200", 10, FAINT) +
       label(322, 228, "12800", 10, FAINT) +
-      label(28, 200, "clean", 10, FAINT, "end") +
-      label(28, 70, "grainy", 10, FAINT, "end") +
-      label(104, 176, "sweet spot", 10, DIM) +
-      label(276, 108, "use only if", 10, DIM) +
-      label(276, 120, "you must", 10, DIM);
+      label(56, 200, "clean", 10, FAINT, "end") +
+      label(56, 70, "grainy", 10, FAINT, "end") +
+      label(124, 176, "sweet spot", 10, FAINT) +
+      label(232, 82, "use only if", 10, FAINT) +
+      label(232, 95, "you must", 10, FAINT);
     return frame(360, 248, inner);
   }
 
@@ -110,13 +113,15 @@
     stops.forEach(function(s){
       inner += '<circle cx="' + s.x + '" cy="80" r="4" fill="' + NEON + '"/>';
       inner += label(s.x, 102, s.t, 10, TEXT, "middle", 700);
-      /* motion streak: horizontal neon smear, longer = more blur */
-      inner += '<rect x="' + (s.x - s.streak) + '" y="126" width="' + (s.streak * 2) + '" height="10" rx="5" ' +
+      /* motion streak: horizontal neon smear, longer = more blur;
+         clamped so the longest streak ends inside the frame */
+      var sx = Math.max(8, Math.min(s.x - s.streak, 352 - s.streak * 2));
+      inner += '<rect x="' + sx + '" y="126" width="' + (s.streak * 2) + '" height="10" rx="5" ' +
         'fill="' + NEON + '" opacity="' + (0.85 - (s.streak / 70) * 0.55).toFixed(2) + '"/>';
       inner += '<circle cx="' + s.x + '" cy="131" r="7" fill="none" stroke="' + NEON + '" stroke-width="2"/>';
     });
-    inner += label(52, 168, "freezes motion", 10, DIM);
-    inner += label(308, 168, "blurs motion", 10, DIM);
+    inner += label(36, 168, "freezes motion", 10, FAINT, "start");
+    inner += label(324, 168, "blurs motion", 10, FAINT, "end");
     inner += label(180, 196, "SLOWER SHUTTER = MORE LIGHT + MORE BLUR", 10, FAINT);
     return frame(360, 216, inner);
   }
