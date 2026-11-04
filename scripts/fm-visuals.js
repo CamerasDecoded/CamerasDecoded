@@ -125,25 +125,38 @@
     /* same right-shifted plot as apertureDof so the y labels stay inside
        the frame; log-ish x positions for 100..12800; y: clean -> grainy */
     var curve = "M72 198 C130 192 180 178 216 150 C252 122 288 92 322 62";
-    /* grain field: sparse fine specks across the plot, denser and
-       coarser toward the high-ISO end — the noise the curve describes */
-    var grain = "", i, gx, gy;
-    for (i = 0; i < 26; i++){
-      gx = 70 + ((i * 47) % 252); gy = 54 + ((i * 31) % 148);
-      grain += '<circle cx="' + gx + '" cy="' + gy + '" r="0.9" fill="' + FAINT + '" opacity=".16"/>';
+    /* scene strip (matched to the aperture strip): the same subject at
+       ISO 100 / 1600 / 12800 — blacks lift, edges soften, contrast
+       flattens as sensitivity climbs. Smooth tones only, no speckle. */
+    function isoPanel(x, isoLabel, bg, discs, subject, wash){
+      var s = '<rect x="' + x + '" y="246" width="84" height="52" rx="10" fill="' + bg + '" stroke="rgba(141,235,0,.18)"/>' +
+        label(x + 9, 259, isoLabel, 8.5, FAINT, "start") +
+        '<line x1="' + (x + 8) + '" y1="284" x2="' + (x + 76) + '" y2="284" stroke="' + DIM + '" stroke-width="1"/>' +
+        discs + subject;
+      if (wash) s += '<rect x="' + (x + 2) + '" y="248" width="80" height="48" rx="9" fill="' + FAINT + '" opacity=".08"/>';
+      return s;
     }
-    for (i = 0; i < 30; i++){
-      gx = 196 + ((i * 29) % 128); gy = 54 + ((i * 41) % 148);
-      grain += '<circle cx="' + gx + '" cy="' + gy + '" r="' + (1.3 + ((i * 7) % 3) * 0.5).toFixed(1) + '" fill="' + TEXT + '" opacity=".28"/>';
-    }
+    var ip1 = isoPanel(48, "100", "#0b0d09",
+      '<circle cx="104" cy="266" r="3.5" fill="' + NEON + '" opacity=".55"/>' +
+      '<circle cx="116" cy="274" r="3" fill="' + NEON + '" opacity=".55"/>',
+      '<circle cx="69" cy="271" r="6" fill="' + NEON + '"/>', false);
+    var ip2 = isoPanel(148, "1600", "#12150e",
+      '<circle cx="204" cy="266" r="4.5" fill="' + NEON + '" opacity=".45" filter="url(#isoSoftSm)"/>' +
+      '<circle cx="216" cy="274" r="3.5" fill="' + NEON + '" opacity=".45" filter="url(#isoSoftSm)"/>',
+      '<circle cx="169" cy="271" r="6" fill="' + NEON + '" opacity=".92" filter="url(#isoSoftSm)"/>', false);
+    var ip3 = isoPanel(248, "12800", "#1a1e14",
+      '<circle cx="306" cy="266" r="6" fill="' + NEON + '" opacity=".35" filter="url(#isoSoft)"/>' +
+      '<circle cx="318" cy="275" r="4.5" fill="' + NEON + '" opacity=".35" filter="url(#isoSoft)"/>',
+      '<circle cx="269" cy="271" r="6" fill="' + NEON + '" opacity=".85" filter="url(#isoSoft)"/>', true);
     var inner =
       '<defs><linearGradient id="isoFill" x1="0" y1="0" x2="0" y2="1">' +
       '<stop offset="0%" stop-color="' + NEON + '" stop-opacity=".14"/>' +
-      '<stop offset="100%" stop-color="' + NEON + '" stop-opacity=".01"/></linearGradient></defs>' +
+      '<stop offset="100%" stop-color="' + NEON + '" stop-opacity=".01"/></linearGradient>' +
+      '<filter id="isoSoft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.8"/></filter>' +
+      '<filter id="isoSoftSm" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="0.9"/></filter></defs>' +
       label(180, 30, "ISO \u2192 NOISE", 12, NEON, "middle", 700) +
       '<line x1="64" y1="210" x2="330" y2="210" stroke="' + DIM + '" stroke-width="1"/>' +
       '<line x1="64" y1="210" x2="64" y2="46" stroke="' + DIM + '" stroke-width="1"/>' +
-      grain +
       '<path d="' + curve + ' L322 210 L72 210 Z" fill="url(#isoFill)"/>' +
       '<path d="' + curve + '" fill="none" stroke="' + NEON + '" stroke-width="2.5"/>' +
       '<circle cx="72" cy="198" r="4" fill="' + NEON + '"/>' +
@@ -156,8 +169,10 @@
       label(56, 70, "grainy", 10, FAINT, "end") +
       label(124, 176, "sweet spot", 10, FAINT) +
       label(232, 82, "use only if", 10, FAINT) +
-      label(232, 95, "you must", 10, FAINT);
-    return frame(360, 248, inner);
+      label(232, 95, "you must", 10, FAINT) +
+      /* scene strip */
+      ip1 + ip2 + ip3;
+    return frame(360, 312, inner);
   }
 
   /* ---------------- 4. shutter speed vs motion blur (scale) ---------------- */
