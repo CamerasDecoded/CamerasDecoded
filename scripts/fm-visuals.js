@@ -24,76 +24,155 @@
   /* ---------------- 1. exposure triangle ---------------- */
   function exposureTriangle(){
     var inner =
-      label(180, 34, "EXPOSURE TRIANGLE", 12, NEON, "middle", 700) +
-      /* triangle */
-      '<path d="M180 62 L62 210 L298 210 Z" fill="none" stroke="' + NEON + '" stroke-width="2"/>' +
-      /* corner nodes */
-      '<circle cx="180" cy="62" r="7" fill="' + NEON + '"/>' +
-      '<circle cx="62" cy="210" r="7" fill="' + NEON + '"/>' +
-      '<circle cx="298" cy="210" r="7" fill="' + NEON + '"/>' +
+      '<defs><radialGradient id="triGlow" cx="50%" cy="46%" r="55%">' +
+      '<stop offset="0%" stop-color="' + NEON + '" stop-opacity=".13"/>' +
+      '<stop offset="100%" stop-color="' + NEON + '" stop-opacity="0"/></radialGradient></defs>' +
+      label(180, 30, "EXPOSURE TRIANGLE", 12, NEON, "middle", 700) +
+      /* triangle with a lit interior */
+      '<path d="M180 78 L62 226 L298 226 Z" fill="url(#triGlow)" stroke="' + NEON + '" stroke-width="2"/>' +
+      /* corner nodes: dark rings carrying a small icon each —
+         aperture iris (top), shutter dial (left), ISO gain bars (right) */
+      '<circle cx="180" cy="78" r="11" fill="#0a0f05" stroke="' + NEON + '" stroke-width="1.5"/>' +
+      '<polygon points="184.2,78 182.1,81.6 177.9,81.6 175.8,78 177.9,74.4 182.1,74.4" fill="none" stroke="' + NEON + '" stroke-width="1.2"/>' +
+      '<circle cx="62" cy="226" r="11" fill="#0a0f05" stroke="' + NEON + '" stroke-width="1.5"/>' +
+      '<circle cx="62" cy="226" r="5.5" fill="none" stroke="' + NEON + '" stroke-width="1.2"/>' +
+      '<line x1="62" y1="226" x2="65.5" y2="222.5" stroke="' + NEON + '" stroke-width="1.2"/>' +
+      '<circle cx="298" cy="226" r="11" fill="#0a0f05" stroke="' + NEON + '" stroke-width="1.5"/>' +
+      '<rect x="293.4" y="227" width="2.6" height="3" fill="' + NEON + '"/>' +
+      '<rect x="297" y="224.5" width="2.6" height="5.5" fill="' + NEON + '"/>' +
+      '<rect x="300.6" y="222" width="2.6" height="8" fill="' + NEON + '"/>' +
       /* corner labels */
-      label(180, 50, "APERTURE", 12, TEXT, "middle", 700) +
-      label(62, 234, "SHUTTER", 12, TEXT, "middle", 700) +
-      label(298, 234, "ISO", 12, TEXT, "middle", 700) +
-      /* sub-ranges */
-      label(180, 84, "f/1.8 \u2194 f/16", 10, FAINT) +
-      label(112, 196, "1/1000 \u2194 30\u2033", 10, FAINT) +
-      label(248, 196, "100 \u2194 12800", 10, FAINT) +
+      label(180, 56, "APERTURE", 12, TEXT, "middle", 700) +
+      label(62, 252, "SHUTTER", 12, TEXT, "middle", 700) +
+      label(298, 252, "ISO", 12, TEXT, "middle", 700) +
+      /* sub-ranges: kept clear of the edges — aperture beside its node,
+         shutter / ISO ranges under their corner labels */
+      label(198, 70, "f/1.8 \u2194 f/16", 10, TEXT, "start") +
+      label(62, 270, "1/1000 \u2194 30\u2033", 10, TEXT) +
+      label(298, 270, "100 \u2194 12800", 10, TEXT) +
       /* center */
-      label(180, 158, "CHANGE ONE \u2014", 10, FAINT) +
-      label(180, 172, "MOVE ANOTHER", 10, FAINT) +
-      label(180, 188, "TO HOLD EXPOSURE", 10, DIM, "middle", 700);
-    return frame(360, 262, inner);
+      label(180, 168, "CHANGE ONE \u2014", 10, FAINT) +
+      label(180, 182, "MOVE ANOTHER", 10, FAINT) +
+      label(180, 198, "TO HOLD EXPOSURE", 10, NEON, "middle", 700);
+    return frame(360, 286, inner);
   }
 
   /* ---------------- 2. aperture vs depth of field (graph) ---------------- */
   function apertureDof(){
-    /* x: f/1.8 (40) -> f/16 (320); y: shallow (200) -> deep (60) */
-    var curve = "M40 196 C110 188 170 150 320 66";
+    /* plot shifted right (axis at x=64) so the y labels sit inside the
+       frame; x: f/1.8 (64) -> f/16 (320); y: shallow (200) -> deep (60).
+       Below the graph, a scene strip shows the same subject at three
+       apertures: background discs melt at f/1.8, resolve by f/16. */
+    var curve = "M64 196 C130 188 190 150 320 66";
+    function panel(x, fLabel, discs, ridge){
+      var s = '<rect x="' + x + '" y="246" width="84" height="52" rx="10" fill="rgba(141,235,0,.03)" stroke="rgba(141,235,0,.18)"/>' +
+        label(x + 9, 259, fLabel, 8.5, FAINT, "start") +
+        '<line x1="' + (x + 8) + '" y1="284" x2="' + (x + 76) + '" y2="284" stroke="' + DIM + '" stroke-width="1"/>';
+      if (ridge) s += '<path d="M' + (x + 40) + ' 284 L' + (x + 54) + ' 269 L' + (x + 63) + ' 277 L' + (x + 71) + ' 271 L' + (x + 79) + ' 284" fill="none" stroke="' + FAINT + '" stroke-width="1.2"/>';
+      s += discs;
+      s += '<circle cx="' + (x + 21) + '" cy="271" r="6" fill="' + NEON + '"/>';
+      return s;
+    }
+    var soft = ' filter="url(#dofSoft)"', softSm = ' filter="url(#dofSoftSm)"';
+    var p1 = panel(48, "f/1.8",
+      '<circle cx="100" cy="264" r="9" fill="' + NEON + '" opacity=".35"' + soft + '/>' +
+      '<circle cx="116" cy="274" r="7" fill="' + NEON + '" opacity=".35"' + soft + '/>' +
+      '<circle cx="94" cy="279" r="5.5" fill="' + NEON + '" opacity=".35"' + soft + '/>', false);
+    var p2 = panel(148, "f/5.6",
+      '<circle cx="200" cy="264" r="6" fill="' + NEON + '" opacity=".4"' + softSm + '/>' +
+      '<circle cx="214" cy="273" r="5" fill="' + NEON + '" opacity=".4"' + softSm + '/>' +
+      '<circle cx="195" cy="278" r="4" fill="' + NEON + '" opacity=".4"' + softSm + '/>', false);
+    var p3 = panel(248, "f/16",
+      '<circle cx="314" cy="262" r="3.5" fill="' + NEON + '" opacity=".55"/>' +
+      '<circle cx="322" cy="270" r="3" fill="' + NEON + '" opacity=".55"/>' +
+      '<circle cx="308" cy="272" r="2.5" fill="' + NEON + '" opacity=".55"/>', true);
     var inner =
+      '<defs>' +
+      '<linearGradient id="dofFill" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="' + NEON + '" stop-opacity=".16"/>' +
+      '<stop offset="100%" stop-color="' + NEON + '" stop-opacity=".01"/></linearGradient>' +
+      '<filter id="dofSoft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.2"/></filter>' +
+      '<filter id="dofSoftSm" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.1"/></filter>' +
+      '</defs>' +
       label(180, 30, "APERTURE \u2192 DEPTH OF FIELD", 12, NEON, "middle", 700) +
       /* axes */
-      '<line x1="40" y1="210" x2="330" y2="210" stroke="' + DIM + '" stroke-width="1"/>' +
-      '<line x1="40" y1="210" x2="40" y2="46" stroke="' + DIM + '" stroke-width="1"/>' +
+      '<line x1="64" y1="210" x2="330" y2="210" stroke="' + DIM + '" stroke-width="1"/>' +
+      '<line x1="64" y1="210" x2="64" y2="46" stroke="' + DIM + '" stroke-width="1"/>' +
+      /* lit area under the curve */
+      '<path d="' + curve + ' L320 210 L64 210 Z" fill="url(#dofFill)"/>' +
       /* curve */
       '<path d="' + curve + '" fill="none" stroke="' + NEON + '" stroke-width="2.5"/>' +
-      '<circle cx="40" cy="196" r="4" fill="' + NEON + '"/>' +
+      '<circle cx="64" cy="196" r="4" fill="' + NEON + '"/>' +
       '<circle cx="320" cy="66" r="4" fill="' + NEON + '"/>' +
       /* x ticks */
-      label(40, 228, "f/1.8", 10, FAINT) +
-      label(130, 228, "f/4", 10, FAINT) +
-      label(220, 228, "f/8", 10, FAINT) +
+      label(64, 228, "f/1.8", 10, FAINT) +
+      label(150, 228, "f/4", 10, FAINT) +
+      label(236, 228, "f/8", 10, FAINT) +
       label(320, 228, "f/16", 10, FAINT) +
       /* y labels */
-      label(28, 200, "shallow", 10, FAINT, "end") +
-      label(28, 70, "deep", 10, FAINT, "end") +
+      label(56, 200, "shallow", 10, FAINT, "end") +
+      label(56, 70, "deep", 10, FAINT, "end") +
       /* callouts */
-      label(96, 168, "creamy blur", 10, DIM) +
-      label(272, 92, "sharp front-to-back", 10, DIM);
-    return frame(360, 248, inner);
+      label(106, 156, "creamy blur", 10, FAINT) +
+      label(262, 92, "sharp front-to-back", 10, FAINT) +
+      /* scene strip */
+      p1 + p2 + p3;
+    return frame(360, 312, inner);
   }
 
   /* ---------------- 3. ISO vs noise (graph) ---------------- */
   function isoNoise(){
-    /* log-ish x positions for 100..12800; y: clean (200) -> grainy (60) */
-    var curve = "M48 198 C110 192 160 178 200 150 C240 122 280 92 322 62";
+    /* same right-shifted plot as apertureDof so the y labels stay inside
+       the frame; log-ish x positions for 100..12800; y: clean -> grainy */
+    var curve = "M72 198 C130 192 180 178 216 150 C252 122 288 92 322 62";
+    /* scene strip (matched to the aperture strip): the same subject at
+       ISO 100 / 1600 / 12800 — blacks lift, edges soften, contrast
+       flattens as sensitivity climbs. Smooth tones only, no speckle. */
+    function isoPanel(x, isoLabel, bg, discs, subject, wash){
+      var s = '<rect x="' + x + '" y="246" width="84" height="52" rx="10" fill="' + bg + '" stroke="rgba(141,235,0,.18)"/>' +
+        label(x + 9, 259, isoLabel, 8.5, FAINT, "start") +
+        '<line x1="' + (x + 8) + '" y1="284" x2="' + (x + 76) + '" y2="284" stroke="' + DIM + '" stroke-width="1"/>' +
+        discs + subject;
+      if (wash) s += '<rect x="' + (x + 2) + '" y="248" width="80" height="48" rx="9" fill="' + FAINT + '" opacity=".08"/>';
+      return s;
+    }
+    var ip1 = isoPanel(48, "100", "#0b0d09",
+      '<circle cx="104" cy="266" r="3.5" fill="' + NEON + '" opacity=".55"/>' +
+      '<circle cx="116" cy="274" r="3" fill="' + NEON + '" opacity=".55"/>',
+      '<circle cx="69" cy="271" r="6" fill="' + NEON + '"/>', false);
+    var ip2 = isoPanel(148, "1600", "#12150e",
+      '<circle cx="204" cy="266" r="4.5" fill="' + NEON + '" opacity=".45" filter="url(#isoSoftSm)"/>' +
+      '<circle cx="216" cy="274" r="3.5" fill="' + NEON + '" opacity=".45" filter="url(#isoSoftSm)"/>',
+      '<circle cx="169" cy="271" r="6" fill="' + NEON + '" opacity=".92" filter="url(#isoSoftSm)"/>', false);
+    var ip3 = isoPanel(248, "12800", "#1a1e14",
+      '<circle cx="306" cy="266" r="6" fill="' + NEON + '" opacity=".35" filter="url(#isoSoft)"/>' +
+      '<circle cx="318" cy="275" r="4.5" fill="' + NEON + '" opacity=".35" filter="url(#isoSoft)"/>',
+      '<circle cx="269" cy="271" r="6" fill="' + NEON + '" opacity=".85" filter="url(#isoSoft)"/>', true);
     var inner =
+      '<defs><linearGradient id="isoFill" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="' + NEON + '" stop-opacity=".14"/>' +
+      '<stop offset="100%" stop-color="' + NEON + '" stop-opacity=".01"/></linearGradient>' +
+      '<filter id="isoSoft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.8"/></filter>' +
+      '<filter id="isoSoftSm" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="0.9"/></filter></defs>' +
       label(180, 30, "ISO \u2192 NOISE", 12, NEON, "middle", 700) +
-      '<line x1="40" y1="210" x2="330" y2="210" stroke="' + DIM + '" stroke-width="1"/>' +
-      '<line x1="40" y1="210" x2="40" y2="46" stroke="' + DIM + '" stroke-width="1"/>' +
+      '<line x1="64" y1="210" x2="330" y2="210" stroke="' + DIM + '" stroke-width="1"/>' +
+      '<line x1="64" y1="210" x2="64" y2="46" stroke="' + DIM + '" stroke-width="1"/>' +
+      '<path d="' + curve + ' L322 210 L72 210 Z" fill="url(#isoFill)"/>' +
       '<path d="' + curve + '" fill="none" stroke="' + NEON + '" stroke-width="2.5"/>' +
-      '<circle cx="48" cy="198" r="4" fill="' + NEON + '"/>' +
+      '<circle cx="72" cy="198" r="4" fill="' + NEON + '"/>' +
       '<circle cx="322" cy="62" r="4" fill="' + NEON + '"/>' +
-      label(48, 228, "100", 10, FAINT) +
-      label(140, 228, "800", 10, FAINT) +
-      label(232, 228, "3200", 10, FAINT) +
+      label(72, 228, "100", 10, FAINT) +
+      label(152, 228, "800", 10, FAINT) +
+      label(238, 228, "3200", 10, FAINT) +
       label(322, 228, "12800", 10, FAINT) +
-      label(28, 200, "clean", 10, FAINT, "end") +
-      label(28, 70, "grainy", 10, FAINT, "end") +
-      label(104, 176, "sweet spot", 10, DIM) +
-      label(276, 108, "use only if", 10, DIM) +
-      label(276, 120, "you must", 10, DIM);
-    return frame(360, 248, inner);
+      label(56, 200, "clean", 10, FAINT, "end") +
+      label(56, 70, "grainy", 10, FAINT, "end") +
+      label(124, 176, "sweet spot", 10, FAINT) +
+      label(232, 82, "use only if", 10, FAINT) +
+      label(232, 95, "you must", 10, FAINT) +
+      /* scene strip */
+      ip1 + ip2 + ip3;
+    return frame(360, 312, inner);
   }
 
   /* ---------------- 4. shutter speed vs motion blur (scale) ---------------- */
@@ -105,18 +184,28 @@
       { x: 244, t: "1/15",   streak: 48 },
       { x: 308, t: '1"',     streak: 70 }
     ];
-    var inner = label(180, 30, "SHUTTER SPEED \u2192 MOTION", 12, NEON, "middle", 700);
+    var inner =
+      '<defs><linearGradient id="shuFade" x1="0" y1="0" x2="1" y2="0">' +
+      '<stop offset="0%" stop-color="' + NEON + '" stop-opacity=".95"/>' +
+      '<stop offset="100%" stop-color="' + NEON + '" stop-opacity=".2"/></linearGradient></defs>' +
+      label(180, 30, "SHUTTER SPEED \u2192 MOTION", 12, NEON, "middle", 700) +
+      /* freeze spark over the fastest stop */
+      '<path d="M52 42 L54.6 49.4 L62 52 L54.6 54.6 L52 62 L49.4 54.6 L42 52 L49.4 49.4 Z" fill="' + NEON + '"/>';
     inner += '<line x1="36" y1="80" x2="324" y2="80" stroke="' + DIM + '" stroke-width="1"/>';
     stops.forEach(function(s){
+      inner += '<circle cx="' + s.x + '" cy="80" r="8" fill="' + NEON + '" opacity=".14"/>';
       inner += '<circle cx="' + s.x + '" cy="80" r="4" fill="' + NEON + '"/>';
       inner += label(s.x, 102, s.t, 10, TEXT, "middle", 700);
-      /* motion streak: horizontal neon smear, longer = more blur */
-      inner += '<rect x="' + (s.x - s.streak) + '" y="126" width="' + (s.streak * 2) + '" height="10" rx="5" ' +
-        'fill="' + NEON + '" opacity="' + (0.85 - (s.streak / 70) * 0.55).toFixed(2) + '"/>';
+      /* motion streak: horizontal neon smear that fades along its
+         length like real motion blur; longer = more blur, clamped so
+         the longest streak ends inside the frame */
+      var sx = Math.max(8, Math.min(s.x - s.streak, 352 - s.streak * 2));
+      inner += '<rect x="' + sx + '" y="126" width="' + (s.streak * 2) + '" height="10" rx="5" ' +
+        'fill="url(#shuFade)" opacity="' + (0.9 - (s.streak / 70) * 0.35).toFixed(2) + '"/>';
       inner += '<circle cx="' + s.x + '" cy="131" r="7" fill="none" stroke="' + NEON + '" stroke-width="2"/>';
     });
-    inner += label(52, 168, "freezes motion", 10, DIM);
-    inner += label(308, 168, "blurs motion", 10, DIM);
+    inner += label(36, 168, "freezes motion", 10, FAINT, "start");
+    inner += label(324, 168, "blurs motion", 10, FAINT, "end");
     inner += label(180, 196, "SLOWER SHUTTER = MORE LIGHT + MORE BLUR", 10, FAINT);
     return frame(360, 216, inner);
   }
