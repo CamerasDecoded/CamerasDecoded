@@ -12,7 +12,11 @@ on:
     inputs:
       entries_b64:
         description: 'Base64 of JSON.stringify({ roundId, entries: [{ username, displayName, imgUrl }] })'
-        required: true
+        required: false
+      mode:
+        description: 'submit (default) or repair-oct6-handles (one-off repair of round c-2026-10-06 handle-less entries)'
+        required: false
+        default: 'submit'
 
 jobs:
   submit:
@@ -26,8 +30,15 @@ jobs:
         run: npm install
         working-directory: tools/arena-entry-submitter
       - name: Submit entries to Firestore
+        if: ${{ inputs.mode != 'repair-oct6-handles' }}
         run: node submit.js
         working-directory: tools/arena-entry-submitter
         env:
           SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           ENTRIES_B64: ${{ inputs.entries_b64 }}
+      - name: Repair c-2026-10-06 delete handles
+        if: ${{ inputs.mode == 'repair-oct6-handles' }}
+        run: node repair-oct6-handles.js
+        working-directory: tools/arena-entry-submitter
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

@@ -7,11 +7,18 @@
  * For each entry:
  *   1. Looks up the UID by querying users collection for username/displayName
  *   2. Checks if entry already exists (skips if so)
- *   3. Creates arenaRounds/{roundId}/entries/{uid} = { imgUrl, submittedAt, roundId, lane, swept }
+ *   3. Creates arenaRounds/{roundId}/entries/{uid} = { imgUrl, submittedAt, roundId, lane, swept, sweepFailed, sweepError }
  *   4. Creates _private/data = { authorUid, authorName, deleteUrl: null }
  *
- * Note: deleteUrl is null because images are hosted on GitHub (not imgbb).
- * The sweeper will skip these (no delete URL), which is fine for test entries.
+ * Note: deleteUrl is null because images are hosted on GitHub (not imgbb),
+ * and there is no Cloudinary publicId either — these entries have NO delete
+ * handle. The 24h sweep can only burn an image it holds a handle for; an
+ * unmarked handle-less entry is retried on every sweep run forever (that
+ * is exactly what happened to round c-2026-10-06's entries — see
+ * repair-oct6-handles.js). Seed entries are therefore created already
+ * marked sweepFailed (terminal, reason in sweepError): the sweep skips
+ * marked entries, the repo-hosted image simply stays live, and nothing
+ * retries.
  */
 const { initializeApp, cert } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -114,13 +121,15 @@ async function main() {
         roundId: roundId,
         lane: "daily",
         swept: false,
+        sweepFailed: true, // no delete handle exists for repo-hosted seed images — see header
+        sweepError: "seed entry (arena entry submitter): image is repo-hosted on GitHub — no Cloudinary publicId or imgbb deleteUrl exists; nothing for the sweep to burn",
       });
 
       // Create _private/data
       await entryRef.collection("_private").doc("data").set({
         authorUid: uid,
         authorName: authorName,
-        deleteUrl: null, // GitHub-hosted, no delete URL
+        deleteUrl: null, // GitHub-hosted: no delete URL, no Cloudinary publicId
       });
 
       console.log(`Created entry for ${username} (${uid})`);
