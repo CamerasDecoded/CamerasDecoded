@@ -1,0 +1,62 @@
+name: Arena flip sentinel B
+
+# Keeps Arena voting opening on time by running the arena closer on a
+# dense trigger grid through the Chicago evening.
+#
+# Why this exists (run-history evidence, verified 2026-11-05):
+# GitHub's scheduler delivers this repo's scheduled runs HOURS late, with
+# per-workflow variance, so the existing flip triggers never land inside
+# the voting window (01:00-05:00 UTC):
+#   - arena-close.yml's 00:05 UTC slot has never fired at all.
+#   - arena-advance.yml's four slots (00:12/00:42/01:12/01:42 UTC) fire
+#     nightly but started 4h45m-7h15m late on Nov 3, 4 and 5 — the first
+#     run landed ~06:08-06:41 UTC, after closesAt (05:00 UTC). The closer
+#     then closes the round directly from 'open' (by design it skips the
+#     flip once closesAt has passed), so voting never opened: Nov 3
+#     Quiet Corners, Nov 4 Low Sun Portraits, Nov 5 Repetition.
+#   - arena-close.yml's 04:05 UTC crown slot lands ~2h late; the
+#     arena-close-late slots land ~7-8h late.
+# The closer logic itself is correct — only the triggers are unreliable.
+#
+# Design: many cheap triggers, spread across two workflow files with
+# offset minutes, covering 16:04-03:56 UTC daily. Observed trigger delays
+# run +1.7h to +8.25h, so executions carpet the whole UTC night and at
+# least one lands minutes after votingAt (00:00 UTC CDT / 01:00 UTC CST)
+# instead of hours after closesAt. On a night GitHub behaves, the 00:04 /
+# 01:04 UTC slots flip within ~5 minutes of 7 PM Chicago. Every run is
+# the identical closer job used by arena-close / arena-advance /
+# arena-close-late: the closer is state- and timestamp-gated, so an
+# execution with nothing due is a no-op, and the shared 'arena-closer'
+# concurrency group serializes all closer executions — the closer
+# remains the single writer for round state. This file changes nothing
+# about what runs, only how often it is triggered.
+
+on:
+  schedule:
+    - cron: '11,26,41,56 16-23 * * *'
+    - cron: '11,26,41,56 0-3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: arena-closer
+  cancel-in-progress: false
+
+jobs:
+  sentinel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/arena-closer
+      - name: Run the arena closer (sentinel)
+        run: node closer.js
+        working-directory: tools/arena-closer
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
