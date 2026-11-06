@@ -27,7 +27,7 @@
   <script defer src="/scripts/social.js?v=20261009a"></script>
   <script defer src="/scripts/commission-card.js?v=20260912c"></script>
   <!-- Shared site chrome: slim header + mobile bottom nav (injected) -->
-  <script src="/scripts/master-loader.js?v=20261101a"></script>
+  <script src="/scripts/master-loader.js?v=20261106a"></script>
   <!-- Boot-veil rotation variant 3: photographer flip-book (dashboard only) -->
   <script src="/scripts/veil-flipbook.js?v=20261001a"></script>
 </head>
@@ -235,6 +235,12 @@
 
               <section class="journey-block journey-nowplaying" id="journey" aria-label="Field Manual progress">
                 <div id="journeyList"></div>
+              </section>
+
+              <section class="panel cs-card" id="cameraSelectCard" aria-labelledby="csCardTitle">
+                <h2 id="csCardTitle"><i class="fas fa-camera" aria-hidden="true"></i> <span id="csCardHeadline">Camera Select</span></h2>
+                <p id="csCardLine">Lessons for your exact camera — pick your model, and every setting is taught on the body you actually shoot with.</p>
+                <a class="btn btn-secondary" id="csCardCta" href="/camera-select.html">Pick your camera</a>
               </section>
 
               <section class="panel protocol-section" id="protocolSection" aria-labelledby="protocolTitle">
@@ -466,6 +472,11 @@
     @media (prefers-reduced-motion: reduce) {
       .cd-pro-pill { transition: none; }
     }
+    /* Camera Select card — mirrors the ambassador promo card; on phones it
+       sits in the learning flow right after Field Manual progress. */
+    .cs-card h2 { color: var(--green); font-size: 18px; margin-bottom: 8px; }
+    .cs-card p { max-width: 680px; color: var(--muted); font-size: 13px; line-height: 1.6; margin-bottom: 14px; }
+    @media (max-width:820px) { .main-stack > .cs-card { order: 7; padding: 16px; } }
     /* Business toolkit hub */
     .business-hub .muted { margin: 0 0 4px; font-size: 13px; }
     .biz-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
@@ -541,7 +552,67 @@
     })();
   </script>
 
-  <script defer src="/scripts/bottom-nav.js?v=20261101a"></script>
+  <script>
+    // CAMERA SELECT card: when Ask CD has a saved primary camera (localStorage
+    // cd_cameras / cd_camera, written by ask.html) and that model has lessons
+    // live on the shelf, the card names it and deep-links to its shelf page.
+    // Anything else — no camera saved, a model not built yet, unreadable
+    // storage — leaves the generic card above exactly as written.
+    (function () {
+      var LIVE = {
+        'a7 IV': ['sony', 'Sony'], 'a7R V': ['sony', 'Sony'], 'a7C II': ['sony', 'Sony'],
+        'a6700': ['sony', 'Sony'], 'a6400': ['sony', 'Sony'],
+        'EOS R5': ['canon', 'Canon'], 'EOS R6 II': ['canon', 'Canon'], 'EOS R8': ['canon', 'Canon'],
+        'EOS R7': ['canon', 'Canon'], 'EOS R10': ['canon', 'Canon'], 'EOS R50': ['canon', 'Canon'],
+        'Z8': ['nikon', 'Nikon'], 'Z6 III': ['nikon', 'Nikon'], 'Zf': ['nikon', 'Nikon'],
+        'Z5 II': ['nikon', 'Nikon'], 'Z50 II': ['nikon', 'Nikon'],
+        'X-T5': ['fuji', 'Fujifilm'], 'X100VI': ['fuji', 'Fujifilm'],
+        'S5 II': ['lumix', 'Lumix']
+      };
+      var BRAND_KEY = { sony: 'sony', canon: 'canon', nikon: 'nikon', fujifilm: 'fuji', fuji: 'fuji', panasonic: 'lumix', lumix: 'lumix' };
+      function sq(v) { return (v || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+      function label(c) { return ((c.brand ? c.brand + ' ' : '') + (c.model || '')).trim(); }
+      function savedPrimary() {
+        try {
+          var raw = localStorage.getItem('cd_cameras');
+          if (raw) {
+            var p = null;
+            try { p = JSON.parse(raw); } catch (e2) {}
+            if (p && p.list && p.list.length) {
+              for (var i = 0; i < p.list.length; i++) { if (label(p.list[i]) === p.primary) return p.list[i]; }
+              return p.list[0];
+            }
+          }
+          var legacy = localStorage.getItem('cd_camera');
+          if (legacy) return { brand: '', model: legacy };
+        } catch (e) {}
+        return null;
+      }
+      function resolve(c) {
+        if (!c || !c.model) return null;
+        var bk = c.brand ? (BRAND_KEY[sq(c.brand)] || null) : null;
+        if (c.brand && !bk) return null;
+        for (var model in LIVE) {
+          if (bk && LIVE[model][0] !== bk) continue;
+          if (sq(c.model) === sq(model)) return { model: model, key: LIVE[model][0], name: LIVE[model][1] };
+          if (sq(c.model) === sq(LIVE[model][1] + ' ' + model)) return { model: model, key: LIVE[model][0], name: LIVE[model][1] };
+        }
+        return null;
+      }
+      var hit = resolve(savedPrimary());
+      if (!hit) return;
+      var head = document.getElementById('csCardHeadline');
+      var line = document.getElementById('csCardLine');
+      var cta = document.getElementById('csCardCta');
+      if (head) head.textContent = 'Your ' + hit.name + ' ' + hit.model;
+      if (line) line.textContent = '5 lessons for your exact camera — First Setup, Autofocus, Custom Buttons, Video Settings and Common Fixes.';
+      if (cta) {
+        cta.href = '/camera-select.html?brand=' + hit.key + '&model=' + encodeURIComponent(hit.model);
+        cta.textContent = 'Open your lessons';
+      }
+    })();
+  </script>
+  <script defer src="/scripts/bottom-nav.js?v=20261106a"></script>
   <script defer src="/scripts/xp-explainer.js?v=20261014b"></script>
   <script defer src="/scripts/light-feed.js?v=20260929c"></script>
   <script defer src="/scripts/cd-companion.js?v=20251007a"></script>

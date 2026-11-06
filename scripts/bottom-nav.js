@@ -79,6 +79,7 @@
       sub: 'Quick drills and daily work.',
       rows: [
         { href: '/field-manual.html',  icon: 'manual',   title: 'Field Manual',      sub: 'The Camera Confidence Guide · Chapters 1–3 free' },
+        { href: '/camera-select.html', icon: 'camera',   title: 'Camera Select',   sub: 'Lessons for your exact camera · 3 free per model' },
         { href: '/camera-confidence-guide.html', icon: 'guide', title: 'The Guide', sub: 'Camera Confidence Guide · The book · $47' },
         { href: '/darkroom.html',      icon: 'darkroom', title: 'The Darkroom',      sub: 'Your skill tree' },
         { href: '/arcade.html',        icon: 'gamepad',  title: 'Game Arcade',       sub: 'Play drills, earn XP' },
@@ -310,7 +311,7 @@
     }
 
     // Practice sheet: drills, games, manual, challenge, daily protocol.
-    if (matches(['/darkroom.html', '/quiz-full.html', '/dailyprotocol.html', '/field-manual.html',
+    if (matches(['/darkroom.html', '/quiz-full.html', '/dailyprotocol.html', '/field-manual.html', '/camera-select',
                  '/arcade.html', '/challenge.html', '/play.html'], p) ||
         matches(['#skill=', '#branch='], hash)) {
       return 'practice';
