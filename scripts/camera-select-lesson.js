@@ -155,9 +155,18 @@
     var statik = document.getElementById('csStatic');
     if (statik) statik.style.display = 'none';
 
+    // Exit target: the page's own "CAMERA SELECT" back link carries this
+    // model's shelf deep link (?brand=&model=). Fall back to the shelf top.
+    var backLink = document.querySelector('a.cs-back');
+    var SHELF_URL = '/camera-select.html';
+    if (backLink) {
+      var backHref = backLink.getAttribute('href');
+      if (backHref && backHref.indexOf('camera-select.html') !== -1) SHELF_URL = backHref;
+    }
+
     mount.innerHTML =
       '<div class="csl">' +
-      '<div class="csl-topbar"><a class="csl-x" href="/camera-select.html?brand=sony&model=a7%20IV" aria-label="Back to Camera Select">&times;</a>' +
+      '<div class="csl-topbar"><a class="csl-x" href="' + SHELF_URL.replace(/&/g, '&amp;') + '" aria-label="Back to Camera Select">&times;</a>' +
       '<div class="csl-progress"><i id="cslBar"></i></div><div class="csl-score" id="cslScore">SCORE 0/' + cfg.scored.length + '</div></div>' +
       '<div class="csl-guide"><div class="csl-avatar-wrap" id="cslWrap"><img class="csl-avatar" src="/cynetis-avatar.png" alt="Cynetis-7"></div>' +
       '<div class="csl-bubble" id="cslBubble"><div class="csl-who"><span>CYNETIS-7</span><span class="csl-eq"><i></i><i></i><i></i><i></i></span></div>' +
@@ -173,7 +182,7 @@
         backBtn = mount.querySelector('#cslBack'),
         bar = mount.querySelector('#cslBar'), chip = mount.querySelector('#cslScore');
     var player = new Audio();
-    var S = { idx: 0, firstTry: {}, answered: {}, done: {}, picked: [], checked: false, pro: false, doneBefore: false, bankedNote: '' };
+    var S = { idx: 0, firstTry: {}, answered: {}, done: {}, picked: [], checked: false, pro: false, doneBefore: false, bankedNote: '', bankPromise: null };
     var currentVoice = null, typeTimer = null;
 
     // prior completion (resume state)
@@ -428,7 +437,8 @@
       speak(line, passed ? (cfg.audioBase + 'pass.mp3') : (SHARED + 'fail.mp3'));
       if (passed) {
         react('cheer');
-        bankXp(xp, s).then(function (r) {
+        S.bankPromise = bankXp(xp, s);
+        S.bankPromise.then(function (r) {
           var note = document.getElementById('cslBankNote');
           if (!note) return;
           if (r.banked) note.textContent = 'XP banked to your account.';
@@ -452,6 +462,19 @@
       speak(c._say || c.say, currentVoice);
     });
 
+    // Done always lands on the shelf at this model. The XP claim was fired
+    // when the result card rendered; if it is still in flight, give it a
+    // short window to land — but navigate either way, promise or not.
+    function exitToShelf() {
+      var go = function () { window.location.href = SHELF_URL; };
+      if (S.bankPromise) {
+        var fired = false;
+        var once = function () { if (!fired) { fired = true; go(); } };
+        S.bankPromise.then(once, once);
+        setTimeout(once, 1500);
+      } else { go(); }
+    }
+
     btn.addEventListener('click', function () {
       var c = cfg.cards[S.idx];
       if (!cfg.free && cfg.gateAfter !== null && S.idx > cfg.gateAfter && !S.pro) {
@@ -465,7 +488,7 @@
       }
       if ((c.kind === 'quiz' || c.kind === 'order') && !S.checked) { check(); return; }
       if (c.kind === 'result') {
-        if (score() >= cfg.passMark) { btn.disabled = true; btn.textContent = 'Done'; speak('Saved. Next lesson when you are ready.', null); }
+        if (score() >= cfg.passMark) { btn.disabled = true; btn.textContent = 'Done'; speak('Saved. Next lesson when you are ready.', null); exitToShelf(); }
         else { S.idx = 0; S.firstTry = {}; S.answered = {}; S.done = {}; render(); }
         return;
       }
