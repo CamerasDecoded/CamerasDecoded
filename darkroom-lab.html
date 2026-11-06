@@ -947,7 +947,9 @@ window.addEventListener('error', function(e) {
   /* ================= looks (one-tap film/camera looks) =================
      The look is a pipeline STAGE, not a sticker: it applies on top of the
      user's current edit, non-destructively. lookId/lookIntensity live outside
-     S/masks, so edits, undo/redo, copy/paste and reset never disturb them.
+     S/masks, so edits, undo/redo and reset never disturb them. (Copy/paste and
+     user presets are the two deliberate exceptions: they carry the stage as
+     part of a recipe v2 — see applyRecipeStage below.)
      Preview == export: the stage runs inside render() and is flushed
      synchronously before the export canvas is built. */
   let lookId = 'original';
@@ -1110,10 +1112,13 @@ window.addEventListener('error', function(e) {
   }
   function snapshotSettings() {
     return JSON.stringify({
+      v: 2,
       S: { ...S, mixer: JSON.parse(JSON.stringify(S.mixer)) },
       masks: JSON.parse(JSON.stringify(masks)),
       maskSeq: maskSeq,
       activeMaskId: activeMaskId,
+      look: { id: lookId, intensity: lookIntensity },
+      skin: skinAmount,
     });
   }
   function restoreSettings(snap) {
@@ -1129,6 +1134,37 @@ window.addEventListener('error', function(e) {
     paintStroke = null; drawAnchor = null; drawCurrent = null;
     updateMaskOverlayMode();
     drawMaskOverlay();
+  }
+  /* ============ recipe v2 stage (look + skin) ============
+     A recipe is the complete finished frame: S + masks + the look stage +
+     skin. v1 payloads (presets and pastes written before v2) carry no
+     look/skin fields; reading one means look = Original, skin = 0.
+     restoreSettings() above deliberately does NOT restore the stage from a
+     snapshot: undo/redo and the preset-thumbnail builder must never change
+     the look on screen. Only the two explicit "apply this recipe to this
+     photo" paths — Paste settings and user presets — restore the stage,
+     through applyRecipeStage(). Callers renderPanel() + scheduleRender()
+     right after, and render() re-stashes the stage bases from the fresh
+     base grade and schedules the skin/look passes; with the stage fully
+     off it leaves the plain base on canvas — the Original state. */
+  function recipeStageOf(o) {
+    const lk = (o && o.look) || null;
+    const eng = (typeof lookEngine === 'function') ? lookEngine() : null;
+    const okId = lk && lk.id && (!eng || eng.IDS.indexOf(lk.id) >= 0);
+    const clamp = v => Math.min(100, Math.max(0, v));
+    return {
+      id: okId ? lk.id : 'original',
+      intensity: lk && lk.intensity != null && isFinite(lk.intensity) ? clamp(+lk.intensity) : 70,
+      skin: o && o.skin != null && isFinite(o.skin) ? clamp(+o.skin) : 0,
+    };
+  }
+  function applyRecipeStage(o) {
+    const st = recipeStageOf(o);
+    lookId = st.id;
+    lookIntensity = st.intensity;
+    skinAmount = st.skin;
+    lookCache.id = null;   // force a regrade at the new stage state
+    skinShownKey = '';
   }
   function resetSettings() {
     for (const k of Object.keys(DEFAULTS)) S[k] = DEFAULTS[k];
@@ -1541,7 +1577,7 @@ window.addEventListener('error', function(e) {
   let copiedSettings = null;
   $('btnCopy').addEventListener('click', () => {
     if (!original) return;
-    copiedSettings = JSON.stringify({ S: JSON.parse(JSON.stringify(S)), masks: JSON.parse(JSON.stringify(masks)), maskSeq });
+    copiedSettings = snapshotSettings();   // recipe v2: S + masks + look stage + skin
     statusEl.textContent = 'Settings copied';
     setTimeout(() => { if (statusEl.textContent === 'Settings copied') statusEl.textContent = ''; }, 1500);
     // Clipboard in background — don't block on iOS quirks
@@ -1563,6 +1599,7 @@ window.addEventListener('error', function(e) {
       masks = o.masks || [];
       maskSeq = o.maskSeq || (masks.length + 1);
       activeMaskId = null;
+      applyRecipeStage(o);   // recipe v2: the pasted look + skin land too (v1 paste = Original / 0)
       pushHistory();
       renderPanel();
       drawMaskOverlay();
@@ -1801,8 +1838,11 @@ window.addEventListener('error', function(e) {
       if (!name || !name.trim()) return;
       await saveUserPreset({
         name: name.trim().slice(0, 30),
+        v: 2,
         s: JSON.parse(JSON.stringify(S)),
         masks: JSON.parse(JSON.stringify(masks)),
+        look: { id: lookId, intensity: lookIntensity },
+        skin: skinAmount,
       });
       renderPresetPanel(pc);
       statusEl.textContent = 'Preset saved';
@@ -1837,6 +1877,7 @@ window.addEventListener('error', function(e) {
         masks = p.masks ? JSON.parse(JSON.stringify(p.masks)) : [];
         maskSeq = masks.length + 1;
         activeMaskId = null;
+        applyRecipeStage(p);   // recipe v2: the saved look + skin land too (v1 preset = Original / 0)
         renderPanel();
         drawMaskOverlay();
         scheduleRender();
