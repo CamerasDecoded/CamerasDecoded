@@ -656,6 +656,47 @@
   .status-line.live { color: rgba(141,235,0,0.7); }
   input[type="file"] { display: none; }
 
+  /* ============ GALLERY EDIT REQUEST (Stage 5) ============
+     The banner rides in flow directly under the topbar — it never
+     overlaps the photo. The pin is the only overlay: it sits at the
+     client's x/y % inside the compare wrap and is non-interactive.
+     Amber is the "Edit requested" family color (deliver-view /
+     deliver-builder); glass mirrors the Stage 3 recipe card. */
+  .gallery-banner {
+    flex-shrink: 0; display: flex; align-items: flex-start; gap: 12px;
+    margin: 8px 10px 0; padding: 11px 13px; border-radius: 14px;
+    border: 1px solid rgba(255,178,36,0.30); color: var(--text);
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.11), rgba(255,255,255,0.02) 48%, rgba(255,178,36,0.05)),
+      rgba(10,10,8,0.78);
+    backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 10px 24px rgba(0,0,0,0.30);
+    animation: recipeIn .35s cubic-bezier(.22,1,.36,1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .gallery-banner { animation: none; }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .gallery-banner { background: rgba(10,10,8,0.95); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  }
+  .gb-main { flex: 1; min-width: 0; }
+  .gb-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em; color: #ffb224; text-transform: uppercase; }
+  .gb-note { font-family: var(--sans); font-size: 14px; font-weight: 600; line-height: 1.45; color: #fff; margin-top: 5px; overflow-wrap: break-word; }
+  .gb-sub { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.03em; color: rgba(238,246,226,0.62); margin-top: 5px; }
+  .gb-close {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: rgba(238,246,226,0.85);
+  }
+  .gb-close:active { transform: scale(.95); }
+  .gb-close svg { width: 14px; height: 14px; }
+  .gallery-pin {
+    position: absolute; z-index: 7; width: 16px; height: 16px; margin: -8px 0 0 -8px;
+    border-radius: 50%; background: #ffb224; border: 2px solid rgba(6,8,6,0.9);
+    box-shadow: 0 0 0 5px rgba(255,178,36,0.22), 0 2px 8px rgba(0,0,0,0.5);
+    pointer-events: none;
+  }
+
   /* ============ FIRST PASS + HISTOGRAM (Stage 1) ============ */
   .tool-btn.first-pass-btn {
     min-width: 76px;
@@ -936,6 +977,17 @@
   </button>
   <button class="tb-export" id="btnSave">Export</button>
 </div>
+<!-- ============ GALLERY EDIT REQUEST BANNER (Stage 5) ============ -->
+<div class="gallery-banner hidden" id="galleryBanner" role="note">
+  <div class="gb-main">
+    <div class="gb-kicker">Edit request from your client</div>
+    <div class="gb-note" id="galleryNote"></div>
+    <div class="gb-sub" id="gallerySub"></div>
+  </div>
+  <button type="button" class="gb-close" id="galleryBannerClose" aria-label="Dismiss request banner">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+</div>
 <input type="file" id="fileInput" accept="image/*" multiple>
 
 <!-- ============ UPLOAD INVITE (up until a photo of their own is loaded) ============ -->
@@ -982,6 +1034,7 @@
           <button type="button" class="recipe-dismiss" id="btnRecipeDismiss">Dismiss</button>
         </div>
       </div>
+      <div class="gallery-pin hidden" id="galleryPin" aria-hidden="true"></div>
       <div class="canvas-empty hidden" id="canvasEmpty">
         <div class="big">No photo</div>
         <div>Tap the image icon above<br>to load a photo</div>
@@ -1112,6 +1165,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="/scripts/firebase-init.js?v=20261010a"></script>
+<script src="/scripts/cd-upload.js?v=20261014b"></script>
   <script src="/scripts/reward-engine.js?v=20261014b"></script>
 <script src="/scripts/user-state.js?v=20261014a"></script>
 <script src="/scripts/cd-looks.js?v=20261016b"></script>
@@ -4022,6 +4076,9 @@ window.addEventListener('error', function(e) {
 
   /* Sample photo: real photo by default; procedural fallback if it fails to load */
   function loadSamplePhoto() {
+    // Stage 5: a gallery-request intake owns this boot — the sample
+    // must never stomp the fetched gallery photo.
+    if (window.CD_GALLERY_REQUEST) return;
     var img = new Image();
     img.onload = function() {
       try {
@@ -4234,6 +4291,169 @@ window.addEventListener('error', function(e) {
       img.src = d;
     } catch (e) {}
   })();
+
+  /* ================= Stage 5: close the loop =================
+     A Deliver edit request arrives as a localStorage handoff written
+     by deliver-builder.html ('Open in Develop Lab') and is consumed
+     exactly once — the Shoot handoff's mechanics, a distinct key +
+     flag so the two never collide. The gallery photo is fetched to a
+     blob (no canvas taint), decoded through the same Image -> canvas
+     -> ImageData path as an upload (1280px cap), and opened through
+     setPhoto() — the untouched original, per the standing rule.
+     Send back runs the normal export pipeline, uploads via CDUpload,
+     replaces images[photoIndex] on the gallery doc, and only then
+     resolves the request: upload first, doc second, resolve last —
+     a failure stops everything after it. */
+  const GALLERY_REQ_KEY = 'cd_develop_gallery_request';
+  var galleryRequest = null;
+  var sendBackBusy = false;
+  var galleryStatusNote = null;   // re-asserted by the boot once the engine is ready (it overwrites the status line)
+
+  function showGalleryBanner(req) {
+    const banner = $('galleryBanner');
+    if (!banner) return;
+    $('galleryNote').textContent = req.noteText || '';
+    $('gallerySub').textContent = 'Photo ' + (req.photoIndex + 1) + ' in this gallery \u00b7 You are editing the delivered gallery file.';
+    banner.classList.remove('hidden');
+    const pin = $('galleryPin');
+    if (pin) {
+      if (req.pin) {
+        pin.style.left = req.pin.x + '%';
+        pin.style.top = req.pin.y + '%';
+        pin.classList.remove('hidden');
+      } else {
+        pin.classList.add('hidden');
+      }
+    }
+    const row = $('fmtSendBackRow');
+    if (row) row.classList.remove('hidden');
+  }
+  function hideGalleryChrome() {
+    const banner = $('galleryBanner'); if (banner) banner.classList.add('hidden');
+    const pin = $('galleryPin'); if (pin) pin.classList.add('hidden');
+  }
+  function exitGalleryMode() {
+    galleryRequest = null;
+    window.CD_GALLERY_REQUEST = false;
+    hideGalleryChrome();
+    const row = $('fmtSendBackRow');
+    if (row) row.classList.add('hidden');
+  }
+  function galleryStatus(text) {
+    // render() hides the status line; a line the operator must see
+    // re-shows it (the showPassReadout / loadSet pattern).
+    statusEl.textContent = text;
+    statusEl.style.display = 'block';
+  }
+  function galleryIntakeFailed() {
+    exitGalleryMode();
+    galleryStatusNote = 'That gallery photo could not be loaded \u2014 the Lab is ready as usual.';
+    galleryStatus(galleryStatusNote);
+    loadSamplePhoto();
+  }
+  if ($('galleryBannerClose')) {
+    $('galleryBannerClose').addEventListener('click', hideGalleryChrome);
+  }
+
+  async function sendBackToGallery() {
+    const req = galleryRequest;
+    if (!req || !original || sendBackBusy) return;
+    const db = fbDb(), user = fbUser();
+    if (!db || !user) { galleryStatus('Sign in as the gallery owner to send this back.'); return; }
+    if (!window.CDUpload || !window.CDUpload.upload) {
+      galleryStatus('Uploads are unavailable right now \u2014 the request is still open.');
+      return;
+    }
+    sendBackBusy = true;
+    const btn = $('fmtSendBack');
+    if (btn) btn.disabled = true;
+    $('fmtSheet').classList.remove('open');
+    galleryStatus('Sending back to the gallery\u2026');
+    try {
+      render();
+      ensureSkinForExport();   // the same stage flush as a normal export
+      await ensureLookForExport();
+      const blob = await new Promise(res => buildExportCanvas().toBlob(res, 'image/jpeg', 0.92));
+      if (!blob) throw new Error('encode failed');
+      const up = await window.CDUpload.upload(blob, 'cd-deliver-edit.jpg');
+      if (!up || !up.url) throw new Error('upload failed');
+      const gref = db.collection('users').doc(user.uid).collection('galleries').doc(req.galleryId);
+      const snap = await gref.get();
+      const data = snap.exists ? (snap.data() || {}) : {};
+      const images = Array.isArray(data.images) ? data.images.slice() : [];
+      if (req.photoIndex < 0 || req.photoIndex >= images.length) throw new Error('photo index out of range');
+      images[req.photoIndex] = up.url;
+      await gref.update({ images: images });
+      if (req.annotationId) {
+        await gref.collection('annotations').doc(req.annotationId).update({ resolved: true });
+      }
+      exitGalleryMode();
+      galleryStatus('Sent back \u2014 your client sees the updated photo in the same gallery.');
+      bankDevelopXp();   // a delivered export, as with Export: +15 XP once per day
+    } catch (err) {
+      console.error('Send back failed:', err);
+      galleryStatus('Send back did not finish \u2014 the request is still open.');
+    }
+    sendBackBusy = false;
+    if (btn) btn.disabled = false;
+  }
+  if ($('fmtSendBack')) {
+    $('fmtSendBack').addEventListener('click', sendBackToGallery);
+  }
+
+  // Gallery-request intake: fetch -> blob -> the existing decode path.
+  (function () {
+    try {
+      const q = new URLSearchParams(location.search);
+      if (q.get('gallery') !== '1') return;
+      if (q.get('handoff') === '1') return;   // a Shoot handoff boot wins; ours stays stored
+      const raw = localStorage.getItem(GALLERY_REQ_KEY);
+      localStorage.removeItem(GALLERY_REQ_KEY);   // consumed exactly once, like the Shoot path
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || !parsed.galleryId ||
+          typeof parsed.photoIndex !== 'number' || !parsed.imageUrl) return;
+      galleryRequest = {
+        galleryId: String(parsed.galleryId),
+        photoIndex: parsed.photoIndex,
+        annotationId: parsed.annotationId || null,
+        noteText: typeof parsed.noteText === 'string' ? parsed.noteText : '',
+        pin: (parsed.pin && typeof parsed.pin.x === 'number' && typeof parsed.pin.y === 'number')
+          ? { x: parsed.pin.x, y: parsed.pin.y } : null,
+        imageUrl: String(parsed.imageUrl),
+      };
+      window.CD_GALLERY_REQUEST = true;   // loadSamplePhoto stands down (guard at its top)
+      hideDlInvite();
+      galleryStatus('Loading the gallery photo\u2026');
+      fetch(galleryRequest.imageUrl)
+        .then(res => { if (!res.ok) throw new Error('fetch ' + res.status); return res.blob(); })
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const maxW = 1280;
+              const scale = Math.min(1, maxW / img.naturalWidth);
+              const w = Math.max(1, Math.round(img.naturalWidth * scale));
+              const h = Math.max(1, Math.round(img.naturalHeight * scale));
+              const c = document.createElement('canvas');
+              c.width = w; c.height = h;
+              c.getContext('2d').drawImage(img, 0, 0, w, h);
+              resetSettings();
+              setPhoto(c.getContext('2d').getImageData(0, 0, w, h));
+              renderPanel();
+              showGalleryBanner(galleryRequest);
+              galleryStatusNote = 'Gallery photo loaded \u2014 edit it, then Export and Send back to gallery';
+              galleryStatus(galleryStatusNote);
+            } catch (e) { galleryIntakeFailed(); }
+            URL.revokeObjectURL(url);
+          };
+          img.onerror = () => { URL.revokeObjectURL(url); galleryIntakeFailed(); };
+          img.src = url;
+        })
+        .catch(() => galleryIntakeFailed());
+    } catch (e) {}
+  })();
   (async () => {
     const timeout = (ms, label) => new Promise((_, rej) =>
       setTimeout(() => rej(new Error('Timeout: ' + label)), ms));
@@ -4255,6 +4475,18 @@ window.addEventListener('error', function(e) {
       statusEl.classList.add('error');
       return;
     }
+    // A photo can beat the engine here (Shoot handoff, gallery
+    // intake): paint it and refresh the panel now that renders run —
+    // otherwise the First pass button stays disabled and the after
+    // layer stays unpainted until the first slider touch.
+    if (original) { render(); renderPanel(); }
+    // A gallery intake that resolved before the engine keeps its
+    // status line (the boot's 'Engine ready' would otherwise bury it).
+    if (typeof galleryStatusNote !== 'undefined' && galleryStatusNote) {
+      statusEl.textContent = galleryStatusNote;
+      statusEl.style.display = 'block';
+      galleryStatusNote = null;
+    }
     loadSamplePhoto();
   })();
   window.addEventListener('resize', () => { if (original) fitCanvases(); });
@@ -4273,6 +4505,9 @@ window.addEventListener('error', function(e) {
     <div class="fmt-row">
       <button class="fmt-btn" id="fmtPng">PNG<small>Lossless &middot; larger file</small></button>
       <button class="fmt-btn" id="fmtJpg">JPEG<small>Smaller &middot; share-ready</small></button>
+    </div>
+    <div class="fmt-row hidden" id="fmtSendBackRow" style="margin-top:10px;">
+      <button class="fmt-btn" id="fmtSendBack">Send back to gallery<small>Replaces this photo in the client&rsquo;s gallery</small></button>
     </div>
     <div class="wm-row">
       <div class="wm-text">
