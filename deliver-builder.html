@@ -165,6 +165,34 @@
   }
   .empty-note { text-align: center; color: var(--text-faint); font-size: 13px; padding: 18px 0 6px; }
 
+  /* Edit requests (client intent, Stage 4): badge on the gallery row
+     is the count of unresolved kind:'edit' annotations. Amber matches
+     the "Edit requested" treatment on the client view. */
+  .req-badge {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; white-space: nowrap;
+    background: rgba(255,178,36,.12); color: #ffb224; border: 1px solid rgba(255,178,36,.35);
+    font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+    border-radius: 100px; padding: 5px 11px; cursor: pointer;
+  }
+  .req-badge:active { transform: scale(.97); }
+  .req-panel { margin-top: 14px; border-top: 1px solid var(--border-dim); padding-top: 14px; }
+  .req-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+  .req-panel-title { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #ffb224; }
+  .req-close {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 8px; width: 30px; height: 30px; font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .req { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-dim); }
+  .req:last-child { border-bottom: none; }
+  .req-thumb { position: relative; width: 64px; height: 64px; border-radius: 10px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--border-dim); background: var(--card2); }
+  .req-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .req-pin { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #ffb224; border: 2px solid #0a0a0a; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  .req-body { flex: 1; min-width: 0; }
+  .req-meta { font-family: var(--mono); font-size: 11px; color: var(--text-faint); margin-bottom: 4px; }
+  .req-text { font-size: 13px; line-height: 1.5; color: var(--text); }
+  .req-open { display: inline-block; margin-top: 6px; font-family: var(--mono); font-size: 11px; color: var(--green); text-decoration: none; }
+
   /* Pro gate */
   .progate { text-align: center; padding: 60px 24px; }
   .progate .pg-ic {
@@ -257,6 +285,13 @@
     <div class="card">
       <h2>My galleries</h2>
       <div id="galList"><div class="empty-note">No galleries yet.</div></div>
+      <div id="reqPanel" class="req-panel hidden">
+        <div class="req-panel-head">
+          <div class="req-panel-title" id="reqPanelTitle">Edit requests</div>
+          <button class="req-close" id="reqPanelClose" type="button" aria-label="Close requests">&times;</button>
+        </div>
+        <div id="reqList"></div>
+      </div>
     </div>
   </div>
 
@@ -556,18 +591,111 @@ async function toggleShowcase(uid, gid, title, on) {
   }
 }
 
+/* ---------- Edit requests (Stage 4): the operator queue ----------
+   The badge is truth: a live count of unresolved annotations with
+   kind == 'edit' on that gallery. Plain notes never badge, resolved
+   requests stop badging. One read per gallery: resolved == false is
+   a single-field filter (no composite index needed); kind is
+   checked in JS — per-gallery annotation counts are small. */
+var REQ = { counts: {}, galleries: {}, openGid: null };
+
+async function fetchOpenRequests(uid, gid) {
+  var snap = await window.db.collection('users').doc(uid).collection('galleries').doc(gid)
+    .collection('annotations').where('resolved', '==', false).limit(200).get();
+  var reqs = [];
+  snap.forEach(function (doc) {
+    var d = doc.data() || {};
+    if (d.kind === 'edit') reqs.push({ id: doc.id, data: d });
+  });
+  reqs.sort(function (a, b) {
+    var ta = a.data.createdAt && a.data.createdAt.toMillis ? a.data.createdAt.toMillis() : 0;
+    var tb = b.data.createdAt && b.data.createdAt.toMillis ? b.data.createdAt.toMillis() : 0;
+    return ta - tb;
+  });
+  return reqs;
+}
+
+async function openRequestList(uid, gid) {
+  if (!window.db) return;
+  var g = REQ.galleries[gid] || {};
+  REQ.openGid = gid;
+  $('reqPanelTitle').textContent = 'Edit requests — ' + (g.title || 'Gallery');
+  var box = $('reqList');
+  box.innerHTML = '<div class="empty-note">Loading…</div>';
+  $('reqPanel').classList.remove('hidden');
+  try {
+    var reqs = await fetchOpenRequests(uid, gid);
+    REQ.counts[gid] = reqs.length;
+    if (!reqs.length) {
+      box.innerHTML = '<div class="empty-note">No open edit requests for this gallery.</div>';
+      return;
+    }
+    box.innerHTML = '';
+    var link = 'https://camerasdecoded.com/deliver-view.html?u=' + uid + '&g=' + gid + '&t=' + (g.token || '');
+    reqs.forEach(function (r) {
+      var d = r.data;
+      var row = document.createElement('div');
+      row.className = 'req';
+      var th = document.createElement('div');
+      th.className = 'req-thumb';
+      var src = (g.images || [])[d.photoIndex] || '';
+      var img = document.createElement('img');
+      img.src = /\/video\/upload\//.test(src) ? videoPoster(src) : src;
+      img.alt = 'Photo ' + (d.photoIndex + 1); img.loading = 'lazy';
+      th.appendChild(img);
+      if (typeof d.x === 'number' && typeof d.y === 'number') {
+        var pin = document.createElement('span');
+        pin.className = 'req-pin';
+        pin.style.left = d.x + '%'; pin.style.top = d.y + '%';
+        th.appendChild(pin);
+      }
+      var body = document.createElement('div');
+      body.className = 'req-body';
+      var meta = 'Photo ' + (d.photoIndex + 1);
+      if (typeof d.x === 'number' && typeof d.y === 'number') {
+        meta += ' · pin at ' + Math.round(d.x) + '% across, ' + Math.round(d.y) + '% down';
+      }
+      body.innerHTML = '<div class="req-meta">' + esc(meta) + '</div>' +
+        '<div class="req-text">' + esc(d.text || '') + '</div>' +
+        '<a class="req-open" href="' + link + '" target="_blank" rel="noopener">Open gallery to resolve</a>';
+      row.appendChild(th); row.appendChild(body);
+      box.appendChild(row);
+    });
+  } catch (e) {
+    console.warn('Request list failed:', e);
+    box.innerHTML = '<div class="empty-note">Could not load requests — try again.</div>';
+  }
+}
+
+/* Bell items link here as deliver-builder.html?requests={gid}. */
+function maybeOpenRequests(uid) {
+  if (REQ.openGid) return;
+  try {
+    var want = new URLSearchParams(window.location.search).get('requests');
+    if (want && REQ.galleries[want]) openRequestList(uid, want);
+  } catch (e) {}
+}
+$('reqPanelClose').addEventListener('click', function () {
+  $('reqPanel').classList.add('hidden');
+  REQ.openGid = null;
+});
+
 /* ---------- My galleries ---------- */
 async function loadGalleries() {
   var box = $('galList');
   if (!window.db || !window.auth || !window.auth.currentUser) return;
   var uid = window.auth.currentUser.uid;
+  REQ.galleries = {}; REQ.counts = {}; REQ.openGid = null;
+  $('reqPanel').classList.add('hidden');
   try {
     var snap = await window.db.collection('users').doc(uid).collection('galleries')
       .orderBy('createdAt', 'desc').limit(30).get();
     if (snap.empty) { box.innerHTML = '<div class="empty-note">No galleries yet.</div>'; return; }
     box.innerHTML = '';
+    var countJobs = [];
     snap.forEach(function (doc) {
       var d = doc.data() || {};
+      REQ.galleries[doc.id] = d;
       var row = document.createElement('div');
       row.className = 'gal';
 
@@ -622,7 +750,20 @@ async function loadGalleries() {
 
       row.appendChild(th); row.appendChild(info); row.appendChild(acts);
       box.appendChild(row);
+
+      // Open-request badge for this gallery (live count, see REQ block)
+      countJobs.push(fetchOpenRequests(uid, doc.id).then(function (reqs) {
+        REQ.counts[doc.id] = reqs.length;
+        if (!reqs.length) return;
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'req-badge';
+        b.textContent = reqs.length + (reqs.length === 1 ? ' edit request' : ' edit requests');
+        b.onclick = function () { openRequestList(uid, doc.id); };
+        info.appendChild(b);
+      }).catch(function () {}));
     });
+    await Promise.all(countJobs);
+    maybeOpenRequests(uid);
   } catch (e) {
     console.warn('Galleries load failed:', e);
   }

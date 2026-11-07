@@ -257,6 +257,12 @@
     font-family: var(--mono); font-size: 12px; font-weight: 700; color: #0a0a0a;
   }
   .anno-pin.resolved { background: #6f7d68; }
+  .anno-pin.edit { background: #ffb224; }
+  .anno-pin.edit.resolved { background: #8a7648; }
+  .anno-tip .tip-kind {
+    display: block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: .14em; text-transform: uppercase; color: #ffb224; margin-bottom: 5px;
+  }
   .lb-stage { position: relative; }
   .lb-stage.annotating #lbImg { cursor: crosshair; }
   .tc-notes { width: min(92vw, 560px); margin: 10px auto 0; display: flex; flex-direction: column; gap: 6px; }
@@ -281,6 +287,45 @@
     padding: 10px 12px; max-width: 220px; font-size: 13px; line-height: 1.4;
     pointer-events: none;
   }
+
+  /* Annotation composer: pin is placed, then the client picks
+     a plain note or an edit request before writing. */
+  .anno-sheet {
+    position: fixed; inset: 0; z-index: 60; background: rgba(5,5,5,.55);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .anno-panel {
+    background: #141416; border: 1px solid rgba(255,255,255,.14); border-bottom: none;
+    border-radius: 16px 16px 0 0; width: min(560px, 100%); color: #f2f2f2;
+    padding: 18px 18px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  }
+  .anno-kicker {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+    text-transform: uppercase; color: rgba(255,255,255,.45); margin-bottom: 12px;
+  }
+  .anno-choice { display: flex; gap: 8px; margin-bottom: 12px; }
+  .anno-choice button {
+    flex: 1; border-radius: 10px; padding: 12px 10px; font-size: 14px; font-weight: 700;
+    background: rgba(255,255,255,.06); color: #fff; border: 1px solid rgba(255,255,255,.16);
+  }
+  .anno-choice button.sel-note { border-color: #8deb00; color: #8deb00; background: rgba(141,235,0,.08); }
+  .anno-choice button.sel-edit { border-color: #ffb224; color: #ffb224; background: rgba(255,178,36,.08); }
+  .anno-panel textarea {
+    width: 100%; min-height: 74px; resize: vertical; outline: none;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.16);
+    border-radius: 10px; color: #fff; font-family: inherit; font-size: 15px; padding: 11px 12px;
+  }
+  .anno-panel textarea:focus { border-color: rgba(255,255,255,.38); }
+  .anno-actions { display: flex; gap: 10px; margin-top: 12px; }
+  .anno-cancel {
+    flex: 0 0 auto; background: transparent; border: 1px solid rgba(255,255,255,.2);
+    color: #fff; border-radius: 10px; padding: 12px 18px; font-size: 14px; font-weight: 600;
+  }
+  .anno-send {
+    flex: 1; border: none; border-radius: 10px; padding: 12px 18px;
+    font-size: 15px; font-weight: 700; background: #8deb00; color: #0a0a0a;
+  }
+  .anno-send.edit { background: #ffb224; }
 
   .foot {
     display: block; text-align: center; margin-top: 34px; padding-top: 20px;
@@ -385,6 +430,22 @@
   <div class="lb-bottom">
     <button class="lb-dl" id="lbDl"><i class="fas fa-download"></i> Download</button>
     <button class="lb-annotate" id="lbAnno"><i class="fas fa-comment"></i> Annotate</button>
+  </div>
+</div>
+
+<!-- Annotation composer (photo pins only; clip notes stay plain notes) -->
+<div class="anno-sheet hidden" id="annoSheet">
+  <div class="anno-panel">
+    <div class="anno-kicker">On this photo</div>
+    <div class="anno-choice">
+      <button type="button" id="annoKindNote" class="sel-note">Leave a note</button>
+      <button type="button" id="annoKindEdit">Request an edit</button>
+    </div>
+    <textarea id="annoText" maxlength="300" placeholder="Add a note for the photographer"></textarea>
+    <div class="anno-actions">
+      <button type="button" class="anno-cancel" id="annoCancel">Cancel</button>
+      <button type="button" class="anno-send" id="annoSend">Send note</button>
+    </div>
   </div>
 </div>
 
@@ -681,21 +742,75 @@ $('lbImg').addEventListener('click', function(e){
   var r = $('lbImg').getBoundingClientRect();
   var x = ((e.clientX - r.left) / r.width * 100).toFixed(1);
   var y = ((e.clientY - r.top) / r.height * 100).toFixed(1);
-  var text = prompt('Add a note for the photographer:');
-  if(!text || !text.trim()) return;
-  var ref = window.db.collection('users').doc(DV.uid).collection('galleries').doc(DV.gid)
-    .collection('annotations');
-  ref.add({
-    photoIndex: DV.idx, x: parseFloat(x), y: parseFloat(y),
-    text: text.trim().substring(0, 300),
-    authorName: 'Client', resolved: false,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(function(){ loadAnnotations(); }).catch(function(){});
+  openAnnoSheet(parseFloat(x), parseFloat(y));
+});
+/* ---------- Annotation composer (photo pins) ----------
+   The pin is placed first; the composer adds the one choice the
+   note flow never had: a plain note, or an edit request (the same
+   annotation plus kind:'edit' — the third shape the rules allow).
+   Clip notes never pass through here; they stay plain notes. */
+DV.annoDraft = null; // { x, y, kind: 'note' | 'edit' }
+function endAnnotating() {
   DV.annotating = false;
   $('lbAnno').classList.remove('on');
   document.querySelector('.lb-stage').classList.remove('annotating');
   $('lbAnno').innerHTML = '<i class="fas fa-comment"></i> Annotate';
+}
+function setAnnoKind(kind) {
+  if (!DV.annoDraft) return;
+  DV.annoDraft.kind = kind;
+  $('annoKindNote').className = kind === 'note' ? 'sel-note' : '';
+  $('annoKindEdit').className = kind === 'edit' ? 'sel-edit' : '';
+  $('annoText').placeholder = kind === 'edit'
+    ? 'What should the photographer change?'
+    : 'Add a note for the photographer';
+  var send = $('annoSend');
+  send.textContent = kind === 'edit' ? 'Send request' : 'Send note';
+  send.classList.toggle('edit', kind === 'edit');
+}
+function openAnnoSheet(x, y) {
+  DV.annoDraft = { x: x, y: y, kind: 'note' };
+  $('annoText').value = '';
+  setAnnoKind('note');
+  endAnnotating();
+  $('annoSheet').classList.remove('hidden');
+  setTimeout(function () { try { $('annoText').focus(); } catch (e) {} }, 60);
+}
+function closeAnnoSheet() {
+  $('annoSheet').classList.add('hidden');
+  DV.annoDraft = null;
+}
+$('annoKindNote').onclick = function () { setAnnoKind('note'); };
+$('annoKindEdit').onclick = function () { setAnnoKind('edit'); };
+$('annoCancel').onclick = function () { closeAnnoSheet(); };
+$('annoSheet').addEventListener('click', function (e) {
+  if (e.target === $('annoSheet')) closeAnnoSheet();
 });
+$('annoSend').onclick = function () {
+  var draft = DV.annoDraft;
+  if (!draft) return;
+  var text = $('annoText').value.trim();
+  if (!text) { $('annoText').focus(); return; }
+  if (!window.db) { closeAnnoSheet(); return; }
+  // Field sets are exact: a note is the original photo-pin shape;
+  // an edit request adds kind:'edit' and nothing else.
+  var payload = {
+    photoIndex: DV.idx, x: draft.x, y: draft.y,
+    text: text.substring(0, 300),
+    authorName: 'Client', resolved: false,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  if (draft.kind === 'edit') payload.kind = 'edit';
+  var kind = draft.kind;
+  closeAnnoSheet();
+  window.db.collection('users').doc(DV.uid).collection('galleries').doc(DV.gid)
+    .collection('annotations').add(payload)
+    .then(function () {
+      loadAnnotations();
+      toast(kind === 'edit' ? 'Edit requested — your photographer will see it.' : 'Note added.');
+    })
+    .catch(function () { toast('Could not send — try again.'); });
+};
 /* Timecoded notes: pause where you are, write the note, it is
    pinned to that second of the clip. */
 function fmtTC(s) {
@@ -737,7 +852,7 @@ function loadAnnotations(){
         n++;
         var nid = doc.id;
         var pin = document.createElement('div');
-        pin.className = 'anno-pin' + (d.resolved ? ' resolved' : '');
+        pin.className = 'anno-pin' + (d.kind === 'edit' ? ' edit' : '') + (d.resolved ? ' resolved' : '');
         pin.style.left = d.x + '%'; pin.style.top = d.y + '%';
         pin.textContent = n;
         pin.onclick = function(e){
@@ -747,7 +862,14 @@ function loadAnnotations(){
           tip.className = 'anno-tip' + (DV.isOwner ? ' own' : '');
           tip.style.left = 'calc(' + d.x + '% + 18px)';
           tip.style.top = 'calc(' + d.y + '% - 10px)';
-          tip.textContent = d.text;
+          tip.textContent = '';
+          if (d.kind === 'edit') {
+            var kindEl = document.createElement('span');
+            kindEl.className = 'tip-kind';
+            kindEl.textContent = 'Edit requested';
+            tip.appendChild(kindEl);
+          }
+          tip.appendChild(document.createTextNode(d.text));
           if (DV.isOwner) {
             var act = document.createElement('button');
             act.type = 'button'; act.className = 'tip-act';
