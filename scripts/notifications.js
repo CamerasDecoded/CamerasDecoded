@@ -22,6 +22,7 @@
   'use strict';
 
   var SMART_MAX = 3;
+  var EDITREQ_MAX = 6;
   var INBOX_LIMIT = 30;
   var BROADCAST_LIMIT = 10;
   var LS_SEEN_BC = 'cd_seen_broadcasts';
@@ -30,6 +31,7 @@
 
   var uid = null, tier = 'free';
   var smartCache = [];
+  var editReqItems = [];
   var smartExtra = [];
   var inboxItems = [];
   var broadcasts = [];
@@ -230,6 +232,52 @@
     return out;
   }
 
+  /* Edit requests (Stage 4): open client edit requests on the
+     operator's own galleries — computed on load like the rest of the
+     smart layer, never written to the inbox. One item per open
+     request, id keyed by annotation id, so the feed's dedupe keeps
+     exactly one copy and repeat sessions never stack duplicates.
+     Clients are unauthenticated, so this runs in the operator's own
+     session; the builder badge is the live truth, this is courtesy.
+     Reads mirror the builder: resolved == false is a single-field
+     filter (no composite index), kind is checked in JS. */
+  async function computeEditRequests(db) {
+    var out = [];
+    try {
+      var gsnap = await db.collection('users').doc(uid).collection('galleries')
+        .orderBy('createdAt', 'desc').limit(30).get();
+      var galleries = [];
+      gsnap.forEach(function (gdoc) { galleries.push({ id: gdoc.id, data: gdoc.data() || {} }); });
+      var per = await Promise.all(galleries.map(async function (g) {
+        try {
+          var asnap = await db.collection('users').doc(uid).collection('galleries').doc(g.id)
+            .collection('annotations').where('resolved', '==', false).limit(200).get();
+          var reqs = [];
+          asnap.forEach(function (adoc) {
+            var a = adoc.data() || {};
+            if (a.kind === 'edit') reqs.push({ id: adoc.id, data: a });
+          });
+          reqs.sort(function (a, b) {
+            return tsMillis(a.data.createdAt) - tsMillis(b.data.createdAt);
+          });
+          return reqs.map(function (r) {
+            return {
+              id: 'editreq-' + r.id,
+              title: 'Edit requested',
+              body: (g.data.title || 'Gallery') + ' \u2014 photo ' + ((r.data.photoIndex || 0) + 1),
+              href: '/deliver-builder.html?requests=' + g.id,
+              at: tsMillis(r.data.createdAt) || nowMs(), kind: 'smart'
+            };
+          });
+        } catch (e) { return []; }
+      }));
+      per.forEach(function (arr) {
+        arr.forEach(function (item) { if (out.length < EDITREQ_MAX) out.push(item); });
+      });
+    } catch (e) {}
+    return out;
+  }
+
   /* ---------------- layer 2: broadcasts ---------------- */
 
   function subscribeBroadcasts(db) {
@@ -323,6 +371,7 @@
     externalItems.forEach(function (n, i) { add(normExternal(n, i), false); });
     inboxItems.forEach(function (n) { if (!n.read) add(n, true); });
     broadcasts.forEach(function (n) { add(n, true); });
+    editReqItems.forEach(function (n) { add(n, true); });
     smartCache.slice(0, SMART_MAX).forEach(function (n) { add(n, true); });
     smartExtra.slice(0, SMART_MAX).forEach(function (n) { add(n, true); });
     inboxItems.forEach(function (n) { if (n.read) add(n, false); });
@@ -352,6 +401,10 @@
       if (!db || !db.collection) return;
       computeSmart(db).then(function (s) {
         smartCache = s.slice(0, SMART_MAX);
+        feed();
+      });
+      computeEditRequests(db).then(function (items) {
+        editReqItems = items;
         feed();
       });
       subscribeBroadcasts(db);
