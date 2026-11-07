@@ -602,6 +602,51 @@
   .sheet .cd-btn { margin-bottom: 10px; }
   .sheet-ghost { background: none; border: none; color: var(--text-faint); font-size: 13px; cursor: pointer; padding: 8px; }
 
+  /* ============ Stage 3: shared recipe card ============
+     Glass language mirrors the histogram card; the Apply pill mirrors
+     .dl-invite-btn and Dismiss mirrors .dl-invite-sample. Anchored to the
+     bottom of the canvas zone so it never collides with the histogram
+     (top-left) or the compare tags; transient and dismissible. */
+  .recipe-card {
+    position: absolute; left: 10px; right: 10px; bottom: 12px; z-index: 8;
+    padding: 12px 14px 13px; text-align: left;
+    border: 1px solid rgba(255,255,255,0.14); border-radius: 16px;
+    color: var(--text);
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.13), rgba(255,255,255,0.025) 48%, rgba(141,235,0,0.035)),
+      rgba(7,10,7,0.58);
+    backdrop-filter: blur(17px) saturate(155%); -webkit-backdrop-filter: blur(17px) saturate(155%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.20),
+      inset 0 -1px 0 rgba(255,255,255,0.05),
+      0 12px 30px rgba(0,0,0,0.34), 0 0 18px rgba(141,235,0,0.06);
+    animation: recipeIn .35s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes recipeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .recipe-card { animation: none; }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .recipe-card { background: rgba(7,10,7,0.94); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  }
+  .recipe-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em; color: var(--green); text-transform: uppercase; }
+  .recipe-summary { font-family: var(--sans); font-size: 14px; font-weight: 600; line-height: 1.45; color: #fff; margin-top: 6px; }
+  .recipe-actions { display: flex; align-items: center; gap: 14px; margin-top: 11px; }
+  .recipe-apply {
+    background: linear-gradient(180deg, rgba(163,255,80,0.30), rgba(141,235,0,0.16));
+    color: #d4ff8a; border: none; border-radius: 999px; cursor: pointer;
+    backdrop-filter: blur(8px) saturate(160%); -webkit-backdrop-filter: blur(8px) saturate(160%);
+    font-family: var(--sans); font-size: 13.5px; font-weight: 700; padding: 9px 18px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.45),
+      inset 0 -1px 0 rgba(0,0,0,0.08),
+      0 8px 22px rgba(0,0,0,0.22);
+  }
+  .recipe-dismiss {
+    background: none; border: none; cursor: pointer; padding: 6px 4px;
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em; color: rgba(238,246,226,0.75);
+    text-decoration: underline; text-underline-offset: 3px;
+  }
   .status-line {
     position: absolute; bottom: 8px; right: 10px; z-index: 5;
     font-family: var(--mono); font-size: 8px; letter-spacing: 0.06em; color: rgba(255,255,255,0.35);
@@ -882,6 +927,9 @@
   <button class="tb-btn" id="btnPaste" aria-label="Paste settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
   </button>
+  <button class="tb-btn" id="btnShareRecipe" aria-label="Share recipe">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6"/><path d="M8.2 13.2l7.6 3.6"/></svg>
+  </button>
   <button class="tb-btn hasdot hidden" id="btnApplySet" aria-label="Apply settings to set">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M16 8h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-3"/><path d="M6.5 9.5l2.5 2.5 4-4.5"/></svg>
     <span class="set-prodot" id="applySetProDot">&#9679;</span>
@@ -926,6 +974,14 @@
         <span class="histogram-scale"><span>Shadows</span><span>Highlights</span></span>
       </button>
       <div class="status-line" id="status">Engine loading&hellip;</div>
+      <div class="recipe-card hidden" id="sharedRecipeCard" role="dialog" aria-label="Shared recipe">
+        <div class="recipe-kicker">Shared recipe</div>
+        <div class="recipe-summary" id="sharedRecipeSummary"></div>
+        <div class="recipe-actions">
+          <button type="button" class="recipe-apply" id="btnRecipeApply">Apply recipe</button>
+          <button type="button" class="recipe-dismiss" id="btnRecipeDismiss">Dismiss</button>
+        </div>
+      </div>
       <div class="canvas-empty hidden" id="canvasEmpty">
         <div class="big">No photo</div>
         <div>Tap the image icon above<br>to load a photo</div>
@@ -1763,6 +1819,7 @@ window.addEventListener('error', function(e) {
     drawMaskOverlay();
     $('canvasEmpty').classList.add('hidden');
     updateCompareUI();
+    maybeShowSharedRecipeCard();   // Stage 3: a recipe link offers its card once a photo surface exists
   }
   function makeSample(dark) {
     const w = 480, h = 720;
@@ -1827,6 +1884,7 @@ window.addEventListener('error', function(e) {
   function hideDlInvite() {
     const o = $('dlInvite');
     if (o) o.classList.remove('show');
+    maybeShowSharedRecipeCard();   // Stage 3: the recipe card waits out the invite, then offers itself
   }
   (function initDlInvite() {
     const o = $('dlInvite');
@@ -3981,6 +4039,158 @@ window.addEventListener('error', function(e) {
     img.onerror = function() { setPhoto(makeSample(false)); };
     img.src = '/media/darkroom-lab/sample.jpg?v=20261008a';
   }
+
+  /* ================= Stage 3: shareable recipes =================
+     A recipe link carries the v2 payload WITHOUT masks — grade + look
+     stage + skin — the same "masks never travel" rule as set sync
+     (Stage 2): mask geometry belongs to the frame it was painted on.
+     Receiving never auto-applies: the link only earns a dismissible
+     card once a photo surface exists, and Apply is the user's hand,
+     through the same restore + applyRecipeStage paths Paste uses.
+     The URL is untrusted input — it is structurally validated and every
+     value is clamped to the engine's own ranges before it can touch
+     state; anything malformed behaves as if the parameter weren't
+     there. Gating mirrors the Stage 0 apply paths exactly (Paste and
+     user presets call applyRecipeStage unconditionally — no gate is
+     added here): what a tier does with a carried look or skin amount
+     is decided by the shipped render paths, not by this block. */
+  const SHARE_LINK_CAP = 1800;      // full URL; refuse rather than ship a broken link
+  const RECIPE_PARAM_MAX = 4000;    // pre-decode guard on the raw parameter
+  const SHARE_S_RANGES = {
+    exposure: [-5, 5], temp: [2000, 12000], tint: [-100, 100],
+    contrast: [-100, 100], highlights: [-100, 100], shadows: [-100, 100],
+    clarity: [-100, 100], dehaze: [-100, 100], vibrance: [-100, 100],
+    saturation: [-100, 100], curveH: [-100, 100], curveL: [-100, 100],
+    curveD: [-100, 100], curveS: [-100, 100], vignette: [-100, 0], grain: [0, 100],
+  };
+  function shareClamp(v, min, max, fallback) {
+    return (typeof v === 'number' && isFinite(v)) ? Math.min(max, Math.max(min, v)) : fallback;
+  }
+  function encodeRecipePayload(obj) {
+    const bytes = new TextEncoder().encode(JSON.stringify(obj));
+    let bin = '';
+    bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function sanitizeSharedRecipe(o) {
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+    if (!o.S || typeof o.S !== 'object' || Array.isArray(o.S)) return null;
+    const cleanS = {};
+    for (const k of Object.keys(DEFAULTS)) {
+      const r = SHARE_S_RANGES[k];
+      cleanS[k] = shareClamp(o.S[k], r[0], r[1], DEFAULTS[k]);
+    }
+    const mx = (o.S.mixer && typeof o.S.mixer === 'object' && !Array.isArray(o.S.mixer)) ? o.S.mixer : {};
+    cleanS.mixer = {};
+    for (const b of BANDS) {
+      const band = (mx[b] && typeof mx[b] === 'object' && !Array.isArray(mx[b])) ? mx[b] : {};
+      cleanS.mixer[b] = { h: shareClamp(band.h, -100, 100, 0), s: shareClamp(band.s, -100, 100, 0) };
+    }
+    // look/skin ride through raw; recipeStageOf() normalizes them at
+    // summary and apply time (unknown look -> Original, values clamped).
+    return { v: 2, S: cleanS, look: o.look, skin: o.skin };
+  }
+  function decodeRecipeParam(raw) {
+    if (!raw || typeof raw !== 'string' || raw.length > RECIPE_PARAM_MAX) return null;
+    try {
+      let b64 = raw.replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4) b64 += '=';
+      const bin = atob(b64);
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      return sanitizeSharedRecipe(JSON.parse(new TextDecoder().decode(bytes)));
+    } catch (e) { return null; }
+  }
+  function sharedRecipeSummary(r) {
+    const st = recipeStageOf(r);
+    const parts = [];
+    if (st.id !== 'original') {
+      let name = st.id;
+      const eng = (typeof lookEngine === 'function') ? lookEngine() : null;
+      if (eng && eng.meta) { try { name = eng.meta(st.id).name || name; } catch (e) {} }
+      parts.push(name + ' ' + st.intensity);
+    }
+    if (st.skin > 0) parts.push('Skin ' + st.skin);
+    let grade = 0;
+    for (const k of Object.keys(DEFAULTS)) if (r.S[k] !== DEFAULTS[k]) grade++;
+    for (const b of BANDS) if (r.S.mixer[b].h !== 0 || r.S.mixer[b].s !== 0) grade++;
+    if (grade > 0) parts.push(parts.length ? 'plus its grade settings' : 'Grade settings');
+    if (!parts.length) parts.push('Settings at their defaults');
+    return parts.join(' \u00b7 ');
+  }
+  function clearRecipeParam() {
+    try {
+      const u = new URL(location.href);
+      if (!u.searchParams.has('recipe')) return;
+      u.searchParams.delete('recipe');
+      window.history.replaceState(null, '', u.pathname + u.search + u.hash);   // window.: the Lab's undo stack shadows bare `history`
+    } catch (e) {}
+  }
+  let pendingSharedRecipe = decodeRecipeParam(new URLSearchParams(location.search).get('recipe'));
+  let sharedCardShown = false;
+  function maybeShowSharedRecipeCard() {
+    if (!pendingSharedRecipe || sharedCardShown || !original) return;
+    const invite = $('dlInvite');
+    if (invite && invite.classList.contains('show')) return;   // hideDlInvite re-calls this on dismiss
+    const card = $('sharedRecipeCard');
+    if (!card) return;
+    $('sharedRecipeSummary').textContent = sharedRecipeSummary(pendingSharedRecipe);
+    card.classList.remove('hidden');
+    sharedCardShown = true;
+  }
+  function dismissSharedRecipe() {
+    pendingSharedRecipe = null;
+    const card = $('sharedRecipeCard');
+    if (card) card.classList.add('hidden');
+    clearRecipeParam();
+  }
+  function applySharedRecipe() {
+    if (!pendingSharedRecipe || !original) return;
+    const r = pendingSharedRecipe;
+    // Paste's restore loop, fed by the sanitized payload; masks are
+    // deliberately untouched — the photo keeps the masks it already has.
+    for (const k of Object.keys(S)) {
+      if (k === 'mixer') { for (const b of BANDS) S.mixer[b] = { h: r.S.mixer[b].h, s: r.S.mixer[b].s }; }
+      else S[k] = r.S[k];
+    }
+    applyRecipeStage(r);   // recipe v2 stage (v1 payload = Original / 0)
+    pushHistory();
+    renderPanel();
+    scheduleRender();
+    statusEl.textContent = 'Recipe applied \u2014 adjust to taste';
+    dismissSharedRecipe();
+  }
+  (function wireSharedRecipe() {
+    const card = $('sharedRecipeCard');
+    if (card) card.addEventListener('pointerdown', e => e.stopPropagation());   // never start a compare drag from the card
+    const apply = $('btnRecipeApply');
+    if (apply) apply.addEventListener('click', applySharedRecipe);
+    const dismiss = $('btnRecipeDismiss');
+    if (dismiss) dismiss.addEventListener('click', dismissSharedRecipe);
+    const share = $('btnShareRecipe');
+    if (share) share.addEventListener('click', async () => {
+      if (!original) return;
+      const snap = JSON.parse(snapshotSettings());
+      const payload = { v: 2, S: snap.S, look: snap.look, skin: snap.skin };   // masks never travel
+      const url = location.origin + '/darkroom-lab.html?recipe=' + encodeRecipePayload(payload);
+      if (url.length > SHARE_LINK_CAP) {
+        statusEl.textContent = 'Recipe too large for a share link';
+        return;
+      }
+      if (navigator.share) {
+        try { await navigator.share({ title: 'Develop Lab recipe', url }); return; }
+        catch (e) { if (e && e.name === 'AbortError') return; }
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(url);
+          statusEl.textContent = 'Recipe link copied';
+          setTimeout(() => { if (statusEl.textContent === 'Recipe link copied') statusEl.textContent = ''; }, 2500);
+          return;
+        } catch (e) { /* fall through to the prompt */ }
+      }
+      window.prompt('Copy your recipe link:', url);
+    });
+  })();
 
   /* ================= boot ================= */
   renderPanel();
