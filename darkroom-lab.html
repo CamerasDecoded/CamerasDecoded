@@ -678,6 +678,66 @@
     .histogram-card, .hist-chevron { transition: none; }
   }
 
+  /* ============ SETS + SYNC (Stage 2) ============ */
+  /* The filmstrip lives at the panel zone's top edge (first child of
+     #panel, outside #panelContent so panel re-renders never disturb it).
+     The panel box never grows — the canvas zone's layout and height are
+     identical with and without a set; the panel's own scroll (already
+     how tall docks behave) absorbs the strip, and activation resets the
+     panel scroll so the strip is always the anchor at the top. */
+  .filmstrip { padding: 2px 0 4px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .filmstrip-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; min-height: 18px; }
+  .filmstrip-title {
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .filmstrip-job {
+    flex: 1; text-align: right; min-width: 0;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; color: var(--green);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .filmstrip-cancel {
+    flex-shrink: 0; background: none; cursor: pointer;
+    border: 1px solid rgba(141,235,0,0.4); border-radius: 8px; color: var(--green);
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 4px 9px;
+  }
+  .filmstrip-cancel:active { background: rgba(141,235,0,0.14); }
+  .filmstrip-rail {
+    display: flex; gap: 10px; overflow-x: auto;
+    padding: 2px 2px 4px; scrollbar-width: none;
+    touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch;
+  }
+  .filmstrip-rail::-webkit-scrollbar { display: none; }
+  .set-thumb {
+    flex-shrink: 0; width: 88px; position: relative;
+    background: none; border: none; cursor: pointer; padding: 0; text-align: left;
+  }
+  .set-thumb img {
+    width: 88px; height: 60px; border-radius: 10px; display: block;
+    border: 1px solid var(--border); object-fit: cover; background: #101012;
+  }
+  .set-thumb.active img { border-color: var(--green); box-shadow: 0 0 14px rgba(141,235,0,0.3); }
+  .set-thumb .set-idx {
+    position: absolute; top: 4px; left: 4px;
+    font-family: var(--mono); font-size: 8px; letter-spacing: 0.08em; color: #fff;
+    background: rgba(0,0,0,0.62); border: 1px solid var(--border);
+    padding: 2px 6px; border-radius: 6px; pointer-events: none;
+  }
+  .set-thumb.syncing img { border-color: rgba(141,235,0,0.65); animation: setPulse 1s ease-in-out infinite; }
+  .set-thumb.synced img { border-color: rgba(141,235,0,0.85); box-shadow: 0 0 16px rgba(141,235,0,0.45); }
+  @keyframes setPulse { 50% { box-shadow: 0 0 18px rgba(141,235,0,0.5); } }
+  @media (prefers-reduced-motion: reduce) {
+    .set-thumb.syncing img { animation: none; }
+  }
+  .tb-btn.hasdot { position: relative; }
+  .set-prodot {
+    position: absolute; top: 1px; right: 1px;
+    color: var(--gold); font-size: 9px; line-height: 1; pointer-events: none;
+  }
+  .fmt-prodot { color: var(--gold); font-size: 9px; margin-left: 5px; vertical-align: 2px; }
+
   /* ============ MASKING ============ */
   #maskOverlay {
     position: absolute; inset: 0; width: 100%; height: 100%;
@@ -822,9 +882,13 @@
   <button class="tb-btn" id="btnPaste" aria-label="Paste settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
   </button>
+  <button class="tb-btn hasdot hidden" id="btnApplySet" aria-label="Apply settings to set">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M16 8h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-3"/><path d="M6.5 9.5l2.5 2.5 4-4.5"/></svg>
+    <span class="set-prodot" id="applySetProDot">&#9679;</span>
+  </button>
   <button class="tb-export" id="btnSave">Export</button>
 </div>
-<input type="file" id="fileInput" accept="image/*">
+<input type="file" id="fileInput" accept="image/*" multiple>
 
 <!-- ============ UPLOAD INVITE (up until a photo of their own is loaded) ============ -->
 <div class="dl-invite" id="dlInvite" role="dialog" aria-modal="true" aria-labelledby="dlInviteTitle">
@@ -870,6 +934,14 @@
   </div>
 
   <div class="panel" id="panel">
+    <div class="filmstrip hidden" id="filmstrip">
+      <div class="filmstrip-head">
+        <span class="filmstrip-title" id="filmstripTitle">Set</span>
+        <span class="filmstrip-job" id="filmstripJob"></span>
+        <button type="button" class="filmstrip-cancel hidden" id="btnSetCancel">Cancel</button>
+      </div>
+      <div class="filmstrip-rail" id="filmstripRail"></div>
+    </div>
     <div id="panelContent"></div>
   </div>
 
@@ -1027,6 +1099,23 @@ window.addEventListener('error', function(e) {
   let histogramData = null;
   let firstPassToken = 0;
   let passReadoutTimer = null;
+
+  /* ================= Stage 2: sets + sync =================
+     A set is page-session state only — no Firestore, no localStorage of
+     photos. Each entry holds its File, a thumbnail, and its own recipe +
+     undo history; the decoded frame is re-derived from the File on every
+     activation, so only the ACTIVE photo is resident at working size
+     (plus, transiently, a crop frame a history entry still points at).
+     Switching photos routes through setPhoto() semantics: a photo's own
+     state is restored whole, and nothing — sliders, look, skin, masks,
+     history — ever leaks from one photo into another. */
+  const SET_CAP = 20;
+  let setPhotos = [];        // { file, thumb, recipe, history, hIndex, work, decRef }
+  let setIndex = -1;         // active entry; -1 when no set is live
+  let setBusy = null;        // { kind: 'load'|'sync'|'export', cancel } while a set job runs
+  let setDefaultSnap = null; // a virgin entry's snapshot, captured at its first activation
+  let setNavToken = 0;       // guards interleaved activations
+  let exportScope = 'photo'; // export sheet scope: 'photo' | 'set'
 
   /* ================= looks (one-tap film/camera looks) =================
      The look is a pipeline STAGE, not a sticker: it applies on top of the
@@ -1749,8 +1838,12 @@ window.addEventListener('error', function(e) {
     o.addEventListener('click', hideDlInvite);
   })();
   fileInput.addEventListener('change', () => {
-    const f = fileInput.files[0];
-    if (!f) return;
+    const files = Array.from(fileInput.files || []);
+    fileInput.value = '';
+    if (!files.length || setBusy) return;
+    if (files.length > 1) { loadSet(files); return; }
+    const f = files[0];
+    clearSetState();
     const url = URL.createObjectURL(f);
     const img = new Image();
     img.onload = () => {
@@ -1772,6 +1865,382 @@ window.addEventListener('error', function(e) {
   $('btnBack').addEventListener('click', () => {
     window.location.href = '/darkroom.html';
   });
+
+  /* ================= Stage 2: sets — load, switch, sync, batch export ====
+     Invariants:
+     - The globals (original/pristine/S/masks/stage/history) always belong
+       to the ACTIVE photo. stashSetCurrent() writes them back to the
+       outgoing entry before any switch; activateSetPhoto() installs the
+       incoming entry whole.
+     - An entry's decoded frame is never pinned while inactive: history[0]
+       gives up its image on stash and is re-pinned from a fresh decode on
+       return. A cropped working frame (entry.work) is genuine edit data
+       and is the one exception — it is retained, like a history frame. */
+  function decodeImageFile(f) {
+    return new Promise(resolve => {
+      const url = URL.createObjectURL(f);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxW = 1280;
+          const scale = Math.min(1, maxW / img.naturalWidth);
+          const w = Math.max(1, Math.round(img.naturalWidth * scale));
+          const h = Math.max(1, Math.round(img.naturalHeight * scale));
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(c.getContext('2d').getImageData(0, 0, w, h));
+        } catch (err) { resolve(null); }
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    });
+  }
+  function decodeSetEntry(e) { return decodeImageFile(e.file); }
+  function thumbDataURL(srcCanvas) {
+    try {
+      const tw = 176;
+      const th = Math.max(1, Math.round(tw * srcCanvas.height / srcCanvas.width));
+      const dst = document.createElement('canvas');
+      dst.width = tw; dst.height = th;
+      dst.getContext('2d').drawImage(srcCanvas, 0, 0, tw, th);
+      return dst.toDataURL('image/jpeg', 0.82);
+    } catch (err) { return null; }
+  }
+  function frameThumb(imgData) {
+    const c = document.createElement('canvas');
+    c.width = imgData.width; c.height = imgData.height;
+    c.getContext('2d').putImageData(imgData, 0, 0);
+    return thumbDataURL(c);
+  }
+  function clearSetState() {
+    setPhotos = []; setIndex = -1; setDefaultSnap = null;
+    renderFilmstrip();
+  }
+  function updateSetChrome() {
+    $('btnApplySet').classList.toggle('hidden', setPhotos.length < 2);
+    $('applySetProDot').classList.toggle('hidden', isPro);
+  }
+  function renderFilmstrip() {
+    const strip = $('filmstrip'), rail = $('filmstripRail');
+    const on = setPhotos.length > 1;
+    strip.classList.toggle('hidden', !on);
+    updateSetChrome();
+    if (!on) { rail.innerHTML = ''; return; }
+    $('filmstripTitle').textContent = 'Set \u00b7 ' + setPhotos.length + ' photos';
+    rail.innerHTML = '';
+    setPhotos.forEach((e, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'set-thumb' + (i === setIndex ? ' active' : '');
+      b.dataset.i = i;
+      b.setAttribute('aria-label', 'Photo ' + (i + 1) + ' of ' + setPhotos.length);
+      const im = document.createElement('img');
+      im.alt = '';
+      im.src = e.thumb;
+      const idx = document.createElement('span');
+      idx.className = 'set-idx';
+      idx.textContent = String(i + 1);
+      b.appendChild(im);
+      b.appendChild(idx);
+      b.addEventListener('click', () => {
+        if (setBusy || firstPassToken) return;
+        activateSetPhoto(i);
+      });
+      rail.appendChild(b);
+    });
+  }
+  function setThumbEl(i) {
+    return $('filmstripRail').querySelector('[data-i="' + i + '"]');
+  }
+  function showSetJob(text, cancellable) {
+    $('filmstripJob').textContent = text;
+    $('btnSetCancel').classList.toggle('hidden', !cancellable);
+  }
+  function setJobText(text) { $('filmstripJob').textContent = text; }
+  function hideSetJob() {
+    $('filmstripJob').textContent = '';
+    $('btnSetCancel').classList.add('hidden');
+  }
+  $('btnSetCancel').addEventListener('click', () => { if (setBusy) setBusy.cancel = true; });
+
+  function stashSetCurrent() {
+    if (setIndex < 0 || !setPhotos[setIndex] || !original) return;
+    const e = setPhotos[setIndex];
+    // flush the debounced stages so the strip thumb is the finished frame
+    try { render(); ensureSkinForExport(); ensureLookForExport(); } catch (err) {}
+    e.recipe = snapshotSettings();
+    e.history = history;
+    e.hIndex = hIndex;
+    e.work = (original && original !== e.decRef) ? original : null;
+    if (e.history && e.history[0]) e.history[0].image = null;   // release the source frame
+    if (cvAfter.width && cvAfter.height) {
+      const t = thumbDataURL(cvAfter);
+      if (t) e.thumb = t;
+    }
+  }
+  async function activateSetPhoto(idx, preDec) {
+    const e = setPhotos[idx];
+    if (!e) return;
+    if (idx === setIndex && original && e.recipe) { renderFilmstrip(); return; }
+    const token = ++setNavToken;
+    stashSetCurrent();
+    const dec = preDec || await decodeSetEntry(e);
+    if (token !== setNavToken) return;
+    if (!dec) { showPassReadout('Photo ' + (idx + 1) + ' could not be read'); renderFilmstrip(); return; }
+    setIndex = idx;
+    e.decRef = dec;
+    if (!e.recipe) {
+      // virgin entry: exactly the fresh-upload path (untouched original)
+      resetSettings();
+      setPhoto(dec);
+      e.recipe = snapshotSettings();
+      e.history = history; e.hIndex = hIndex; e.work = null;
+      setDefaultSnap = e.recipe;
+    } else {
+      original = e.work || dec;
+      pristine = new ImageData(new Uint8ClampedArray(dec.data), dec.width, dec.height);
+      history = (e.history && e.history.length) ? e.history : [{ snap: e.recipe, image: null }];
+      hIndex = (e.hIndex >= 0 && e.hIndex < history.length) ? e.hIndex : history.length - 1;
+      if (history[0]) history[0].image = dec;   // re-pin the source frame for undo
+      restoreSettings(e.recipe);
+      applyRecipeStage(JSON.parse(e.recipe));
+      lookBase = null; skinTrueBase = null; lookShown = null;   // drop the outgoing photo's stage frames
+      lookCache.id = null; skinShownKey = '';
+      maskPaintMode = null; maskDrawMode = null; maskSampleMode = null;
+      paintStroke = null; drawAnchor = null; drawCurrent = null;
+      fitCanvases();
+      drawBefore();
+      thumbsBuiltFor = null;
+      render();
+      renderPanel();
+      if (histCard) {
+        histCard.classList.remove('hidden');
+        applyHistogramState(false);
+      }
+      updateMaskOverlayMode();
+      drawMaskOverlay();
+      $('canvasEmpty').classList.add('hidden');
+      updateCompareUI();
+      updateUndoBtns();
+    }
+    renderFilmstrip();
+    $('panel').scrollTop = 0;   // the strip anchors the panel's top edge on every switch
+  }
+  async function loadSet(files) {
+    if (setBusy) return;
+    const job = setBusy = { kind: 'load', cancel: false };
+    const picked = files.slice(0, SET_CAP);
+    const entries = [];
+    let failed = 0, firstDec = null;
+    statusEl.style.display = 'block';
+    for (let i = 0; i < picked.length; i++) {
+      statusEl.textContent = 'Loading photos \u2014 ' + (i + 1) + ' of ' + picked.length;
+      const dec = await decodeImageFile(picked[i]);
+      if (!dec) { failed++; continue; }
+      if (!entries.length) firstDec = dec;
+      entries.push({ file: picked[i], thumb: frameThumb(dec), recipe: null, history: null, hIndex: -1, work: null, decRef: null });
+      await new Promise(r => setTimeout(r, 15));
+    }
+    setBusy = null;
+    if (!entries.length) {
+      statusEl.textContent = 'Those photos could not be read';
+      return;
+    }
+    if (entries.length === 1) {
+      // a one-photo "set" is just a photo — single-photo semantics
+      clearSetState();
+      resetSettings();
+      setPhoto(firstDec);
+      renderPanel();
+      hideDlInvite();
+      statusEl.textContent = 'Photo loaded \u2014 ' + firstDec.width + '\u00d7' + firstDec.height;
+      return;
+    }
+    setPhotos = entries;
+    setIndex = -1;
+    await activateSetPhoto(0, firstDec);
+    hideDlInvite();
+    let msg = 'Set loaded \u2014 ' + entries.length + ' photos';
+    if (files.length > SET_CAP) msg += ' (first ' + SET_CAP + ' of ' + files.length + ')';
+    if (failed) msg += ' \u00b7 ' + failed + ' could not be read';
+    showPassReadout(msg);
+  }
+  /* The synced recipe: the source's S + look stage + skin, merged over the
+     target's own masks — sync never moves mask geometry between frames,
+     and never deletes a target's own masks either. */
+  function syncedRecipeFor(e, srcObj) {
+    let cur = null;
+    try { cur = e.recipe ? JSON.parse(e.recipe) : null; } catch (err) {}
+    return JSON.stringify({
+      v: 2,
+      S: srcObj.S,
+      masks: cur && cur.masks ? cur.masks : [],
+      maskSeq: cur && cur.maskSeq ? cur.maskSeq : 1,
+      activeMaskId: cur && cur.activeMaskId != null ? cur.activeMaskId : null,
+      look: srcObj.look || { id: 'original', intensity: 70 },
+      skin: srcObj.skin != null ? srcObj.skin : 0,
+    });
+  }
+  /* Render one entry through the real pipeline, offscreen, for its graded
+     thumbnail. The recipe is swapped into the live state, rendered with
+     the same settingsJSON + CDLooks stages the canvas uses, then the
+     active photo's state is restored whole — the canvas is never touched,
+     so preview == export holds for the thumb as well. */
+  async function renderEntryFrame(e) {
+    if (!wasm || !e.recipe) return null;
+    const dec = await decodeSetEntry(e);
+    if (!dec) return null;
+    const savedSnap = snapshotSettings();
+    const savedStage = { id: lookId, intensity: lookIntensity, skin: skinAmount };
+    try {
+      restoreSettings(e.recipe);
+      const o = JSON.parse(e.recipe);
+      const st = recipeStageOf(o);
+      const out = wasm.process_json(dec.data, dec.width, dec.height, settingsJSON(true));
+      if (!out || out.length !== dec.data.length) return null;
+      let frame = new ImageData(new Uint8ClampedArray(out), dec.width, dec.height);
+      const eng = lookEngine();
+      if (eng) {
+        if (isPro && st.skin > 0) {
+          const sep = eng.skinSeparation(frame);
+          frame = eng.retouch(frame, sep, st.skin / 100);
+        }
+        if (st.id !== 'original' && eng.IDS.indexOf(st.id) >= 0) {
+          const graded = eng.grade(frame, st.id);
+          frame = eng.blend(frame, graded, st.intensity / 100);
+        }
+      }
+      return frame;
+    } catch (err) {
+      console.error('set render', err);
+      return null;
+    } finally {
+      restoreSettings(savedSnap);
+      lookId = savedStage.id; lookIntensity = savedStage.intensity; skinAmount = savedStage.skin;
+    }
+  }
+  async function applyToSet() {
+    if (setBusy || setPhotos.length < 2 || !original) return;
+    stashSetCurrent();
+    const srcIdx = setIndex;
+    const srcObj = JSON.parse(snapshotSettings());
+    const hadMasks = masks.length > 0;
+    const total = setPhotos.length;
+    const job = setBusy = { kind: 'sync', cancel: false };
+    let done = 1;   // the source photo already carries the recipe
+    showSetJob('Syncing 1 of ' + total, true);
+    for (let i = 0; i < total; i++) {
+      if (job.cancel) break;
+      if (i === srcIdx) continue;
+      const e = setPhotos[i];
+      const prevSnap = e.recipe || setDefaultSnap;
+      e.recipe = syncedRecipeFor(e, srcObj);
+      if (!e.history || !e.history.length) {
+        e.history = [{ snap: prevSnap || e.recipe, image: null }, { snap: e.recipe, image: null }];
+        e.hIndex = 1;
+      } else {
+        e.history = e.history.slice(0, e.hIndex + 1);
+        e.history.push({ snap: e.recipe, image: null });
+        e.hIndex = e.history.length - 1;
+      }
+      const el = setThumbEl(i);
+      if (el) el.classList.add('syncing');
+      const frame = await renderEntryFrame(e);
+      if (el) el.classList.remove('syncing');
+      if (frame) {
+        e.thumb = frameThumb(frame);
+        const img = el ? el.querySelector('img') : null;
+        if (img) img.src = e.thumb;
+        if (el) { el.classList.add('synced'); setTimeout(() => el.classList.remove('synced'), 1200); }
+      }
+      done++;
+      setJobText('Syncing ' + done + ' of ' + total);
+      await new Promise(r => setTimeout(r, 15));
+    }
+    const cancelled = job.cancel;
+    setBusy = null;
+    hideSetJob();
+    if (cancelled) {
+      showPassReadout('Sync stopped \u2014 ' + done + ' of ' + total + ' synced');
+    } else if (hadMasks) {
+      showPassReadout('Grade and look synced \u2014 masks stay on the photo they were painted for \u00b7 ' + done + ' of ' + total);
+    } else {
+      showPassReadout('Synced ' + done + ' of ' + total);
+    }
+  }
+  $('btnApplySet').addEventListener('click', () => {
+    if (setBusy) { if (setBusy.kind === 'sync') setBusy.cancel = true; return; }
+    if (setPhotos.length < 2 || !original) return;
+    if (!isPro) { showPaywall(); return; }
+    applyToSet();
+  });
+  /* Batch export: every photo in the set, through the existing export
+     path — each photo is activated, its stages flushed exactly as
+     doExport flushes them, and buildExportCanvas applies the same size
+     cap and watermark. Delivery mirrors single export: one share sheet
+     with all files first, new-tab fallback per file. */
+  async function doBatchExport(fmt) {
+    if (setBusy || setPhotos.length < 2 || !original) return;
+    $('fmtSheet').classList.remove('open');
+    const isJpg = fmt === 'jpeg';
+    const mime = isJpg ? 'image/jpeg' : 'image/png';
+    const ext = isJpg ? 'jpg' : 'png';
+    const job = setBusy = { kind: 'export', cancel: false };
+    const homeIdx = setIndex;
+    const total = setPhotos.length;
+    const files = [], failures = [];
+    showSetJob('Exporting 1 of ' + total, true);
+    for (let i = 0; i < total; i++) {
+      if (job.cancel) break;
+      setJobText('Exporting ' + (i + 1) + ' of ' + total);
+      try {
+        await activateSetPhoto(i);
+        render();
+        ensureSkinForExport();
+        ensureLookForExport();
+        const blob = await new Promise(res => buildExportCanvas().toBlob(res, mime, isJpg ? 0.92 : undefined));
+        if (!blob) throw new Error('encode failed');
+        files.push(new File([blob], 'cd-develop-' + (i + 1) + '.' + ext, { type: mime }));
+      } catch (err) {
+        console.error('set export photo ' + (i + 1), err);
+        failures.push(i + 1);
+      }
+      await new Promise(r => setTimeout(r, 15));
+    }
+    const cancelled = job.cancel;
+    setBusy = null;
+    hideSetJob();
+    if (setIndex !== homeIdx) await activateSetPhoto(homeIdx);
+    if (cancelled) { showPassReadout('Export cancelled \u2014 nothing sent'); return; }
+    if (!files.length) { showPassReadout('Export failed \u2014 no photos could be exported'); return; }
+    const doneText = () => {
+      let t = 'Exported ' + files.length + (files.length === total ? '' : ' of ' + total) +
+        (files.length === 1 ? ' photo' : ' photos');
+      if (failures.length) t += ' \u2014 photo' + (failures.length > 1 ? 's' : '') + ' ' + failures.join(', ') + ' failed';
+      return t;
+    };
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
+        await navigator.share({ files, title: 'Develop Lab export' });
+        bankDevelopXp();
+        showPassReadout(doneText());
+        return;
+      }
+      for (const file of files) {
+        const url = URL.createObjectURL(file);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }
+      bankDevelopXp();
+      showPassReadout(doneText());
+    } catch (err) {
+      if (err && err.name === 'AbortError') { showPassReadout('Export cancelled'); return; }
+      console.error('Set export failed:', err);
+      showPassReadout('Export failed');
+    }
+  }
   /* +15 XP for a finished export, once per day (localStorage guard, the
      same pattern as the Arena entry claim). Cancelled shares never reach
      the call sites, so only delivered exports bank. */
@@ -1817,6 +2286,13 @@ window.addEventListener('error', function(e) {
   function syncExportUI() {
     document.querySelectorAll('#fmtSizeSeg button').forEach(b =>
       b.classList.toggle('active', b.dataset.size === exportPrefs.size));
+    const hasSet = setPhotos.length > 1;
+    if (!hasSet) exportScope = 'photo';
+    $('fmtScopeSeg').classList.toggle('hidden', !hasSet);
+    document.querySelectorAll('#fmtScopeSeg button').forEach(b =>
+      b.classList.toggle('active', b.dataset.scope === exportScope));
+    $('fmtScopeSet').innerHTML = 'Set \u00b7 ' + setPhotos.length +
+      (isPro ? '' : '<span class="fmt-prodot">\u25cf</span>');
     const has = !!logoImg;
     const on = !!(exportPrefs.wm && has);
     $('wmSwitch').classList.toggle('on', on);
@@ -1830,6 +2306,12 @@ window.addEventListener('error', function(e) {
     if (!b) return;
     exportPrefs.size = b.dataset.size;
     saveExportPrefs(); syncExportUI();
+  });
+  $('fmtScopeSeg').addEventListener('click', e => {
+    const b = e.target.closest('button[data-scope]');
+    if (!b) return;
+    exportScope = b.dataset.scope;
+    syncExportUI();
   });
   function wmToggle() {
     if (!logoImg) { $('wmFile').click(); return; }
@@ -1967,8 +2449,16 @@ window.addEventListener('error', function(e) {
     syncExportUI();
     $('fmtSheet').classList.add('open');
   });
-  $('fmtPng').addEventListener('click', () => doExport('png'));
-  $('fmtJpg').addEventListener('click', () => doExport('jpeg'));
+  function fmtExport(fmt) {
+    if (exportScope === 'set' && setPhotos.length > 1) {
+      if (!isPro) { $('fmtSheet').classList.remove('open'); showPaywall(); return; }
+      doBatchExport(fmt);
+      return;
+    }
+    doExport(fmt);
+  }
+  $('fmtPng').addEventListener('click', () => fmtExport('png'));
+  $('fmtJpg').addEventListener('click', () => fmtExport('jpeg'));
   $('fmtCancel').addEventListener('click', () => $('fmtSheet').classList.remove('open'));
 
   /* ================= panel + dock ================= */
@@ -3368,6 +3858,8 @@ window.addEventListener('error', function(e) {
 
   function updateProUI() {
     document.querySelectorAll('[data-probadge]').forEach(el => el.classList.toggle('hidden', isPro));
+    updateSetChrome();
+    syncExportUI();
     renderPanel();
     renderLearnLock();
   }
@@ -3559,6 +4051,10 @@ window.addEventListener('error', function(e) {
 </script>
   <div class="fmt-sheet" id="fmtSheet">
     <div class="fmt-title">Export</div>
+    <div class="fmt-seg hidden" id="fmtScopeSeg" role="group" aria-label="Export scope">
+      <button type="button" data-scope="photo" class="active">This photo</button>
+      <button type="button" data-scope="set" id="fmtScopeSet">Set</button>
+    </div>
     <div class="fmt-seg" id="fmtSizeSeg" role="group" aria-label="Export size">
       <button type="button" data-size="full" class="active">Full</button>
       <button type="button" data-size="ig">Instagram</button>
