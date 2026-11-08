@@ -226,7 +226,7 @@
   function loadSharedCSS() {
     // ✅ All paths are now absolute (start with /)
     const files = [
-      '/styles/design-system.css?v=20260927b',
+      '/styles/design-system.css?v=20261107b',
       '/styles/components.css',
       '/header.css?v=20260927a'
     ];
