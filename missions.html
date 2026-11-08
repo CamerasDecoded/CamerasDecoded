@@ -1410,9 +1410,16 @@ button{font-family:inherit;cursor:pointer}
         }).catch(function (err) {
           if (spin.parentNode === slot) slot.removeChild(spin);
           if (btn) btn.disabled = false;
-          toast(err && err.message ? err.message : 'Couldn\u2019t prepare that photo.');
+          toast(prepError(err));
         });
       });
+    }
+
+    function prepError(err) {
+      var m = err && err.message ? err.message : '';
+      if (m.indexOf('Couldn\u2019t compress') === 0 || m.indexOf('Couldn\u2019t read') === 0) return m;
+      if (m === 'empty image') return 'That file looks empty or unreadable. Pick a different photo.';
+      return 'Your photo could not be prepared on this device. Try a JPG or PNG, or a smaller file.';
     }
 
     function showPreview(laneKey, blob) {
@@ -1450,7 +1457,7 @@ button{font-family:inherit;cursor:pointer}
       window.CDUpload.upload(blob, 'arena-entry.jpg')
         .then(function (up) {
           if (!up || !up.url) {
-            throw new Error('Upload failed — try again.');
+            throw new Error('Your photo could not be uploaded \u2014 the connection may have dropped.');
           }
           var imgUrl = up.url;
           var publicId = up.publicId; /* the 24h sweep reads this; never logged */
@@ -1513,8 +1520,10 @@ button{font-family:inherit;cursor:pointer}
           toast('You\u2019re in. Good luck, ' + aliasOf(user.uid) + '.');
         })
         .catch(function (err) {
-          var msg = (err && err.message) ? err.message : 'Submit failed — try again.';
+          var msg = 'Your entry could not be submitted. Check your connection and tap Submit again \u2014 your photo is still selected.';
           if (err && err.code === 'already-exists') msg = 'You already have an entry in this round — one shot per round.';
+          else if (err && err.code === 'permission-denied') msg = 'This round is not accepting your entry \u2014 it may have just closed. Check the round state, then try again.';
+          else if (err && err.message && err.message.indexOf('could not be uploaded') !== -1) msg = err.message + ' Your photo is still selected \u2014 tap Submit again.';
           toast(msg);
           var prev = el('amPrev' + cap(laneKey));
           if (prev) {
@@ -1907,8 +1916,9 @@ button{font-family:inherit;cursor:pointer}
             btn.classList.remove('is-loading');
             if (btnOrig !== null) btn.innerHTML = btnOrig;
           }
-          var msg = (err && err.message) ? err.message : 'Vote failed — try again.';
+          var msg = 'Your vote could not be counted. Check your connection and tap Vote again.';
           if (err && err.code === 'already-exists') { st.myVotes[e.uid] = true; renderLbBody(st, e); msg = 'You already voted for this one.'; }
+          else if (err && err.code === 'permission-denied') msg = 'Voting is not open for this entry right now. Refresh the round and try again.';
           toast(msg);
         });
     }
