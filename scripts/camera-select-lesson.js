@@ -183,6 +183,15 @@
         bar = mount.querySelector('#cslBar'), chip = mount.querySelector('#cslScore');
     var player = new Audio();
     var S = { idx: 0, firstTry: {}, answered: {}, done: {}, picked: [], checked: false, pro: false, doneBefore: false, bankedNote: '', bankPromise: null };
+    /* Unsaved-work guard: arms once an answer exists and disarms on the
+       result card (progress banks only at completion). */
+    window.addEventListener('beforeunload', function (ev) {
+      var c = cfg.cards[S.idx];
+      if (Object.keys(S.answered).length && c && c.kind !== 'result') {
+        ev.preventDefault();
+        ev.returnValue = '';
+      }
+    });
     var currentVoice = null, typeTimer = null;
 
     // prior completion (resume state)
