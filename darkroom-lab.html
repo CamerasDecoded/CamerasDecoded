@@ -1350,6 +1350,35 @@ window.addEventListener('error', function(e) {
       skin: skinAmount,
     });
   }
+
+  /* ================= unsaved-work guard =================
+     Arms only when real edits exist: the working state differs from the
+     state this photo loaded with (setPhoto / set activation) and from the
+     state at the last delivered export, or a non-current set photo's saved
+     recipe differs from the recipe it entered the set with. An untouched
+     photo never triggers it. */
+  let labStartSnap = null;   // snapshotSettings() when the current photo was loaded
+  let labSavedSnap = null;   // snapshotSettings() at the last delivered export
+  function labIsDirty() {
+    if (setPhotos && setPhotos.length > 1) {
+      for (const e of setPhotos) {
+        if (e && e.startRecipe && e.recipe && e.recipe !== e.startRecipe) return true;
+      }
+    }
+    if (labStartSnap === null) return false;
+    const cur = snapshotSettings();
+    return cur !== labStartSnap && cur !== labSavedSnap;
+  }
+  function markLabPersisted() {
+    try { labSavedSnap = snapshotSettings(); } catch (e) {}
+    if (setPhotos) for (const e of setPhotos) { if (e && e.recipe) e.startRecipe = e.recipe; }
+  }
+  window.addEventListener('beforeunload', function (ev) {
+    if (!labIsDirty()) return;
+    ev.preventDefault();
+    ev.returnValue = '';
+  });
+
   function restoreSettings(snap) {
     const o = JSON.parse(snap);
     const s = o.S || o;
@@ -1819,6 +1848,8 @@ window.addEventListener('error', function(e) {
     drawMaskOverlay();
     $('canvasEmpty').classList.add('hidden');
     updateCompareUI();
+    labStartSnap = snapshotSettings();   // unsaved-work guard: this load is the clean state
+    labSavedSnap = null;
     maybeShowSharedRecipeCard();   // Stage 3: a recipe link offers its card once a photo surface exists
   }
   function makeSample(dark) {
@@ -2054,6 +2085,7 @@ window.addEventListener('error', function(e) {
       resetSettings();
       setPhoto(dec);
       e.recipe = snapshotSettings();
+      e.startRecipe = e.recipe;
       e.history = history; e.hIndex = hIndex; e.work = null;
       setDefaultSnap = e.recipe;
     } else {
@@ -2082,6 +2114,8 @@ window.addEventListener('error', function(e) {
       $('canvasEmpty').classList.add('hidden');
       updateCompareUI();
       updateUndoBtns();
+      labStartSnap = snapshotSettings();   // unsaved-work guard: the restored recipe is the clean state
+      labSavedSnap = null;
     }
     renderFilmstrip();
     $('panel').scrollTop = 0;   // the strip anchors the panel's top edge on every switch
@@ -2283,6 +2317,7 @@ window.addEventListener('error', function(e) {
       if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
         await navigator.share({ files, title: 'Develop Lab export' });
         bankDevelopXp();
+        markLabPersisted();
         showPassReadout(doneText());
         return;
       }
@@ -2292,6 +2327,7 @@ window.addEventListener('error', function(e) {
         setTimeout(() => URL.revokeObjectURL(url), 60000);
       }
       bankDevelopXp();
+      markLabPersisted();
       showPassReadout(doneText());
     } catch (err) {
       if (err && err.name === 'AbortError') { showPassReadout('Export cancelled'); return; }
@@ -2452,6 +2488,7 @@ window.addEventListener('error', function(e) {
         await navigator.share({ files: [file], title: 'Develop Lab export' });
         statusEl.textContent = 'Shared ' + ext.toUpperCase();
         bankDevelopXp();
+        markLabPersisted();
         return;
       }
       // Fallback: open in new tab (user can long-press to save)
@@ -2459,6 +2496,7 @@ window.addEventListener('error', function(e) {
       window.open(url, '_blank');
       statusEl.textContent = 'Opened in new tab';
       bankDevelopXp();
+      markLabPersisted();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (err) {
       if (err && err.name === 'AbortError') { statusEl.textContent = 'Export cancelled'; return; }
