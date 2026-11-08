@@ -135,7 +135,7 @@
     /* signature chase continue button (page-unique .pw-go) */
     '@property --pw-angle{syntax:"<angle>";initial-value:0deg;inherits:false;}',
     '@keyframes pwSpin{to{--pw-angle:360deg;}}',
-    '.pw-go{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:58px;',
+    '.pw-go{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:58px;padding:10px 14px;text-align:center;line-height:1.3;',
     'margin-top:14px;border-radius:16px;border:1px solid transparent;cursor:pointer;',
     'font-weight:800;font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:#8deb00;',
     'text-shadow:0 0 18px rgba(141,235,0,.45);',
@@ -149,6 +149,8 @@
     'animation:pwSpin 6s linear infinite;}',
     '.pw-go:disabled{opacity:.55;cursor:wait;}',
     '.pw-cancel{text-align:center;margin:10px 0 0;font-size:12px;color:rgba(255,255,255,.45);}',
+    '.pw-renew{text-align:center;margin:6px 0 0;font-size:11.5px;line-height:1.5;color:rgba(255,255,255,.45);}',
+    '.pw-renew a{color:#8deb00;text-decoration:underline;text-underline-offset:2px;}',
 
     '.pw-foot{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.09);',
     'display:flex;justify-content:center;gap:8px;font-size:12.5px;}',
@@ -170,6 +172,7 @@
     '.pw-sheet.pw-bleed .pw-founding{display:none;}', /* founding stays desktop-only, per owner */
     '.pw-sheet.pw-bleed .pw-pnote{display:block;text-align:center;font-size:10.5px;margin:7px 2px 0;color:rgba(255,255,255,.55);font-weight:400;}',
     '.pw-sheet.pw-bleed .pw-cancel{display:block;text-align:center;font-size:10.5px;margin:7px 0 0;color:rgba(255,255,255,.42);}',
+    '.pw-sheet.pw-bleed .pw-renew{display:block;text-align:center;font-size:10.5px;margin:5px 0 0;color:rgba(255,255,255,.42);}',
     '.pw-sheet.pw-bleed .pw-plans{margin:0 0 5px;gap:8px;}',
     '.pw-sheet.pw-bleed .pw-plan{padding:8px 6px 7px;background:rgba(0,0,0,.55);}',
     '.pw-sheet.pw-bleed .pw-plan.pw-sel{padding:7px 5px 6px;}',
@@ -177,7 +180,7 @@
     '.pw-sheet.pw-bleed .pw-plan .pw-pprice{font-size:18px;margin-top:3px;}',
     '.pw-sheet.pw-bleed .pw-plan .pw-pper{font-size:10px;}',
     '.pw-sheet.pw-bleed .pw-plan .pw-save{top:-9px;font-size:9px;padding:3px 8px;}',
-    '.pw-sheet.pw-bleed .pw-go{margin-top:8px;height:48px;font-size:14px;',
+    '.pw-sheet.pw-bleed .pw-go{margin-top:8px;min-height:48px;font-size:13.5px;',
     'background:linear-gradient(165deg,rgba(12,22,9,.94),rgba(5,9,5,.96));',
     'border:1px solid rgba(141,235,0,.38);',
     'box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 10px 30px rgba(0,0,0,.50),0 0 26px rgba(141,235,0,.16);}',
@@ -195,7 +198,7 @@
     '.pw-sheet.pw-bleed .pw-plan .pw-pprice{font-size:14px;margin-top:2px;}',
     '.pw-sheet.pw-bleed .pw-plan .pw-pper{display:none;}',
     '.pw-sheet.pw-bleed .pw-plan .pw-save{top:-7px;font-size:8px;padding:2px 7px;}',
-    '.pw-sheet.pw-bleed .pw-go{height:40px;margin-top:6px;font-size:13px;}',
+    '.pw-sheet.pw-bleed .pw-go{min-height:40px;margin-top:6px;font-size:12.5px;}',
     '.pw-sheet.pw-bleed .pw-foot{margin-top:4px;padding-top:4px;font-size:11px;}',
     '.pw-sheet.pw-bleed .pw-body{padding:0 18px calc(6px + env(safe-area-inset-bottom,0px));}',
     '}',
@@ -223,6 +226,18 @@
   }
 
   var scrim = null, sheet = null, selectedPlan = 'annual', busy = false;
+
+  function planLabel(id) {
+    for (var i = 0; i < PLANS.length; i++) {
+      if (PLANS[i].id === id) return 'Go to secure checkout \u2014 ' + PLANS[i].name + ' \u00b7 ' + PLANS[i].price + PLANS[i].per;
+    }
+    return 'Go to secure checkout';
+  }
+  function syncGoLabel() {
+    if (!scrim) return;
+    var span = scrim.querySelector('.pw-go span');
+    if (span && !busy) span.textContent = planLabel(selectedPlan);
+  }
 
   function build(titleImg) {
     ensureCSS();
@@ -260,8 +275,9 @@
       '<div class="pw-feats">' + feats + '</div>' +
       '<div class="pw-founding"><b>Founding Decoder</b> — locked pricing for the first 200. When they\u2019re gone, they\u2019re gone.</div>' +
       '<div class="pw-plans" role="radiogroup" aria-label="Choose a plan">' + plans + '</div>' +
-      '<button class="pw-go"><span>Continue</span></button>' +
+      '<button class="pw-go"><span>' + planLabel(selectedPlan) + '</span></button>' +
       '<p class="pw-cancel">Cancel anytime. Streaks, leaderboard and daily drill stay free forever.</p>' +
+      '<p class="pw-renew">Renews automatically at the price shown until you cancel. Cancel anytime \u2014 Pro stays on until the end of the paid period. <a href="/terms.html">Terms</a></p>' +
       '<div class="pw-foot"><a href="/protocols.html">Protocols</a><i>|</i><a href="/blog-updates.html">Blog</a><i>|</i><a href="/faq.html">FAQ</a><i>|</i><button type="button" class="pw-share">Share</button></div>' +
       '</div></div>';
 
@@ -282,6 +298,7 @@
     var planEls = scrim.querySelectorAll('.pw-plan');
     function pick(id) {
       selectedPlan = id;
+      syncGoLabel();
       for (var i = 0; i < planEls.length; i++) {
         var on = planEls[i].dataset.plan === id;
         planEls[i].classList.toggle('pw-sel', on);
@@ -386,11 +403,11 @@
     busy = true;
     var btn = scrim.querySelector('.pw-go');
     btn.disabled = true;
-    btn.querySelector('span').textContent = 'Loading…';
+    btn.querySelector('span').textContent = 'Opening secure checkout\u2026';
     getPaymentLink(plan).then(function (link) {
       busy = false;
       btn.disabled = false;
-      btn.querySelector('span').textContent = 'Continue';
+      btn.querySelector('span').textContent = planLabel(plan);
       /* Stash the pending upgrade BEFORE leaving for Stripe: if the buyer
          pays but the redirect back never lands, the recovery nudge in
          notifications.js can still route them to finish activation. */
@@ -445,6 +462,7 @@
         els[k].classList.toggle('pw-sel', on);
         els[k].setAttribute('aria-checked', on ? 'true' : 'false');
       }
+          syncGoLabel();
     }
     var headline = ctx.headline || DEFAULT_CTX.headline;
     var sub = ctx.sub || DEFAULT_CTX.sub;
