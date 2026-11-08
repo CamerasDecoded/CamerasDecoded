@@ -312,7 +312,7 @@
     function renderGate() {
       stage.innerHTML = '<div class="csl-card"><div class="csl-gate"><div class="pg-k">PRO LESSON</div>' +
         '<h3>The deep steps are Pro</h3><p>You have the opening of this lesson free. Pro opens the rest — every step, the checks, and the answer card — for this camera and every model as they ship.</p>' +
-        '<p style="margin-top:10px">Already upgraded? The check runs again when you tap Continue.</p></div></div>';
+        '<p style="margin-top:10px">Already upgraded? The check runs again when you tap Unlock with Pro.</p></div></div>';
       btn.textContent = 'Unlock with Pro';
       btn.classList.add('solid');
       btn.disabled = false;
