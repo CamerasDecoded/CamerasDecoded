@@ -417,6 +417,30 @@
     }
     function clearSignupSource() { try { localStorage.removeItem('signup_source'); } catch (e) {} }
 
+    // One mapper for every auth failure: CD wording + a next step.
+    // Raw Firebase messages never reach the user.
+    function cdAuthError(err, fallback) {
+      var code = err && err.code ? err.code : '';
+      switch (code) {
+        case 'auth/popup-closed-by-user': return 'The sign-in window closed before it finished. Tap the button again and complete the sign-in in the window that opens.';
+        case 'auth/cancelled-popup-request': return 'That sign-in was already in progress. Wait for its window to finish, or close it and tap once more.';
+        case 'auth/popup-blocked': return 'Your browser blocked the sign-in window. Allow popups for this site, then tap the button again.';
+        case 'auth/network-request-failed': return 'The connection dropped before that finished. Check your connection and try again.';
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+        case 'auth/user-not-found': return 'Incorrect email or password. Please try again.';
+        case 'auth/email-already-in-use': return 'This email is already registered. Please log in.';
+        case 'auth/weak-password': return 'Password is too weak. Use at least 6 characters.';
+        case 'auth/invalid-email': return 'That email address doesn\u2019t look right. Check it and try again.';
+        case 'auth/too-many-requests': return 'Too many attempts. Please wait a moment and try again.';
+        case 'auth/user-disabled': return 'This account has been disabled. Reach us through the FAQ page to get it sorted.';
+        case 'auth/operation-not-allowed': return 'That sign-in method is not available right now. Use email and password instead.';
+        case 'auth/account-exists-with-different-credential': return 'An account already exists with that email, but with a different sign-in method. Log in the way you first signed up.';
+        case 'permission-denied': return 'That was refused by the server. Sign out and back in, then try again.';
+      }
+      return fallback;
+    }
+
     function showSignupError(msg) {
       const errorEl = document.getElementById('signupError');
       errorEl.textContent = msg; errorEl.style.display = 'block';
@@ -539,11 +563,10 @@
         }
       } catch (err) {
         resetCreateBtn(btn, spinner);
-        let msg = err.message;
-        if (err.code === 'auth/email-already-in-use') msg = 'This email is already registered. Please log in.';
-        else if (err.code === 'auth/weak-password') msg = 'Password is too weak. Use at least 6 characters.';
-        else if (err.code === 'auth/invalid-email') msg = 'Invalid email address.';
+        let msg;
+        if (err.code === 'auth/invalid-email') msg = 'Invalid email address.';
         else if (err.code === 'permission-denied') msg = 'We couldn\'t create your account just now. Please try again in a moment.';
+        else msg = cdAuthError(err, 'We couldn\'t create your account just now. Check your connection and try again \u2014 everything you typed is still here.');
         showSignupError(msg);
       }
     };
@@ -551,11 +574,11 @@
     // Social signup (these buttons previously called undefined functions)
     window.signInWithGoogle = function() {
       const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).then(r => handleSocialSignup(r.user)).catch(err => showSignupError(err.message));
+      auth.signInWithPopup(provider).then(r => handleSocialSignup(r.user)).catch(err => showSignupError(cdAuthError(err, 'Sign-up could not be completed. Check your connection and try again.')));
     };
     window.signInWithFacebook = function() {
       const provider = new firebase.auth.FacebookAuthProvider();
-      auth.signInWithPopup(provider).then(r => handleSocialSignup(r.user)).catch(err => showSignupError(err.message));
+      auth.signInWithPopup(provider).then(r => handleSocialSignup(r.user)).catch(err => showSignupError(cdAuthError(err, 'Sign-up could not be completed. Check your connection and try again.')));
     };
 
     async function handleSocialSignup(user) {
@@ -587,7 +610,7 @@
         resetCreateBtn(btn, spinner);
         showSignupError(err.code === 'permission-denied'
           ? 'We couldn\'t create your profile just now. Please try again in a moment.'
-          : err.message);
+          : cdAuthError(err, 'We couldn\'t finish setting up your profile. Check your connection and try again.'));
       }
     }
 

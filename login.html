@@ -737,12 +737,33 @@
         if (e.key === 'Escape' && !modal.hidden) closeModal();
       });
 
+    // One mapper for every auth failure: CD wording + a next step.
+    // Raw Firebase messages never reach the user.
+    function cdAuthError(err, fallback) {
+      var code = err && err.code ? err.code : '';
+      switch (code) {
+        case 'auth/popup-closed-by-user': return 'The sign-in window closed before it finished. Tap the button again and complete the sign-in in the window that opens.';
+        case 'auth/cancelled-popup-request': return 'That sign-in was already in progress. Wait for its window to finish, or close it and tap once more.';
+        case 'auth/popup-blocked': return 'Your browser blocked the sign-in window. Allow popups for this site, then tap the button again.';
+        case 'auth/network-request-failed': return 'The connection dropped before that finished. Check your connection and try again.';
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+        case 'auth/user-not-found': return 'Incorrect email or password. Please try again.';
+        case 'auth/email-already-in-use': return 'This email is already registered. Please log in.';
+        case 'auth/weak-password': return 'Password is too weak. Use at least 6 characters.';
+        case 'auth/invalid-email': return 'That email address doesn\u2019t look right. Check it and try again.';
+        case 'auth/too-many-requests': return 'Too many attempts. Please wait a moment and try again.';
+        case 'auth/user-disabled': return 'This account has been disabled. Reach us through the FAQ page to get it sorted.';
+        case 'auth/operation-not-allowed': return 'That sign-in method is not available right now. Use email and password instead.';
+        case 'auth/account-exists-with-different-credential': return 'An account already exists with that email, but with a different sign-in method. Log in the way you first signed up.';
+        case 'permission-denied': return 'That was refused by the server. Sign out and back in, then try again.';
+      }
+      return fallback;
+    }
+
       function friendlyResetError(err) {
-        if (!err || !err.code) return 'Something went wrong. Please try again.';
-        if (err.code === 'auth/invalid-email') return 'That email address doesn\u2019t look right.';
-        if (err.code === 'auth/user-not-found') return 'No account found for that email.';
-        if (err.code === 'auth/too-many-requests') return 'Too many attempts. Please wait a moment and try again.';
-        return err.message || 'Something went wrong. Please try again.';
+        if (err && err.code === 'auth/user-not-found') return 'No account found for that email.';
+        return cdAuthError(err, 'The reset email could not be sent. Check the address and your connection, then try again.');
       }
 
       sendBtn.addEventListener('click', function() {
@@ -776,19 +797,19 @@
     window.signInWithGoogle = function() {
       if (!auth) { cdToast('Login is unavailable right now. Please try again later.', 'error'); return; }
       const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).then(result => handleSocialLogin(result.user)).catch(err => cdToast(err.message, 'error'));
+      auth.signInWithPopup(provider).then(result => handleSocialLogin(result.user)).catch(err => cdToast(cdAuthError(err, 'Sign-in could not be completed. Check your connection and try again.'), 'error'));
     };
     window.signInWithFacebook = function() {
       if (!auth) { cdToast('Login is unavailable right now. Please try again later.', 'error'); return; }
       const provider = new firebase.auth.FacebookAuthProvider();
-      auth.signInWithPopup(provider).then(result => handleSocialLogin(result.user)).catch(err => cdToast(err.message, 'error'));
+      auth.signInWithPopup(provider).then(result => handleSocialLogin(result.user)).catch(err => cdToast(cdAuthError(err, 'Sign-in could not be completed. Check your connection and try again.'), 'error'));
     };
 
     function handleSocialLogin(user) {
       ensureUserDoc(user).then(doc => {
         const data = doc.data();
         redirectAfterLogin();
-      }).catch(err => cdToast(err.message, 'error'));
+      }).catch(err => cdToast(cdAuthError(err, 'You are signed in, but your profile could not be loaded. Check your connection and try again.'), 'error'));
     }
 
     function redirectAfterLogin() {
@@ -827,12 +848,7 @@
         .catch(err => {
           loginBtn.disabled = false;
           loginBtn.textContent = 'Access Dashboard';
-          let msg = err.message;
-          if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-            msg = 'Incorrect email or password. Please try again.';
-          } else if (err.code === 'auth/too-many-requests') {
-            msg = 'Too many attempts. Please wait a moment and try again.';
-          }
+          let msg = cdAuthError(err, 'Sign-in could not be completed. Check your connection and try again.');
           errorMsg.textContent = msg;
           errorMsg.style.display = 'block';
         });
