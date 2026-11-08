@@ -192,6 +192,8 @@
   .req-meta { font-family: var(--mono); font-size: 11px; color: var(--text-faint); margin-bottom: 4px; }
   .req-text { font-size: 13px; line-height: 1.5; color: var(--text); }
   .req-open { display: inline-block; margin-top: 6px; font-family: var(--mono); font-size: 11px; color: var(--green); text-decoration: none; }
+  .req-lab { display: inline-block; margin: 6px 0 0 16px; padding: 0; background: none; border: none; cursor: pointer; font-family: var(--mono); font-size: 11px; color: var(--green); }
+  .req-lab:active { transform: scale(.97); }
 
   /* Pro gate */
   .progate { text-align: center; padding: 60px 24px; }
@@ -658,6 +660,28 @@ async function openRequestList(uid, gid) {
       body.innerHTML = '<div class="req-meta">' + esc(meta) + '</div>' +
         '<div class="req-text">' + esc(d.text || '') + '</div>' +
         '<a class="req-open" href="' + link + '" target="_blank" rel="noopener">Open gallery to resolve</a>';
+      /* Stage 5: hand the request to the Develop Lab. The Lab reads
+         this handoff exactly once (the Shoot handoff's mechanics, a
+         distinct key + flag so the two never collide), fetches the
+         photo, and — on Send back — replaces it in this gallery. */
+      var labBtn = document.createElement('button');
+      labBtn.type = 'button';
+      labBtn.className = 'req-lab';
+      labBtn.textContent = 'Open in Develop Lab';
+      labBtn.onclick = function () {
+        try {
+          localStorage.setItem('cd_develop_gallery_request', JSON.stringify({
+            galleryId: gid,
+            photoIndex: d.photoIndex,
+            annotationId: r.id,
+            noteText: d.text || '',
+            pin: (typeof d.x === 'number' && typeof d.y === 'number') ? { x: d.x, y: d.y } : null,
+            imageUrl: (g.images || [])[d.photoIndex] || ''
+          }));
+        } catch (e) {}
+        window.location.href = '/darkroom-lab.html?gallery=1';
+      };
+      body.appendChild(labBtn);
       row.appendChild(th); row.appendChild(body);
       box.appendChild(row);
     });
