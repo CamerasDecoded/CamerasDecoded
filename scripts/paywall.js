@@ -16,7 +16,7 @@
 
   var FEATURES = [
     { t: 'Full Darkroom Access', s: 'Composition, Color & Field Mastery — 14 Pro skills' },
-    { t: 'Unlimited Missions Library', s: 'Every track, every phase' },
+    { t: 'Full Arena Access', s: 'Every track, every phase' },
     { t: 'Unlimited Exam Retakes', s: 'Retake the final any time, free' },
     { t: 'Exclusive Arcade Access', s: 'Every game, no rotation' },
     { t: 'Field Manual Unlocked', s: 'Every chapter, every lesson' },
@@ -32,7 +32,7 @@
   var CONTEXTS = [
     { re: /darkroom/,     headline: 'Unlock the full Darkroom',      sub: 'Composition, Color & Field Mastery — 14 Pro skills.' },
     { re: /field-manual/, headline: 'Unlock the Field Manual',       sub: 'Chapter 4 and beyond — every lesson, every quiz.', founding: true },
-    { re: /mission/,      headline: 'Unlock the mission library',    sub: 'Every track, every phase.' },
+    { re: /mission/,      headline: 'Unlock the full Arena',         sub: 'Every track, every phase.' },
     { re: /arcade/,       headline: 'Unlock the full arcade',        sub: 'Every game, no rotation.' },
     { re: /exam/,         headline: 'Never wait to retake',          sub: 'Pro members retake the final exam any time.' },
     { re: /founding/,     headline: 'Claim a Founding Decoder slot', sub: 'Locked pricing for the first 200 decoders.' }
@@ -151,6 +151,7 @@
     '.pw-cancel{text-align:center;margin:10px 0 0;font-size:12px;color:rgba(255,255,255,.45);}',
     '.pw-renew{text-align:center;margin:6px 0 0;font-size:11.5px;line-height:1.5;color:rgba(255,255,255,.45);}',
     '.pw-renew a{color:#8deb00;text-decoration:underline;text-underline-offset:2px;}',
+    '.pw-note{text-align:center;margin:8px 0 0;font-size:12px;line-height:1.5;color:#c9f27e;}',
 
     '.pw-foot{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.09);',
     'display:flex;justify-content:center;gap:8px;font-size:12.5px;}',
@@ -276,6 +277,7 @@
       '<div class="pw-founding"><b>Founding Decoder</b> — locked pricing for the first 200. When they\u2019re gone, they\u2019re gone.</div>' +
       '<div class="pw-plans" role="radiogroup" aria-label="Choose a plan">' + plans + '</div>' +
       '<button class="pw-go"><span>' + planLabel(selectedPlan) + '</span></button>' +
+      '<p class="pw-note" hidden></p>' +
       '<p class="pw-cancel">Cancel anytime. Streaks, leaderboard and daily drill stay free forever.</p>' +
       '<p class="pw-renew">Renews automatically at the price shown until you cancel. Cancel anytime \u2014 Pro stays on until the end of the paid period. <a href="/terms.html">Terms</a></p>' +
       '<div class="pw-foot"><a href="/protocols.html">Protocols</a><i>|</i><a href="/blog-updates.html">Blog</a><i>|</i><a href="/faq.html">FAQ</a><i>|</i><button type="button" class="pw-share">Share</button></div>' +
@@ -408,6 +410,14 @@
       busy = false;
       btn.disabled = false;
       btn.querySelector('span').textContent = planLabel(plan);
+      if (!link) {
+        /* The direct checkout link did not load — say so, then fall back
+           to the checkout page instead of leaving in silence. */
+        var note = scrim.querySelector('.pw-note');
+        if (note) { note.hidden = false; note.textContent = 'The direct checkout link did not load \u2014 taking you to the checkout page to finish there.'; }
+        setTimeout(function () { window.location.href = '/pro-checkout.html?plan=' + plan; }, 1600);
+        return;
+      }
       /* Stash the pending upgrade BEFORE leaving for Stripe: if the buyer
          pays but the redirect back never lands, the recovery nudge in
          notifications.js can still route them to finish activation. */
