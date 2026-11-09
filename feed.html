@@ -295,7 +295,26 @@ font-size:11px;cursor:pointer}
 .feed-empty .big{font-size:40px;margin-bottom:12px}
 .feed-loading{text-align:center;padding:40px;color:var(--muted-2);font-family:var(--font-d);font-size:13px}
 @media(min-width:768px){.feed-wrap{padding-top:24px}}
-  </style>
+  
+/* --- Signal live pill: new items queue here instead of shoving the feed --- */
+.sig-pill-wrap{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px);z-index:60;display:flex;justify-content:center;height:0;overflow:visible;pointer-events:none}
+.sig-pill{display:none;align-items:center;gap:7px;pointer-events:auto;background:var(--green);color:#0a0f00;border:none;cursor:pointer;font-family:var(--font-d);font-size:12px;font-weight:800;letter-spacing:.03em;padding:8px 16px;border-radius:20px;box-shadow:0 6px 18px rgba(141,235,0,.35)}
+.sig-pill.visible{display:inline-flex}
+.sig-pill svg{width:12px;height:12px;stroke:#0a0f00;stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+/* --- Photos tab: Pinterest-style masonry; every other tab stays a stream --- */
+#feedList.photos-grid{column-count:2;column-gap:12px}
+#feedList.photos-grid .feed-card{break-inside:avoid;-webkit-column-break-inside:avoid;margin-bottom:12px;padding:12px}
+#feedList.photos-grid .feed-card-header{display:grid;grid-template-columns:36px 1fr;align-items:start;column-gap:10px}
+#feedList.photos-grid .feed-avatar{grid-row:1 / span 2}
+#feedList.photos-grid .feed-type{grid-column:2;justify-self:start;margin:2px 0 0}
+#feedList.photos-grid .feed-text{font-size:13px;margin-bottom:8px}
+#feedList.photos-grid .feed-actions{gap:2px;margin-top:10px}
+#feedList.photos-grid .feed-act span:last-child{display:none}
+#feedList.photos-grid .carousel-dots,#feedList.photos-grid .carousel-count{display:none}
+#feedList.photos-grid .carousel-track{transform:none!important}
+#feedList.photos-grid .flash-row{display:none}
+@media (max-width:360px){#feedList.photos-grid{column-count:1}}
+</style>
 </head>
 <body>
   <div class="feed-wrap">
@@ -345,11 +364,13 @@ font-size:11px;cursor:pointer}
     <div class="filter-tabs" id="filterTabs" role="radiogroup" aria-label="Feed filters">
       <button class="jelly-chip active" data-f="all" role="radio" aria-checked="true">All</button>
       <button class="jelly-chip" data-f="arena" role="radio" aria-checked="false">Arena</button>
+      <button class="jelly-chip" data-f="photos" role="radio" aria-checked="false">Photos</button>
       <button class="jelly-chip" data-f="clubs" role="radio" aria-checked="false">Clubs</button>
       <button class="jelly-chip" data-f="ideas" role="radio" aria-checked="false">Ideas</button>
       <button class="jelly-chip" data-f="milestones" role="radio" aria-checked="false">Milestones</button>
       <button class="jelly-chip" data-f="content" role="radio" aria-checked="false">Articles</button>
     </div>
+    <div class="sig-pill-wrap"><button id="sigPill" class="sig-pill" type="button"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg><span id="sigPillTxt">New signals</span></button></div>
     <div id="feedList"><div class="feed-loading">Loading the signal…</div></div>
   </div>
 
@@ -575,9 +596,13 @@ async function loadPublicProfile(db, uid){
 }
 
 let activeFilter = 'all';
+/* New-signals live check: shared across loadFeed runs. queue holds items
+   waiting behind the pill; newestMs is the newest createdAt seen so far. */
+const sigLive = { queue: [], newestMs: 0, timer: null, visHandler: null, checking: false };
 const FILTER_TYPES = {
   all: null,
   arena: ['arena_entry','arena_winner','arena_drop'],
+  photos: ['post','club_post','arena_entry','arena_winner'],
   clubs: ['club_post'],
   ideas: ['suggestion'],
   milestones: ['xp_milestone'],
@@ -762,6 +787,7 @@ async function loadFeed() {
     const db = firebase.firestore();
     const snap = await db.collection('feedItems').orderBy('createdAt','desc').limit(50).get();
     feedList.innerHTML = '';
+    feedList.classList.toggle('photos-grid', activeFilter === 'photos');
     const types = FILTER_TYPES[activeFilter];
     /* time-aware interleave: the slot ranking (featured first, social first,
        editorial woven every 4th) applies only WITHIN each Chicago day —
@@ -772,9 +798,11 @@ async function loadFeed() {
       const d = doc.data(); d._id = doc.id;
       rawItems.push(d);
       if(types && !types.includes(d.type)) return;
+      if(activeFilter === 'photos' && !getImageUrls(d).length) return;
       items.push(d);
     });
     lastFeedItems = rawItems;
+    rawItems.forEach(d => { const ms = d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : 0; if (ms > sigLive.newestMs) sigLive.newestMs = ms; });
     const dropItem = await todaysDropItem(db);
     if (dropItem && (!types || types.includes('arena_drop'))) items.unshift(dropItem);
     const following = await loadFollowing(db);
@@ -1250,11 +1278,83 @@ async function loadFeed() {
       el._feedData = d;
       return el;
     }
+    /* --- new-signals live check: items newer than the newest loaded one
+       queue behind the pill instead of shoving the feed down. At the top
+       of All they land immediately; anywhere else the pill offers them. --- */
+    function sigMs(v){ return v && v.toMillis ? v.toMillis() : (typeof v === 'number' ? v : (v && v.seconds ? v.seconds * 1000 : 0)); }
+    function sigShowPill(){
+      const pill = document.getElementById('sigPill');
+      const txt = document.getElementById('sigPillTxt');
+      if (!pill || !txt) return;
+      txt.textContent = sigLive.queue.length + (sigLive.queue.length === 1 ? ' new signal' : ' new signals');
+      pill.classList.add('visible');
+    }
+    function sigHidePill(){
+      const pill = document.getElementById('sigPill');
+      if (pill) pill.classList.remove('visible');
+    }
+    async function sigPrepend(items){
+      const db = firebase.firestore();
+      const targets = new Set();
+      items.forEach(d => { if ((d.type === 'arena_entry' || d.type === 'arena_winner') && d.targetId) targets.add(d.targetId); });
+      await Promise.all(Array.from(targets).map(id => arenaPhaseFor(db, id)));
+      const frag = document.createDocumentFragment();
+      items.forEach(d => frag.appendChild(renderCard(d)));
+      const empty = feedList.querySelector('.feed-empty');
+      if (empty) empty.remove();
+      feedList.insertBefore(frag, feedList.firstChild);
+      loadFlashData();
+      initCarousels(feedList);
+      cdpRefreshTransmissionEdges();
+      cdpRefreshWinnerEdges();
+    }
+    async function sigCheck(){
+      if (sigLive.checking || document.hidden) return;
+      if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) return;
+      sigLive.checking = true;
+      try {
+        const snap = await firebase.firestore().collection('feedItems').orderBy('createdAt','desc').limit(30).get();
+        const fresh = [];
+        snap.forEach(doc => {
+          const d = doc.data(); d._id = doc.id;
+          if (sigMs(d.createdAt) > sigLive.newestMs && d.type !== 'arena_drop' && !feedList.querySelector('[data-item-id="' + d._id + '"]')) fresh.push(d);
+        });
+        if (!fresh.length) return;
+        fresh.sort((a, b) => sigMs(b.createdAt) - sigMs(a.createdAt));
+        sigLive.newestMs = sigMs(fresh[0].createdAt);
+        if (activeFilter === 'all' && window.scrollY <= 80 && !sigLive.queue.length) { sigPrepend(fresh); }
+        else { sigLive.queue = fresh.concat(sigLive.queue); sigShowPill(); }
+      } catch (e) {}
+      sigLive.checking = false;
+    }
+    function sigFlush(){
+      sigHidePill();
+      if (activeFilter !== 'all') {
+        const allChip = document.querySelector('.jelly-chip[data-f="all"]');
+        if (allChip) allChip.click();
+        return;
+      }
+      const items = sigLive.queue.splice(0, sigLive.queue.length);
+      if (items.length) sigPrepend(items);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    function armSignalLive(){
+      if (sigLive.timer) { clearInterval(sigLive.timer); sigLive.timer = null; }
+      if (sigLive.visHandler) { document.removeEventListener('visibilitychange', sigLive.visHandler); sigLive.visHandler = null; }
+      sigLive.queue = [];
+      sigHidePill();
+      const pill = document.getElementById('sigPill');
+      if (pill) pill.onclick = sigFlush;
+      sigLive.timer = setInterval(sigCheck, 120000);
+      sigLive.visHandler = function(){ if (!document.hidden) sigCheck(); };
+      document.addEventListener('visibilitychange', sigLive.visHandler);
+    }
     if (shown === 0) {
       const msg = activeFilter === 'all'
         ? 'Nothing here yet.<br/>Enter the Arena or hit a milestone to light up the feed.'
         : 'Nothing in this view yet.';
       feedList.innerHTML = '<div class="feed-empty"><div class="big">◌</div><div>'+msg+'</div></div>';
+      armSignalLive();
       openDeepLink();
       return;
     }
@@ -1264,6 +1364,7 @@ async function loadFeed() {
     buildWire(ordered);
     cdpRefreshTransmissionEdges();
     cdpRefreshWinnerEdges();
+    armSignalLive();
     openDeepLink();
   } catch(e) {
     feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
