@@ -522,6 +522,66 @@
   };
 
   // ================================================================
+  // HIDE-ON-SCROLL
+  // Scrolling down slides the floating header up out of view; any
+  // upward scroll brings it back down into place. It never hides
+  // near the top of the page, and a small dead zone keeps scroll
+  // jitter from flickering it. Game pages (play.html, /games/) and
+  // the Cynetis chat keep the header permanently visible.
+  // ================================================================
+  (function initHideOnScroll() {
+    const p = location.pathname;
+    if (/(^|\/)play(\.html)?([?#]|$)/.test(p) ||
+        /(^|\/)games(\/|$)/.test(p) ||
+        /(^|\/)cynetis-chat(\.html)?([?#]|$)/.test(p)) return;
+
+    const HIDE_AFTER = 96; // px from the top: above this, never hide
+    const DEAD_ZONE = 5;   // px of travel before a direction registers
+    let lastY = Math.max(0, window.scrollY || 0);
+    let hidden = false;
+    let ticking = false;
+
+    function apply() {
+      const el = document.getElementById('master-floating-header');
+      if (el) el.classList.toggle('cd-header-hidden', hidden);
+    }
+
+    function setHidden(next) {
+      if (next === hidden) return;
+      hidden = next;
+      // A hidden bar must not leave its announcements panel floating.
+      if (next && isPanelOpen()) closePanel();
+      apply();
+    }
+
+    function onScroll() {
+      ticking = false;
+      const y = Math.max(0, window.scrollY || 0);
+      const dy = y - lastY;
+      if (y <= HIDE_AFTER) {
+        lastY = y;
+        setHidden(false);
+      } else if (dy > DEAD_ZONE) {
+        lastY = y;
+        setHidden(true);
+      } else if (dy < -DEAD_ZONE) {
+        lastY = y;
+        setHidden(false);
+      }
+      // Inside the dead zone: hold position AND hold lastY, so slow
+      // drift still accumulates until it registers a clear direction.
+      apply();
+    }
+
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(onScroll);
+      }
+    }, { passive: true });
+  })();
+
+  // ================================================================
   // AUTO-INIT
   // ================================================================
   function init() {

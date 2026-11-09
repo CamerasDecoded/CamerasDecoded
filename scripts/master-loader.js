@@ -228,7 +228,7 @@
     const files = [
       '/styles/design-system.css?v=20261107b',
       '/styles/components.css',
-      '/header.css?v=20260927a'
+      '/header.css?v=20261109a'
     ];
     files.forEach(href => {
       if (document.querySelector(`link[href="${href}"]`)) return;
@@ -323,7 +323,7 @@
   function loadHeaderBehavior() {
     if (document.querySelector('script[src*="header.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/header.js?v=20260930b';
+    script.src = '/header.js?v=20261109a';
     document.body.appendChild(script);
   }
 
