@@ -152,6 +152,7 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 .fm-progress-meta{display:flex;justify-content:space-between;align-items:baseline;margin:22px 0 8px}
 .fm-progress-meta .fm-kicker{margin:0}
 .fm-count{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.fm-cat-art{height:24px;width:auto;display:block}
 .fm-bar{height:6px;border-radius:10px;background:#25282b;overflow:hidden;margin-bottom:20px}
 .fm-bar i{display:block;height:100%;width:0;border-radius:inherit;background:var(--neon);box-shadow:0 0 12px rgba(141,235,0,.22);transition:width .5s ease;position:relative}
 @media (prefers-reduced-motion:no-preference){
@@ -793,7 +794,7 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       <div id="fm-shelf-hero" class="rise-in" style="--d:.18s"></div>
       <div id="fm-shelf-cats"></div>
       <div class="fm-shelf-sec rise-in" style="--d:.22s">
-        <div class="fm-shelf-row"><p class="fm-kicker" style="margin:0">By camera</p></div>
+        <div class="fm-shelf-row"><img class="fm-cat-art" src="/custom-site-titles/my-camera.png?v=20261109a" alt="My camera" onerror="this.style.display='none';this.nextElementSibling.style.display=''"><p class="fm-kicker" style="margin:0;display:none">My camera</p></div>
         <a class="fm-cs-card" href="/camera-select.html" style="margin-top:12px">
           <span class="fm-cs-slides">
             <img src="/media/camera-select/sony-a7iv.jpg?v=20261030a" alt="Sony a7 IV">
@@ -1733,10 +1734,14 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       byCat[m.category].push(m);
     });
     var idx = 0, html = "";
+    var CAT_ART = { "Capture": "capture", "The Finish": "the-finish" };
     cats.forEach(function(cat, ci){
       var cards = byCat[cat].map(function(m){ return shelfCard(m, idx++); }).join("");
       if(ci === cats.length - 1) cards += shelfGhost(list.length + 1, idx++);
-      html += '<div class="fm-shelf-sec fm-shelf-row"><p class="fm-kicker" style="margin:0">' + esc(cat) + '</p><span class="fm-count">' + byCat[cat].length + (byCat[cat].length === 1 ? " manual" : " manuals") + '</span></div>' +
+      var catHead = CAT_ART[cat]
+        ? '<img class="fm-cat-art" src="/custom-site-titles/' + CAT_ART[cat] + '.png?v=20261109a" alt="' + esc(cat) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'\'"><p class="fm-kicker" style="margin:0;display:none">' + esc(cat) + '</p>'
+        : '<p class="fm-kicker" style="margin:0">' + esc(cat) + '</p>';
+      html += '<div class="fm-shelf-sec fm-shelf-row">' + catHead + '<span class="fm-count">' + byCat[cat].length + (byCat[cat].length === 1 ? " manual" : " manuals") + '</span></div>' +
               '<div class="fm-shelf-grid">' + cards + '</div>';
     });
     $("fm-shelf-cats").innerHTML = html;
@@ -1823,13 +1828,18 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     var isDef = FM_MANUAL.id === defaultManualId();
     document.title = chapter.title + " \u2014 " + FM_MANUAL.title;
     $("fm-ch-kicker").textContent = (isDef ? "" : FM_MANUAL.title + " \u00b7 ") + "Chapter " + chapterNum(chapter);
-    /* the chapter header carries the manual's own title: № 01 keeps its
-       PNG art; every later manual shows its name as text */
+    /* the chapter header carries the manual's own title: PNG art where
+       the manual has it (№ 01, The Finish); the name as text otherwise */
+    var TITLE_ART = { "field-manual": "/custom-site-titles/field-manual.png?v=20261109a", "finish": "/custom-site-titles/the-finish.png?v=20261109a" };
     var timg = $("fm-ch-titleimg"), th1 = $("fm-ch-titletext");
     if(timg && th1){
-      timg.style.display = isDef ? "" : "none";
-      th1.hidden = isDef;
-      if(!isDef) th1.textContent = FM_MANUAL.title;
+      var art = TITLE_ART[FM_MANUAL.id];
+      if(art){
+        timg.src = art; timg.alt = FM_MANUAL.title;
+        timg.style.display = ""; th1.hidden = true;
+      } else {
+        timg.style.display = "none"; th1.hidden = false; th1.textContent = FM_MANUAL.title;
+      }
     }
     $("fm-ch-title").textContent = chapter.title;
     $("fm-ch-tagline").textContent = chapter.tagline || "";
