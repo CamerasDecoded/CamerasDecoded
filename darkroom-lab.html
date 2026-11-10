@@ -556,6 +556,7 @@
   }
   .dl-invite-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em; color: var(--green); text-transform: uppercase; }
   .dl-invite-title { font-family: var(--sans); font-size: 24px; font-weight: 800; color: #fff; margin: 10px 0 8px; line-height: 1.15; }
+.dl-invite-art { width: min(300px, 100%); height: auto; display: block; margin: 10px auto 8px; }
   .dl-invite-sub { font-size: 13.5px; line-height: 1.55; color: rgba(238,246,226,0.86); margin: 0 0 20px; }
   .dl-invite-sub b { color: #fff; font-weight: 600; }
   .dl-invite-btn {
@@ -728,6 +729,9 @@
     overflow: hidden;
   }
   .histogram-card.compare-on { top: 46px; }
+#compareWrap.badge-full .histogram-card { top: 54px; }
+#compareWrap.badge-full .histogram-card.compare-on { top: 92px; }
+#handoffBadge { cursor: pointer; }
   .histogram-head { display: flex; align-items: center; gap: 8px; min-height: 16px; }
   .histogram-title {
     flex: 1; font-family: var(--mono); font-size: 9px; font-weight: 700;
@@ -994,7 +998,8 @@
 <div class="dl-invite" id="dlInvite" role="dialog" aria-modal="true" aria-labelledby="dlInviteTitle">
   <div class="dl-invite-card">
     <div class="dl-invite-kicker">Develop Lab</div>
-    <div class="dl-invite-title" id="dlInviteTitle">Develop your own shot</div>
+    <img class="dl-invite-art" src="/custom-site-titles/develop-your-own-shot.png?v=20261109a" alt="Develop your own shot" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+    <div class="dl-invite-title" id="dlInviteTitle" style="display:none">Develop your own shot</div>
     <p class="dl-invite-sub">You're looking at a <b>sample photo</b>. Upload yours and every tool in the lab &mdash; exposure, color, masks, presets &mdash; goes to work on your image.</p>
     <button type="button" class="dl-invite-btn" id="dlInviteUpload">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5"/><path d="M6 11l6-6 6 6"/><path d="M4 20h16"/></svg>
@@ -4301,12 +4306,36 @@ window.addEventListener('error', function(e) {
       localStorage.removeItem('cd_develop_handoff');
       localStorage.removeItem('cd_develop_handoff_settings');
       if (s) {
-        // Show shot settings as a badge
+        // Show shot settings as a badge. Tappable: full pill <-> slim chip.
+        // While the full pill is up, the histogram steps down below it
+        // (compareWrap.badge-full) so the two never overlap.
         var badge = document.createElement('div');
         badge.id = 'handoffBadge';
-        badge.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#8deb00;font:600 11px monospace;padding:6px 12px;border-radius:20px;z-index:10;white-space:nowrap;';
-        badge.textContent = 'Shot at ' + s;
-        document.getElementById('compareWrap').appendChild(badge);
+        badge.setAttribute('role', 'button');
+        badge.setAttribute('tabindex', '0');
+        badge.title = 'Tap to collapse';
+        var wrap = document.getElementById('compareWrap');
+        var badgeFull = sessionStorage.getItem('cd_develop_shotbadge') !== 'slim';
+        function paintBadge() {
+          if (badgeFull) {
+            badge.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#8deb00;font:600 11px monospace;padding:6px 12px;border-radius:20px;z-index:10;white-space:nowrap;cursor:pointer;';
+            badge.textContent = 'Shot at ' + s;
+            badge.title = 'Tap to collapse';
+            wrap.classList.add('badge-full');
+          } else {
+            badge.style.cssText = 'position:absolute;top:8px;right:10px;background:rgba(0,0,0,0.75);color:#8deb00;font:600 10px monospace;padding:5px 10px;border-radius:14px;z-index:10;white-space:nowrap;cursor:pointer;';
+            badge.textContent = s;
+            badge.title = 'Tap to expand';
+            wrap.classList.remove('badge-full');
+          }
+        }
+        badge.addEventListener('click', function() {
+          badgeFull = !badgeFull;
+          try { sessionStorage.setItem('cd_develop_shotbadge', badgeFull ? 'full' : 'slim'); } catch (e) {}
+          paintBadge();
+        });
+        paintBadge();
+        wrap.appendChild(badge);
         // Add re-shoot button to topbar
         var rs = document.createElement('button');
         rs.className = 'tb-btn';
