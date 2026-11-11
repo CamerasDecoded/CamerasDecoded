@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Today's Challenge — Cameras Decoded</title>
-  <meta name="description" content="Today's Arena challenge — the prompt, the deadline, and the entry door. Shoot it, enter before 7 PM; judging is blind and the winner is named at 11.">
+  <meta name="description" content="Today's Daily Drill — one prompt, one shot, a streak worth keeping. Shoot it, post it to the Signal feed, and come back tomorrow.">
   <meta property="og:title" content="Today's Challenge — Cameras Decoded">
-  <meta property="og:description" content="Today's Arena challenge — the prompt, the deadline, and the entry door. Shoot it, enter before 7 PM; judging is blind and the winner is named at 11.">
+  <meta property="og:description" content="Today's Daily Drill — one prompt, one shot, a streak worth keeping. Shoot it, post it to the Signal feed, and come back tomorrow.">
   <meta property="og:image" content="https://camerasdecoded.com/og-image.jpg">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://camerasdecoded.com/challenge.html">
@@ -329,7 +329,7 @@
         <img id="photoPreviewImg" alt="Your challenge shot preview">
         <button type="button" class="photo-retake" id="photoRetake">Retake</button>
       </div>
-      <div class="photo-note">Your shot auto-posts to the Arena daily feed on completion · +10 XP</div>
+      <div class="photo-note">Your shot posts to the Signal feed on completion · +10 XP</div>
     </div>
 
     <!-- ===== CTA ===== -->
@@ -503,7 +503,7 @@
     }
 
 
-    // ---- Photo upload + Arena auto-post ----
+    // ---- Photo upload + Signal feed post ----
     var COMPRESS_MAX_EDGE = 1600, HARD_CAP_BYTES = 5 * 1024 * 1024;
     var COMPRESS_QUALITIES = [0.85, 0.7, 0.55, 0.4];
     var challengePhotoBlob = null;
@@ -585,46 +585,41 @@
       });
     }
 
-    /* Auto-post the challenge photo to the Arena daily feed (best-effort).
-       Returns a promise; never rejects — failures are silent-ish (toast). */
-    function autoPostToArena() {
+    /* Post the challenge photo to the Signal feed as a Drill completion
+       (best-effort). Returns a promise; never rejects — failures are
+       silent-ish (toast). The Drill is its own thing: this writes a normal
+       member photo post to the Signal feed. It is NOT an Arena entry —
+       the Arena takes entries only on the Arena page, under the Arena's
+       own brief. */
+    function autoPostToSignal() {
       return new Promise(function (resolve) {
         if (!challengePhotoBlob || !currentUser) { resolve(false); return; }
-        var todayId = 'c-' + ymdUTC(new Date());
-        var roundRef = db.collection('arenaRounds').doc(todayId);
-        roundRef.get().then(function (snap) {
-          if (!snap.exists) { resolve(false); return; } /* no daily round today — skip */
-          return window.CDUpload.upload(challengePhotoBlob, 'daily-challenge.jpg')
-            .then(function (up) {
-              if (!up || !up.url) throw new Error('upload failed');
-              var entryRef = db.collection('arenaRounds').doc(todayId).collection('entries').doc(currentUser.uid);
-              return entryRef.set({
-                imgUrl: up.url,
-                submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                roundId: todayId, lane: 'daily', swept: false
-              }).then(function () {
-                return entryRef.collection('_private').doc('data').set({
-                  authorUid: currentUser.uid,
-                  authorName: (window.USER && window.USER.name) || currentUser.displayName || 'Operator',
-                  publicId: up.publicId
-                });
-              });
-            })
-            .then(function () {
-              /* +30 XP for the Arena post, once per day (localStorage guard) */
-              try {
-                var mark = 'arena-xp-' + currentUser.uid + '-' + todayId;
-                if (window.RewardEngine && !localStorage.getItem(mark)) {
-                  window.RewardEngine.award({
-                    uid: currentUser.uid, xp: 30,
-                    activity: { type: 'arena', label: 'Arena entry · Daily', icon: '◎', meta: { lane: 'daily', round: todayId } }
-                  }).then(function () { try { localStorage.setItem(mark, '1'); } catch (e) {} }).catch(function () {});
-                }
-              } catch (e) {}
-              resolve(true);
-            })
-            .catch(function () { resolve(false); });
-        }).catch(function () { resolve(false); });
+        var dayIdx = Math.floor(Date.now() / 86400000);
+        var mark = 'drill-post-' + currentUser.uid + '-' + dayIdx;
+        try { if (localStorage.getItem(mark)) { resolve(false); return; } } catch (e) {}
+        window.CDUpload.upload(challengePhotoBlob, 'daily-challenge.jpg')
+          .then(function (up) {
+            if (!up || !up.url) throw new Error('upload failed');
+            var ch = todaysChallenge(window.USER || null);
+            var doc = {
+              type: 'post',
+              actorUid: currentUser.uid,
+              actorName: (window.USER && window.USER.name) || currentUser.displayName || 'Operator',
+              text: 'Daily Drill · ' + ((ch && ch.title) || 'Daily Drill'),
+              targetType: 'profile', targetId: currentUser.uid,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+              visibility: 'public',
+              imageUrl: up.url
+            };
+            var av = (window.USER && (window.USER.avatar || window.USER.photoURL)) || currentUser.photoURL;
+            if (av) doc.actorAvatar = av;
+            return db.collection('feedItems').add(doc);
+          })
+          .then(function () {
+            try { localStorage.setItem(mark, '1'); } catch (e) {}
+            resolve(true);
+          })
+          .catch(function () { resolve(false); });
       });
     }
 
@@ -721,10 +716,10 @@
         renderStreak(Object.assign({}, u, { challengeLog: [...(Array.isArray(log) ? log : []), key], dailyChallengeStreak: newStreak }));
         celebrate(newStreak);
         try { if (window.CDGear) { window.CDGear.award(currentUser.uid, 'gear-framed', db); window.CDGear.trackChallenge(db, currentUser.uid); } } catch (e) { /* best-effort */ }
-        /* Auto-post the shot to the Arena daily feed (best-effort — never blocks) */
+        /* Post the shot to the Signal feed (best-effort — never blocks) */
         try {
-          const posted = await autoPostToArena();
-          if (posted) cdToast('Shared to the Arena daily feed · +10 XP');
+          const posted = await autoPostToSignal();
+          if (posted) cdToast('Posted to the Signal feed · +10 XP');
         } catch (e) { /* best-effort */ }
       } catch (err) {
         cdToast('Could not save. Check your connection.', 'error');
