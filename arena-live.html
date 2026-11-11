@@ -102,6 +102,18 @@
     .btn-solid:hover { background: var(--green-hi); box-shadow: 0 0 20px rgba(141,235,0,0.5); }
     .btn-ghost { padding: 14px 26px; border: 1px solid var(--line-green); border-radius: 10px; background: rgba(12,12,14,0.6); color: var(--green); font-family: 'Space Mono', monospace; font-weight: 700; font-size: 15px; cursor: pointer; display: inline-block; transition: 0.2s; }
     .btn-ghost:hover { border-color: var(--green); }
+    .al-shot .vote { display: block; width: 100%; padding: 10px; border: none; border-top: 1px solid var(--line); background: rgba(141,235,0,0.10); color: var(--green); font-family: 'Space Mono', monospace; font-weight: 700; font-size: 13.5px; text-align: center; cursor: pointer; transition: 0.2s; }
+    .al-shot .vote:hover { background: rgba(141,235,0,0.22); }
+    .al-shot .vote.off { background: rgba(255,255,255,0.03); color: var(--text-dim); cursor: default; }
+    .al-shot .vote.off:hover { background: rgba(255,255,255,0.03); }
+    .al-sheet-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.62); z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
+    .al-sheet { width: min(480px, 100%); background: #0c0e0a; border: 1px solid var(--line-green); border-bottom: none; border-radius: 20px 20px 0 0; padding: 26px 22px calc(26px + env(safe-area-inset-bottom, 0px)); animation: fadeIn 0.25s ease-out forwards; }
+    .al-sheet h3 { font-size: 19px; margin-bottom: 8px; }
+    .al-sheet p { color: var(--text-dim); font-size: 15px; margin-bottom: 20px; }
+    .al-sheet .row { display: flex; flex-direction: column; gap: 10px; }
+    .al-sheet .btn-solid, .al-sheet .btn-ghost { text-align: center; }
+    .al-sheet .keep { margin-top: 16px; text-align: center; }
+    .al-sheet .keep button { background: none; border: none; color: var(--text-dim); font-family: 'Space Mono', monospace; font-size: 14px; cursor: pointer; padding: 6px; }
     .al-how { margin-top: 30px; border-top: 1px solid var(--line); padding-top: 22px; color: var(--text-dim); font-size: 14.5px; }
     .al-how b { color: #fff; }
   </style>
@@ -121,6 +133,7 @@
     </div>
     <p class="al-how"><b>How a night works:</b> shots come in all day with the photographers&rsquo; names hidden. Voting runs <b>7–11 PM CST</b>, still blind. At 11 the round declassifies, one shot is crowned, and the winner gets a permanent page on the <a href="/arena-winners.html" style="color:var(--green)">Wall of Crowns</a>.</p>
   </main>
+  <div id="alSheetSlot"></div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -178,7 +191,7 @@
       var pill = document.getElementById('alPill');
       var count = document.getElementById('alCount');
       var roundId = new URLSearchParams(window.location.search).get('round') || todayRoundId();
-      var state = { round: null, phase: 'open', nextAt: null, nextLabel: '' };
+      var state = { round: null, phase: 'open', nextAt: null, nextLabel: '', user: null, myVotes: {}, weight: 1, memberReady: false };
 
       function doors() {
         if (state.phase === 'voting') {
@@ -224,14 +237,15 @@
 
         var html = '';
         if (round.brief) html += '<section class="al-brief"><h3>The brief</h3><p>' + esc(round.brief) + '</p></section>';
-        html += '<section class="al-wall"><h3>' + (phase === 'voting' ? 'The wall — vote in the Arena' : 'Shots in so far') + '</h3>';
+        html += '<section class="al-wall"><h3>' + (phase === 'voting' ? 'The wall — tap a shot to vote' : 'Shots in so far') + '</h3>';
         if (!state.entries.length) {
           html += '<div class="al-empty">No shots yet. The first one in sets the tone for the night.</div>';
         } else {
           html += '<div class="al-grid">';
           state.entries.forEach(function (e) {
             html += '<div class="al-shot"><span class="al-media" data-url="' + esc(e.imgUrl || '') + '"></span>' +
-              '<span class="nm">' + esc(aliasOf(e.uid)) + '</span></div>';
+              '<span class="nm">' + esc(aliasOf(e.uid)) + '</span>' +
+              (phase === 'voting' ? voteControl(e) : '') + '</div>';
           });
           html += '</div>';
         }
@@ -254,6 +268,67 @@
           });
           im.src = url;
           slot.appendChild(im);
+        });
+        body.querySelectorAll('[data-vote-for]').forEach(function (btn) {
+          btn.addEventListener('click', function () { openVoteSheet(btn.getAttribute('data-vote-for')); });
+        });
+      }
+      /* The vote control for one shot. Members go straight to the Arena
+         lightbox for that shot (their weight and seal live there); signed-out
+         visitors get the account sheet — the vote lands right after. */
+      function deepLink(entryUid) {
+        return '/missions.html?round=' + encodeURIComponent(roundId) + '&entry=' + encodeURIComponent(entryUid);
+      }
+      function voteControl(e) {
+        if (!state.user) {
+          return '<button type="button" class="vote" data-vote-for="' + esc(e.uid) + '">Vote for this shot</button>';
+        }
+        if (!state.memberReady) {
+          return '<span class="vote off">One moment…</span>';
+        }
+        if (state.user.uid === e.uid) return '<span class="vote off">Your shot</span>';
+        if (state.myVotes[e.uid]) return '<span class="vote off">Vote counted</span>';
+        return '<a class="vote" href="' + esc(deepLink(e.uid)) + '">Upvote · ' + state.weight + '&times; weight</a>';
+      }
+      function openVoteSheet(entryUid) {
+        var link = deepLink(entryUid);
+        try {
+          localStorage.setItem('cd_pending_vote', JSON.stringify({ round: roundId, entry: entryUid, at: Date.now() }));
+          sessionStorage.setItem('cd_post_login_redirect', link);
+        } catch (e) {}
+        var slot = document.getElementById('alSheetSlot');
+        slot.innerHTML = '<div class="al-sheet-veil" id="alVeil"><div class="al-sheet" role="dialog" aria-modal="true" aria-labelledby="alSheetTitle">' +
+          '<h3 id="alSheetTitle">That vote needs a free account</h3>' +
+          '<p>It takes a few seconds — and your vote lands on ' + esc(aliasOf(entryUid)) + '&rsquo;s shot the moment you are in. One person, one vote is what keeps the crown honest.</p>' +
+          '<div class="row">' +
+          '<a class="btn-solid" href="/signup.html?next=' + encodeURIComponent(link) + '">Create free account</a>' +
+          '<a class="btn-ghost" href="/login.html">I have an account</a>' +
+          '</div>' +
+          '<div class="keep"><button type="button" id="alKeep">Keep watching</button></div>' +
+          '</div></div>';
+        function close() { slot.innerHTML = ''; }
+        document.getElementById('alKeep').addEventListener('click', close);
+        document.getElementById('alVeil').addEventListener('click', function (ev) { if (ev.target === ev.currentTarget) close(); });
+      }
+      /* Member state: own weight (from the score ledger) and own votes for
+         this round, so the wall can show counted votes and your own shot. */
+      function loadMember() {
+        if (!db || !state.user || !state.round) return;
+        var jobs = [db.collection('arenaScores').doc(state.user.uid).get()
+          .then(function (snap) {
+            var d = snap.exists ? (snap.data() || {}) : {};
+            var score = Number(d.score) || 0;
+            state.weight = score >= 500 ? 3 : score >= 100 ? 2 : 1;
+          }).catch(function () {})];
+        state.entries.forEach(function (e) {
+          jobs.push(db.collection('arenaRounds').doc(roundId).collection('entries').doc(e.uid)
+            .collection('votes').doc(state.user.uid).get()
+            .then(function (d) { if (d.exists) state.myVotes[e.uid] = true; })
+            .catch(function () {}));
+        });
+        Promise.all(jobs).then(function () {
+          state.memberReady = true;
+          if (state.phase === 'voting') render();
         });
       }
       function tick() {
@@ -289,6 +364,7 @@
             state.entries = list;
             refreshing = false;
             render();
+            if (state.user && state.phase === 'voting') loadMember();
           });
         }).catch(function () {
           refreshing = false;
@@ -301,6 +377,15 @@
         if (!ok) { if (tries++ < 50) setTimeout(arm, 100); return; }
         db = window.db;
         state.entries = [];
+        if (window.auth && window.auth.onAuthStateChanged) {
+          window.auth.onAuthStateChanged(function (u) {
+            state.user = u || null;
+            state.memberReady = false;
+            state.myVotes = {};
+            if (u) loadMember();
+            else if (state.phase === 'voting') render();
+          });
+        }
         refresh();
         setInterval(tick, 1000);
         setInterval(function () { if (document.visibilityState === 'visible') refresh(); }, 60000);
