@@ -277,6 +277,10 @@ async function closeRound(db, roundRef, round) {
       actorAvatar: winnerAvatar,
       text: winnerName + " won the Arena",
       imageUrl: (winnerEntry && winnerEntry.imgUrl) || null,
+      // the public crown record: winner pages read the tally from here
+      // (votes themselves are not publicly readable after close)
+      votes: winnerTally.weightedTotal,
+      voteCount: winnerTally.voteCount,
       targetType: "arena_round",
       targetId: roundId,
       createdAt: FieldValue.serverTimestamp(),
@@ -517,6 +521,14 @@ async function sweep(db, nowMs) {
     const hofExpMs = hof && hof.hofExpiresAt && hof.hofExpiresAt.toMillis ? hof.hofExpiresAt.toMillis() : null;
     if (hof && hofExpMs != null && nowMs < hofExpMs && e.id === round.winnerEntryId) {
       skipped++; // winner's image lives in the trophy case until retention expires
+      continue;
+    }
+
+    // Challenge winners have no hall-of-fame doc. The crowned image is the
+    // permanent public record of the round (the winner pages read it), so
+    // the winner's shot is never burned in any lane.
+    if (e.id === round.winnerEntryId && !hof) {
+      skipped++; // winner's image stays — it is the crown record
       continue;
     }
 
