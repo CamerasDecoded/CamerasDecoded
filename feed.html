@@ -93,6 +93,23 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 .feed-action{display:inline-block;font-family:var(--font-d);font-size:12px;color:var(--green);
   text-decoration:none;border:1px solid var(--green-border);border-radius:8px;padding:8px 14px;
   background:var(--green-soft)}
+/* link cards: the first camerasdecoded.com link in a post body gets a
+   compact card (title + image from the page's OG tags). Non-CD links
+   get nothing — no card, no fetch, no linkify. The slot is a pure
+   marker: it never displays, it is replaced by the card (or stays
+   empty when the page has no usable OG data). */
+.link-card{display:flex;gap:10px;align-items:center;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:10px;
+  text-decoration:none;color:var(--text);overflow:hidden}
+.link-card img{width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0;background:var(--surface)}
+.link-card-body{min-width:0;flex:1}
+.link-card-title{font-size:13px;font-weight:700;line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.link-card-host{font-family:var(--font-d);font-size:10px;color:var(--muted-2);letter-spacing:.06em;
+  text-transform:uppercase;margin-top:3px}
+.link-card-slot{display:none}
+#feedList.photos-grid .link-card img{width:48px;height:48px}
+#feedList.photos-grid .link-card-title{font-size:12px}
 /* editorial cards */
 .feed-card.editorial{border-color:rgba(141,235,0,.2);background:linear-gradient(135deg,var(--surface),#0c120a)}
 /* deep-link arrival (feed.html#<itemId>): the shared card gets a fading green halo */
@@ -152,6 +169,13 @@ border-radius:20px;padding:8px 16px;cursor:pointer;transform-origin:center;
 transition:transform .45s cubic-bezier(.34,1.56,.64,1),background-color .25s,color .25s,border-color .25s;
 will-change:transform;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .jelly-chip.active{background:var(--green-soft);border-color:var(--green-border);color:var(--green)}
+/* unread dot: a small filled green dot next to the tab label. It is a
+   shape, not a label color change, so it stays distinct from the tab's
+   green-vs-gray active state. */
+.jelly-chip .tab-dot{display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--green);margin-left:6px;vertical-align:middle;
+  box-shadow:0 0 6px rgba(141,235,0,.7)}
+.jelly-chip .tab-dot[hidden]{display:none}
 @media(prefers-reduced-motion:reduce){.jelly-chip{transition:none}}
 .composer{background:var(--surface);border:1px solid var(--border);border-radius:16px;
 padding:14px;margin-bottom:16px}
@@ -362,13 +386,13 @@ font-size:11px;cursor:pointer}
     </div>
     <div id="searchResults" hidden></div>
     <div class="filter-tabs" id="filterTabs" role="radiogroup" aria-label="Feed filters">
-      <button class="jelly-chip active" data-f="all" role="radio" aria-checked="true">All</button>
-      <button class="jelly-chip" data-f="arena" role="radio" aria-checked="false">Arena</button>
-      <button class="jelly-chip" data-f="photos" role="radio" aria-checked="false">Photos</button>
-      <button class="jelly-chip" data-f="clubs" role="radio" aria-checked="false">Clubs</button>
-      <button class="jelly-chip" data-f="ideas" role="radio" aria-checked="false">Ideas</button>
-      <button class="jelly-chip" data-f="milestones" role="radio" aria-checked="false">Milestones</button>
-      <button class="jelly-chip" data-f="content" role="radio" aria-checked="false">Articles</button>
+      <button class="jelly-chip active" data-f="all" role="radio" aria-checked="true">All<span class="tab-dot" hidden></span></button>
+      <button class="jelly-chip" data-f="arena" role="radio" aria-checked="false">Arena<span class="tab-dot" hidden></span></button>
+      <button class="jelly-chip" data-f="photos" role="radio" aria-checked="false">Photos<span class="tab-dot" hidden></span></button>
+      <button class="jelly-chip" data-f="clubs" role="radio" aria-checked="false">Clubs<span class="tab-dot" hidden></span></button>
+      <button class="jelly-chip" data-f="ideas" role="radio" aria-checked="false">Ideas<span class="tab-dot" hidden></span></button>
+      <button class="jelly-chip" data-f="milestones" role="radio" aria-checked="false">Milestones<span class="tab-dot" hidden></span></button>
+      <button class="jelly-chip" data-f="content" role="radio" aria-checked="false">Articles<span class="tab-dot" hidden></span></button>
     </div>
     <div class="sig-pill-wrap"><button id="sigPill" class="sig-pill" type="button"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg><span id="sigPillTxt">New signals</span></button></div>
     <div id="feedList"><div class="feed-loading">Loading the signal…</div></div>
@@ -443,6 +467,87 @@ function timeAgo(ts) {
 }
 function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 function dec(s){ const t=document.createElement('textarea'); t.innerHTML=s||''; return t.value; }
+/* --- link cards: the first camerasdecoded.com URL in a post body
+   renders a compact card (title + image from the page's OG tags).
+   Non-CD links are untouched — no card, no fetch, no linkify. Fetched
+   pages are parsed with DOMParser (meta tags only); nothing fetched is
+   ever injected as HTML — card text is set via textContent. --- */
+const CD_LINK_SCHEME_RE = /https?:\/\/(?:www\.)?camerasdecoded\.com(?![\w.-])(?:[^\s<>"']*)?/i;
+const CD_LINK_BARE_RE = /(^|[\s(])((?:www\.)?camerasdecoded\.com(?![\w.-])(?:\/[^\s<>"']*)?)/i;
+function firstCdLink(text){
+  if (!text) return null;
+  let url = null, at = Infinity;
+  const m = CD_LINK_SCHEME_RE.exec(text);
+  if (m) { url = m[0]; at = m.index; }
+  const b = CD_LINK_BARE_RE.exec(text);
+  if (b && (b.index + b[1].length) < at) { url = 'https://' + b[2]; at = b.index + b[1].length; }
+  if (!url) return null;
+  /* strip trailing punctuation the author didn't mean as part of the URL */
+  url = url.replace(/[.,;:!?)\]}'"]+$/, '');
+  return url || null;
+}
+/* OG data, cached in memory for the page load only — no persistent
+   cache, so a retitled page is never stale across visits. null means
+   "looked up, no usable card" (fetch failed, no OG tags, no image). */
+const ogCache = new Map();
+async function fetchOg(url){
+  if (ogCache.has(url)) return ogCache.get(url);
+  let out = null;
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+      const meta = function(p){
+        const el = doc.querySelector('meta[property="' + p + '"]');
+        return el ? (el.getAttribute('content') || '').trim() : '';
+      };
+      const title = meta('og:title');
+      let image = meta('og:image');
+      if (image) { try { image = new URL(image, url).href; } catch (e) { image = ''; } }
+      if (title && image) out = { title: title, image: image };
+    }
+  } catch (e) {}
+  ogCache.set(url, out);
+  return out;
+}
+/* Slot marker for renderCard: an empty div the fill pass replaces with
+   the card once the OG fetch lands. No CD link in the text, no slot. */
+function linkCardSlotHTML(d){
+  if (!d.text) return '';
+  const url = firstCdLink(d.text);
+  if (!url) return '';
+  return `<div class="link-card-slot" data-linkcard="${esc(url)}"></div>`;
+}
+/* Fill pass: runs after every render (loadFeed, pill prepend, deep-link
+   pin). A failed lookup leaves the slot in place, invisible — the post
+   renders exactly as it did before link cards existed. */
+function fillLinkCards(root){
+  if (!root) return;
+  root.querySelectorAll('[data-linkcard]:not([data-linkcard-done])').forEach(function(slot){
+    slot.setAttribute('data-linkcard-done', '1');
+    const url = slot.getAttribute('data-linkcard');
+    fetchOg(url).then(function(og){
+      if (!og || !document.body.contains(slot)) return;
+      const a = document.createElement('a');
+      a.className = 'link-card';
+      a.href = url;
+      const img = document.createElement('img');
+      img.src = og.image; img.alt = ''; img.loading = 'lazy';
+      img.onerror = function(){ if (a.parentNode) a.parentNode.removeChild(a); };
+      const body = document.createElement('span');
+      body.className = 'link-card-body';
+      const t = document.createElement('span');
+      t.className = 'link-card-title';
+      t.textContent = og.title;
+      const h = document.createElement('span');
+      h.className = 'link-card-host';
+      h.textContent = 'camerasdecoded.com';
+      body.appendChild(t); body.appendChild(h);
+      a.appendChild(img); a.appendChild(body);
+      slot.replaceWith(a);
+    });
+  });
+}
 const FLASH_ICON = '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
 const SHARE_ICON = '<svg viewBox="0 0 24 24"><path d="M4 12v8a1 1 0 001 1h14a1 1 0 001-1v-8M16 6l-4-4-4 4M12 2v13"/></svg>';
 const COMMENT_ICON = '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>';
@@ -505,6 +610,10 @@ function arenaDropLabel(d){
    failed read resolves to 'unknown' — the link still lands on the round,
    just with a neutral label. */
 const arenaPhaseCache = new Map();
+/* Today's round phase + voting flip time, stashed when the drop card
+   reads the round doc — powers the Arena tab's voting-open dot.
+   No extra reads: todaysDropItem already fetches this doc. */
+const arenaToday = { phase: 'unknown', votingAtMs: 0 };
 async function arenaPhaseFor(db, roundId){
   if (!roundId) return 'unknown';
   if (arenaPhaseCache.has(roundId)) return arenaPhaseCache.get(roundId);
@@ -554,6 +663,9 @@ async function todaysDropItem(db){
       item.status = dropStatus(r);
       item.roundId = 'c-' + dateStr;
       item.phase = arenaPhaseOf(r);
+      arenaToday.phase = item.phase;
+      const vAt = r.votingAt && r.votingAt.toMillis ? r.votingAt.toMillis() : (typeof r.votingAt === 'number' ? r.votingAt : 0);
+      arenaToday.votingAtMs = vAt || 0;
       arenaPhaseCache.set(item.roundId, item.phase);
       if (typeof r.entryCount === 'number') item.entryCount = r.entryCount;
     } else {
@@ -601,6 +713,10 @@ async function loadPublicProfile(db, uid){
 }
 
 let activeFilter = 'all';
+/* Deep-link hash already landed on. openDeepLink runs once per hash,
+   not once per loadFeed: the old per-loadFeed flag re-ran on every
+   filter switch after a search jump and yanked the view back to All. */
+let deepLinkHandledHash = null;
 /* New-signals live check: shared across loadFeed runs. queue holds items
    waiting behind the pill; newestMs is the newest createdAt seen so far. */
 const sigLive = { queue: [], newestMs: 0, timer: null, visHandler: null, checking: false };
@@ -1150,15 +1266,13 @@ async function loadFeed() {
     feedList.addEventListener('keypress', feedList._keyHandler);
 
     /* Deep link: feed.html#<itemId> scrolls to that card and halos it.
-       Runs once per page load. If the card isn't in the newest 50 (or is
+       Runs once per hash. If the card isn't in the newest 50 (or is
        hidden by a filter), reset to All; failing that, fetch the single
        item and pin its card at the top. */
-    let deepLinkDone = false;
     async function openDeepLink(){
-      if (deepLinkDone) return;
-      deepLinkDone = true;
       const id = (location.hash || '').replace(/^#/, '').trim();
-      if (!id) return;
+      if (!id || id === deepLinkHandledHash) return;
+      deepLinkHandledHash = id;
       const sel = '[data-item-id="' + id.replace(/["\\]/g, '\\$&') + '"]';
       let card = feedList.querySelector(sel);
       if (!card && activeFilter !== 'all') {
@@ -1177,6 +1291,7 @@ async function loadFeed() {
             feedList.prepend(card);
             if (typeof loadFlashData === 'function') loadFlashData();
             if (typeof initCarousels === 'function') initCarousels(feedList);
+            fillLinkCards(feedList);
           }
         } catch (e) {}
       }
@@ -1276,6 +1391,7 @@ async function loadFeed() {
           (d.type === 'post' ? '' : `<div class="${typeCls}">${esc(TYPE_LABELS[d.type]||d.type)}</div>`) +
         `</div>` +
         (d.text ? `<div class="feed-text">${esc(d.text)}</div>` : '') +
+        linkCardSlotHTML(d) +
         carouselHTML(getImageUrls(d)) +
         arenaCardLinkHTML(d) +
         (d.actionUrl ? `<a class="feed-action" href="${esc(d.actionUrl)}">${esc(d.actionLabel||'View')}</a>` : '')+
@@ -1310,8 +1426,10 @@ async function loadFeed() {
       feedList.insertBefore(frag, feedList.firstChild);
       loadFlashData();
       initCarousels(feedList);
+      fillLinkCards(feedList);
       cdpRefreshTransmissionEdges();
       cdpRefreshWinnerEdges();
+      updateTabDots(true);
     }
     async function sigCheck(){
       if (sigLive.checking || document.hidden) return;
@@ -1324,11 +1442,20 @@ async function loadFeed() {
           const d = doc.data(); d._id = doc.id;
           if (sigMs(d.createdAt) > sigLive.newestMs && d.type !== 'arena_drop' && !feedList.querySelector('[data-item-id="' + d._id + '"]')) fresh.push(d);
         });
-        if (!fresh.length) return;
+        /* No fresh items: release the guard before returning, or the
+           live check never runs again this session. */
+        if (!fresh.length) { sigLive.checking = false; return; }
         fresh.sort((a, b) => sigMs(b.createdAt) - sigMs(a.createdAt));
         sigLive.newestMs = sigMs(fresh[0].createdAt);
+        /* Fresh items join the loaded set now — they are in the feed
+           (queued behind the pill or prepended), so the tab dots and
+           search see them without waiting for the next full load. */
+        lastFeedItems = fresh.concat(lastFeedItems);
         if (activeFilter === 'all' && window.scrollY <= 80 && !sigLive.queue.length) { sigPrepend(fresh); }
         else { sigLive.queue = fresh.concat(sigLive.queue); sigShowPill(); }
+        /* Dots for the other tabs; the active tab is not marked seen —
+           its fresh items sit behind the pill, unrendered. */
+        updateTabDots(false);
       } catch (e) {}
       sigLive.checking = false;
     }
@@ -1354,22 +1481,97 @@ async function loadFeed() {
       sigLive.visHandler = function(){ if (!document.hidden) sigCheck(); };
       document.addEventListener('visibilitychange', sigLive.visHandler);
     }
+    /* --- unread dots: each tab shows a small green dot when it holds
+       items newer than the last time that tab was viewed. Same
+       freshness comparison as the new-signals pill (createdAt ms vs a
+       stored newest-seen ms); the marker lives in localStorage, a
+       per-device hint, not synced state. --- */
+    const SEEN_KEY = 'cd_feed_seen_v1';
+    function readSeen(){
+      try { const v = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); return (v && typeof v === 'object') ? v : {}; }
+      catch (e) { return {}; }
+    }
+    function writeSeen(m){
+      try { localStorage.setItem(SEEN_KEY, JSON.stringify(m)); } catch (e) {}
+    }
+    function tabNewestMs(items, filter){
+      const types = FILTER_TYPES[filter];
+      let newest = 0;
+      items.forEach(function(d){
+        if (d.type === 'arena_drop') return;
+        if (types && !types.includes(d.type)) return;
+        if (filter === 'photos' && !getImageUrls(d).length) return;
+        const ms = sigMs(d.createdAt);
+        if (ms > newest) newest = ms;
+      });
+      return newest;
+    }
+    function setTabDot(filter, show){
+      const chip = document.querySelector('.jelly-chip[data-f="' + filter + '"]');
+      const dot = chip ? chip.querySelector('.tab-dot') : null;
+      if (dot) dot.hidden = !show;
+    }
+    /* markActive: true when the active tab's contents are on screen
+       (loadFeed render, pill prepend) — viewing marks it seen. False
+       from the live check, where fresh items sit behind the pill,
+       unrendered, and must not count as seen yet. */
+    function updateTabDots(markActive){
+      const seen = readSeen();
+      const pool = lastFeedItems.concat(sigLive.queue || []);
+      let dirty = false;
+      Object.keys(FILTER_TYPES).forEach(function(f){
+        const newest = tabNewestMs(pool, f);
+        if (f === activeFilter) {
+          if (markActive) {
+            /* Viewing a tab marks it seen — up to its newest item, and
+               never behind the flip while voting is open (clock-skew
+               safe: the marker must pass the flip or the dot sticks). */
+            let mark = Math.max(newest, Date.now());
+            if (f === 'arena' && arenaToday.phase === 'voting' && arenaToday.votingAtMs) mark = Math.max(mark, arenaToday.votingAtMs);
+            if ((seen[f] || 0) < mark) { seen[f] = mark; dirty = true; }
+          }
+          setTabDot(f, false);
+          return;
+        }
+        if (seen[f] == null) {
+          /* First visit: treat as seen up to the newest loaded item —
+             no dots on first load. For the Arena during voting, the
+             seed also passes the flip, or the dot would appear on the
+             very next load. A tab with no items seeds 0, so an item
+             arriving later still dots. */
+          let seed = newest;
+          if (f === 'arena' && arenaToday.phase === 'voting' && arenaToday.votingAtMs) seed = Math.max(seed, arenaToday.votingAtMs);
+          seen[f] = seed; dirty = true;
+          setTabDot(f, false);
+          return;
+        }
+        let show = newest > seen[f];
+        /* Arena: also dot while voting is open and the tab hasn't been
+           viewed since the flip — even with no new items. */
+        if (!show && f === 'arena' && arenaToday.phase === 'voting' && arenaToday.votingAtMs && seen[f] < arenaToday.votingAtMs) show = true;
+        setTabDot(f, show);
+      });
+      if (dirty) writeSeen(seen);
+    }
     if (shown === 0) {
       const msg = activeFilter === 'all'
         ? 'Nothing here yet.<br/>Enter the Arena or hit a milestone to light up the feed.'
         : 'Nothing in this view yet.';
       feedList.innerHTML = '<div class="feed-empty"><div class="big">◌</div><div>'+msg+'</div></div>';
       armSignalLive();
+      updateTabDots(true);
       openDeepLink();
       return;
     }
     feedList.appendChild(frag);
     loadFlashData();
     initCarousels(feedList);
+    fillLinkCards(feedList);
     buildWire(ordered);
     cdpRefreshTransmissionEdges();
     cdpRefreshWinnerEdges();
     armSignalLive();
+    updateTabDots(true);
     openDeepLink();
   } catch(e) {
     feedList.innerHTML = '<div class="feed-empty"><div>Could not load the feed.</div></div>';
@@ -1565,6 +1767,9 @@ searchBox.addEventListener('click', function(e){
     document.querySelectorAll('.jelly-chip').forEach(function(t, i){ t.classList.toggle('active', i === 0); });
   }
   try { history.replaceState(null, '', '#' + id); } catch (err) {}
+  /* A fresh jump re-arms the deep link even for an item already
+     landed on — the tab switches below must not re-run it. */
+  deepLinkHandledHash = null;
   loadFeed();
 });
 loadFeed();
