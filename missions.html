@@ -891,8 +891,8 @@ button{font-family:inherit;cursor:pointer}
     var user = null;
     var myScore = { score: 0, tier: 0 };
     var lanes = {
-      mission: { lane: 'mission', round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, fallback: false, empty: false, followingOnly: false, followingUids: null, feedByUid: {}, winnerFeedId: null, signalLinksReady: false, pendingEntry: null, deepOpened: false },
-      daily:   { lane: 'daily',   round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, fallback: false, empty: false, followingOnly: false, followingUids: null, feedByUid: {}, winnerFeedId: null, signalLinksReady: false, pendingEntry: null, deepOpened: false }
+      mission: { lane: 'mission', round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, talliesState: 'pending', tallyRetry: 0, fallback: false, empty: false, followingOnly: false, followingUids: null, feedByUid: {}, winnerFeedId: null, signalLinksReady: false, pendingEntry: null, deepOpened: false },
+      daily:   { lane: 'daily',   round: null, phase: 'open', entries: [], myEntry: null, myVotes: {}, tallies: {}, talliesState: 'pending', tallyRetry: 0, fallback: false, empty: false, followingOnly: false, followingUids: null, feedByUid: {}, winnerFeedId: null, signalLinksReady: false, pendingEntry: null, deepOpened: false }
     };
     var activeTab = 'daily';
     /* ---------- deep link: ?round=<roundId>&entry=<entryUid> ----------
@@ -1094,8 +1094,13 @@ button{font-family:inherit;cursor:pointer}
         var who = document.createElement('span'); who.className = 'who';
         who.textContent = e.authorName || aliasOf(e.uid);
         var rv = document.createElement('span');
-        rv.className = rank === 1 ? 'rank' : 'votes';
-        rv.textContent = (rank === 1 ? 'Winner · ' : '#' + rank + ' · ') + t.weighted + ' weighted votes';
+        if (st.talliesState !== 'ok') {
+          rv.className = 'votes';
+          rv.textContent = 'Results are being tallied';
+        } else {
+          rv.className = rank === 1 ? 'rank' : 'votes';
+          rv.textContent = (rank === 1 ? 'Winner · ' : '#' + rank + ' · ') + t.weighted + ' weighted votes';
+        }
         meta.appendChild(who); meta.appendChild(rv);
         /* Signal door — closed rounds only. The feed item names the
            author, so this link must never appear while the round is
@@ -1650,10 +1655,14 @@ button{font-family:inherit;cursor:pointer}
       return Promise.all(jobs);
     }
 
-    /* votes are readable only after close; tally weighted votes per entry */
+    /* votes are readable only after close; tally weighted votes per entry.
+       A failed read is NOT a zero: if any entry's votes cannot be read, the
+       tallies are marked untrusted and nothing on the page may crown from
+       them. Bounded re-checks ride out a late closer (45s, at most 3). */
     function loadTallies(laneKey) {
       var st = lanes[laneKey];
       st.tallies = {};
+      var failed = 0;
       var jobs = st.entries.map(function (e) {
         return db.collection('arenaRounds').doc(st.round._id).collection('entries').doc(e.uid)
           .collection('votes').get()
@@ -1666,9 +1675,19 @@ button{font-family:inherit;cursor:pointer}
             });
             st.tallies[e.uid] = { weighted: w, count: n };
           })
-          .catch(function () { st.tallies[e.uid] = { weighted: 0, count: 0 }; });
+          .catch(function () { failed++; st.tallies[e.uid] = { weighted: 0, count: 0 }; });
       });
-      return Promise.all(jobs);
+      return Promise.all(jobs).then(function () {
+        st.talliesState = (!st.entries.length || !failed) ? 'ok'
+          : (failed >= st.entries.length ? 'unreadable' : 'partial');
+        if (st.talliesState !== 'ok' && st.phase === 'closed' && (st.tallyRetry || 0) < 3) {
+          setTimeout(function () {
+            if (st.phase !== 'closed') return;
+            st.tallyRetry = (st.tallyRetry || 0) + 1;
+            loadTallies(laneKey).then(function () { renderFeed(laneKey); });
+          }, 45000);
+        }
+      });
     }
 
     /* ---------- one-shot scroll reveal (once per page load) ---------- */
@@ -1778,7 +1797,7 @@ button{font-family:inherit;cursor:pointer}
           '<div class="ecopy"><span class="big">' + emptyBig + '</span>' + emptySub + '</div></div>';
         return;
       }
-      if (st.phase === 'closed') {
+      if (st.phase === 'closed' && st.talliesState === 'ok') {
         /* ranked: weighted votes desc, ties break to earliest submission */
         list.sort(function (a, b) {
           var wa = (st.tallies[a.uid] || { weighted: 0 }).weighted;
@@ -1789,6 +1808,16 @@ button{font-family:inherit;cursor:pointer}
           return ta - tb;
         });
         list.forEach(function (e, i) { e.rank = i + 1; });
+      } else if (st.phase === 'closed') {
+        /* Tallies untrusted (unreadable or partial): show the field in
+           submission order and crown nobody — a fabricated winner is worse
+           than an honest wait. */
+        list.sort(function (a, b) {
+          var ta = a.submittedAt && a.submittedAt.toMillis ? a.submittedAt.toMillis() : 0;
+          var tb = b.submittedAt && b.submittedAt.toMillis ? b.submittedAt.toMillis() : 0;
+          return ta - tb;
+        });
+        list.forEach(function (e) { e.rank = 0; });
       } else {
         /* blind, shuffled per viewer */
         var viewer = user ? user.uid : 'anon';
@@ -1818,7 +1847,7 @@ button{font-family:inherit;cursor:pointer}
           ex.setAttribute('aria-hidden', 'true'); ex.textContent = 'EXAMPLE';
           card.appendChild(ex);
         }
-        if (st.phase === 'closed' && e.rank === 1) {
+        if (st.phase === 'closed' && st.talliesState === 'ok' && e.rank === 1) {
           var ring = document.createElement('span'); ring.className = 'winring'; ring.setAttribute('aria-hidden', 'true');
           card.appendChild(ring);
           var rk = document.createElement('span'); rk.className = 'rank'; rk.textContent = 'Winner';
@@ -1849,7 +1878,7 @@ button{font-family:inherit;cursor:pointer}
         var al = document.createElement('span'); al.className = 'alias';
         al.textContent = st.phase === 'closed' ? (e.authorName || aliasOf(e.uid)) : aliasOf(e.uid);
         meta.appendChild(al);
-        if (st.phase === 'closed') {
+        if (st.phase === 'closed' && st.talliesState === 'ok') {
           var vc = document.createElement('span'); vc.className = 'votecount';
           vc.textContent = String((st.tallies[e.uid] || { weighted: 0 }).weighted);
           meta.appendChild(vc);
@@ -1859,6 +1888,12 @@ button{font-family:inherit;cursor:pointer}
         cols[i % ncols].appendChild(card);
         armReveal(card, laneKey + ':' + e.uid, obs);
       });
+      var sg2 = el('amSignal' + cap(laneKey));
+      if (sg2 && st.phase === 'closed' && list.length) {
+        sg2.textContent = st.talliesState === 'ok'
+          ? list.length + (list.length === 1 ? ' shot \u00b7 winner crowned' : ' shots \u00b7 winner crowned')
+          : 'Results are being tallied — the crown lands shortly';
+      }
       var vb = el('amVotebar' + cap(laneKey));
       if (vb) {
         var showVb = st.phase === 'voting' && !!user && hasFirebase;
@@ -1973,7 +2008,7 @@ button{font-family:inherit;cursor:pointer}
     function refreshLane(laneKey) {
       var st = lanes[laneKey];
       st.round = null; st.phase = 'open'; st.entries = []; st.myEntry = null;
-      st.myVotes = {}; st.tallies = {}; st.fallback = false; st.empty = false;
+      st.myVotes = {}; st.tallies = {}; st.talliesState = 'pending'; st.tallyRetry = 0; st.fallback = false; st.empty = false;
       st.pendingEntry = null;
       renderRoundCard(laneKey); renderSubmit(laneKey);
       var grid = el('amGrid' + cap(laneKey));
