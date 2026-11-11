@@ -76,6 +76,7 @@
   var SHEETS = {
     practice: {
       title: 'Practice',
+      titleArt: '/custom-site-titles/practice.png?v=20261110a',
       sub: 'Quick drills and daily work.',
       rows: [
         { href: '/field-manual.html',  icon: 'manual',   title: 'Field Manual',      sub: 'The Camera Confidence Guide · Chapters 1–3 free' },
@@ -89,6 +90,7 @@
     },
     more: {
       title: 'More',
+      titleArt: '/custom-site-titles/more.png?v=20261110a',
       sub: 'Secondary destinations.',
       rows: [
         { href: '/ask.html',                icon: 'quiz',   title: 'Ask CD',     sub: 'Ask a camera question · Answered from the checked library' },
@@ -211,6 +213,7 @@
     + '.cd-bn-close:hover{border-color:var(--cd-bn-green)}'
     + '.cd-bn-close svg{width:18px;height:18px}'
     + '.cd-bn-title{margin:0 0 4px;font-size:18px;font-weight:700;letter-spacing:-.01em}'
+    + '.cd-bn-title-art{display:block;height:26px;width:auto}'
     + '.cd-bn-sub{margin:0 0 18px;color:var(--cd-bn-mut);font-size:12px}'
     + '.cd-bn-row{display:flex;align-items:center;gap:14px;min-height:60px;padding:12px 14px;'
     +   'border-radius:12px;border:1px solid var(--cd-bn-border);background:rgba(255,255,255,.02);'
@@ -288,7 +291,10 @@
            +     '<button type="button" class="cd-bn-close" data-cd-close aria-label="Close">'
            +       ICONS.close
            +     '</button>'
-           +     '<h2 class="cd-bn-title" id="cd-bn-title-' + key + '">' + s.title + '</h2>'
+           +     '<h2 class="cd-bn-title" id="cd-bn-title-' + key + '">' + (s.titleArt
+           ? '<img class="cd-bn-title-art" src="' + s.titleArt + '" alt="' + s.title + '" onerror="this.style.display=\'none\';document.getElementById(\'cd-bn-title-fb-' + key + '\').hidden=false">'
+             + '<span id="cd-bn-title-fb-' + key + '" hidden>' + s.title + '</span>'
+           : s.title) + '</h2>'
            +     '<p class="cd-bn-sub">' + s.sub + '</p>'
            +     '<div>' + rows + '</div>'
            +   '</section>'
