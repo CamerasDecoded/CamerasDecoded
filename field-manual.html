@@ -205,6 +205,17 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 .fm-cs-go{margin-top:auto;padding-top:12px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--neon)}
 .fm-shelf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px}
 .fm-cover{--acc:var(--neon);--acc-soft:rgba(141,235,0,.35);position:relative;display:flex;flex-direction:column;min-height:248px;border:1px solid var(--line2);border-radius:14px;padding:16px 15px 15px;background-color:var(--panel);background-image:url('/media/dossier-weave.jpg');background-size:640px auto;background-blend-mode:soft-light;overflow:hidden;transition:transform .25s ease,border-color .25s ease}
+/* Cover photo backgrounds (2026-11-11): one relevant photo per manual,
+   full-bleed under a dark scrim; text and layout unchanged. The weave
+   stays on the hero card and the ghost cover. The photo is an <img>
+   layered over the panel, so if it ever fails to load the cover falls
+   back to the plain panel + weave exactly as before. */
+.fm-cover-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.fm-cover-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(6,7,6,.50),rgba(6,7,6,.78) 52%,rgba(6,7,6,.94))}
+.fm-cover--art .fm-cover-top,.fm-cover--art .fm-cover-title,.fm-cover--art .fm-cover-doctrine,.fm-cover--art .fm-cover-foot{position:relative;z-index:2}
+.fm-cover--art .fm-chip{background:rgba(0,0,0,.35)}
+.fm-cover--art .fm-cover-meta{color:rgba(255,255,255,.78)}
+.fm-cover--art .fm-cover-btn{background:rgba(0,0,0,.45)}
 .fm-cover--amber{--acc:var(--amber);--acc-soft:rgba(255,200,87,.35)}
 @media (hover:hover){.fm-cover:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.22)}}
 .fm-cover-top{display:flex;justify-content:space-between;align-items:center;gap:6px 8px;margin-bottom:14px;flex-wrap:wrap}
@@ -1674,8 +1685,20 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
       '</div></div>';
   }
 
+  /* Cover photos (2026-11-11): one relevant photo per manual, drawn as
+     the cover's background under a scrim (see .fm-cover-art). Manuals
+     without an entry keep the plain panel + weave. */
+  var COVER_ART = {
+    "field-manual": { path: "freebies/card-field-manual.jpg?v=20261018b", pos: "64% 50%" },
+    "finish": { path: "media/field-manual/cover-finish.jpg?v=20261111a", pos: "50% 42%" }
+  };
+
   function shelfCard(m, idx){
     var st = shelfState(m);
+    var art = COVER_ART[m.id];
+    var artHtml = art
+      ? '<img class="fm-cover-art" src="/' + art.path + '" alt="" aria-hidden="true" style="object-position:' + art.pos + '"><div class="fm-cover-scrim" aria-hidden="true"></div>'
+      : '';
     var num = "\u2116 " + (m.num < 10 ? "0" : "") + m.num;
     var chip = m.status === "live"
       ? (m.freeChapters > 1 ? "Ch. 1\u2013" + m.freeChapters + " free" : "Ch. 1 free")
@@ -1690,7 +1713,8 @@ span.fm-cover-btn.is-off{opacity:.55;pointer-events:none}
     }
     if(m.status === "live") foot += '<a class="fm-btn ghost fm-cover-btn" href="' + esc(m.reader) + '">Open manual</a>';
     else foot += '<span class="fm-btn ghost fm-cover-btn is-off" aria-disabled="true">In production</span>';
-    return '<article class="fm-cover fm-cover--' + esc(m.accent) + ' cd-anim" id="fm-cover-' + esc(m.id) + '" style="--cd:' + (idx * 0.07).toFixed(2) + 's">' +
+    return '<article class="fm-cover fm-cover--' + esc(m.accent) + (art ? ' fm-cover--art' : '') + ' cd-anim" id="fm-cover-' + esc(m.id) + '" style="--cd:' + (idx * 0.07).toFixed(2) + 's">' +
+      artHtml +
       '<div class="fm-cover-top"><span class="fm-cover-num">' + num + '</span><span class="fm-chip">' + esc(chip) + '</span></div>' +
       '<h3 class="fm-cover-title">' + esc(m.title) + '</h3>' +
       '<p class="fm-cover-doctrine">' + esc(m.doctrine) + '</p>' +
