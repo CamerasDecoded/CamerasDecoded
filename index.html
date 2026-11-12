@@ -87,8 +87,9 @@
   <style>
     /* ============================================================
        LANDING — rebuilt 2026-10-24 (audit spec S0–S9)
-       Tokens from design-system.css. One chase border on the whole
-       page: the hero primary CTA. Everything else is branded glass.
+       Tokens from design-system.css. One chase border on screen at a
+       time: the hero primary CTA while the hero is visible, the sticky
+       bar button once it scrolls away. Everything else is branded glass.
        ============================================================ */
     :root {
       --green: #8deb00;
@@ -179,11 +180,12 @@
     .header-start-btn {
       color: #0a0c05; font-family: var(--font-mono); font-size: 12px; font-weight: 700;
       border: 1px solid var(--green); padding: 7px 16px; border-radius: 999px; cursor: pointer;
-      background: linear-gradient(180deg, #a4f71f, #7fd000); transition: filter 0.2s, box-shadow 0.2s;
+      background: linear-gradient(180deg, #a4f71f, #7fd000); transition: filter 0.2s, box-shadow 0.2s, transform 0.15s;
       text-decoration: none; text-align: center; white-space: nowrap;
-      box-shadow: 0 2px 12px rgba(141, 235, 0, 0.35);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 12px rgba(141, 235, 0, 0.35);
     }
-    .header-start-btn:hover { filter: brightness(1.08); box-shadow: 0 2px 18px rgba(141, 235, 0, 0.5); }
+    .header-start-btn:hover { filter: brightness(1.08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 18px rgba(141, 235, 0, 0.5); }
+    .header-start-btn:active { transform: scale(0.97); filter: brightness(0.92); }
     /* Desktop visitor sidebar: clear the fixed rail */
     @media (min-width: 821px) {
       body.cd-ds-on .floating-header { left: calc(256px + 12px); }
@@ -223,14 +225,13 @@
       transition: transform 0.2s var(--ease-out), filter 0.2s, box-shadow 0.2s, background 0.2s;
     }
     .btn:hover { transform: translateY(-1px); }
-    .btn:active { transform: translateY(0) scale(0.98); }
     /* Solid green — the workhorse CTA everywhere except the hero. */
     .btn-solid {
       background: linear-gradient(180deg, #a4f71f, #7fd000); color: #0a0c05;
       font-size: 15px; padding: 15px 30px;
-      box-shadow: 0 6px 28px rgba(141, 235, 0, 0.3);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 28px rgba(141, 235, 0, 0.3);
     }
-    .btn-solid:hover { filter: brightness(1.07); box-shadow: 0 8px 34px rgba(141, 235, 0, 0.42); }
+    .btn-solid:hover { filter: brightness(1.07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 34px rgba(141, 235, 0, 0.42); }
     /* Quiet glass — tertiary doors. */
     .btn-ghost {
       background: transparent; color: var(--green);
@@ -239,7 +240,9 @@
     }
     .btn-ghost:hover { background: rgba(141, 235, 0, 0.08); box-shadow: 0 0 18px rgba(141, 235, 0, 0.18); }
 
-    /* THE chase border — hero primary CTA only, on the whole page.
+    /* THE chase border — one on screen at a time. It lives on the hero
+       primary CTA while the hero is visible and moves to the sticky bar
+       button once the hero scrolls away (see the sticky-CTA script).
        Canonical green-only conic from signature-button.css. */
     @property --sg-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
     @keyframes sgSpin { to { --sg-angle: 360deg; } }
@@ -268,6 +271,10 @@
     }
     .btn-chase:hover { filter: brightness(1.12); }
     .btn-chase:hover::before { opacity: 0.65; }
+
+    /* Press state sits after every :hover rule on purpose, so a pressed
+       button dims instead of brightening while the pointer is down. */
+    .btn:active { transform: translateY(0) scale(0.98); filter: brightness(0.92); }
 
     /* ---------- reveal-on-scroll: one mechanism, calm and fast ----------
        Stagger is capped at ~240ms total. Transform + opacity only. */
@@ -385,7 +392,7 @@
     .arena-watch { display: inline-block; margin-left: 16px; color: var(--green); font-family: 'Space Mono', monospace; font-size: 14px; }
     .arena-watch:hover { color: var(--green-hi, #a0f520); }
 
-    /* ---------- S2.5 — Ask CD door (quiet; the hero CTA stays the only chase border) ---------- */
+    /* ---------- S2.5 — Ask CD door (quiet; the chase stays on one button at a time) ---------- */
     .ask-door-card {
       border: 1px solid rgba(141,235,0,.22); border-radius: 20px;
       padding: 26px 24px;
@@ -605,14 +612,15 @@
     .get-app-step b { display: block; color: #f7f8f5; font-size: 13.5px; font-weight: 700; margin-bottom: 4px; }
     .get-app-step span { display: block; color: rgba(255, 255, 255, 0.5); font-size: 12px; line-height: 1.5; }
     .get-app-cta {
-      display: inline-flex; align-items: center; gap: 10px; cursor: pointer; border: none;
-      background: linear-gradient(180deg, #a4f71f, #7fd000); color: #0a0c05;
+      display: inline-flex; align-items: center; gap: 10px; cursor: pointer;
+      background: transparent; color: var(--green);
+      border: 1px solid rgba(141, 235, 0, 0.45);
       font-family: var(--font-sans); font-size: 16px; font-weight: 800;
-      padding: 15px 42px; border-radius: 999px; box-shadow: 0 6px 28px rgba(141, 235, 0, 0.35);
-      transition: filter 0.2s, transform 0.15s;
+      padding: 15px 42px; border-radius: 999px; box-shadow: none;
+      transition: background 0.2s, box-shadow 0.2s, filter 0.2s, transform 0.15s;
     }
-    .get-app-cta:hover { filter: brightness(1.07); }
-    .get-app-cta:active { transform: scale(0.98); }
+    .get-app-cta:hover { background: rgba(141, 235, 0, 0.08); box-shadow: 0 0 18px rgba(141, 235, 0, 0.18); }
+    .get-app-cta:active { transform: scale(0.98); filter: brightness(0.92); }
     .get-app-fine { margin-top: 16px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; color: rgba(255, 255, 255, 0.38); }
     .get-app-qr { display: none; margin-top: 26px; }
     .get-app-qr img { width: 148px; height: 148px; border-radius: 14px; border: 1px solid rgba(141, 235, 0, 0.3); }
@@ -653,10 +661,15 @@
     .sticky-cta-text b { display: block; font-size: 14px; }
     .sticky-cta-text span { font-size: 11px; color: #b4b4b4; }
     .sticky-cta-btn {
-      background: var(--green); color: #000;
+      background: linear-gradient(180deg, #a4f71f, #7fd000); color: #000;
       font-family: var(--font-mono); font-size: 13px; font-weight: 700;
       padding: 12px 20px; border-radius: 10px; text-decoration: none; white-space: nowrap; flex: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 18px rgba(141, 235, 0, 0.3);
+      transition: filter 0.2s, transform 0.15s;
     }
+    .sticky-cta-btn:active { transform: scale(0.97); filter: brightness(0.92); }
+    /* When the chase moves here, keep the bar button's own case. */
+    .sticky-cta-btn.btn-chase { text-transform: none; }
     @media (max-width: 640px) {
       .sticky-cta { display: flex; }
       /* Bar top sits 86px up (74px bar + 12px offset) + safe area; main already
@@ -699,7 +712,7 @@
       <div class="hero-copy">
         <p class="hero-sub rv rv-d2">Cameras Decoded teaches you to actually use your mirrorless camera — short lessons, a photo challenge every night, and your photos judged by other photographers.</p>
         <div class="hero-cta-row rv rv-d3">
-          <a href="signup.html?next=%2Ffield-manual.html%3Flesson%3Dch01-welcome" class="btn btn-chase">Start Chapter 1 free</a>
+          <a href="signup.html?next=%2Ffield-manual.html%3Flesson%3Dch01-welcome" class="btn btn-solid btn-chase">Start Chapter 1 free</a>
           <a href="#arena" class="hero-alt">Or enter tonight's challenge free</a>
         </div>
         <p class="hero-micro rv rv-d4">Free account · Chapters 1–3 free · Tonight's challenge free to enter</p>
@@ -776,7 +789,7 @@
         <div class="free-row"><div><b>The exposure cheat card</b> <span class="free-note">— the one-page decision card. </span><a href="free.html">Take the free cheat card →</a></div></div>
       </div>
       <p class="free-fine">No card. The paid parts are labeled paid, everywhere.</p>
-      <a href="signup.html?next=%2Ffield-manual.html%3Flesson%3Dch01-welcome" class="btn btn-solid">Create your free account</a>
+      <a href="signup.html?next=%2Ffield-manual.html%3Flesson%3Dch01-welcome" class="btn btn-ghost">Start Chapter 1 free</a>
     </section>
 
     <!-- S5 — how it works -->
@@ -1271,10 +1284,15 @@
     })();
 
     // Sticky mobile CTA: appears once the hero scrolls away.
+    // The chase border follows it: on the hero CTA while the hero is on
+    // screen, on the sticky bar button once the hero is gone — exactly
+    // one chase visible at any scroll position.
     (function () {
       var cta = document.getElementById('stickyCta');
       var hero = document.getElementById('heroSection');
       if (!cta || !hero || !('IntersectionObserver' in window)) return;
+      var heroCta = hero.querySelector('.btn-chase');
+      var stickyBtn = cta.querySelector('.sticky-cta-btn');
       var shown = false;
       function sync(show) {
         if (show === shown) return;
@@ -1282,6 +1300,8 @@
         cta.classList.toggle('visible', show);
         cta.setAttribute('aria-hidden', show ? 'false' : 'true');
         document.body.classList.toggle('has-sticky-cta', show);
+        if (heroCta) heroCta.classList.toggle('btn-chase', !show);
+        if (stickyBtn) stickyBtn.classList.toggle('btn-chase', show);
       }
       new IntersectionObserver(function (entries) {
         var r = entries[0];
