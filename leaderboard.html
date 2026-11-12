@@ -233,6 +233,26 @@
         d.textContent = img.getAttribute('data-initial') || 'O';
         img.replaceWith(d);
       };
+      // Viewer self-sync (once per page load): the viewer can read their own
+      // users doc (rules: self or admin). If their photo is newer than their
+      // public card, sync the card so their podium avatar shows the real
+      // photo without a trip to their profile page. Silent on any failure.
+      var selfSyncDone = false;
+      function syncOwnPublicCard(meUid) {
+        if (!meUid || selfSyncDone || !db) return Promise.resolve();
+        selfSyncDone = true;
+        var userP = db.collection('users').doc(meUid).get().catch(function () { return null; });
+        var cardP = db.collection('publicProfiles').doc(meUid).get().catch(function () { return null; });
+        return Promise.all([userP, cardP]).then(function (res) {
+          var u = res[0] && res[0].exists ? (res[0].data() || {}) : {};
+          var c = res[1] && res[1].exists ? (res[1].data() || {}) : {};
+          if (!u.photoURL || u.photoURL === c.avatarUrl) return;
+          var payload = { avatarUrl: u.photoURL, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+          if (u.displayName) payload.displayName = u.displayName;
+          if (u.username) payload.username = u.username;
+          return db.collection('publicProfiles').doc(meUid).set(payload, { merge: true }).catch(function () {});
+        }).catch(function () {});
+      }
       function lbWeekKey(d) {
         d = d || new Date();
         var t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -273,7 +293,11 @@
           podiumHtml = order.map(function (oi, vi) {
             if (oi >= pRows.length) return '';
             var pr = pRows[oi];
-            var crown = vi === 1 ? '<div class="lb-crown"><img src="/media/icons/leaderboard-crown.png?v=20261004a" alt="1st place crown" style="width:46px;height:46px;object-fit:contain"></div>' : '';
+            var crown = vi === 0
+              ? '<div class="lb-crown"><img src="/media/icons/leaderboard-crown-silver.png?v=20261112a" alt="2nd place crown" style="width:46px;height:46px;object-fit:contain"></div>'
+              : vi === 1
+              ? '<div class="lb-crown"><img src="/media/icons/leaderboard-crown.png?v=20261004a" alt="1st place crown" style="width:46px;height:46px;object-fit:contain"></div>'
+              : '<div class="lb-crown"><img src="/media/icons/leaderboard-crown-bronze.png?v=20261112a" alt="3rd place crown" style="width:46px;height:46px;object-fit:contain"></div>';
             var pInitial = esc((pr.row.displayName || 'O').charAt(0).toUpperCase());
             var avatar = pr.row.photoURL ?
               '<img class="lb-pavatar" src="' + esc(pr.row.photoURL) + '" data-initial="' + pInitial + '" onerror="lbAvatarFallback(this)" alt="">' :
@@ -392,6 +416,7 @@
         var wk = lbWeekKey();
         var field = lbMode === 'week' ? 'weeks.' + wk : 'xp';
         var meUid = firebase.auth().currentUser ? firebase.auth().currentUser.uid : null;
+        var selfSyncP = syncOwnPublicCard(meUid);
         try {
           var snap = await db.collection('leaderboard').orderBy(field, 'desc').limit(50).get();
           var rows = [];
@@ -424,6 +449,19 @@
             var meta = metaDoc.data() || {};
             if (meta.totalUsers > 0) totalCount = meta.totalUsers;
           } catch (e) { /* percentile uses page size as fallback */ }
+
+          // Podium avatars: the public card (publicProfiles.avatarUrl) is the
+          // freshest public photo - the leaderboard row's photoURL only updates
+          // when its owner plays a game. Resolve the top 3 before rendering
+          // (after the viewer's own card sync, so their fresh photo is in);
+          // the card photo wins over a stale row photo.
+          await selfSyncP;
+          await Promise.all(rows.slice(0, 3).map(function (r) {
+            return db.collection('publicProfiles').doc(r.id).get().then(function (d) {
+              var av = d && d.exists && (d.data() || {}).avatarUrl;
+              if (av) r.photoURL = av;
+            }).catch(function () {});
+          }));
 
           renderBoard(rows, wk, meUid, lastWkRanks);
           renderYou(rows, wk, meUid, totalCount);
