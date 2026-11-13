@@ -83,6 +83,25 @@
     .aw-winner .sub { color: var(--text-dim); font-size: 14px; }
     .aw-winner .sub .gold { color: var(--gold); font-weight: 700; }
 
+    /* The book card: the crown flows straight into the booking action.
+       Rendered only when the winner's public profile carries booking info. */
+    .aw-book {
+      margin-top: 24px;
+      border: 1px solid var(--line-green);
+      border-radius: 16px;
+      padding: 22px;
+      background: linear-gradient(180deg, rgba(141,235,0,0.06) 0%, rgba(12,12,14,0.6) 55%);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    }
+    .aw-book h3 { color: var(--green); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+    .aw-book .biz { font-size: 17px; font-weight: 600; color: #ffffff; }
+    .aw-book .where { color: var(--text-dim); font-size: 14px; margin-top: 2px; }
+    .aw-book .proof { color: var(--text-dim); font-size: 14px; margin-top: 12px; }
+    .aw-book .proof .gold { color: var(--gold); font-weight: 700; }
+    .aw-book .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+    .aw-book .socials { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .aw-book .socials a { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--green); }
+
     .aw-brief { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 24px; }
     .aw-brief h3 { color: var(--green); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
     .aw-brief p { color: #d8d8d8; font-size: 16px; }
@@ -146,6 +165,56 @@
         try {
           return new Date(ms).toLocaleDateString('en-US', { timeZone: 'America/Chicago', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
         } catch (e) { return ''; }
+      }
+      function fmtShortDate(ms) {
+        if (!ms) return '';
+        try {
+          return new Date(ms).toLocaleDateString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric' });
+        } catch (e) { return ''; }
+      }
+      function bizNormUrl(u) {
+        u = (u || '').trim();
+        if (!u) return '';
+        return /^https?:\/\//i.test(u) ? u : 'https://' + u;
+      }
+      /* The book card: business info from the winner's public profile.
+         Returns '' when the winner has no booking info on record, so old
+         crowns render exactly as before. */
+      function bizCardHtml(biz, name, round) {
+        if (!biz) return '';
+        var soc = biz.socials || {};
+        var hasAny = !!(biz.location || biz.craft || (biz.categories && biz.categories.length) ||
+          biz.availability || biz.bookingLink || soc.instagram || soc.website);
+        if (!hasAny) return '';
+        var first = String(name || 'An operator').split(' ')[0] || 'An operator';
+        var line = '';
+        var cats = Array.isArray(biz.categories) ? biz.categories.filter(Boolean) : [];
+        if (cats.length) line = cats.join(' \u00b7 ');
+        else if (biz.craft) line = biz.craft === 'video' ? 'Videographer' : biz.craft === 'hybrid' ? 'Photo + video' : 'Photographer';
+        var sub = [];
+        if (biz.location) sub.push(biz.location);
+        if (biz.availability === 'open') sub.push('Booking now');
+        else if (biz.availability === 'booked') sub.push('Currently booked');
+        var crownDate = fmtShortDate(ts(round.closesAt));
+        var html = '<section class="aw-book"><h3>Work with ' + esc(first) + '</h3>';
+        if (line) html += '<p class="biz">' + esc(line) + '</p>';
+        if (sub.length) html += '<p class="where">' + esc(sub.join(' \u00b7 ')) + '</p>';
+        html += '<p class="proof">Crowned in the Arena' + (crownDate ? ', ' + esc(crownDate) : '') +
+          ' — judged best <span class="gold">blind</span>, by other photographers.</p>';
+        html += '<div class="actions">';
+        if (biz.bookingLink) html += '<a class="btn-solid" href="' + esc(bizNormUrl(biz.bookingLink)) + '" target="_blank" rel="noopener">Book a shoot</a>';
+        html += '<a class="btn-ghost" href="/profile.html?u=' + esc(round.winnerUid) + '">View profile</a>';
+        html += '</div>';
+        var links = [];
+        if (soc.instagram) {
+          var ig = String(soc.instagram).trim();
+          var igUrl = /^https?:\/\//i.test(ig) ? ig : 'https://instagram.com/' + ig.replace(/^@/, '');
+          links.push('<a href="' + esc(igUrl) + '" target="_blank" rel="noopener">Instagram</a>');
+        }
+        if (soc.website) links.push('<a href="' + esc(bizNormUrl(soc.website)) + '" target="_blank" rel="noopener">Website</a>');
+        if (links.length) html += '<div class="socials">' + links.join('') + '</div>';
+        html += '</section>';
+        return html;
       }
       /* The round's clock is the source of truth for its phase — the same
          derivation the Arena page uses. */
@@ -253,7 +322,8 @@
             .catch(function () { return null; }),
           round.lane === 'mission'
             ? db.collection('arenaHallOfFame').doc(roundId).get().catch(function () { return null; })
-            : Promise.resolve(null)
+            : Promise.resolve(null),
+          db.collection('publicProfiles').doc(round.winnerUid).get().catch(function () { return null; })
         ];
         Promise.all(jobs).then(function (res) {
           var entries = [];
@@ -269,6 +339,7 @@
             });
           }
           var hof = res[2] && res[2].exists ? (res[2].data() || {}) : null;
+          var biz = res[3] && res[3].exists ? (res[3].data() || {}) : null;
           var winner = null;
           entries.forEach(function (e) { if (e.uid === winnerEntryId) winner = e; });
           var name = (winner && winner.authorName) || (feedItem && feedItem.actorName) || (hof && hof.authorName) || 'An operator';
@@ -288,6 +359,7 @@
             '<div class="sub">' + (username ? '@' + esc(username) + ' · ' : '') +
             (votes != null ? '<span class="gold">' + votes + ' weighted votes</span> · ' : '') +
             'beat ' + field.length + (field.length === 1 ? ' other shot' : ' other shots') + ', judged blind</div></div></div>';
+          html += bizCardHtml(biz, name, round);
           if (round.brief) {
             html += '<section class="aw-brief"><h3>The brief</h3><p>' + esc(round.brief) + '</p></section>';
           }

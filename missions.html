@@ -542,6 +542,29 @@ button{font-family:inherit;cursor:pointer}
   display:flex;align-items:center;justify-content:center;
 }
 .am-close svg{width:16px;height:16px}
+
+/* ---------- booking-info sheet (first entry) ---------- */
+.am-biz-sub{font:400 14px/1.55 var(--font-b);color:var(--muted);margin:0 0 18px}
+.am-biz-sub b{color:var(--text)}
+.am-biz-field{margin:0 0 16px}
+.am-biz-field label{display:block;font:700 12px var(--font-d);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.am-biz-field label .opt{color:var(--green);letter-spacing:0;text-transform:none;font-weight:400}
+.am-biz-field input[type="text"],.am-biz-field input[type="url"]{
+  width:100%;min-height:52px;padding:12px 14px;border-radius:12px;
+  background:rgba(255,255,255,.05);border:1px solid var(--border-strong);
+  color:var(--text);font:400 16px var(--font-b);outline:none;
+}
+.am-biz-field input:focus{border-color:var(--green)}
+.am-biz-chips{display:flex;flex-wrap:wrap;gap:8px}
+.am-biz-chip{
+  min-height:44px;padding:10px 16px;border-radius:999px;cursor:pointer;
+  background:rgba(255,255,255,.05);border:1px solid var(--border-strong);
+  color:var(--text);font:700 14px var(--font-b);
+}
+.am-biz-chip.sel{background:var(--green);border-color:var(--green);color:#0a0c08}
+.am-biz-note{font:400 12.5px/1.5 var(--font-b);color:var(--muted);margin:4px 0 16px}
+.am-biz-save{width:100%}
+.am-biz-err{color:#ff7a7a;font:400 13px var(--font-b);margin:-8px 0 12px;display:none}
 .am-lightbox{
   position:fixed;inset:0;z-index:9001;display:flex;flex-direction:column;
   background:rgba(4,5,4,.96);opacity:0;pointer-events:none;transition:opacity .25s var(--ease);
@@ -777,6 +800,20 @@ button{font-family:inherit;cursor:pointer}
     <div class="am-rule"><span class="k">2×</span><p><b>Trusted eye</b> — score 100–499. Your vote carries <b>2×</b>.</p></div>
     <div class="am-rule"><span class="k">3×</span><p><b>Decisive eye</b> — score 500+. Your vote carries <b>3×</b>.</p></div>
     <p class="am-note" style="margin-top:12px">Your score only ever grows — no penalties, no decay. A tier change takes effect with your next vote.</p>
+  </div>
+
+  <!-- ===== booking-info sheet (first entry) ===== -->
+  <div class="am-sheet" id="amBizSheet" role="dialog" aria-modal="true" aria-labelledby="amBizSheetH" hidden>
+    <div class="grab" aria-hidden="true"></div>
+    <button class="am-close" id="amBizClose" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h3 id="amBizSheetH">How clients <span class="sig">find you</span></h3>
+    <p class="am-biz-sub">This shows on your winner page if you win — <b>it&rsquo;s how clients reach you.</b> About thirty seconds, and we only ever ask for what&rsquo;s missing.</p>
+    <div id="amBizFields"></div>
+    <p class="am-biz-note">This shows publicly on your winner page and profile.</p>
+    <p class="am-biz-err" id="amBizErr" role="alert"></p>
+    <button type="button" class="am-btn primary am-biz-save" id="amBizSave">Save &amp; submit entry</button>
   </div>
 
   <!-- ===== lightbox ===== -->
@@ -1066,6 +1103,8 @@ button{font-family:inherit;cursor:pointer}
       if (v) v.classList.remove('open');
       if (s) s.classList.remove('open');
       setTimeout(function () { if (s && !s.classList.contains('open')) s.hidden = true; }, reduced ? 0 : 340);
+      var bz = el('amBizSheet');
+      if (bz && bz.classList.contains('open')) bizCancel();
     }
 
     /* ---------- lightbox ---------- */
@@ -1444,13 +1483,175 @@ button{font-family:inherit;cursor:pointer}
       cancel.addEventListener('click', function () { URL.revokeObjectURL(objUrl); prev.innerHTML = ''; prev.style.display = 'none'; });
       submit.addEventListener('click', function () {
         submit.disabled = true; cancel.disabled = true;
-        submitEntry(laneKey, blob, function () {
+        ensureBizInfo(laneKey, blob, function () {
           URL.revokeObjectURL(objUrl);
-        });
+        }, submit, cancel);
       });
       row.appendChild(cancel); row.appendChild(submit);
       prev.appendChild(row);
       try { prev.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' }); } catch (e) {}
+    }
+
+    /* ---------- booking info: collected at first entry, before the upload ----------
+       Required: name, location, availability, craft, categories. A re-run asks
+       only for what's missing. The booking link is asked once, on the first run,
+       and is optional. Socials live on the profile, never here. The sheet never
+       blocks the entry: if the save fails (rules not published yet, connection),
+       the upload still goes through and the sheet comes back next entry. */
+    var BIZ_CATEGORIES = ['Events', 'Sports', 'Weddings', 'Studio', 'Portraits', 'Family', 'Product', 'Real Estate'];
+    var BIZ_CRAFTS = [['photo', 'Photo'], ['video', 'Video'], ['hybrid', 'Hybrid']];
+    var bizPending = null; /* {laneKey, blob, done, submit, cancel} */
+    var bizState = null; /* {missing:[], firstRun, name, hasBooking} */
+
+    function bizGetProfile(uid) {
+      if (!db || !uid) return Promise.resolve(null);
+      return db.collection('publicProfiles').doc(uid).get().then(function (snap) {
+        return snap.exists ? snap.data() : null;
+      }).catch(function () { return null; });
+    }
+    function bizMissing(p) {
+      var m = [];
+      if (!p || !(p.displayName || '').trim()) m.push('name');
+      if (!p || !(p.location || '').trim()) m.push('location');
+      if (!p || (p.availability !== 'open' && p.availability !== 'booked')) m.push('availability');
+      if (!p || (p.craft !== 'photo' && p.craft !== 'video' && p.craft !== 'hybrid')) m.push('craft');
+      if (!p || !Array.isArray(p.categories) || !p.categories.length) m.push('categories');
+      return m;
+    }
+    function bizEsc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    function ensureBizInfo(laneKey, blob, done, submitBtn, cancelBtn) {
+      if (!user || !db) { submitEntry(laneKey, blob, done); return; }
+      bizGetProfile(user.uid).then(function (p) {
+        var missing = bizMissing(p);
+        if (!missing.length) { submitEntry(laneKey, blob, done); return; }
+        bizPending = { laneKey: laneKey, blob: blob, done: done, submit: submitBtn, cancel: cancelBtn };
+        bizState = {
+          missing: missing,
+          firstRun: !p || !p.bizInfoUpdatedAt,
+          name: (window.USER && window.USER.name) || user.displayName || '',
+          hasBooking: !!(p && p.bookingLink)
+        };
+        bizRenderSheet();
+        openSheet('amBizSheet');
+      }).catch(function () {
+        /* a failed read must never block the entry */
+        submitEntry(laneKey, blob, done);
+      });
+    }
+
+    function bizFieldWrap(id, label, inner, optional) {
+      return '<div class="am-biz-field" id="amBizF_' + id + '"><label>' + label +
+        (optional ? ' <span class="opt">optional</span>' : '') + '</label>' + inner + '</div>';
+    }
+    function bizRenderSheet() {
+      var st = bizState, html = '';
+      var has = function (f) { return st.missing.indexOf(f) !== -1; };
+      if (has('name')) html += bizFieldWrap('name', 'Name', '<input type="text" id="amBizName" autocomplete="name" value="' + bizEsc(st.name) + '" placeholder="The name you shoot under" />');
+      if (has('location')) html += bizFieldWrap('location', 'Location', '<input type="text" id="amBizLocation" autocomplete="address-level2" placeholder="City, State — e.g. Chicago, IL" />');
+      if (has('availability')) html += bizFieldWrap('availability', 'Availability',
+        '<div class="am-biz-chips" id="amBizAvail"><button type="button" class="am-biz-chip sel" data-v="open">Open for bookings</button><button type="button" class="am-biz-chip" data-v="booked">Currently booked</button></div>');
+      if (has('craft')) {
+        var c = '<div class="am-biz-chips" id="amBizCraft">';
+        BIZ_CRAFTS.forEach(function (cr) { c += '<button type="button" class="am-biz-chip" data-v="' + cr[0] + '">' + cr[1] + '</button>'; });
+        html += bizFieldWrap('craft', 'You shoot', c + '</div>');
+      }
+      if (has('categories')) {
+        var g = '<div class="am-biz-chips" id="amBizCats">';
+        BIZ_CATEGORIES.forEach(function (cat) { g += '<button type="button" class="am-biz-chip" data-v="' + cat + '">' + cat + '</button>'; });
+        html += bizFieldWrap('categories', 'Categories', g + '</div>');
+      }
+      if (st.firstRun && !st.hasBooking) html += bizFieldWrap('booking', 'Booking link', '<input type="url" id="amBizBooking" inputmode="url" placeholder="https://calendly.com/you" />', true);
+      el('amBizFields').innerHTML = html;
+      var err = el('amBizErr'); if (err) err.style.display = 'none';
+      var saveBtn = el('amBizSave'); if (saveBtn) saveBtn.disabled = false;
+      /* chip behavior: single-select for availability + craft, multi for categories */
+      [['amBizAvail', false], ['amBizCraft', false], ['amBizCats', true]].forEach(function (cfg) {
+        var box = el(cfg[0]);
+        if (!box) return;
+        box.addEventListener('click', function (e) {
+          var b = e.target.closest('.am-biz-chip');
+          if (!b) return;
+          if (!cfg[1]) box.querySelectorAll('.am-biz-chip').forEach(function (x) { x.classList.remove('sel'); });
+          b.classList.toggle('sel');
+          if (!cfg[1] && !b.classList.contains('sel')) b.classList.add('sel');
+        });
+      });
+    }
+
+    function bizCloseSheet() {
+      var v = el('amVeil'), s = el('amBizSheet');
+      if (v) v.classList.remove('open');
+      if (s) s.classList.remove('open');
+      setTimeout(function () { if (s && !s.classList.contains('open')) s.hidden = true; }, reduced ? 0 : 340);
+      bizPending = null; bizState = null;
+    }
+    function bizCancel() {
+      /* close without saving: the entry does NOT go in; the preview stays put */
+      var p = bizPending;
+      bizCloseSheet();
+      if (p) {
+        if (p.submit) p.submit.disabled = false;
+        if (p.cancel) p.cancel.disabled = false;
+      }
+    }
+
+    function bizSave() {
+      var st = bizState, p = bizPending;
+      if (!st || !p) return;
+      var err = el('amBizErr');
+      var showErr = function (m) { err.textContent = m; err.style.display = 'block'; };
+      var payload = {};
+      var nameVal = null;
+      if (st.missing.indexOf('name') !== -1) {
+        nameVal = (el('amBizName').value || '').trim();
+        if (!nameVal) { showErr('Add the name you shoot under.'); return; }
+        payload.displayName = nameVal;
+      }
+      if (st.missing.indexOf('location') !== -1) {
+        var loc = (el('amBizLocation').value || '').trim();
+        if (!loc) { showErr('Add your location — city and state is enough.'); return; }
+        payload.location = loc;
+      }
+      if (st.missing.indexOf('availability') !== -1) {
+        var av = document.querySelector('#amBizAvail .am-biz-chip.sel');
+        payload.availability = av ? av.dataset.v : 'open';
+      }
+      if (st.missing.indexOf('craft') !== -1) {
+        var cr = document.querySelector('#amBizCraft .am-biz-chip.sel');
+        if (!cr) { showErr('Pick photo, video, or hybrid.'); return; }
+        payload.craft = cr.dataset.v;
+      }
+      if (st.missing.indexOf('categories') !== -1) {
+        var cats = [];
+        document.querySelectorAll('#amBizCats .am-biz-chip.sel').forEach(function (x) { cats.push(x.dataset.v); });
+        if (!cats.length) { showErr('Pick at least one category.'); return; }
+        payload.categories = cats;
+      }
+      var bk = el('amBizBooking');
+      if (bk) {
+        var link = (bk.value || '').trim();
+        if (link) {
+          if (!/^https?:\/\//i.test(link)) link = 'https://' + link;
+          payload.bookingLink = link;
+        }
+      }
+      payload.bizInfoUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      var saveBtn = el('amBizSave');
+      saveBtn.disabled = true;
+      var writes = [db.collection('publicProfiles').doc(user.uid).set(payload, { merge: true })];
+      /* name also goes to the user doc, or the profile sync would clobber it */
+      if (nameVal) writes.push(db.collection('users').doc(user.uid).update({ displayName: nameVal }).catch(function () {}));
+      Promise.all(writes).then(function () {
+        bizCloseSheet();
+        submitEntry(p.laneKey, p.blob, p.done);
+      }).catch(function () {
+        /* rules may not be published yet — the entry still goes in, and the
+           sheet comes back next entry because the info is still missing.
+           (No toast here: submitEntry's success toast would overwrite it.) */
+        bizCloseSheet();
+        submitEntry(p.laneKey, p.blob, p.done);
+      });
     }
 
     /* ---------- submit: cloudinary -> entry doc -> _private/data (create-only) -> XP ---------- */
@@ -2089,6 +2290,8 @@ button{font-family:inherit;cursor:pointer}
       setupFileInput();
       var sb = el('amScoreBtn');
       if (sb) sb.addEventListener('click', function () { openSheet('amScoreSheet'); });
+      var bc = el('amBizClose'); if (bc) bc.addEventListener('click', bizCancel);
+      var bs = el('amBizSave'); if (bs) bs.addEventListener('click', bizSave);
       var sc = el('amScoreClose');
       if (sc) sc.addEventListener('click', closeSheets);
       var vv = el('amVeil');
