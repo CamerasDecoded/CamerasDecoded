@@ -458,6 +458,13 @@
       border-top: 1px solid var(--border-dim);
     }
 
+    /* Booking info card (own view) + public booking display */
+    .biz-note { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; line-height: 1.5; }
+    .pp-book-line { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
+    .pp-book-sub { font-size: 13px; color: var(--text-muted); margin: 0 0 12px; }
+    .pp-book-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .pp-book-links a { font-family: var(--mono); font-size: 13px; color: var(--green); }
+
     .btn-save {
       padding: 10px 28px;
       background: var(--green);
@@ -984,6 +991,11 @@
           <button type="button" class="pp-btn" id="ppShareBtn"><i class="fas fa-share-alt"></i> Share</button>
         </div>
       </div>
+      <div class="pp-card" id="ppBookingCard" style="display:none;margin-top:12px;">
+        <h3 style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin:0 0 8px;">Book a shoot</h3>
+        <div id="ppBookingBody"></div>
+      </div>
+
       <div class="pp-card" id="ppPortfolioCard" style="display:none;margin-top:12px;">
         <h3 style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin:0 0 4px;">Portfolio</h3>
         <div class="pf-grid" id="ppPfGrid"></div>
@@ -1042,6 +1054,30 @@
       </div>
 
       <!-- Selected Work: showcased Deliver galleries (Pro) -->
+      <!-- Booking info: socials + booking link live here (the entry sheet collects the rest) -->
+      <div class="card" id="bookingCard">
+        <div class="card-header">
+          <img src="/custom-site-titles/booking-info.png" alt="Booking Info" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
+          <span class="title-fallback" hidden>Booking Info</span>
+        </div>
+        <p class="biz-note">Where clients reach you. These show on your winner page and public profile.</p>
+        <div class="form-group">
+          <label for="bizInstagram">Instagram</label>
+          <input type="text" id="bizInstagram" placeholder="@handle or link" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label for="bizWebsite">Website</label>
+          <input type="url" id="bizWebsite" placeholder="https://yoursite.com" inputmode="url" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label for="bizBooking">Booking link</label>
+          <input type="url" id="bizBooking" placeholder="https://calendly.com/you" inputmode="url" autocomplete="off" />
+        </div>
+        <div class="save-row">
+          <button type="button" class="btn-save" id="bizSaveBtn">Save booking info</button>
+        </div>
+      </div>
+
       <div class="card" id="selectedWorkCard" style="display:none;">
         <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
           <div>
@@ -1653,6 +1689,7 @@
         setupCopyReferral();
         setupPortfolio();
         setupBusinessCard();
+        setupBookingCard();
         setupSelectedWork();
         pfRefreshPro();
       }
@@ -2406,6 +2443,96 @@ var _pfProCache = null;
       });
     }
 
+    // ---- Booking info ----
+    // Entry sheet (missions.html) collects name/location/availability/craft/
+    // categories + booking link. Socials + booking link live here, editable.
+    // The public view below reads the same publicProfiles record.
+    function ppEsc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function ppNormUrl(u) {
+      u = (u || '').trim();
+      if (!u) return '';
+      return /^https?:\/\//i.test(u) ? u : 'https://' + u;
+    }
+    function ppCraftLabel(c) {
+      if (c === 'video') return 'Videographer';
+      if (c === 'hybrid') return 'Photo + video';
+      if (c === 'photo') return 'Photographer';
+      return '';
+    }
+    function ppRenderBooking(info) {
+      var card = document.getElementById('ppBookingCard');
+      var body = document.getElementById('ppBookingBody');
+      if (!card || !body) return;
+      var soc = (info && info.socials) || {};
+      var hasAny = !!(info && (info.location || info.craft || (info.categories && info.categories.length) ||
+        info.availability || info.bookingLink || soc.instagram || soc.website));
+      if (!hasAny) { card.style.display = 'none'; return; }
+      var line = '';
+      var cats = Array.isArray(info.categories) ? info.categories.filter(Boolean) : [];
+      if (cats.length) line = cats.join(' \u00b7 ');
+      else if (info.craft) line = ppCraftLabel(info.craft);
+      var sub = [];
+      if (info.location) sub.push(info.location);
+      if (info.availability === 'open') sub.push('Booking now');
+      else if (info.availability === 'booked') sub.push('Currently booked');
+      var html = '';
+      if (line) html += '<p class="pp-book-line">' + ppEsc(line) + '</p>';
+      if (sub.length) html += '<p class="pp-book-sub">' + ppEsc(sub.join(' \u00b7 ')) + '</p>';
+      if (info.bookingLink) html += '<a class="btn-save" href="' + ppEsc(ppNormUrl(info.bookingLink)) + '" target="_blank" rel="noopener">Book a shoot</a>';
+      var links = [];
+      if (soc.instagram) {
+        var ig = soc.instagram.trim();
+        var igUrl = /^https?:\/\//i.test(ig) ? ig : 'https://instagram.com/' + ig.replace(/^@/, '');
+        links.push('<a href="' + ppEsc(igUrl) + '" target="_blank" rel="noopener">Instagram</a>');
+      }
+      if (soc.website) links.push('<a href="' + ppEsc(ppNormUrl(soc.website)) + '" target="_blank" rel="noopener">Website</a>');
+      if (links.length) html += '<div class="pp-book-links">' + links.join('') + '</div>';
+      body.innerHTML = html;
+      card.style.display = 'block';
+    }
+
+    /* Own view: the booking card edits socials + booking link. */
+    var bizCardLoaded = false;
+    function bizLoadCard() {
+      if (bizCardLoaded || !currentUser) return;
+      bizCardLoaded = true;
+      if (!window.CDSocial || !window.CDSocial.getPublicProfile) return;
+      window.CDSocial.getPublicProfile(currentUser.uid).then(function (info) {
+        if (!info) return;
+        var soc = info.socials || {};
+        var ig = document.getElementById('bizInstagram');
+        var ws = document.getElementById('bizWebsite');
+        var bk = document.getElementById('bizBooking');
+        if (ig && soc.instagram) ig.value = soc.instagram;
+        if (ws && soc.website) ws.value = soc.website;
+        if (bk && info.bookingLink) bk.value = info.bookingLink;
+      }).catch(function () {});
+    }
+    function bizSaveCard() {
+      if (!currentUser || !db) return;
+      var btn = document.getElementById('bizSaveBtn');
+      var ig = (document.getElementById('bizInstagram').value || '').trim();
+      var ws = (document.getElementById('bizWebsite').value || '').trim();
+      var bk = (document.getElementById('bizBooking').value || '').trim();
+      if (btn) btn.disabled = true;
+      db.collection('publicProfiles').doc(currentUser.uid).set({
+        socials: { instagram: ig, website: ppNormUrl(ws) },
+        bookingLink: ppNormUrl(bk),
+        bizInfoUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).then(function () {
+        if (btn) btn.disabled = false;
+        cdToast('Booking info saved');
+      }).catch(function () {
+        if (btn) btn.disabled = false;
+        cdToast('Your booking info could not be saved. Check your connection and try again.', 'error');
+      });
+    }
+    function setupBookingCard() {
+      var btn = document.getElementById('bizSaveBtn');
+      if (btn) btn.addEventListener('click', bizSaveCard);
+      bizLoadCard();
+    }
+
     // ---- Public profile view (?u=) ----
     // When ?u=<uid> names someone else, render a read-only public card with
     // Follow / Flash / Share. Works signed-out (publicProfiles is public read).
@@ -2429,6 +2556,9 @@ var _pfProCache = null;
       document.getElementById('ppFollowers').textContent = info.followerCount || 0;
       document.getElementById('ppFollowing').textContent = info.followingCount || 0;
       watchFlashes(info.uid, 'ppLikes');
+
+      // Booking info (public read): what they shoot, where, how to book.
+      ppRenderBooking(info);
 
       // Portfolio showcase (public read)
       pfRenderPublic(info.uid, info.displayName || info.username);
