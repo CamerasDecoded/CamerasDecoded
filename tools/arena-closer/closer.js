@@ -467,9 +467,13 @@ async function cloudinaryDestroy(publicId) {
   const res = await fetch("https://api.cloudinary.com/v1_1/" + cloud + "/image/destroy", {
     method: "POST", body: form,
   });
-  let result = null;
-  try { result = (await res.json() || {}).result; } catch (e) { /* non-JSON body */ }
-  return { ok: res.ok && result === "ok", status: res.status, result };
+  let result = null, error = null;
+  try {
+    const body = (await res.json()) || {};
+    result = body.result;
+    error = (body.error && body.error.message) || null;
+  } catch (e) { /* non-JSON body */ }
+  return { ok: res.ok && result === "ok", status: res.status, result, error };
 }
 
 function chunkedBatch(db) {
@@ -496,12 +500,18 @@ async function sweep(db, nowMs) {
   if (snap.empty) { log("sweep: no unswept entries"); return; }
 
   const writer = chunkedBatch(db);
-  let swept = 0, skipped = 0, failed = 0;
+  let swept = 0, skipped = 0, failed = 0, blocked = 0;
+  // Cloudinary credentials are run-global: one auth failure (secrets
+  // missing, or HTTP 401/403) means every destroy this run would fail the
+  // same way. Trip once, log once, and mark the remaining candidates
+  // terminal (sweepFailed) instead of retrying them on every run forever.
+  let cloudAuthError = null;
   const hofCache = {}; // roundId -> hof doc data (or null)
 
   for (const e of snap.docs) {
     const ed = e.data() || {};
     if (!ed.imgUrl) { skipped++; continue; } // imgUrl==null: nothing to burn
+    if (ed.sweepFailed) { skipped++; continue; } // terminal sweep failure (see cloudAuthError)
     const roundRef = e.ref.parent.parent;
     if (!roundRef) { loud(`entry ${e.ref.path} has no parent round — skipped`); skipped++; continue; }
     const roundId = roundRef.id;
@@ -544,10 +554,25 @@ async function sweep(db, nowMs) {
 
     let ok = false;
     if (publicId) {
+      if (cloudAuthError) {
+        // Credentials already rejected this run — mark terminal, no API call.
+        writer.get().update(e.ref, { sweepFailed: true, sweepError: cloudAuthError });
+        blocked++;
+        continue;
+      }
       try {
         const r = await cloudinaryDestroy(publicId);
         ok = r.ok;
-        if (!ok) loud(`entry ${roundId}/${e.id}: cloudinary delete ${r.missing ? "skipped — CLOUDINARY_* secrets not set" : "returned " + (r.result || r.status)} — leaving swept=false for retry`);
+        if (!ok && (r.missing || r.status === 401 || r.status === 403)) {
+          cloudAuthError = r.missing
+            ? "cloudinary secrets not set"
+            : "cloudinary auth rejected (HTTP " + r.status + (r.error ? ": " + r.error : "") + ")";
+          loud(`cloudinary sweep halted: ${cloudAuthError} — the CLOUDINARY_* repo secrets are not a working credential set; marking this run's remaining sweep candidates sweepFailed (terminal, no retry). Fix the secrets, then clear sweepFailed/sweepError on the marked entries to re-enable deletion.`);
+          writer.get().update(e.ref, { sweepFailed: true, sweepError: cloudAuthError });
+          blocked++;
+          continue;
+        }
+        if (!ok) loud(`entry ${roundId}/${e.id}: cloudinary delete returned ${r.result || r.status} — leaving swept=false for retry`);
       } catch (err) {
         loud(`entry ${roundId}/${e.id}: cloudinary delete failed (${err && err.message}) — leaving swept=false for retry`);
       }
@@ -571,7 +596,7 @@ async function sweep(db, nowMs) {
   }
 
   await writer.commitAll();
-  log(`sweep done: ${swept} burned, ${skipped} skipped, ${failed} failed (retry next run)`);
+  log(`sweep done: ${swept} burned, ${skipped} skipped, ${failed} failed (retry next run), ${blocked} blocked (terminal sweep failure)`);
 }
 
 /* ---------- main ---------- */
