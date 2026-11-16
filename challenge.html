@@ -29,6 +29,7 @@
   <script src="/scripts/badges.js?v=20261008b"></script>
   <script src="/scripts/gear-awards.js?v=20261001a"></script>
   <script src="/scripts/gear-share.js?v=20261004a"></script>
+  <script src="/scripts/cd-next.js?v=20261116a"></script>
 
   <!-- ===== USER STATE (auth bridge for shared header; never redirects) ===== -->
   <script src="/scripts/user-state.js?v=20261014a"></script>
@@ -623,6 +624,24 @@
       });
     }
 
+    // ---- Next step (CDNext card) ----
+    // After a fresh Drill completion, the next step is the Signal feed —
+    // the user's shot is already there. CDNext guards repeats per session.
+    function maybeShowNextCard() {
+      if (!window.CDNext) return;
+      /* Yield to the review prompt: if CDReviews is asking, the card waits
+         for the next completion instead of stacking a second interruption. */
+      if (document.querySelector('.cdr-scrim.cdr-open')) return;
+      window.CDNext.show({
+        id: 'drill-done-signal',
+        image: '/media/sting/street-shooters.jpg?v=20261001a',
+        title: 'Nice work.',
+        body: 'Your shot posts to the Signal feed — see what everyone else shot today.',
+        ctaLabel: 'See the Signal',
+        ctaHref: '/feed.html'
+      });
+    }
+
     // ---- Celebration ----
     // celebrate() = the real one after a completion (writes nothing itself —
     // XP/gear were already written by completeChallenge). replaySting() re-plays
@@ -647,7 +666,13 @@
         ? `${newStreak}-day streak. See you tomorrow.`
         : 'Streak started. See you tomorrow.';
       showCelebration();
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches && window.CDReviews) window.CDReviews.maybePrompt('challenge');
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (window.CDReviews) window.CDReviews.maybePrompt('challenge');
+        /* No overlay in reduced-motion mode — the Next card is the next step.
+           1800ms lets the review prompt (~1500ms) appear first if it fires,
+           so the card can yield to it instead of stacking on top. */
+        setTimeout(maybeShowNextCard, 1800);
+      }
     }
     function replaySting() {
       celebrate._replay = true;
@@ -662,6 +687,12 @@
       setTimeout(() => { overlay.hidden = true; }, 300);
       const wasReplay = celebrate._replay; celebrate._replay = false;
       if (window.CDReviews && !wasReplay) window.CDReviews.maybePrompt('challenge');
+      /* Fresh completion, user staying on the page: suggest the next step.
+         The timeout lets the overlay fade out first — and if the user tapped
+         "Back to dashboard", the navigation unloads the page before it fires.
+         1800ms lets the review prompt (~1500ms) appear first if it fires,
+         so the card can yield to it instead of stacking on top. */
+      if (!wasReplay) setTimeout(maybeShowNextCard, 1800);
     }
     $('replayStingBtn').addEventListener('click', replaySting);
     $('doneCta').addEventListener('click', () => {
