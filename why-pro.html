@@ -194,6 +194,26 @@
     .wp-pro-banner h3 { margin: 0 0 8px; font-size: 20px; }
     .wp-pro-banner h3 i { color: #8deb00; margin-right: 8px; }
     .wp-pro-banner p { margin: 0 0 18px; color: rgba(255,255,255,.66); }
+/* ============================================================
+   DESKTOP LAYOUT (2026-11-17) — hero clears the floating header
+   Measured root cause (desktop audit §10, confirmed in-harness):
+   the page sets no body padding of its own, so design-system.css's
+   later body rule wins and body padding-top computes to 20px. The
+   floating header is fixed at top 12px and 58px tall, so its bottom
+   edge sits at y=70 — while the hero starts at y=20 and the "Why go
+   Pro?" title at y=55, i.e. 15px of the title hides behind the
+   header (same at 1280 and 1440). The fix is the proven clearance
+   formula from the other pages (PR #267): body padding-top of
+   safe-area + 80px, which puts the eyebrow ~18px below the header
+   bottom on desktop. It MUST carry !important — design-system.css
+   loads later via master-loader and beats any plain page rule.
+   Applies at ALL widths (owner, 2026-11-17): the same defect was
+   on mobile too — at 402x874 the eyebrow sat fully behind the
+   header and the title's top 11px was cut — so the rule is not
+   scoped to a desktop media query. No sidebar on this page
+   (master-loader injects none here), so no sidebar offset is needed.
+   ============================================================ */
+body.wp-page{padding-top:calc(env(safe-area-inset-top, 0px) + 80px) !important}
   </style>
 </head>
 <body class="wp-page">
