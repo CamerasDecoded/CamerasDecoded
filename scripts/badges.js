@@ -51,10 +51,10 @@
     'glass-prism':     { name: 'Prism',        icon: 'fa-gem',       emoji: '💎', desc: 'Earned 5,000 lifetime XP',                art: '/media/badges/glass/glass-prism.png',     rarity: 'legendary' },
     'glass-signalday': { name: 'Signal Day',   icon: 'fa-cake-candles', emoji: '🎂', desc: 'One year on the signal',              art: '/media/badges/glass/glass-signalday.png', rarity: 'legendary' },
     /* ---- Camera Lab v2 · Series ---- */
-    'clab-master': { name: 'Master of Light', icon: 'fa-camera', desc: 'Earned an S on all 5 Camera Lab scenes', rarity: 'legendary' },
-    'clab-sharpshooter-1': { name: 'Sharp Shooter', icon: 'fa-crosshairs', desc: '25 photos graded B or better in Camera Lab', rarity: 'common' },
-    'clab-sharpshooter-2': { name: 'Sharp Shooter II', icon: 'fa-crosshairs', desc: '100 photos graded B or better in Camera Lab', rarity: 'rare' },
-    'clab-sharpshooter-3': { name: 'Sharp Shooter III', icon: 'fa-crosshairs', desc: '300 photos graded B or better in Camera Lab', rarity: 'legendary' },
+    'clab-master': { name: 'Master of Light', icon: 'fa-camera', emoji: '💡', desc: 'Earned an S on all 5 Camera Lab scenes', rarity: 'legendary' },
+    'clab-sharpshooter-1': { name: 'Sharp Shooter', icon: 'fa-crosshairs', emoji: '🎯', desc: '25 photos graded B or better in Camera Lab', rarity: 'common' },
+    'clab-sharpshooter-2': { name: 'Sharp Shooter II', icon: 'fa-crosshairs', emoji: '🏹', desc: '100 photos graded B or better in Camera Lab', rarity: 'rare' },
+    'clab-sharpshooter-3': { name: 'Sharp Shooter III', icon: 'fa-crosshairs', emoji: '🏆', desc: '300 photos graded B or better in Camera Lab', rarity: 'legendary' },
     /* ---- Pro Protocols · Night Ops ---- */
     'blue-hour-operator': { name: 'Blue Hour Operator', icon: 'fa-moon', emoji: '🌃', desc: 'Completed Protocol 022: The Blue Hour Contract', rarity: 'rare' }
   };
