@@ -261,17 +261,6 @@
     .pf-lb-count { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
     .pf-lb-close { position: absolute; top: max(16px, env(safe-area-inset-top)); right: 16px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.06); border: 1px solid var(--border-dim); color: #fff; font-size: 18px; cursor: pointer; }
 
-    /* ===== BUSINESS TOOLKIT ===== */
-    .biz-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 12px; }
-    .biz-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 8px; border-radius: 12px; border: 1px solid var(--border-dim); background: rgba(255,255,255,.02); text-decoration: none; color: inherit; text-align: center; }
-    a.biz-tile:active { transform: scale(.97); border-color: rgba(141,235,0,.4); }
-    .biz-tile i { font-size: 22px; color: var(--green); }
-    .biz-tile strong { font-size: 13px; font-weight: 700; }
-    .biz-tile span { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: .5px; }
-    .biz-tile.biz-soon { opacity: .45; }
-    .soon-badge { font-family: var(--mono); font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--green); border: 1px solid rgba(141,235,0,.4); border-radius: 999px; padding: 3px 10px; background: rgba(141,235,0,.07); }
-    .biz-upsell { text-align: center; padding: 20px 12px; }
-    .biz-upsell p { color: var(--text-dim); font-size: 13px; margin: 0 0 12px; line-height: 1.5; }
     .pp-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
     .pp-btn {
       padding: 11px 24px; border-radius: 10px; cursor: pointer;
@@ -1112,42 +1101,6 @@
         </div>
       </div>
 
-      <!-- Business toolkit (Pro) -->
-      <div class="card" id="businessCard" style="display:none;">
-        <div class="card-header">
-          <img src="/custom-site-titles/business-toolkit.png" alt="Business toolkit" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
-          <span class="title-fallback" hidden>Business Toolkit</span>
-        </div>
-        <div id="bizCardPro" style="display:none;">
-          <div class="biz-tiles">
-            <a class="biz-tile" href="/contract-builder.html">
-              <i class="fas fa-file-contract" aria-hidden="true"></i>
-              <strong>Contracts</strong>
-              <span id="bizContractCount">—</span>
-            </a>
-            <a class="biz-tile" href="/deliver-builder.html">
-              <i class="fas fa-images" aria-hidden="true"></i>
-              <strong>Deliver</strong>
-              <span id="bizGalleryCount">—</span>
-            </a>
-            <div class="biz-tile biz-soon" aria-disabled="true">
-              <i class="fas fa-receipt" aria-hidden="true"></i>
-              <strong>Invoices</strong>
-              <span class="soon-badge">Soon</span>
-            </div>
-            <div class="biz-tile biz-soon" aria-disabled="true">
-              <i class="fas fa-address-book" aria-hidden="true"></i>
-              <strong>Clients</strong>
-              <span class="soon-badge">Soon</span>
-            </div>
-          </div>
-        </div>
-        <div class="biz-upsell" id="bizCardFree" style="display:none;">
-          <p>Contracts, invoices, and client tools — built for working photographers.</p>
-          <button type="button" class="pp-btn chasing-border" id="bizCardUnlock">Unlock with Pro</button>
-        </div>
-      </div>
-
       <!-- Gear & Preferences -->
 
       <!-- Stats & Progress -->
@@ -1748,19 +1701,6 @@
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('profileContent').style.display = 'block';
 
-      // Business toolkit card (Pro-gated)
-      if (currentUser) {
-        __bizProAttempts = 0;
-        bizRenderCard(currentUser.uid);
-        bizReCheckPro(currentUser.uid);
-        if (!window._bizUserStateListener) {
-          window._bizUserStateListener = true;
-          document.addEventListener('userStateReady', function () {
-            if (currentUser) { __bizProAttempts = 0; bizRenderCard(currentUser.uid); }
-          });
-        }
-      }
-
       // Attach event listeners (only once)
       if (!window._profileListenersAttached) {
         window._profileListenersAttached = true;
@@ -1770,7 +1710,6 @@
         setupSaveModal();
         setupCopyReferral();
         setupPortfolio();
-        setupBusinessCard();
         setupBookingCard();
         setupSelectedWork();
         pfRefreshPro();
@@ -2070,19 +2009,6 @@ var _pfProCache = null;
           _pfProCache = true;
           if (typeof pfRenderOwn === 'function') pfRenderOwn();
           if (typeof setupSelectedWork === 'function') setupSelectedWork();
-          // Re-render Business Toolkit via its own renderer (now uses pfIsPro)
-          try {
-            if (typeof bizRenderCard === 'function' && window.auth.currentUser) {
-              __bizProAttempts = 0;
-              bizRenderCard(window.auth.currentUser.uid);
-            }
-          } catch (e3) {}
-          var bizPro = document.getElementById('bizCardPro');
-          if (bizPro) bizPro.style.display = 'block';
-          var bizLock = document.getElementById('bizCardLocked');
-          if (bizLock) bizLock.style.display = 'none';
-          var bc = document.getElementById('businessCard');
-          if (bc) bc.style.display = 'block';
         }
       } catch (e) {}
     }
@@ -2347,64 +2273,6 @@ var _pfProCache = null;
           pfRenderOwn();
         }
       });
-    }
-
-    /* ============ BUSINESS TOOLKIT CARD (Pro) ============ */
-    /* Pro gate (race-safe): immediate check + event + exponential backoff */
-    function bizEvalPro() {
-      // Use the same 3-layer check as pfIsPro (includes Firestore-confirmed cache)
-      if (typeof pfIsPro === 'function') return pfIsPro();
-      var pro = false;
-      try { pro = window.USER && String(window.USER.tier || '').toLowerCase() === 'pro'; } catch (e) {}
-      if (!pro && window.CDPaywall && window.CDPaywall.isPro) { try { pro = window.CDPaywall.isPro(); } catch (e) {} }
-      return !!pro;
-    }
-    function bizIsPro() {
-      return bizEvalPro();
-    }
-    var __bizProAttempts = 0;
-    function bizReCheckPro(uid) {
-      // Re-check with backoff in case user-state loads after initial render
-      var card = document.getElementById('businessCard');
-      if (!card || card.style.display === 'none' || !uid) return;
-      if (bizEvalPro()) { bizRenderCard(uid); return; }
-      var delays = [500, 1000, 2000, 4000];
-      if (__bizProAttempts < delays.length) {
-        var d = delays[__bizProAttempts++];
-        setTimeout(function () { bizReCheckPro(uid); }, d);
-      }
-    }
-
-    async function bizRenderCard(uid) {
-      var card = document.getElementById('businessCard');
-      if (!card || !uid) return;
-      card.style.display = 'block';
-      var isPro = bizIsPro();
-      document.getElementById('bizCardPro').style.display = isPro ? 'block' : 'none';
-      document.getElementById('bizCardFree').style.display = isPro ? 'none' : 'block';
-      if (!isPro) return;
-      try {
-        var snap = await db.collection('users').doc(uid).collection('contracts')
-          .where('status', 'in', ['draft', 'sent']).get();
-        var n = snap.size;
-        document.getElementById('bizContractCount').textContent = n + ' active';
-      } catch (e) {
-        document.getElementById('bizContractCount').textContent = '—';
-      }
-      try {
-        var gsnap = await db.collection('users').doc(uid).collection('galleries').get();
-        document.getElementById('bizGalleryCount').textContent = gsnap.size + ' galleries';
-      } catch (e) {
-        document.getElementById('bizGalleryCount').textContent = '—';
-      }
-    }
-
-    function setupBusinessCard() {
-      var ub = document.getElementById('bizCardUnlock');
-      if (ub) ub.onclick = function () {
-        if (window.CDPaywall && window.CDPaywall.show) window.CDPaywall.show();
-        else window.location.href = '/pro-checkout.html';
-      };
     }
 
     /* ---------- Selected Work: showcased Deliver galleries ---------- */
