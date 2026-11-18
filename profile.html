@@ -820,6 +820,24 @@
       grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 12px;
     }
+    .badge-group { margin-bottom: 22px; }
+    .badge-group:last-child { margin-bottom: 0; }
+    .badge-group-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(141,235,0,0.18);
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+    .badge-group-count { font-size: 11px; letter-spacing: 0.5px; color: #999; text-transform: none; white-space: nowrap; }
+    .badge-group-count .done { color: var(--green); }
     .badge-tile {
       border: 1px solid rgba(141,235,0,0.22);
       border-radius: 12px;
@@ -1158,7 +1176,7 @@
           <div class="badge-progress-label">Next unlocks</div>
           <div id="badgeProgressItems" style="display:flex;flex-direction:column;gap:10px;"></div>
         </div>
-        <div id="badgeGrid" class="badge-grid"></div>
+        <div id="badgeGrid"></div>
         <div id="badgeChaseList" class="chase-list" hidden></div>
       </div>
 
@@ -1479,6 +1497,25 @@
       } catch (e) { return ''; }
     }
 
+    /* Badge series, in shelf order (the DEFS file's own order). The series is
+       the badge-id prefix: gear-, glass-, clab-; the unbanded five are the
+       Foundations; blue-hour-operator is Night Ops. Unknown ids land in
+       Foundations, never lost. */
+    var BADGE_SERIES_ORDER = [
+      { key: 'foundations', name: 'Foundations' },
+      { key: 'gear', name: 'Gear Collectibles' },
+      { key: 'glass', name: 'Signal Glass' },
+      { key: 'clab', name: 'Camera Lab' },
+      { key: 'nightops', name: 'Night Ops' }
+    ];
+    function badgeSeriesKey(id) {
+      if (id.indexOf('gear-') === 0) return 'gear';
+      if (id.indexOf('glass-') === 0) return 'glass';
+      if (id.indexOf('clab-') === 0) return 'clab';
+      if (id === 'blue-hour-operator') return 'nightops';
+      return 'foundations';
+    }
+
     function renderBadgeCase(data) {
       var defs = (window.CDBadges && typeof window.CDBadges.defs === 'function') ? window.CDBadges.defs() : {};
       var ids = Object.keys(defs);
@@ -1532,7 +1569,12 @@
         chaseList.hidden = false;
         var chaseHtml = '<p class="chase-empty-note">No badges on the shelf yet. ' +
           'Here is <strong>what you are chasing</strong> — each one unlocks the moment you earn it.</p>';
-        ids.forEach(function (id) {
+        BADGE_SERIES_ORDER.forEach(function (series) {
+          var seriesIds = ids.filter(function (id) { return badgeSeriesKey(id) === series.key; });
+          if (!seriesIds.length) return;
+          chaseHtml += '<div class="badge-group-header"><span>' + series.name + '</span>' +
+            '<span class="badge-group-count"><span class="done">0</span> of ' + seriesIds.length + '</span></div>';
+          seriesIds.forEach(function (id) {
           var b = defs[id];
           var chaseArt = b.art
             ? '<img class="badge-art" src="' + b.art + '" alt="" loading="lazy">'
@@ -1543,6 +1585,7 @@
               '<div class="chase-text"><div class="badge-name">' + b.name + '</div>' +
               '<div class="badge-desc">' + b.desc + '</div></div>' +
             '</div>';
+          });
         });
         chaseList.innerHTML = chaseHtml;
         return;
@@ -1553,7 +1596,15 @@
       grid.style.display = '';
       var html = '';
       var ordered = earnedIds.concat(lockedIds);
-      ordered.forEach(function (id) {
+      BADGE_SERIES_ORDER.forEach(function (series) {
+        var seriesIds = ordered.filter(function (id) { return badgeSeriesKey(id) === series.key; });
+        if (!seriesIds.length) return;
+        var earnedInSeries = seriesIds.filter(function (id) { return !!earned[id]; }).length;
+        html += '<div class="badge-group">' +
+          '<div class="badge-group-header"><span>' + series.name + '</span>' +
+          '<span class="badge-group-count"><span class="done">' + earnedInSeries + '</span> of ' + seriesIds.length + '</span></div>' +
+          '<div class="badge-grid">';
+        seriesIds.forEach(function (id) {
         var b = defs[id];
         var isEarned = !!earned[id];
         var isGear = id.indexOf('gear-') === 0;
@@ -1578,6 +1629,8 @@
             '<div class="badge-desc">' + b.desc + '</div>' +
             dateLine + replayHint + shareBtn +
           '</div>';
+        });
+        html += '</div></div>';
       });
       grid.innerHTML = html;
       grid.querySelectorAll('[data-share-badge]').forEach(function (btn) {
