@@ -679,6 +679,23 @@ button{font-family:inherit;cursor:pointer}
 }
 .am-cta:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
 .am-cta:disabled::before{animation:none;opacity:.25}
+/* Signature-font CTA: the enter label is a black glitch wordmark image with
+   the full text label as its fallback; a live countdown rides underneath
+   in a two-line stack. The stack fits the 56px button, so no clearance
+   changes. The wordmark flickers once per 7s cycle — one quick slice-shift,
+   then settles. */
+.am-cta-stack{display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1}
+.am-cta-label{display:flex;align-items:center;justify-content:center}
+.am-cta-word{height:20px;width:auto;display:block;animation:amWordFlicker 7s linear infinite}
+.am-cta-count{font:600 11px var(--font-mono);letter-spacing:.08em;color:rgba(10,12,5,.72)}
+@keyframes amWordFlicker{
+  0%,90%,100%{transform:translate(0,0);clip-path:inset(0 0 0 0)}
+  91%{transform:translate(-2px,1px)}
+  92%{transform:translate(2px,-1px);clip-path:inset(18% 0 52% 0)}
+  93%{transform:translate(-1px,0);clip-path:inset(52% 0 12% 0)}
+  94%{transform:translate(0,0);clip-path:inset(0 0 0 0)}
+}
+@media (prefers-reduced-motion:reduce){.am-cta-word{animation:none}}
 @media (prefers-reduced-motion:reduce){.am-cta::before{animation:none}}
 @media (min-width:821px){
   .am-cta-wrap{left:50%;right:auto;transform:translateX(-50%);width:min(480px,calc(100% - 32px));bottom:24px}
@@ -1389,6 +1406,9 @@ button{font-family:inherit;cursor:pointer}
         count.textContent = (phase === 'open' ? 'Entries close ' : 'Voting closes ') + when + ' \u00b7 ' + fmtCountdown(ms) + ' left';
         if (ms <= 0) refreshLane(laneKey); /* phase likely rolled; re-derive */
       });
+      /* CTA countdown line (enter/vote modes only — the span exists only then). */
+      var ctaCount = el('amCtaCount');
+      if (ctaCount) ctaCount.textContent = ctaCountdownText();
     }
 
     /* ---------- submit slot + fixed CTA (one-screen reformat) ----------
@@ -1411,6 +1431,22 @@ button{font-family:inherit;cursor:pointer}
       renderCta();
     }
 
+    /* CTA countdown line: short form of the active lane's deadline —
+       "Entries close in 4h 12m" / "Voting closes in 2h 05m". Minutes only;
+       the agenda countdown keeps the full seconds form. */
+    function ctaCountdownText() {
+      var st = (typeof lanes !== 'undefined' && lanes) ? lanes[activeTab] : null;
+      if (!st || !st.round) return '';
+      var nextAt = nextPhaseAt(st.round, st.phase);
+      if (!nextAt) return '';
+      var ms = nextAt - Date.now();
+      if (ms <= 0) return 'Closing now';
+      var mins = Math.floor(ms / 60000);
+      var d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+      /* Weekly lane can be days out — "1d 23h" reads better than "47h 59m". */
+      var when = d ? d + 'd ' + h + 'h' : h ? h + 'h ' + (m < 10 ? '0' : '') + m + 'm' : m + 'm';
+      return (st.phase === 'open' ? 'Entries close in ' : 'Voting closes in ') + when;
+    }
     function ctaSet(mode, label, icon, roundId) {
       ctaMode = mode; ctaRoundId = roundId || null;
       var wrap = el('amCtaWrap'), btn = el('amCta');
@@ -1418,6 +1454,27 @@ button{font-family:inherit;cursor:pointer}
       if (mode === 'hidden') { wrap.hidden = true; return; }
       wrap.hidden = false;
       btn.disabled = (mode === 'entered' || mode === 'offline' || mode === 'practice' || mode === 'busy');
+      if (mode === 'enter' || mode === 'vote') {
+        /* Signature-font CTA: the enter label is a black glitch wordmark
+           (daily ENTER TONIGHT / weekly ENTER THIS WEEK) with the full text
+           label as its fallback; vote keeps its text label. Both carry a
+           live countdown line underneath, refreshed by tickCountdowns. */
+        var weekly = activeTab === 'mission';
+        var word = '';
+        if (mode === 'enter') {
+          /* Full literal src per lane (not a concatenated variable) so the
+             pre-PR checker sees the absolute path. */
+          word = weekly
+            ? '<img class="am-cta-word" src="/custom-site-titles/enter-this-week.png?v=20261118a" alt="' + esc(label) + '" onerror="this.style.display=\'none\';this.nextElementSibling.hidden=false;">'
+            : '<img class="am-cta-word" src="/custom-site-titles/enter-tonight.png?v=20261118a" alt="' + esc(label) + '" onerror="this.style.display=\'none\';this.nextElementSibling.hidden=false;">';
+          word += '<span hidden>' + esc(label) + '</span>';
+        } else {
+          word = '<span>' + esc(label) + '</span>';
+        }
+        btn.innerHTML = (icon || '') + '<span class="am-cta-stack"><span class="am-cta-label">' + word + '</span>'
+          + '<span class="am-cta-count" id="amCtaCount">' + esc(ctaCountdownText()) + '</span></span>';
+        return;
+      }
       btn.innerHTML = (icon || '') + '<span>' + esc(label) + '</span>';
     }
     function renderCta() {
