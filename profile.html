@@ -453,6 +453,12 @@
     .pp-book-sub { font-size: 13px; color: var(--text-muted); margin: 0 0 12px; }
     .pp-book-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
     .pp-book-links a { font-family: var(--mono); font-size: 13px; color: var(--green); }
+    /* Calendly channel: a Calendly booking link opens the scheduler inline
+       on the profile instead of linking out. The widget is light, so the
+       wrap carries a white card on the dark page. */
+    .pp-calendly { margin-top: 14px; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; overflow: hidden; background: #ffffff; }
+    .pp-calendly .cal-loading, .pp-calendly .cal-fallback { padding: 18px; font-size: 13px; color: #444; text-align: center; }
+    .pp-calendly .cal-fallback a { color: #0069ff; }
 
     .btn-save {
       padding: 10px 28px;
@@ -1079,6 +1085,7 @@
         <div class="form-group">
           <label for="bizBooking">Booking link</label>
           <input type="url" id="bizBooking" placeholder="https://calendly.com/you" inputmode="url" autocomplete="off" />
+          <p class="biz-note" style="margin-top:8px;">A Calendly link opens your booking calendar right on your profile and winner page.</p>
         </div>
         <div class="save-row">
           <button type="button" class="btn-save" id="bizSaveBtn">Save booking info</button>
@@ -2409,6 +2416,61 @@ var _pfProCache = null;
       if (c === 'photo') return 'Photographer';
       return '';
     }
+    /* Calendly channel: a booking link on calendly.com opens the scheduler
+       inline on the profile; anything else keeps linking out. The URL only
+       ever reaches Calendly's own init call as a JS string — never HTML. */
+    function ppIsCalendly(u) {
+      var url = ppNormUrl(u);
+      if (!url) return '';
+      var host = '', path = '';
+      try { var a = new URL(url); host = a.hostname.toLowerCase(); path = a.pathname || ''; }
+      catch (e) { return ''; }
+      if (host !== 'calendly.com') return '';
+      if (path.replace(/\//g, '').length === 0) return '';
+      return url;
+    }
+    var ppCalendlyLoading = false;
+    function ppLoadCalendly(cb) {
+      if (window.Calendly && window.Calendly.initInlineWidget) { cb(true); return; }
+      if (ppCalendlyLoading) {
+        var tries = 0;
+        var t = setInterval(function () {
+          if (window.Calendly && window.Calendly.initInlineWidget) { clearInterval(t); cb(true); }
+          else if (++tries > 100) { clearInterval(t); cb(false); }
+        }, 100);
+        return;
+      }
+      ppCalendlyLoading = true;
+      var sc = document.createElement('script');
+      sc.id = 'calendly-widget-js';
+      sc.src = 'https://assets.calendly.com/assets/external/widget.js';
+      sc.async = true;
+      sc.onload = function () { cb(true); };
+      sc.onerror = function () { ppCalendlyLoading = false; cb(false); };
+      document.head.appendChild(sc);
+    }
+    function ppToggleCalendly(url) {
+      var wrap = document.getElementById('ppCalendlyWrap');
+      var btn = document.getElementById('ppBookBtn');
+      if (!wrap) return;
+      if (!wrap.hidden) { wrap.hidden = true; if (btn) btn.textContent = 'Book a shoot'; return; }
+      wrap.hidden = false;
+      if (btn) btn.textContent = 'Close booking';
+      if (wrap.dataset.loaded) return;
+      wrap.dataset.loaded = '1';
+      wrap.innerHTML = '<p class="cal-loading">Loading booking calendar\u2026</p>';
+      ppLoadCalendly(function (ok) {
+        var fail = '<p class="cal-fallback">The booking calendar couldn\u2019t load. <a href="' + ppEsc(url) + '" target="_blank" rel="noopener">Open it in Calendly</a>.</p>';
+        if (!ok || !window.Calendly || !window.Calendly.initInlineWidget) { wrap.innerHTML = fail; return; }
+        wrap.innerHTML = '';
+        var holder = document.createElement('div');
+        holder.style.minWidth = '320px';
+        holder.style.height = '630px';
+        wrap.appendChild(holder);
+        try { window.Calendly.initInlineWidget({ url: url, parentElement: holder }); }
+        catch (e) { wrap.innerHTML = fail; }
+      });
+    }
     function ppRenderBooking(info) {
       var card = document.getElementById('ppBookingCard');
       var body = document.getElementById('ppBookingBody');
@@ -2428,7 +2490,11 @@ var _pfProCache = null;
       var html = '';
       if (line) html += '<p class="pp-book-line">' + ppEsc(line) + '</p>';
       if (sub.length) html += '<p class="pp-book-sub">' + ppEsc(sub.join(' \u00b7 ')) + '</p>';
-      if (info.bookingLink) html += '<a class="btn-save" href="' + ppEsc(ppNormUrl(info.bookingLink)) + '" target="_blank" rel="noopener">Book a shoot</a>';
+      var calUrl = info.bookingLink ? ppIsCalendly(info.bookingLink) : '';
+      if (calUrl) {
+        html += '<button class="btn-save" type="button" id="ppBookBtn">Book a shoot</button>';
+        html += '<div class="pp-calendly" id="ppCalendlyWrap" hidden></div>';
+      } else if (info.bookingLink) html += '<a class="btn-save" href="' + ppEsc(ppNormUrl(info.bookingLink)) + '" target="_blank" rel="noopener">Book a shoot</a>';
       var links = [];
       if (soc.instagram) {
         var ig = soc.instagram.trim();
@@ -2438,6 +2504,8 @@ var _pfProCache = null;
       if (soc.website) links.push('<a href="' + ppEsc(ppNormUrl(soc.website)) + '" target="_blank" rel="noopener">Website</a>');
       if (links.length) html += '<div class="pp-book-links">' + links.join('') + '</div>';
       body.innerHTML = html;
+      var calBtn = document.getElementById('ppBookBtn');
+      if (calBtn) calBtn.addEventListener('click', function () { ppToggleCalendly(calUrl); });
       card.style.display = 'block';
     }
 

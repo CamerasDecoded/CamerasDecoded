@@ -101,6 +101,11 @@
     .aw-book .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
     .aw-book .socials { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
     .aw-book .socials a { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--green); }
+    /* Calendly channel: same as the profile — a Calendly booking link opens
+       the scheduler inline instead of linking out. */
+    .aw-calendly { margin-top: 16px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #ffffff; }
+    .aw-calendly .cal-loading, .aw-calendly .cal-fallback { padding: 18px; font-size: 13px; color: #444; text-align: center; }
+    .aw-calendly .cal-fallback a { color: #0069ff; }
 
     .aw-brief { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 24px; }
     .aw-brief h3 { color: var(--green); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
@@ -180,6 +185,61 @@
       /* The book card: business info from the winner's public profile.
          Returns '' when the winner has no booking info on record, so old
          crowns render exactly as before. */
+      /* Calendly channel: a booking link on calendly.com opens the scheduler
+         inline on the winner page; anything else keeps linking out. The URL
+         only ever reaches Calendly's own init call as a JS string — never HTML. */
+      function bizIsCalendly(u) {
+        var url = bizNormUrl(u);
+        if (!url) return '';
+        var host = '', path = '';
+        try { var a = new URL(url); host = a.hostname.toLowerCase(); path = a.pathname || ''; }
+        catch (e) { return ''; }
+        if (host !== 'calendly.com') return '';
+        if (path.replace(/\//g, '').length === 0) return '';
+        return url;
+      }
+      var bizCalendlyLoading = false;
+      function bizLoadCalendly(cb) {
+        if (window.Calendly && window.Calendly.initInlineWidget) { cb(true); return; }
+        if (bizCalendlyLoading) {
+          var tries = 0;
+          var t = setInterval(function () {
+            if (window.Calendly && window.Calendly.initInlineWidget) { clearInterval(t); cb(true); }
+            else if (++tries > 100) { clearInterval(t); cb(false); }
+          }, 100);
+          return;
+        }
+        bizCalendlyLoading = true;
+        var sc = document.createElement('script');
+        sc.id = 'calendly-widget-js';
+        sc.src = 'https://assets.calendly.com/assets/external/widget.js';
+        sc.async = true;
+        sc.onload = function () { cb(true); };
+        sc.onerror = function () { bizCalendlyLoading = false; cb(false); };
+        document.head.appendChild(sc);
+      }
+      function bizToggleCalendly(url) {
+        var wrap = document.getElementById('awCalendlyWrap');
+        var btn = document.getElementById('awBookBtn');
+        if (!wrap) return;
+        if (!wrap.hidden) { wrap.hidden = true; if (btn) btn.textContent = 'Book a shoot'; return; }
+        wrap.hidden = false;
+        if (btn) btn.textContent = 'Close booking';
+        if (wrap.dataset.loaded) return;
+        wrap.dataset.loaded = '1';
+        wrap.innerHTML = '<p class="cal-loading">Loading booking calendar\u2026</p>';
+        bizLoadCalendly(function (ok) {
+          var fail = '<p class="cal-fallback">The booking calendar couldn\u2019t load. <a href="' + esc(url) + '" target="_blank" rel="noopener">Open it in Calendly</a>.</p>';
+          if (!ok || !window.Calendly || !window.Calendly.initInlineWidget) { wrap.innerHTML = fail; return; }
+          wrap.innerHTML = '';
+          var holder = document.createElement('div');
+          holder.style.minWidth = '320px';
+          holder.style.height = '630px';
+          wrap.appendChild(holder);
+          try { window.Calendly.initInlineWidget({ url: url, parentElement: holder }); }
+          catch (e) { wrap.innerHTML = fail; }
+        });
+      }
       function bizCardHtml(biz, name, round) {
         if (!biz) return '';
         var soc = biz.socials || {};
@@ -201,10 +261,13 @@
         if (sub.length) html += '<p class="where">' + esc(sub.join(' \u00b7 ')) + '</p>';
         html += '<p class="proof">Crowned in the Arena' + (crownDate ? ', ' + esc(crownDate) : '') +
           ' — judged best <span class="gold">blind</span>, by other photographers.</p>';
+        var calUrl = biz.bookingLink ? bizIsCalendly(biz.bookingLink) : '';
         html += '<div class="actions">';
-        if (biz.bookingLink) html += '<a class="btn-solid" href="' + esc(bizNormUrl(biz.bookingLink)) + '" target="_blank" rel="noopener">Book a shoot</a>';
+        if (calUrl) html += '<button class="btn-solid" type="button" id="awBookBtn" data-cal="' + esc(calUrl) + '">Book a shoot</button>';
+        else if (biz.bookingLink) html += '<a class="btn-solid" href="' + esc(bizNormUrl(biz.bookingLink)) + '" target="_blank" rel="noopener">Book a shoot</a>';
         html += '<a class="btn-ghost" href="/profile.html?u=' + esc(round.winnerUid) + '">View profile</a>';
         html += '</div>';
+        if (calUrl) html += '<div class="aw-calendly" id="awCalendlyWrap" hidden></div>';
         var links = [];
         if (soc.instagram) {
           var ig = String(soc.instagram).trim();
@@ -375,6 +438,9 @@
                   '<button class="btn-ghost" id="awShare" type="button">Share this crown</button>' +
                   '<a class="btn-ghost" href="/arena-winners.html">See all crowns</a></div>';
           body.innerHTML = html;
+          /* Calendly channel: wire the in-page scheduler toggle. */
+          var awBtn = document.getElementById('awBookBtn');
+          if (awBtn) awBtn.addEventListener('click', function () { bizToggleCalendly(awBtn.getAttribute('data-cal')); });
           /* Dynamic images are attached as DOM nodes (real URLs come from
              the round record, never from markup). */
           var hero = document.getElementById('awHero');
