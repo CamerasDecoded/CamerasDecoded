@@ -18,7 +18,7 @@
   <script src="/scripts/cd-upload.js?v=20261014b"></script>
 
   <!-- ===== SHARED BADGE DEFINITIONS (single source of truth for badge copy) ===== -->
-  <script src="/scripts/badges.js?v=20261118a"></script>
+  <script src="/scripts/badges.js?v=20261118b"></script>
   <script src="/scripts/sfx.js?v=20261005a"></script>
   <script src="/scripts/haptics.js?v=20261006a"></script>
   <script src="/scripts/gear-awards.js?v=20261001a"></script>
@@ -820,6 +820,24 @@
       grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 12px;
     }
+    .badge-group { margin-bottom: 22px; }
+    .badge-group:last-child { margin-bottom: 0; }
+    .badge-group-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(141,235,0,0.18);
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+    .badge-group-count { font-size: 11px; letter-spacing: 0.5px; color: #999; text-transform: none; white-space: nowrap; }
+    .badge-group-count .done { color: var(--green); }
     .badge-tile {
       border: 1px solid rgba(141,235,0,0.22);
       border-radius: 12px;
@@ -837,7 +855,7 @@
       border-color: var(--border-dim);
       background: rgba(255,255,255,0.02);
       box-shadow: none;
-      opacity: 0.55;
+      opacity: 0.8;
     }
     .badge-tile.locked:hover { transform: none; box-shadow: none; }
     .badge-tile[data-replay-badge] { cursor: pointer; }
@@ -852,13 +870,13 @@
       color: rgba(141,235,0,0.65);
     }
     .badge-emoji { font-size: 30px; line-height: 1; display: block; margin-bottom: 10px; }
-    .badge-tile.locked .badge-emoji { filter: grayscale(1); }
+    .badge-tile.locked .badge-emoji { filter: brightness(0) drop-shadow(0 0 2px rgba(255,255,255,.75)) drop-shadow(0 0 14px rgba(141,235,0,.35)); }
     .badge-art { width: 64px; height: 64px; object-fit: contain; display: block; margin: 0 auto 10px; }
-    .badge-tile.locked .badge-art { filter: grayscale(1); opacity: .6; }
+    .badge-tile.locked .badge-art { filter: brightness(0) drop-shadow(0 0 2px rgba(255,255,255,.75)) drop-shadow(0 0 14px rgba(141,235,0,.35)); opacity: .95; }
     .badge-tile.rarity-rare { border-color: rgba(141,235,0,.45); }
     .badge-tile.rarity-legendary { border-color: #B6FF45; box-shadow: 0 0 28px rgba(182,255,69,.22); }
     .badge-tile.rarity-legendary.locked { box-shadow: none; }
-    .chase-item .badge-art { width: 40px; height: 40px; object-fit: contain; filter: grayscale(1); opacity: .7; flex: none; }
+    .chase-item .badge-art { width: 40px; height: 40px; object-fit: contain; filter: brightness(0) drop-shadow(0 0 2px rgba(255,255,255,.75)); opacity: .95; flex: none; }
     .badge-share-btn { margin-top: 10px; padding: 6px 14px; font-size: 11px; font-weight: 700; border: 1px solid var(--border-dim); border-radius: 8px; background: transparent; color: #bbb; }
     .badge-share-btn:active { background: rgba(141,235,0,.12); }
     #shareShelfBtn { margin-left: 8px; margin-top: 0; }
@@ -891,7 +909,7 @@
       border-radius: 10px;
       background: rgba(141,235,0,0.02);
     }
-    .chase-item .badge-emoji { font-size: 24px; margin-bottom: 0; filter: grayscale(0.4); }
+    .chase-item .badge-emoji { font-size: 24px; margin-bottom: 0; filter: brightness(0) drop-shadow(0 0 2px rgba(255,255,255,.75)); }
     .chase-item .chase-text { flex: 1; }
     .chase-item .badge-name { margin-bottom: 2px; }
     .chase-empty-note {
@@ -1158,7 +1176,7 @@
           <div class="badge-progress-label">Next unlocks</div>
           <div id="badgeProgressItems" style="display:flex;flex-direction:column;gap:10px;"></div>
         </div>
-        <div id="badgeGrid" class="badge-grid"></div>
+        <div id="badgeGrid"></div>
         <div id="badgeChaseList" class="chase-list" hidden></div>
       </div>
 
@@ -1479,6 +1497,25 @@
       } catch (e) { return ''; }
     }
 
+    /* Badge series, in shelf order (the DEFS file's own order). The series is
+       the badge-id prefix: gear-, glass-, clab-; the unbanded five are the
+       Foundations; blue-hour-operator is Night Ops. Unknown ids land in
+       Foundations, never lost. */
+    var BADGE_SERIES_ORDER = [
+      { key: 'foundations', name: 'Foundations' },
+      { key: 'gear', name: 'Gear Collectibles' },
+      { key: 'glass', name: 'Signal Glass' },
+      { key: 'clab', name: 'Camera Lab' },
+      { key: 'nightops', name: 'Night Ops' }
+    ];
+    function badgeSeriesKey(id) {
+      if (id.indexOf('gear-') === 0) return 'gear';
+      if (id.indexOf('glass-') === 0) return 'glass';
+      if (id.indexOf('clab-') === 0) return 'clab';
+      if (id === 'blue-hour-operator') return 'nightops';
+      return 'foundations';
+    }
+
     function renderBadgeCase(data) {
       var defs = (window.CDBadges && typeof window.CDBadges.defs === 'function') ? window.CDBadges.defs() : {};
       var ids = Object.keys(defs);
@@ -1532,7 +1569,12 @@
         chaseList.hidden = false;
         var chaseHtml = '<p class="chase-empty-note">No badges on the shelf yet. ' +
           'Here is <strong>what you are chasing</strong> — each one unlocks the moment you earn it.</p>';
-        ids.forEach(function (id) {
+        BADGE_SERIES_ORDER.forEach(function (series) {
+          var seriesIds = ids.filter(function (id) { return badgeSeriesKey(id) === series.key; });
+          if (!seriesIds.length) return;
+          chaseHtml += '<div class="badge-group-header"><span>' + series.name + '</span>' +
+            '<span class="badge-group-count"><span class="done">0</span> of ' + seriesIds.length + '</span></div>';
+          seriesIds.forEach(function (id) {
           var b = defs[id];
           var chaseArt = b.art
             ? '<img class="badge-art" src="' + b.art + '" alt="" loading="lazy">'
@@ -1543,6 +1585,7 @@
               '<div class="chase-text"><div class="badge-name">' + b.name + '</div>' +
               '<div class="badge-desc">' + b.desc + '</div></div>' +
             '</div>';
+          });
         });
         chaseList.innerHTML = chaseHtml;
         return;
@@ -1553,7 +1596,15 @@
       grid.style.display = '';
       var html = '';
       var ordered = earnedIds.concat(lockedIds);
-      ordered.forEach(function (id) {
+      BADGE_SERIES_ORDER.forEach(function (series) {
+        var seriesIds = ordered.filter(function (id) { return badgeSeriesKey(id) === series.key; });
+        if (!seriesIds.length) return;
+        var earnedInSeries = seriesIds.filter(function (id) { return !!earned[id]; }).length;
+        html += '<div class="badge-group">' +
+          '<div class="badge-group-header"><span>' + series.name + '</span>' +
+          '<span class="badge-group-count"><span class="done">' + earnedInSeries + '</span> of ' + seriesIds.length + '</span></div>' +
+          '<div class="badge-grid">';
+        seriesIds.forEach(function (id) {
         var b = defs[id];
         var isEarned = !!earned[id];
         var isGear = id.indexOf('gear-') === 0;
@@ -1578,6 +1629,8 @@
             '<div class="badge-desc">' + b.desc + '</div>' +
             dateLine + replayHint + shareBtn +
           '</div>';
+        });
+        html += '</div></div>';
       });
       grid.innerHTML = html;
       grid.querySelectorAll('[data-share-badge]').forEach(function (btn) {
@@ -1599,6 +1652,32 @@
           if (ev && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); replay(ev); }
         });
       });
+    }
+
+    /* Badge deep link: a shared badge URL (?badge=<id>) replays that badge's
+       sting once, for the profile being viewed, after the boot veil is gone
+       so the sheet never covers the tap-to-enter. Fires once per page load. */
+    var deepLinkBadgePlayed = false;
+    function maybePlayDeepLinkBadge(data) {
+      if (deepLinkBadgePlayed) return;
+      var badgeId = null;
+      try { badgeId = new URLSearchParams(location.search).get('badge'); } catch (e) {}
+      if (!badgeId || !data.badges || !data.badges[badgeId]) return;
+      if (!window.CDBadges || typeof window.CDBadges.replay !== 'function') return;
+      deepLinkBadgePlayed = true;
+      function play() {
+        try { window.CDBadges.replay(badgeId); } catch (e) {}
+      }
+      if (!document.getElementById('cdBootVeil')) { setTimeout(play, 600); return; }
+      var done = false;
+      function fire() { if (done) return; done = true; setTimeout(play, 400); }
+      try {
+        var obs = new MutationObserver(function () {
+          if (!document.getElementById('cdBootVeil')) { try { obs.disconnect(); } catch (e) {} fire(); }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+        setTimeout(function () { try { obs.disconnect(); } catch (e) {} fire(); }, 6000);
+      } catch (e) { setTimeout(play, 600); }
     }
 
     function renderProfile(data) {
@@ -1650,6 +1729,9 @@
 
       // Badge case (read-only: earned badges + live progress toward next unlocks)
       renderBadgeCase(data);
+
+      // Badge deep link (?badge=<id>): replay that badge's sting once.
+      maybePlayDeepLinkBadge(data);
 
       // Referral — card moved to settings.html, guard for removed elements
       const refCode = data.referralCode || '';
