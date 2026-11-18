@@ -668,35 +668,66 @@ button{font-family:inherit;cursor:pointer}
 .am-cta:active{transform:scale(.98)}
 .am-cta svg{width:20px;height:20px;flex:0 0 auto}
 .am-cta::before{
-  content:'';position:absolute;inset:-1px;border-radius:17px;padding:1.5px;
-  opacity:.45;pointer-events:none;
-  background:conic-gradient(from var(--am-angle,120deg), transparent 20%, #8deb00 40%, transparent 60%, #8deb00 80%, transparent 100%);
+  content:'';position:absolute;inset:-1px;border-radius:17px;padding:2px;
+  opacity:.85;pointer-events:none;
+  background:conic-gradient(from var(--am-angle,120deg), transparent 20%, #ffffff 40%, transparent 60%, #ffffff 80%, transparent 100%);
   -webkit-mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
   -webkit-mask-composite:xor;
           mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
           mask-composite:exclude;
   animation:amChase 6s linear infinite;
 }
+/* Sheen: a very soft white band sweeps the button every 4.5s. Its cycle is
+   half the glitch cycle (9s), phased so the sweep never fires with the
+   glitch — the two effects stay offset by construction. */
+.am-cta::after{
+  content:'';position:absolute;inset:0;border-radius:16px;pointer-events:none;
+  background:linear-gradient(115deg, transparent 35%, rgba(255,255,255,.09) 50%, transparent 65%);
+  background-size:250% 100%;background-position:0% 0;
+  animation:amSheen 4.5s linear infinite;
+}
+@keyframes amSheen{
+  0%,15%{background-position:0% 0}
+  45%,100%{background-position:100% 0}
+}
 .am-cta:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
 .am-cta:disabled::before{animation:none;opacity:.25}
-/* Signature-font CTA: the enter label is a black glitch wordmark image with
-   the full text label as its fallback; a live countdown rides underneath
-   in a two-line stack. The stack fits the 56px button, so no clearance
-   changes. The wordmark flickers once per 7s cycle — one quick slice-shift,
-   then settles. */
-.am-cta-stack{display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1}
-.am-cta-label{display:flex;align-items:center;justify-content:center}
-.am-cta-word{height:20px;width:auto;display:block;animation:amWordFlicker 7s linear infinite}
+.am-cta:disabled::after,.am-cta:disabled .am-cta-word,.am-cta:disabled .am-cta-label.am-signal::after{animation:none}
+/* Signature-font CTA: the enter label is a black ENTER NOW wordmark image
+   with the full text label as its fallback; a live countdown rides
+   underneath in a two-line stack. The stack fits the 56px button, so no
+   clearance changes. The wordmark carries a signal glitch — one brief
+   transmission waver per 9s cycle (1px jitter, brightness dip, scanline
+   sweep) — and the button carries a soft sheen every 4.5s, phased to never
+   fire with the glitch. The chase ring is white: green-on-green was
+   invisible on this button. */
+.am-cta-stack{display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1;position:relative;z-index:1}
+.am-cta-label{display:flex;align-items:center;justify-content:center;position:relative}
+.am-cta-word{height:20px;width:auto;display:block;animation:amSignalGlitch 9s linear infinite}
 .am-cta-count{font:600 11px var(--font-mono);letter-spacing:.08em;color:rgba(10,12,5,.72)}
-@keyframes amWordFlicker{
-  0%,90%,100%{transform:translate(0,0);clip-path:inset(0 0 0 0)}
-  91%{transform:translate(-2px,1px)}
-  92%{transform:translate(2px,-1px);clip-path:inset(18% 0 52% 0)}
-  93%{transform:translate(-1px,0);clip-path:inset(52% 0 12% 0)}
-  94%{transform:translate(0,0);clip-path:inset(0 0 0 0)}
+@keyframes amSignalGlitch{
+  0%,96.9%{transform:translate(0,0);filter:brightness(1)}
+  97.2%{transform:translate(-1px,0);filter:brightness(1.3)}
+  98%{transform:translate(1px,0);filter:brightness(.82)}
+  98.8%{transform:translate(0,0);filter:brightness(1.12)}
+  99.4%,100%{transform:translate(0,0);filter:brightness(1)}
 }
-@media (prefers-reduced-motion:reduce){.am-cta-word{animation:none}}
-@media (prefers-reduced-motion:reduce){.am-cta::before{animation:none}}
+/* Scanline: sweeps the wordmark top to bottom inside the same glitch
+   window (same 9s cycle, same keyframe percentages, so the two stay in
+   sync). Scoped to enter mode via .am-signal — vote keeps plain text. */
+.am-cta-label.am-signal::after{
+  content:'';position:absolute;left:0;right:0;top:0;height:2px;pointer-events:none;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+  opacity:0;transform:translateY(-6px);
+  animation:amScanline 9s linear infinite;
+}
+@keyframes amScanline{
+  0%,96.9%{opacity:0;transform:translateY(-6px)}
+  97.2%{opacity:1;transform:translateY(-2px)}
+  98.8%{opacity:1;transform:translateY(24px)}
+  99.4%,100%{opacity:0;transform:translateY(24px)}
+}
+@media (prefers-reduced-motion:reduce){.am-cta::before,.am-cta::after,.am-cta-word,.am-cta-label.am-signal::after{animation:none}}
 @media (min-width:821px){
   .am-cta-wrap{left:50%;right:auto;transform:translateX(-50%);width:min(480px,calc(100% - 32px));bottom:24px}
 }
@@ -1455,23 +1486,21 @@ button{font-family:inherit;cursor:pointer}
       wrap.hidden = false;
       btn.disabled = (mode === 'entered' || mode === 'offline' || mode === 'practice' || mode === 'busy');
       if (mode === 'enter' || mode === 'vote') {
-        /* Signature-font CTA: the enter label is a black glitch wordmark
-           (daily ENTER TONIGHT / weekly ENTER THIS WEEK) with the full text
-           label as its fallback; vote keeps its text label. Both carry a
-           live countdown line underneath, refreshed by tickCountdowns. */
-        var weekly = activeTab === 'mission';
+        /* Signature-font CTA: the enter label is a black ENTER NOW wordmark
+           (same wordmark on both lanes — the countdown underneath carries
+           the horizon) with the full text label as its fallback; vote keeps
+           its text label. Both carry a live countdown line underneath,
+           refreshed by tickCountdowns. */
         var word = '';
         if (mode === 'enter') {
-          /* Full literal src per lane (not a concatenated variable) so the
+          /* Full literal src (not a concatenated variable) so the
              pre-PR checker sees the absolute path. */
-          word = weekly
-            ? '<img class="am-cta-word" src="/custom-site-titles/enter-this-week.png?v=20261118a" alt="' + esc(label) + '" onerror="this.style.display=\'none\';this.nextElementSibling.hidden=false;">'
-            : '<img class="am-cta-word" src="/custom-site-titles/enter-tonight.png?v=20261118a" alt="' + esc(label) + '" onerror="this.style.display=\'none\';this.nextElementSibling.hidden=false;">';
+          word = '<img class="am-cta-word" src="/custom-site-titles/enter-now.png?v=20261118a" alt="' + esc(label) + '" onerror="this.style.display=\'none\';this.nextElementSibling.hidden=false;">';
           word += '<span hidden>' + esc(label) + '</span>';
         } else {
           word = '<span>' + esc(label) + '</span>';
         }
-        btn.innerHTML = (icon || '') + '<span class="am-cta-stack"><span class="am-cta-label">' + word + '</span>'
+        btn.innerHTML = (icon || '') + '<span class="am-cta-stack"><span class="am-cta-label' + (mode === 'enter' ? ' am-signal' : '') + '">' + word + '</span>'
           + '<span class="am-cta-count" id="amCtaCount">' + esc(ctaCountdownText()) + '</span></span>';
         return;
       }
@@ -1501,7 +1530,7 @@ button{font-family:inherit;cursor:pointer}
       }
       /* phase === open */
       if (st.myEntry) { ctaSet('entered', weekly ? 'You\u2019ve entered this week' : 'You\u2019ve entered tonight', CTA_ICONS.check); return; }
-      ctaSet('enter', weekly ? 'Enter this week\u2019s mission' : 'Enter tonight\u2019s challenge', CTA_ICONS.upload);
+      ctaSet('enter', 'Enter now', CTA_ICONS.upload);
     }
     function ctaClick() {
       if (ctaMode === 'enter') {
