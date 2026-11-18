@@ -18,7 +18,7 @@
   <script src="/scripts/cd-upload.js?v=20261014b"></script>
 
   <!-- ===== SHARED BADGE DEFINITIONS (single source of truth for badge copy) ===== -->
-  <script src="/scripts/badges.js?v=20261118a"></script>
+  <script src="/scripts/badges.js?v=20261118b"></script>
   <script src="/scripts/sfx.js?v=20261005a"></script>
   <script src="/scripts/haptics.js?v=20261006a"></script>
   <script src="/scripts/gear-awards.js?v=20261001a"></script>
@@ -1601,6 +1601,32 @@
       });
     }
 
+    /* Badge deep link: a shared badge URL (?badge=<id>) replays that badge's
+       sting once, for the profile being viewed, after the boot veil is gone
+       so the sheet never covers the tap-to-enter. Fires once per page load. */
+    var deepLinkBadgePlayed = false;
+    function maybePlayDeepLinkBadge(data) {
+      if (deepLinkBadgePlayed) return;
+      var badgeId = null;
+      try { badgeId = new URLSearchParams(location.search).get('badge'); } catch (e) {}
+      if (!badgeId || !data.badges || !data.badges[badgeId]) return;
+      if (!window.CDBadges || typeof window.CDBadges.replay !== 'function') return;
+      deepLinkBadgePlayed = true;
+      function play() {
+        try { window.CDBadges.replay(badgeId); } catch (e) {}
+      }
+      if (!document.getElementById('cdBootVeil')) { setTimeout(play, 600); return; }
+      var done = false;
+      function fire() { if (done) return; done = true; setTimeout(play, 400); }
+      try {
+        var obs = new MutationObserver(function () {
+          if (!document.getElementById('cdBootVeil')) { try { obs.disconnect(); } catch (e) {} fire(); }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+        setTimeout(function () { try { obs.disconnect(); } catch (e) {} fire(); }, 6000);
+      } catch (e) { setTimeout(play, 600); }
+    }
+
     function renderProfile(data) {
       // Update shared components
       if (window.Header && typeof window.Header.setUserData === 'function') {
@@ -1650,6 +1676,9 @@
 
       // Badge case (read-only: earned badges + live progress toward next unlocks)
       renderBadgeCase(data);
+
+      // Badge deep link (?badge=<id>): replay that badge's sting once.
+      maybePlayDeepLinkBadge(data);
 
       // Referral — card moved to settings.html, guard for removed elements
       const refCode = data.referralCode || '';

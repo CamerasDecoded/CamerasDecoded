@@ -51,10 +51,10 @@
     'glass-prism':     { name: 'Prism',        icon: 'fa-gem',       emoji: '💎', desc: 'Earned 5,000 lifetime XP',                art: '/media/badges/glass/glass-prism.png',     rarity: 'legendary' },
     'glass-signalday': { name: 'Signal Day',   icon: 'fa-cake-candles', emoji: '🎂', desc: 'One year on the signal',              art: '/media/badges/glass/glass-signalday.png', rarity: 'legendary' },
     /* ---- Camera Lab v2 · Series ---- */
-    'clab-master': { name: 'Master of Light', icon: 'fa-camera', emoji: '💡', desc: 'Earned an S on all 5 Camera Lab scenes', rarity: 'legendary' },
-    'clab-sharpshooter-1': { name: 'Sharp Shooter', icon: 'fa-crosshairs', emoji: '🎯', desc: '25 photos graded B or better in Camera Lab', rarity: 'common' },
-    'clab-sharpshooter-2': { name: 'Sharp Shooter II', icon: 'fa-crosshairs', emoji: '🏹', desc: '100 photos graded B or better in Camera Lab', rarity: 'rare' },
-    'clab-sharpshooter-3': { name: 'Sharp Shooter III', icon: 'fa-crosshairs', emoji: '🏆', desc: '300 photos graded B or better in Camera Lab', rarity: 'legendary' },
+    'clab-master': { name: 'Master of Light', icon: 'fa-camera', emoji: '💡', art: '/media/badges/clab/clab-master.png', desc: 'Earned an S on all 5 Camera Lab scenes', rarity: 'legendary' },
+    'clab-sharpshooter-1': { name: 'Sharp Shooter', icon: 'fa-crosshairs', emoji: '🎯', art: '/media/badges/clab/clab-sharpshooter-1.png', desc: '25 photos graded B or better in Camera Lab', rarity: 'common' },
+    'clab-sharpshooter-2': { name: 'Sharp Shooter II', icon: 'fa-crosshairs', emoji: '🏹', art: '/media/badges/clab/clab-sharpshooter-2.png', desc: '100 photos graded B or better in Camera Lab', rarity: 'rare' },
+    'clab-sharpshooter-3': { name: 'Sharp Shooter III', icon: 'fa-crosshairs', emoji: '🏆', art: '/media/badges/clab/clab-sharpshooter-3.png', desc: '300 photos graded B or better in Camera Lab', rarity: 'legendary' },
     /* ---- Pro Protocols · Night Ops ---- */
     'blue-hour-operator': { name: 'Blue Hour Operator', icon: 'fa-moon', emoji: '🌃', desc: 'Completed Protocol 022: The Blue Hour Contract', rarity: 'rare' }
   };
@@ -364,9 +364,24 @@
           window.CDCompanion && typeof window.CDCompanion.celebrate === 'function') {
         stingActive = true;
         try {
+          /* Backstop: if her moment never settles (hung promise), the sheet
+             still shows — otherwise stingActive stays true forever and every
+             later tap just queues silently. */
+          var settled = false;
+          var backstop = setTimeout(function () {
+            if (settled) return;
+            settled = true;
+            showStingSheet(badgeId);
+          }, 2500);
           window.CDCompanion.celebrate({ xp: 0, context: 'badge', milestone: true }).then(function () {
+            if (settled) return;
+            settled = true;
+            try { clearTimeout(backstop); } catch (e) {}
             showStingSheet(badgeId);
           }, function () {
+            if (settled) return;
+            settled = true;
+            try { clearTimeout(backstop); } catch (e) {}
             showStingSheet(badgeId);
           });
           return;
@@ -390,12 +405,22 @@
       try { if (btn) { btn.textContent = label; btn.disabled = true; } } catch (e) {}
     }
     var name = (d && d.name) || badgeId;
-    var text = "I just earned the '" + name + "' badge on Cameras Decoded!";
+    var text = "I earned the '" + name + "' badge on Cameras Decoded!";
     var origin = 'https://camerasdecoded.com';
     try {
       if (window.location && window.location.origin) origin = window.location.origin;
     } catch (e) {}
-    var url = origin + '/';
+    /* Deep link: the recipient opens this profile with the badge's sting
+       playing (profile.html honors ?badge= for an earned badge). */
+    var url = origin + '/profile.html?badge=' + encodeURIComponent(badgeId);
+    try {
+      var uid = null;
+      if (window.firebase && firebase.auth) {
+        var cu = firebase.auth().currentUser;
+        if (cu && cu.uid) uid = cu.uid;
+      }
+      if (uid) url = origin + '/profile.html?u=' + encodeURIComponent(uid) + '&badge=' + encodeURIComponent(badgeId);
+    } catch (e) {}
     try {
       if (window.navigator && typeof window.navigator.share === 'function') {
         window.navigator.share({ title: 'Cameras Decoded', text: text, url: url })
