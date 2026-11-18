@@ -276,12 +276,12 @@
                     <a class="biz-tile" href="/contract-builder.html">
                       <i class="fas fa-file-contract" aria-hidden="true"></i>
                       <strong>Contracts</strong>
-                      <span>Build &amp; sign</span>
+                      <span id="bizHubContractCount">—</span>
                     </a>
                     <a class="biz-tile" href="/deliver-builder.html">
                       <i class="fas fa-images" aria-hidden="true"></i>
                       <strong>Deliver</strong>
-                      <span>Share galleries</span>
+                      <span id="bizHubGalleryCount">—</span>
                     </a>
                     <div class="biz-tile biz-soon" aria-disabled="true">
                       <i class="fas fa-receipt" aria-hidden="true"></i>
@@ -606,6 +606,25 @@
         hub.hidden = false;
         document.getElementById('bizHubPro').hidden = !isPro;
         document.getElementById('bizHubFree').hidden = isPro;
+        if (isPro) bizHubCounts();
+      }
+      /* Live counts on the tiles (carried over from the profile card, the
+         hub's duplicate home): active contracts + galleries. A failed read
+         leaves the em-dash placeholder; the tiles still link. */
+      async function bizHubCounts() {
+        var uid = window.USER && window.USER.uid;
+        if (!uid || !window.db) return;
+        try {
+          var snap = await window.db.collection('users').doc(uid).collection('contracts')
+            .where('status', 'in', ['draft', 'sent']).get();
+          var cEl = document.getElementById('bizHubContractCount');
+          if (cEl) cEl.textContent = snap.size + ' active';
+        } catch (e) {}
+        try {
+          var gsnap = await window.db.collection('users').doc(uid).collection('galleries').get();
+          var gEl = document.getElementById('bizHubGalleryCount');
+          if (gEl) gEl.textContent = gsnap.size + ' galleries';
+        } catch (e) {}
       }
       var ub = document.getElementById('bizHubUnlock');
       if (ub) ub.addEventListener('click', function () {
