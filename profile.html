@@ -284,6 +284,56 @@
     @keyframes sigPulse { 0%,100% { opacity: .5; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
     @media (prefers-reduced-motion: reduce) { .pp-btn .sig-dot { animation: none; } }
 
+    /* Challenge sheet (bottom sheet, same chrome as the Arena sheets). */
+    .pp-veil {
+      position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,.66);
+      opacity: 0; pointer-events: none; transition: opacity .25s ease;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .pp-veil.open { opacity: 1; pointer-events: auto; }
+    .pp-sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 9001; max-width: 560px; margin: 0 auto;
+      background: #101013; border: 1px solid rgba(255,255,255,.14); border-bottom: 0;
+      border-radius: 20px 20px 0 0; padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+      transform: translateY(102%); transition: transform .32s ease;
+      max-height: 82vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+    .pp-sheet.open { transform: none; }
+    @media (prefers-reduced-motion: reduce) { .pp-veil, .pp-sheet { transition: none; } }
+    .pp-sheet .grab { width: 40px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.18); margin: 0 auto 14px; }
+    .pp-sheet h3 { font: 800 18px 'Montserrat', sans-serif; margin: 0 0 10px; letter-spacing: -.01em; }
+    .pp-sheet h3 .sig { color: var(--green); }
+    .pp-sheet-sub { font-size: 13px; line-height: 1.55; color: var(--text-muted); margin: 0 0 14px; }
+    .pp-field-label { display: block; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+    .pp-theme-input {
+      width: 100%; padding: 12px 14px; border-radius: 12px; font-size: 15px;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.16); color: #ffffff;
+      outline: none; box-sizing: border-box;
+    }
+    .pp-theme-input:focus { border-color: var(--green); }
+    .pp-err { color: #ff8a8a; font-size: 13px; margin: 10px 0 0; min-height: 18px; }
+    .pp-close {
+      position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .pp-close svg { width: 18px; height: 18px; }
+
+    /* Duels card rows (own profile). */
+    .ppd-row {
+      display: flex; align-items: center; gap: 12px; padding: 12px 4px;
+      border-bottom: 1px solid var(--border-dim); text-decoration: none; color: inherit;
+    }
+    .ppd-row:last-child { border-bottom: 0; }
+    .ppd-av { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; background: #141416; border: 1px solid var(--border-dim); }
+    .ppd-av-ph { width: 44px; height: 44px; border-radius: 50%; flex: 0 0 auto; background: #141416; border: 1px solid var(--border-dim); display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+    .ppd-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .ppd-mid b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ppd-mid span { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ppd-state { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .5px; white-space: nowrap; color: var(--text-muted); text-align: right; }
+    .ppd-state.action { color: var(--green); }
+    .ppd-empty { font-size: 13px; color: var(--text-muted); padding: 6px 0; }
+
     .header-actions {
       display: flex;
       gap: 10px;
@@ -1006,6 +1056,7 @@
           <button type="button" class="pp-btn" id="ppFollowBtn">Follow</button>
           <button type="button" class="pp-btn" id="ppLikeBtn"><span class="sig-dot"></span><span id="ppLikeLabel">Flash</span></button>
           <button type="button" class="pp-btn" id="ppShareBtn"><i class="fas fa-share-alt"></i> Share</button>
+          <button type="button" class="pp-btn" id="ppChallengeBtn">Challenge</button>
         </div>
       </div>
       <div class="pp-card" id="ppBookingCard" style="display:none;margin-top:12px;">
@@ -1068,6 +1119,14 @@
           </div>
           <input type="file" id="pfFileInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display:none;" />
         </div>
+      </div>
+
+      <div class="card" id="duelsCard">
+        <div class="card-header">
+          <img src="/custom-site-titles/duels.png?v=20261118b" alt="Duels" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
+          <span class="title-fallback" hidden>Duels</span>
+        </div>
+        <div id="duelsBody"><p class="ppd-empty">Loading duels…</p></div>
       </div>
 
       <!-- Selected Work: showcased Deliver galleries (Pro) -->
@@ -1147,6 +1206,19 @@
 
       <footer class="profile-footer">© 2026 Cameras Decoded · All signals locked</footer>
     </div>
+  <div class="pp-veil" id="ppVeil"></div>
+  <div class="pp-sheet" id="ppChallengeSheet" role="dialog" aria-modal="true" aria-labelledby="ppChallengeH" hidden>
+    <div class="grab" aria-hidden="true"></div>
+    <button class="pp-close" id="ppChallengeClose" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h3 id="ppChallengeH">Challenge <span class="sig" id="ppChallengeName">—</span></h3>
+    <p class="pp-sheet-sub">Pick a theme. They have 24 hours to accept, then you both have 24 hours to shoot it. The community votes on the winner — miss your shot and you lose by default.</p>
+    <label class="pp-field-label" for="ppThemeInput">Theme</label>
+    <input type="text" class="pp-theme-input" id="ppThemeInput" maxlength="60" placeholder="Night neon" autocomplete="off">
+    <p class="pp-err" id="ppChallengeErr" role="alert"></p>
+    <button type="button" class="pp-btn chasing-border" id="ppChallengeSend" style="width:100%;justify-content:center;margin-top:12px;">Send challenge</button>
+  </div>
   </main>
 
   <!-- ===== BOTTOM NAV CONTAINER – with data-role="operator" ===== -->
@@ -2562,6 +2634,208 @@ var _pfProCache = null;
       try { return new URLSearchParams(location.search).get('u'); } catch (e) { return null; }
     })();
 
+    /* ---------- Duels: challenge sheet + own-profile Duels card ---------- */
+    var ppChallengeTarget = null;
+    function ppTsMs(ts) {
+      if (!ts) return 0;
+      if (typeof ts.toMillis === 'function') return ts.toMillis();
+      if (ts instanceof Date) return ts.getTime();
+      if (typeof ts === 'number') return ts;
+      if (typeof ts.seconds === 'number') return ts.seconds * 1000;
+      return 0;
+    }
+    function ppFmtLeft(ms) {
+      if (ms <= 0) return 'ending';
+      var s = Math.floor(ms / 1000);
+      var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+      if (h > 0) return h + 'h left';
+      if (m > 0) return m + 'm left';
+      return s + 's left';
+    }
+    function ppIsDuelTerminal(d, now) {
+      if (d.declinedAt) return true;
+      if (!d.acceptedAt) return now > ppTsMs(d.acceptBy);
+      if (d.voteBy) return now > ppTsMs(d.voteBy);
+      return now > ppTsMs(d.submitBy);
+    }
+    function ppOpenChallengeSheet(info) {
+      ppChallengeTarget = info;
+      var nameEl = document.getElementById('ppChallengeName');
+      if (nameEl) nameEl.textContent = info.displayName || info.username || 'Operator';
+      var input = document.getElementById('ppThemeInput');
+      if (input) input.value = '';
+      var err = document.getElementById('ppChallengeErr');
+      if (err) err.textContent = '';
+      var v = document.getElementById('ppVeil'), sh = document.getElementById('ppChallengeSheet');
+      if (!v || !sh) return;
+      sh.hidden = false;
+      requestAnimationFrame(function () { v.classList.add('open'); sh.classList.add('open'); });
+      if (input) setTimeout(function () { input.focus(); }, 350);
+    }
+    function ppCloseChallengeSheet() {
+      var v = document.getElementById('ppVeil'), sh = document.getElementById('ppChallengeSheet');
+      if (v) v.classList.remove('open');
+      if (sh) sh.classList.remove('open');
+      setTimeout(function () { if (sh && !sh.classList.contains('open')) sh.hidden = true; }, 340);
+    }
+    function ppSendChallenge() {
+      var input = document.getElementById('ppThemeInput');
+      var errEl = document.getElementById('ppChallengeErr');
+      var theme = input ? input.value.trim() : '';
+      if (!theme) { if (errEl) errEl.textContent = 'Give the duel a theme first.'; return; }
+      if (!ppChallengeTarget) return;
+      var me = auth && auth.currentUser;
+      if (!me || !db) return;
+      var btn = document.getElementById('ppChallengeSend');
+      if (btn) btn.disabled = true;
+      if (errEl) errEl.textContent = 'Sending…';
+      var opp = ppChallengeTarget;
+      var meInfo = Promise.resolve(null);
+      if (window.CDSocial && window.CDSocial.getPublicProfile) {
+        meInfo = window.CDSocial.getPublicProfile(me.uid).catch(function () { return null; });
+      }
+      meInfo.then(function (mine) {
+        var myName = (mine && (mine.displayName || mine.username)) || me.displayName || 'Operator';
+        var myAvatar = (mine && mine.avatarUrl) || me.photoURL || '';
+        /* Duplicate guard: single-field queries (no composite index), filtered here. */
+        var col = db.collection('duels');
+        var q1 = col.where('challengerUid', '==', me.uid).get().catch(function () { return null; });
+        var q2 = col.where('challengerUid', '==', opp.uid).get().catch(function () { return null; });
+        return Promise.all([q1, q2]).then(function (res) {
+          var now = Date.now();
+          var live = null;
+          res.forEach(function (snap) {
+            if (!snap) return;
+            snap.forEach(function (d) {
+              var data = d.data();
+              var pair = (data.challengerUid === me.uid && data.opponentUid === opp.uid) ||
+                         (data.challengerUid === opp.uid && data.opponentUid === me.uid);
+              if (pair && !ppIsDuelTerminal(data, now)) live = live || d.id;
+            });
+          });
+          if (live) { window.location.href = '/duel.html?d=' + live; return null; }
+          return col.add({
+            challengerUid: me.uid,
+            challengerName: myName,
+            challengerAvatar: myAvatar,
+            opponentUid: opp.uid,
+            opponentName: opp.displayName || opp.username || 'Operator',
+            opponentAvatar: opp.avatarUrl || '',
+            theme: theme,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            acceptBy: firebase.firestore.Timestamp.fromDate(new Date(now + 24 * 3600 * 1000)),
+            acceptedAt: null,
+            submitBy: null,
+            declinedAt: null,
+            voteBy: null,
+            winnerUid: null
+          });
+        });
+      }).then(function (ref) {
+        if (ref) window.location.href = '/duel.html?d=' + ref.id;
+      }).catch(function () {
+        if (btn) btn.disabled = false;
+        if (errEl) errEl.textContent = 'Could not send — check your connection and try again.';
+      });
+    }
+    function ppDuelRowState(d, meUid, now) {
+      if (d.declinedAt) return { label: 'Declined', action: false };
+      if (!d.acceptedAt && now > ppTsMs(d.acceptBy)) return { label: 'Expired', action: false };
+      if (!d.acceptedAt) {
+        var mine = d.opponentUid === meUid;
+        return { label: mine ? 'Your move' : 'Waiting', deadlineMs: ppTsMs(d.acceptBy), action: mine };
+      }
+      if (d.voteBy && now > ppTsMs(d.voteBy)) return { label: 'Decided', action: false };
+      if (d.voteBy) return { label: 'Voting', deadlineMs: ppTsMs(d.voteBy), action: false };
+      if (now > ppTsMs(d.submitBy)) return { label: 'Decided', action: false };
+      return { label: 'Your shot', deadlineMs: ppTsMs(d.submitBy), action: true, needsEntryCheck: true };
+    }
+    function ppLoadDuelsCard(uid) {
+      var body = document.getElementById('duelsBody');
+      if (!body || !db) return;
+      var col = db.collection('duels');
+      var q1 = col.where('challengerUid', '==', uid).get().catch(function () { return null; });
+      var q2 = col.where('opponentUid', '==', uid).get().catch(function () { return null; });
+      Promise.all([q1, q2]).then(function (res) {
+        var list = [], seen = {};
+        res.forEach(function (snap) {
+          if (!snap) return;
+          snap.forEach(function (d) {
+            if (!seen[d.id]) { seen[d.id] = 1; list.push({ id: d.id, data: d.data() }); }
+          });
+        });
+        var now = Date.now();
+        list.sort(function (a, b) {
+          var sa = ppDuelRowState(a.data, uid, now), sb = ppDuelRowState(b.data, uid, now);
+          if (sa.action !== sb.action) return sa.action ? -1 : 1;
+          return ppTsMs(b.data.createdAt) - ppTsMs(a.data.createdAt);
+        });
+        list = list.slice(0, 20);
+        if (!list.length) {
+          body.innerHTML = '<p class="ppd-empty">No duels yet — challenge an operator from their profile.</p>';
+          return;
+        }
+        var checks = list.map(function (it) {
+          var st = ppDuelRowState(it.data, uid, now);
+          if (!st.needsEntryCheck) return Promise.resolve(it);
+          return col.doc(it.id).collection('entries').doc(uid).get().then(function (snap) {
+            it.submitted = !!(snap && snap.exists);
+            return it;
+          }).catch(function () { return it; });
+        });
+        return Promise.all(checks).then(function (items) {
+          while (body.firstChild) body.removeChild(body.firstChild);
+          items.forEach(function (it) {
+            var d = it.data;
+            var oppIsChallenger = d.opponentUid === uid;
+            var oppName = oppIsChallenger ? d.challengerName : d.opponentName;
+            var oppAvatar = oppIsChallenger ? d.challengerAvatar : d.opponentAvatar;
+            var st = ppDuelRowState(d, uid, Date.now());
+            var label = st.label;
+            if (st.needsEntryCheck && it.submitted) { label = 'Shot in'; st.action = false; }
+            var row = document.createElement('a');
+            row.className = 'ppd-row';
+            row.href = '/duel.html?d=' + encodeURIComponent(it.id);
+            var av;
+            if (oppAvatar) {
+              av = document.createElement('img');
+              av.className = 'ppd-av'; av.src = oppAvatar; av.alt = '';
+            } else {
+              av = document.createElement('span');
+              av.className = 'ppd-av-ph';
+              av.innerHTML = '<i class="fas fa-user"></i>';
+            }
+            var mid = document.createElement('span');
+            mid.className = 'ppd-mid';
+            var nm = document.createElement('b');
+            nm.textContent = oppName || 'Operator';
+            var th = document.createElement('span');
+            th.textContent = d.theme || '';
+            mid.appendChild(nm); mid.appendChild(th);
+            var stEl = document.createElement('span');
+            stEl.className = 'ppd-state' + (st.action ? ' action' : '');
+            stEl.textContent = label + (st.deadlineMs ? ' · ' + ppFmtLeft(st.deadlineMs - Date.now()) : '');
+            row.appendChild(av); row.appendChild(mid); row.appendChild(stEl);
+            body.appendChild(row);
+          });
+        });
+      }).catch(function () {
+        body.innerHTML = '<p class="ppd-empty">Could not load duels.</p>';
+      });
+    }
+    (function ppBindChallengeSheet() {
+      var closeBtn = document.getElementById('ppChallengeClose');
+      if (closeBtn) closeBtn.addEventListener('click', ppCloseChallengeSheet);
+      var veil = document.getElementById('ppVeil');
+      if (veil) veil.addEventListener('click', ppCloseChallengeSheet);
+      var sendBtn = document.getElementById('ppChallengeSend');
+      if (sendBtn) sendBtn.addEventListener('click', ppSendChallenge);
+      var input = document.getElementById('ppThemeInput');
+      if (input) input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); ppSendChallenge(); }
+      });
+    })();
+
     function renderPublicView(info, viewerUid) {
       document.getElementById('loadingState').style.display = 'none';
       document.getElementById('profileContent').style.display = 'none';
@@ -2619,6 +2893,7 @@ var _pfProCache = null;
       var followBtn = document.getElementById('ppFollowBtn');
       var likeBtn = document.getElementById('ppLikeBtn');
       var likeLabel = document.getElementById('ppLikeLabel');
+      var challengeBtn = document.getElementById('ppChallengeBtn');
 
       // Signed-out viewers get a brief prompt, then redirect.
       function needAuth(msg) {
@@ -2643,9 +2918,10 @@ var _pfProCache = null;
         followBtn.textContent = 'Follow';
         likeLabel.textContent = 'Flash';
       } else {
-        // Own profile via ?u= — hide follow/like, keep share.
+        // Own profile via ?u= — hide follow/like/challenge, keep share.
         followBtn.style.display = 'none';
         likeBtn.style.display = 'none';
+        if (challengeBtn) challengeBtn.style.display = 'none';
       }
 
       followBtn.onclick = function () {
@@ -2672,6 +2948,13 @@ var _pfProCache = null;
       document.getElementById('ppShareBtn').onclick = function () {
         if (window.CDSocial) window.CDSocial.shareProfile(info);
       };
+
+      if (challengeBtn) {
+        challengeBtn.onclick = function () {
+          if (needAuth('Sign in to challenge operators')) return;
+          ppOpenChallengeSheet(info);
+        };
+      }
     }
 
     // ---- Auth listener ----
@@ -2712,6 +2995,7 @@ var _pfProCache = null;
       try {
         const data = await getUserData(user);
         renderProfile(data);
+        ppLoadDuelsCard(user.uid);
         // Keep the public card in sync + wire the share button.
         if (window.CDSocial) {
           window.CDSocial.syncPublicProfile(data);
