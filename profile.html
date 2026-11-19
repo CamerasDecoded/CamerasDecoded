@@ -334,6 +334,26 @@
     .ppd-state.action { color: var(--green); }
     .ppd-empty { font-size: 13px; color: var(--text-muted); padding: 6px 0; }
 
+    /* Duels card: tappable — opens the full duels sheet. */
+    #duelsCard { cursor: pointer; }
+    .ppd-viewall {
+      margin-left: auto; font-family: 'Space Mono', monospace; font-size: 11px;
+      letter-spacing: 1px; text-transform: uppercase; color: var(--green);
+      display: flex; align-items: center; gap: 5px; white-space: nowrap;
+    }
+    .ppd-viewall i { font-size: 10px; }
+
+    /* Duels sheet: record strip + grouped duel lists. */
+    .ppds-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 18px; }
+    .ppds-stat { background: rgba(255,255,255,.04); border: 1px solid var(--border-dim); border-radius: 12px; padding: 10px 8px; text-align: center; }
+    .ppds-stat b { display: block; font-size: 18px; letter-spacing: -.01em; }
+    .ppds-stat span { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); }
+    .ppds-sec { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin: 16px 0 4px; }
+    .ppds-right { display: flex; flex-direction: column; align-items: flex-end; flex: 0 0 auto; }
+    .ppds-result { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .5px; white-space: nowrap; text-align: right; color: var(--text-muted); }
+    .ppds-result.won { color: var(--green); }
+    .ppds-sub { display: block; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .5px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
+
     .header-actions {
       display: flex;
       gap: 10px;
@@ -1125,6 +1145,7 @@
         <div class="card-header">
           <img src="/custom-site-titles/duels.png?v=20261118b" alt="Duels" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
           <span class="title-fallback" hidden>Duels</span>
+          <span class="ppd-viewall">View all <i class="fas fa-chevron-right"></i></span>
         </div>
         <div id="duelsBody"><p class="ppd-empty">Loading duels…</p></div>
       </div>
@@ -1218,6 +1239,15 @@
     <input type="text" class="pp-theme-input" id="ppThemeInput" maxlength="60" placeholder="Night neon" autocomplete="off">
     <p class="pp-err" id="ppChallengeErr" role="alert"></p>
     <button type="button" class="pp-btn chasing-border" id="ppChallengeSend" style="width:100%;justify-content:center;margin-top:12px;">Send challenge</button>
+  </div>
+  <div class="pp-sheet" id="ppDuelsSheet" role="dialog" aria-modal="true" aria-labelledby="ppDuelsH" hidden>
+    <div class="grab" aria-hidden="true"></div>
+    <button class="pp-close" id="ppDuelsClose" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h3 id="ppDuelsH">Your <span class="sig">duels</span></h3>
+    <div class="ppds-stats" id="ppdsStats"></div>
+    <div id="ppdsBody"><p class="ppd-empty">Loading duels…</p></div>
   </div>
   </main>
 
@@ -2674,7 +2704,8 @@ var _pfProCache = null;
     }
     function ppCloseChallengeSheet() {
       var v = document.getElementById('ppVeil'), sh = document.getElementById('ppChallengeSheet');
-      if (v) v.classList.remove('open');
+      var ds = document.getElementById('ppDuelsSheet');
+      if (v && !(ds && ds.classList.contains('open'))) v.classList.remove('open');
       if (sh) sh.classList.remove('open');
       setTimeout(function () { if (sh && !sh.classList.contains('open')) sh.hidden = true; }, 340);
     }
@@ -2782,7 +2813,9 @@ var _pfProCache = null;
         });
         list = list.slice(0, 20);
         if (!list.length) {
+          ppDuelsCache = { uid: uid, items: [] };
           body.innerHTML = '<p class="ppd-empty">No duels yet — challenge an operator from their profile.</p>';
+          if (ppDuelsSheetVisible()) ppRenderDuelsSheet();
           return;
         }
         var checks = list.map(function (it) {
@@ -2794,6 +2827,8 @@ var _pfProCache = null;
           }).catch(function () { return it; });
         });
         return Promise.all(checks).then(function (items) {
+          ppDuelsCache = { uid: uid, items: items };
+          if (ppDuelsSheetVisible()) ppRenderDuelsSheet();
           while (body.firstChild) body.removeChild(body.firstChild);
           items.forEach(function (it) {
             var d = it.data;
@@ -2833,17 +2868,212 @@ var _pfProCache = null;
         body.innerHTML = '<p class="ppd-empty">Could not load duels.</p>';
       });
     }
+    /* ---------- Duels sheet: full open + closed history, record, duel XP ---------- */
+    var ppDuelsCache = null;          /* { uid, items } from ppLoadDuelsCard */
+    var ppDuelsRecord = null;         /* duelRecords/{uid} once loaded */
+    var ppDuelsRecordLoaded = false;
+    var ppDuelsVotes = {};            /* duelId -> true once its tally was fetched */
+    var PPDS_CLOSED_LABELS = { 'Won': 1, 'Lost': 1, 'Expired': 1, 'Declined': 1, 'Void': 1, 'Decided': 1 };
+    /* Winner XP per duel — matches DUEL_WIN_XP in tools/duel-closer/closer.js. */
+    var PPDS_DUEL_WIN_XP = 25;
+
+    function ppDuelsSheetVisible() {
+      var sh = document.getElementById('ppDuelsSheet');
+      return !!(sh && !sh.hidden);
+    }
+    function ppOpenDuelsSheet() {
+      var v = document.getElementById('ppVeil'), sh = document.getElementById('ppDuelsSheet');
+      if (!v || !sh) return;
+      ppRenderDuelsSheet();
+      sh.hidden = false;
+      requestAnimationFrame(function () { v.classList.add('open'); sh.classList.add('open'); });
+    }
+    function ppCloseDuelsSheet() {
+      var v = document.getElementById('ppVeil'), sh = document.getElementById('ppDuelsSheet');
+      var ch = document.getElementById('ppChallengeSheet');
+      if (v && !(ch && ch.classList.contains('open'))) v.classList.remove('open');
+      if (sh) sh.classList.remove('open');
+      setTimeout(function () { if (sh && !sh.classList.contains('open')) sh.hidden = true; }, 340);
+    }
+    function ppFmtDuelDate(ms) {
+      if (!ms) return '';
+      try { return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+      catch (e) { return ''; }
+    }
+    function ppDuelOpp(d, uid) {
+      var oppIsChallenger = d.opponentUid === uid;
+      return {
+        name: oppIsChallenger ? d.challengerName : d.opponentName,
+        avatar: oppIsChallenger ? d.challengerAvatar : d.opponentAvatar
+      };
+    }
+    function ppDuelSheetRow(it, uid, rightEl) {
+      var d = it.data;
+      var opp = ppDuelOpp(d, uid);
+      var row = document.createElement('a');
+      row.className = 'ppd-row';
+      row.href = '/duel.html?d=' + encodeURIComponent(it.id);
+      var av;
+      if (opp.avatar) {
+        av = document.createElement('img');
+        av.className = 'ppd-av'; av.src = opp.avatar; av.alt = '';
+      } else {
+        av = document.createElement('span');
+        av.className = 'ppd-av-ph';
+        av.innerHTML = '<i class="fas fa-user"></i>';
+      }
+      var mid = document.createElement('span');
+      mid.className = 'ppd-mid';
+      var nm = document.createElement('b');
+      nm.textContent = opp.name || 'Operator';
+      var th = document.createElement('span');
+      th.textContent = d.theme || '';
+      mid.appendChild(nm); mid.appendChild(th);
+      row.appendChild(av); row.appendChild(mid); row.appendChild(rightEl);
+      return row;
+    }
+    function ppRenderDuelsSheet() {
+      var statsEl = document.getElementById('ppdsStats');
+      var body = document.getElementById('ppdsBody');
+      if (!statsEl || !body) return;
+      if (!ppDuelsCache) {
+        statsEl.innerHTML = '';
+        body.innerHTML = '<p class="ppd-empty">Loading duels…</p>';
+        return;
+      }
+      var uid = ppDuelsCache.uid, items = ppDuelsCache.items, now = Date.now();
+      var wins = 0, losses = 0, open = [], closed = [];
+      items.forEach(function (it) {
+        var st = ppDuelRowState(it.data, uid, now);
+        var label = st.label;
+        if (st.needsEntryCheck && it.submitted) { label = 'Shot in'; st.action = false; }
+        if (label === 'Won') wins++;
+        else if (label === 'Lost') losses++;
+        (PPDS_CLOSED_LABELS[label] ? closed : open).push({ it: it, st: st, label: label });
+      });
+      /* The stored record is the source of truth when it exists; the list
+         count covers accounts whose record doc predates a duel. */
+      if (ppDuelsRecordLoaded && ppDuelsRecord) {
+        wins = ppDuelsRecord.wins || 0;
+        losses = ppDuelsRecord.losses || 0;
+      }
+      var played = wins + losses;
+      var winRate = played ? Math.round(wins / played * 100) + '%' : '—';
+      statsEl.innerHTML =
+        '<div class="ppds-stat"><b>' + wins + '–' + losses + '</b><span>Record</span></div>' +
+        '<div class="ppds-stat"><b>' + winRate + '</b><span>Win rate</span></div>' +
+        '<div class="ppds-stat"><b>' + (wins * PPDS_DUEL_WIN_XP) + ' XP</b><span>Duel XP</span></div>';
+      while (body.firstChild) body.removeChild(body.firstChild);
+      if (!items.length) {
+        var none = document.createElement('p');
+        none.className = 'ppd-empty';
+        none.textContent = 'No duels yet — challenge an operator from their profile.';
+        body.appendChild(none);
+        return;
+      }
+      function section(title, count) {
+        var s = document.createElement('div');
+        s.className = 'ppds-sec';
+        s.textContent = title + ' · ' + count;
+        body.appendChild(s);
+      }
+      function emptyLine(msg) {
+        var p = document.createElement('p');
+        p.className = 'ppd-empty';
+        p.textContent = msg;
+        body.appendChild(p);
+      }
+      section('Open', open.length);
+      if (!open.length) emptyLine('No open duels.');
+      open.forEach(function (o) {
+        var right = document.createElement('span');
+        right.className = 'ppds-right';
+        var stEl = document.createElement('span');
+        stEl.className = 'ppd-state' + (o.st.action ? ' action' : '');
+        stEl.textContent = o.label + (o.st.deadlineMs ? ' · ' + ppFmtLeft(o.st.deadlineMs - Date.now()) : '');
+        right.appendChild(stEl);
+        body.appendChild(ppDuelSheetRow(o.it, uid, right));
+      });
+      section('Closed', closed.length);
+      if (!closed.length) emptyLine('No closed duels yet.');
+      closed.forEach(function (c) {
+        var d = c.it.data;
+        var right = document.createElement('span');
+        right.className = 'ppds-right';
+        var res = document.createElement('span');
+        res.className = 'ppds-result' + (c.label === 'Won' ? ' won' : '');
+        res.textContent = c.label;
+        right.appendChild(res);
+        var dateStr = ppFmtDuelDate(ppTsMs(d.closedAt) || ppTsMs(d.createdAt));
+        var sub = document.createElement('span');
+        sub.className = 'ppds-sub';
+        sub.textContent = dateStr;
+        if (d.closeReason === 'votes') {
+          sub.id = 'ppds-sub-' + c.it.id;
+          sub.setAttribute('data-date', dateStr);
+        }
+        right.appendChild(sub);
+        body.appendChild(ppDuelSheetRow(c.it, uid, right));
+      });
+      ppLoadDuelsRecord(uid);
+      closed.forEach(function (c) {
+        if (c.it.data.closeReason === 'votes') ppLoadDuelVotes(c.it.id, c.it.data, uid);
+      });
+    }
+    function ppLoadDuelsRecord(uid) {
+      if (!db || ppDuelsRecordLoaded) return;
+      ppDuelsRecordLoaded = true; /* in flight counts as loaded; a miss keeps the list count */
+      db.collection('duelRecords').doc(uid).get().then(function (snap) {
+        ppDuelsRecord = (snap && snap.exists) ? (snap.data() || {}) : null;
+        if (ppDuelsSheetVisible()) ppRenderDuelsSheet();
+      }).catch(function () { ppDuelsRecord = null; });
+    }
+    function ppLoadDuelVotes(duelId, d, uid) {
+      if (!db || ppDuelsVotes[duelId]) return;
+      ppDuelsVotes[duelId] = true;
+      db.collection('duels').doc(duelId).collection('votes').get().then(function (snap) {
+        var c = 0, o = 0;
+        if (snap) snap.forEach(function (v) {
+          var pick = (v.data() || {}).pick;
+          if (pick === 'challenger') c++;
+          else if (pick === 'opponent') o++;
+        });
+        var meChallenger = d.challengerUid === uid;
+        var mine = meChallenger ? c : o, theirs = meChallenger ? o : c;
+        var el = document.getElementById('ppds-sub-' + duelId);
+        if (el) el.textContent = mine + '–' + theirs + ' · ' + (el.getAttribute('data-date') || '');
+      }).catch(function () {});
+    }
     (function ppBindChallengeSheet() {
       var closeBtn = document.getElementById('ppChallengeClose');
       if (closeBtn) closeBtn.addEventListener('click', ppCloseChallengeSheet);
       var veil = document.getElementById('ppVeil');
-      if (veil) veil.addEventListener('click', ppCloseChallengeSheet);
+      if (veil) veil.addEventListener('click', function () { ppCloseChallengeSheet(); ppCloseDuelsSheet(); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { ppCloseChallengeSheet(); ppCloseDuelsSheet(); }
+      });
       var sendBtn = document.getElementById('ppChallengeSend');
       if (sendBtn) sendBtn.addEventListener('click', ppSendChallenge);
       var input = document.getElementById('ppThemeInput');
       if (input) input.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); ppSendChallenge(); }
       });
+      var duelsCard = document.getElementById('duelsCard');
+      if (duelsCard) {
+        duelsCard.addEventListener('click', function (e) {
+          if (e.target.closest && e.target.closest('a')) return;
+          ppOpenDuelsSheet();
+        });
+        duelsCard.setAttribute('tabindex', '0');
+        duelsCard.addEventListener('keydown', function (e) {
+          if ((e.key === 'Enter' || e.key === ' ') && !(e.target.closest && e.target.closest('a'))) {
+            e.preventDefault();
+            ppOpenDuelsSheet();
+          }
+        });
+      }
+      var duelsClose = document.getElementById('ppDuelsClose');
+      if (duelsClose) duelsClose.addEventListener('click', ppCloseDuelsSheet);
     })();
 
     function renderPublicView(info, viewerUid) {
