@@ -93,6 +93,7 @@
       titleArt: '/custom-site-titles/more.png?v=20261110a',
       sub: 'Secondary destinations.',
       rows: [
+        { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { href: '/ask.html',                icon: 'quiz',   title: 'Ask CD',     sub: 'Ask a camera question · Answered from the checked library' },
         { href: '/shoot-lab.html',          icon: 'practice', title: 'Shoot Lab', sub: 'Nail the exposure triangle' },
         { href: '/darkroom-lab.html',          icon: 'sliders', title: 'Develop Lab', sub: 'Pro photo editor' },
@@ -104,7 +105,6 @@
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
         { href: '/decoders-crew.html',        icon: 'users',  title: 'Decoders Crew', sub: 'Meet your mentors' },
         // Community cut for launch — returns as a post-launch web-app update.
-        { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
         { action: 'install',              icon: 'download', title: 'Install app', sub: 'Add Cameras Decoded to your Home Screen' },
         { action: 'logout',               icon: 'exit',   title: 'Log out',      sub: 'End this session' }
       ]
