@@ -2790,28 +2790,37 @@ var _pfProCache = null;
       }
     }
     function bizLoadCard() {
-      if (bizLoaded !== null || !currentUser || !db) return;
-      /* Server read, never the cache: on a flaky connection the SDK can
-         serve a stale in-memory snapshot (all empty) and the card would
-         show "Not set" for values that are saved — and a save built from
-         those empty values would wipe them. A failed server read shows
-         the honest load-fail state instead. */
-      db.collection('publicProfiles').doc(currentUser.uid).get({ source: 'server' }).then(function (snap) {
-        var info = snap.exists ? (snap.data() || {}) : {};
-        var soc = info.socials || {};
-        bizLoaded = {
-          instagram: soc.instagram || '',
-          website: soc.website || '',
-          bookingLink: info.bookingLink || ''
-        };
-        bizLoadFailed = false;
-        bizRenderRows();
-      }).catch(function () {
-        /* A failed read retries on the next render — and the rows stay
-           usable: a save from this state only adds what was typed. */
-        bizLoadFailed = true;
-        bizRenderRows();
-      });
+      if (bizLoaded !== null || !currentUser) return;
+      /* Plain HTTPS read, not the SDK: on this page the SDK's server read
+         returns an empty snapshot for a doc that has the data (the
+         diagnostic page proves the same read works in isolation, so the
+         fault is in this page's SDK client state, not the data or the
+         rules). The doc is public-read, so no key is needed. A failed
+         read shows the honest load-fail state instead of empty rows. */
+      fetch('https://firestore.googleapis.com/v1/projects/cameras-decoded/databases/(default)/documents/publicProfiles/' + encodeURIComponent(currentUser.uid))
+        .then(function (res) {
+          if (res.status === 404) return null;
+          if (!res.ok) throw new Error('read failed');
+          return res.json();
+        })
+        .then(function (doc) {
+          var fields = (doc && doc.fields) || {};
+          var soc = (((fields.socials || {}).mapValue || {}).fields) || {};
+          function str(v) { return (v && v.stringValue) || ''; }
+          bizLoaded = {
+            instagram: str(soc.instagram),
+            website: str(soc.website),
+            bookingLink: str(fields.bookingLink)
+          };
+          bizLoadFailed = false;
+          bizRenderRows();
+        })
+        .catch(function () {
+          /* A failed read retries on the next render — and the rows stay
+             usable: a save from this state only adds what was typed. */
+          bizLoadFailed = true;
+          bizRenderRows();
+        });
     }
     function bizSaveField(kind, btn) {
       if (!currentUser || !db) return;
