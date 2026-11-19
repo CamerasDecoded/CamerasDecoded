@@ -558,6 +558,25 @@
     .pp-calendly { margin-top: 14px; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; overflow: hidden; background: #ffffff; }
     .pp-calendly .cal-loading, .pp-calendly .cal-fallback { padding: 18px; font-size: 13px; color: #444; text-align: center; }
     .pp-calendly .cal-fallback a { color: #0069ff; }
+    /* Booking info view mode: saved values as plain rows, Edit opens the form. */
+    .biz-view-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-dim); }
+    .biz-view-row:last-child { border-bottom: none; }
+    .biz-view-label { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); padding-top: 3px; flex-shrink: 0; }
+    .biz-view-value { font-size: 14px; text-align: right; overflow-wrap: anywhere; }
+    .biz-view-value a { color: var(--green); }
+    .biz-view-empty { font-size: 14px; color: var(--text-muted); margin: 0 0 14px; }
+    .biz-ghost-btn {
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .biz-ghost-btn:hover { border-color: var(--green); color: var(--green); }
 
     .btn-save {
       padding: 10px 28px;
@@ -1197,31 +1216,52 @@
       </div>
 
       <!-- Selected Work: showcased Deliver galleries (Pro) -->
-      <!-- Booking info: socials + booking link live here (the entry sheet collects the rest) -->
+      <!-- Booking info: socials + booking link live here (the entry sheet collects the rest).
+           View mode by default — the saved values show as plain text with an Edit
+           button. The form only appears in edit mode, pre-filled with the saved
+           values, so a save can never blank a field the card never loaded. -->
       <div class="card" id="bookingCard">
         <div class="card-header">
           <img src="/custom-site-titles/booking-info.png?v=20261119a" alt="Booking Info" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
           <span class="title-fallback" hidden>Booking Info</span>
         </div>
         <p class="biz-note">Where clients reach you. These show on your winner page and public profile.</p>
-        <div class="form-group">
-          <label for="bizInstagram">Instagram</label>
-          <input type="text" id="bizInstagram" placeholder="@handle or link" autocomplete="off" />
+        <p class="biz-note" id="bizLoading">Loading your booking info…</p>
+        <div id="bizView" style="display:none;">
+          <div id="bizViewRows"></div>
+          <div class="save-row">
+            <button type="button" class="biz-ghost-btn" id="bizEditBtn">Edit booking info</button>
+          </div>
         </div>
-        <!-- Website + booking link are type=text on purpose: type=url drops a
-             scheme-less address on Safari before ppNormUrl can add https://.
-             inputmode=url keeps the URL keyboard. -->
-        <div class="form-group">
-          <label for="bizWebsite">Website</label>
-          <input type="text" id="bizWebsite" placeholder="https://yoursite.com" inputmode="url" autocomplete="off" />
+        <div id="bizLoadFail" style="display:none;">
+          <p class="biz-note">Your booking info couldn't be loaded. Anything you save here only adds what you type — it never clears what's already saved.</p>
+          <div class="save-row">
+            <button type="button" class="btn-save" id="bizRetryBtn">Try again</button>
+            <button type="button" class="biz-ghost-btn" id="bizFailEditBtn">Edit anyway</button>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="bizBooking">Booking link</label>
-          <input type="text" id="bizBooking" placeholder="https://calendly.com/you" inputmode="url" autocomplete="off" />
-          <p class="biz-note" style="margin-top:8px;">A Calendly link opens your booking calendar right on your profile and winner page.</p>
-        </div>
-        <div class="save-row">
-          <button type="button" class="btn-save" id="bizSaveBtn">Save booking info</button>
+        <div id="bizEdit" style="display:none;">
+          <div class="form-group">
+            <label for="bizInstagram">Instagram</label>
+            <input type="text" id="bizInstagram" placeholder="@handle or link" autocomplete="off" />
+          </div>
+          <!-- Website + booking link are type=text on purpose: type=url drops a
+               scheme-less address on Safari before ppNormUrl can add https://.
+               inputmode=url keeps the URL keyboard. -->
+          <div class="form-group">
+            <label for="bizWebsite">Website</label>
+            <input type="text" id="bizWebsite" placeholder="https://yoursite.com" inputmode="url" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="bizBooking">Booking link</label>
+            <input type="text" id="bizBooking" placeholder="https://calendly.com/you" inputmode="url" autocomplete="off" />
+            <p class="biz-note" style="margin-top:8px;">A Calendly link opens your booking calendar right on your profile and winner page.</p>
+          </div>
+          <p class="biz-note">Fill in what you have — a handle on its own saves fine, and so does a website on its own.</p>
+          <div class="save-row">
+            <button type="button" class="btn-save" id="bizSaveBtn">Save booking info</button>
+            <button type="button" class="biz-ghost-btn" id="bizCancelBtn">Cancel</button>
+          </div>
         </div>
       </div>
 
@@ -1904,7 +1944,7 @@
         pfRefreshPro();
       }
       // Booking card fill retries on every render until it lands once
-      // (bizCardLoaded is set only on success).
+      // (bizLoaded is set only on success).
       bizLoadCard();
     }
 
@@ -2694,40 +2734,108 @@ var _pfProCache = null;
       card.style.display = 'block';
     }
 
-    /* Own view: the booking card edits socials + booking link. */
-    var bizCardLoaded = false;
+    /* Own view: the booking card edits socials + booking link.
+       View mode by default — the saved values show as plain text with an
+       Edit button. The form only opens in edit mode, pre-filled with the
+       saved values. The save is change-aware: it writes only the fields
+       that differ from what loaded, so saving a handle on its own never
+       touches the website, and a field left blank only clears when the
+       card knows what was there before. If the load failed, the save
+       writes only what was typed — never an empty value over unknown
+       stored data. */
+    var bizLoaded = null;      // {instagram, website, bookingLink} once read; null until loaded
+    var bizLoadFailed = false;
+    function bizShow(id) {
+      ['bizLoading', 'bizView', 'bizLoadFail', 'bizEdit'].forEach(function (x) {
+        var el = document.getElementById(x);
+        if (el) el.style.display = (x === id) ? 'block' : 'none';
+      });
+    }
+    function bizLinkFor(kind, v) {
+      if (!v) return '';
+      if (kind === 'instagram' && v.charAt(0) === '@') {
+        return '<a href="https://instagram.com/' + ppEsc(v.slice(1)) + '" target="_blank" rel="noopener">' + ppEsc(v) + '</a>';
+      }
+      if (/^https?:\/\//i.test(v)) return '<a href="' + ppEsc(v) + '" target="_blank" rel="noopener">' + ppEsc(v) + '</a>';
+      return ppEsc(v);
+    }
+    function bizRenderView() {
+      if (bizLoaded === null) { bizShow('bizLoadFail'); return; }
+      var rows = document.getElementById('bizViewRows');
+      var editBtn = document.getElementById('bizEditBtn');
+      var v = bizLoaded;
+      var hasAny = !!(v.instagram || v.website || v.bookingLink);
+      var html = '';
+      if (v.instagram) html += '<div class="biz-view-row"><span class="biz-view-label">Instagram</span><span class="biz-view-value">' + bizLinkFor('instagram', v.instagram) + '</span></div>';
+      if (v.website) html += '<div class="biz-view-row"><span class="biz-view-label">Website</span><span class="biz-view-value">' + bizLinkFor('website', v.website) + '</span></div>';
+      if (v.bookingLink) html += '<div class="biz-view-row"><span class="biz-view-label">Booking link</span><span class="biz-view-value">' + bizLinkFor('booking', v.bookingLink) + '</span></div>';
+      if (!hasAny) html = '<p class="biz-view-empty">No booking info yet — add where clients can reach you.</p>';
+      if (rows) rows.innerHTML = html;
+      if (editBtn) editBtn.textContent = hasAny ? 'Edit booking info' : 'Add booking info';
+      bizShow('bizView');
+    }
     function bizLoadCard() {
-      if (bizCardLoaded || !currentUser || !db) return;
-      /* Read straight from Firestore, the same path the save uses. The old
-         version went through window.CDSocial, so a failed social.js load
-         left the card empty with no retry. The flag is set only on
-         success, so a failed read retries on the next render. */
+      if (bizLoaded !== null || !currentUser || !db) return;
+      /* Read straight from Firestore, the same path the save uses. A failed
+         read retries on the next render — and the card says so instead of
+         showing an empty form that could wipe stored values. */
       db.collection('publicProfiles').doc(currentUser.uid).get().then(function (snap) {
-        if (!snap.exists) { bizCardLoaded = true; return; }
-        var info = snap.data() || {};
+        var info = snap.exists ? (snap.data() || {}) : {};
         var soc = info.socials || {};
-        var ig = document.getElementById('bizInstagram');
-        var ws = document.getElementById('bizWebsite');
-        var bk = document.getElementById('bizBooking');
-        if (ig && soc.instagram) ig.value = soc.instagram;
-        if (ws && soc.website) ws.value = soc.website;
-        if (bk && info.bookingLink) bk.value = info.bookingLink;
-        bizCardLoaded = true;
-      }).catch(function () {});
+        bizLoaded = {
+          instagram: soc.instagram || '',
+          website: soc.website || '',
+          bookingLink: info.bookingLink || ''
+        };
+        bizLoadFailed = false;
+        bizRenderView();
+      }).catch(function () {
+        bizLoadFailed = true;
+        bizShow('bizLoadFail');
+      });
+    }
+    function bizStartEdit() {
+      var v = bizLoaded || { instagram: '', website: '', bookingLink: '' };
+      var ig = document.getElementById('bizInstagram');
+      var ws = document.getElementById('bizWebsite');
+      var bk = document.getElementById('bizBooking');
+      if (ig) ig.value = v.instagram;
+      if (ws) ws.value = v.website;
+      if (bk) bk.value = v.bookingLink;
+      bizShow('bizEdit');
     }
     function bizSaveCard() {
       if (!currentUser || !db) return;
       var btn = document.getElementById('bizSaveBtn');
       var ig = (document.getElementById('bizInstagram').value || '').trim();
-      var ws = (document.getElementById('bizWebsite').value || '').trim();
-      var bk = (document.getElementById('bizBooking').value || '').trim();
+      var ws = ppNormUrl((document.getElementById('bizWebsite').value || '').trim());
+      var bk = ppNormUrl((document.getElementById('bizBooking').value || '').trim());
+      /* Change-aware write, with dotted keys so one field never wipes the
+         others inside the socials map. Loaded: write only what differs
+         (a cleared field is a real change, so '' writes). Not loaded:
+         write only what was typed, never '' over unknown stored data. */
+      var payload = {};
+      function consider(dotKey, next, prev) {
+        if (bizLoaded !== null) { if (next !== prev) payload[dotKey] = next; }
+        else if (next) payload[dotKey] = next;
+      }
+      var prev = bizLoaded || { instagram: '', website: '', bookingLink: '' };
+      consider('socials.instagram', ig, prev.instagram);
+      consider('socials.website', ws, prev.website);
+      consider('bookingLink', bk, prev.bookingLink);
+      if (!Object.keys(payload).length) {
+        if (bizLoaded === null) bizShow('bizLoadFail'); else bizRenderView();
+        return;
+      }
+      payload.bizInfoUpdatedAt = firebase.firestore.FieldValue.serverTimestamp();
       if (btn) btn.disabled = true;
-      db.collection('publicProfiles').doc(currentUser.uid).set({
-        socials: { instagram: ig, website: ppNormUrl(ws) },
-        bookingLink: ppNormUrl(bk),
-        bizInfoUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true }).then(function () {
+      db.collection('publicProfiles').doc(currentUser.uid).set(payload, { merge: true }).then(function () {
         if (btn) btn.disabled = false;
+        /* Echo the saved values straight into the view — no re-read
+           needed to show the save landed. */
+        bizLoaded = { instagram: ig, website: ws, bookingLink: bk };
+        bizLoadFailed = false;
+        bizRenderView();
         cdToast('Booking info saved');
       }).catch(function () {
         if (btn) btn.disabled = false;
@@ -2735,8 +2843,22 @@ var _pfProCache = null;
       });
     }
     function setupBookingCard() {
-      var btn = document.getElementById('bizSaveBtn');
-      if (btn) btn.addEventListener('click', bizSaveCard);
+      var saveBtn = document.getElementById('bizSaveBtn');
+      if (saveBtn) saveBtn.addEventListener('click', bizSaveCard);
+      var editBtn = document.getElementById('bizEditBtn');
+      if (editBtn) editBtn.addEventListener('click', bizStartEdit);
+      var failEditBtn = document.getElementById('bizFailEditBtn');
+      if (failEditBtn) failEditBtn.addEventListener('click', bizStartEdit);
+      var cancelBtn = document.getElementById('bizCancelBtn');
+      if (cancelBtn) cancelBtn.addEventListener('click', function () {
+        if (bizLoadFailed) bizShow('bizLoadFail'); else bizRenderView();
+      });
+      var retryBtn = document.getElementById('bizRetryBtn');
+      if (retryBtn) retryBtn.addEventListener('click', function () {
+        bizLoadFailed = false;
+        bizShow('bizLoading');
+        bizLoadCard();
+      });
     }
 
     // ---- Public profile view (?u=) ----
