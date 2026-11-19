@@ -420,6 +420,18 @@ button{font-family:inherit;cursor:pointer}
   background:rgba(7,8,7,.72);font:700 11px var(--font-d);letter-spacing:.16em;
   text-transform:uppercase;color:var(--muted);
 }
+/* ---------- entry sharing ---------- */
+/* The card itself is a button, so the Share button cannot live inside it —
+   it sits in its own row under the card. The wrap carries the scroll
+   reveal the card used to carry, and the card fills it (a button is
+   inline-block by default and would shrink inside the wrap). */
+.am-cardwrap{position:relative}
+.am-cardwrap .am-card{width:100%;display:block}
+.am-cardwrap{transition:opacity .65s cubic-bezier(.22,1,.36,1),transform .65s cubic-bezier(.22,1,.36,1)}
+.am-cardwrap.am-pre{opacity:0;transform:translateY(20px)}
+@media (prefers-reduced-motion:reduce){.am-cardwrap.am-pre{opacity:1;transform:none;transition:none}}
+.am-card-actions{display:flex;justify-content:flex-end;margin-top:6px}
+.am-card-share{min-height:32px;padding:6px 14px;border-radius:20px;font-size:12px}
 .am-empty{
   border:1px solid var(--border);border-radius:18px;overflow:hidden;
   text-align:center;color:var(--muted);font-size:14px;line-height:1.6;
@@ -2140,6 +2152,38 @@ button{font-family:inherit;cursor:pointer}
       line.hidden = !(st.round && !st.empty && !st.fallback && st.phase === 'open' && !st.entries.length);
     }
 
+    /* ---------- entry sharing ---------- */
+    /* The entry photo itself goes to the share sheet — Instagram and
+       Threads need an image file to post. Same fallbacks as the winner
+       page: text+link when the image can't be fetched or files can't be
+       shared, link copy when there is no share sheet. The text never
+       names the author: blind judging is Arena-tab-only. A dismissed
+       sheet stays dismissed (AbortError never re-opens it). */
+    function shareEntryPhoto(imgUrl, shareData) {
+      function shareText() { return navigator.share(shareData).catch(function () {}); }
+      if (!navigator.share) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(shareData.url).then(function () { toast('Link copied.'); });
+        }
+        return;
+      }
+      if (!imgUrl) { shareText(); return; }
+      fetch(imgUrl).then(function (res) {
+        if (!res.ok) throw new Error('image unavailable');
+        return res.blob();
+      }).then(function (blob) {
+        if (!blob || !blob.size) throw new Error('image empty');
+        var ext = blob.type === 'image/png' ? 'png' : (blob.type === 'image/webp' ? 'webp' : 'jpg');
+        var file = new File([blob], 'arena-entry.' + ext, { type: blob.type || 'image/jpeg' });
+        if (navigator.canShare && !navigator.canShare({ files: [file] })) return shareText();
+        return navigator.share({ files: [file], title: shareData.title, text: shareData.text, url: shareData.url })
+          .catch(function (err) {
+            if (err && err.name === 'AbortError') return;
+            return shareText();
+          });
+      }).catch(function () { shareText(); });
+    }
+
     function renderFeed(laneKey) {
       var st = lanes[laneKey];
       var grid = el('amGrid' + cap(laneKey));
@@ -2216,6 +2260,8 @@ button{font-family:inherit;cursor:pointer}
         grid.appendChild(cd); cols.push(cd);
       }
       list.forEach(function (e, i) {
+        var wrap = document.createElement('div');
+        wrap.className = 'am-cardwrap';
         var card = document.createElement('button');
         card.type = 'button'; card.className = 'am-card';
         card.setAttribute('aria-label', (st.phase === 'closed' ? (e.authorName || aliasOf(e.uid)) : aliasOf(e.uid)) + ' entry');
@@ -2268,8 +2314,34 @@ button{font-family:inherit;cursor:pointer}
         }
         card.appendChild(meta);
         card.addEventListener('click', function () { openLightbox(laneKey, e.uid); });
-        cols[i % ncols].appendChild(card);
-        armReveal(card, laneKey + ':' + e.uid, obs);
+        wrap.appendChild(card);
+        /* Share this entry: the shot itself goes to the share sheet. The
+           link is the page's own deep link (?round=&entry=), so the
+           recipient lands in the Arena on this exact shot and can vote.
+           The text never names the author — blind judging. Live rounds
+           ask for the vote; closed rounds point at the results. */
+        var actions = document.createElement('div');
+        actions.className = 'am-card-actions';
+        var share = document.createElement('button');
+        share.type = 'button';
+        share.className = 'am-btn ghost am-card-share';
+        share.textContent = 'Share';
+        share.setAttribute('aria-label', 'Share this entry');
+        share.addEventListener('click', function () {
+          var name = splitRoundTitle(st.round || {}).name || 'Untitled round';
+          var link = 'https://camerasdecoded.com/missions.html?round=' +
+            encodeURIComponent(st.round._id) + '&entry=' + encodeURIComponent(e.uid);
+          var where = laneKey === 'mission' ? 'Arena Mission' : 'Arena';
+          var text = st.phase === 'closed'
+            ? 'This shot entered the ' + where + ': "' + name + '" — judged blind. See the results on Cameras Decoded.'
+            : 'This shot is in ' + (laneKey === 'mission' ? 'this week\'s ' : 'tonight\'s ') + where +
+              ': "' + name + '" — judged blind. Vote for it on Cameras Decoded.';
+          shareEntryPhoto(e.imgUrl, { title: 'Arena — Cameras Decoded', text: text, url: link });
+        });
+        actions.appendChild(share);
+        wrap.appendChild(actions);
+        cols[i % ncols].appendChild(wrap);
+        armReveal(wrap, laneKey + ':' + e.uid, obs);
       });
       var vb = el('amVotebar' + cap(laneKey));
       if (vb) {
