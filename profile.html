@@ -1208,13 +1208,16 @@
           <label for="bizInstagram">Instagram</label>
           <input type="text" id="bizInstagram" placeholder="@handle or link" autocomplete="off" />
         </div>
+        <!-- Website + booking link are type=text on purpose: type=url drops a
+             scheme-less address on Safari before ppNormUrl can add https://.
+             inputmode=url keeps the URL keyboard. -->
         <div class="form-group">
           <label for="bizWebsite">Website</label>
-          <input type="url" id="bizWebsite" placeholder="https://yoursite.com" inputmode="url" autocomplete="off" />
+          <input type="text" id="bizWebsite" placeholder="https://yoursite.com" inputmode="url" autocomplete="off" />
         </div>
         <div class="form-group">
           <label for="bizBooking">Booking link</label>
-          <input type="url" id="bizBooking" placeholder="https://calendly.com/you" inputmode="url" autocomplete="off" />
+          <input type="text" id="bizBooking" placeholder="https://calendly.com/you" inputmode="url" autocomplete="off" />
           <p class="biz-note" style="margin-top:8px;">A Calendly link opens your booking calendar right on your profile and winner page.</p>
         </div>
         <div class="save-row">
@@ -1900,6 +1903,9 @@
         setupSelectedWork();
         pfRefreshPro();
       }
+      // Booking card fill retries on every render until it lands once
+      // (bizCardLoaded is set only on success).
+      bizLoadCard();
     }
 
     // ---- Profile selectors: brand (single) / lenses & interests (multi) ----
@@ -2691,11 +2697,14 @@ var _pfProCache = null;
     /* Own view: the booking card edits socials + booking link. */
     var bizCardLoaded = false;
     function bizLoadCard() {
-      if (bizCardLoaded || !currentUser) return;
-      bizCardLoaded = true;
-      if (!window.CDSocial || !window.CDSocial.getPublicProfile) return;
-      window.CDSocial.getPublicProfile(currentUser.uid).then(function (info) {
-        if (!info) return;
+      if (bizCardLoaded || !currentUser || !db) return;
+      /* Read straight from Firestore, the same path the save uses. The old
+         version went through window.CDSocial, so a failed social.js load
+         left the card empty with no retry. The flag is set only on
+         success, so a failed read retries on the next render. */
+      db.collection('publicProfiles').doc(currentUser.uid).get().then(function (snap) {
+        if (!snap.exists) { bizCardLoaded = true; return; }
+        var info = snap.data() || {};
         var soc = info.socials || {};
         var ig = document.getElementById('bizInstagram');
         var ws = document.getElementById('bizWebsite');
@@ -2703,6 +2712,7 @@ var _pfProCache = null;
         if (ig && soc.instagram) ig.value = soc.instagram;
         if (ws && soc.website) ws.value = soc.website;
         if (bk && info.bookingLink) bk.value = info.bookingLink;
+        bizCardLoaded = true;
       }).catch(function () {});
     }
     function bizSaveCard() {
@@ -2727,7 +2737,6 @@ var _pfProCache = null;
     function setupBookingCard() {
       var btn = document.getElementById('bizSaveBtn');
       if (btn) btn.addEventListener('click', bizSaveCard);
-      bizLoadCard();
     }
 
     // ---- Public profile view (?u=) ----
