@@ -230,6 +230,17 @@
     + '.cd-bn-rc{min-width:0}'
     + '.cd-bn-rc b{display:block;font-size:14px;font-weight:700}'
     + '.cd-bn-rc span{display:block;color:var(--cd-bn-mut);font-size:11px;margin-top:2px}'
+    + '.cd-bn-row.cd-bn-profile{background:rgba(141,235,0,.07);border-color:rgba(141,235,0,.35)}'
+    + '.cd-bn-row.cd-bn-profile:hover{border-color:rgba(141,235,0,.55);background:rgba(141,235,0,.10)}'
+    + '.cd-bn-row.cd-bn-profile .cd-bn-ic{position:relative}'
+    + '.cd-bn-av-wrap{flex:0 0 44px;width:44px;height:44px;position:relative}'
+    + '.cd-bn-av{position:absolute;inset:0;width:44px;height:44px;border-radius:50%;object-fit:cover;display:block}'
+    + '.cd-bn-av-fb{position:absolute;inset:0;display:grid;place-items:center;background:var(--cd-bn-green-dim);color:var(--cd-bn-green);border-radius:50%}'
+    + '.cd-bn-av-fb svg{width:20px;height:20px}'
+    + '.cd-bn-dot{position:absolute;top:-1px;right:-1px;width:12px;height:12px;border-radius:50%;background:#8deb00;border:2px solid #0e0f11}'
+    + '.cd-bn-rc .cd-bn-nudge{display:block;color:#8deb00;font-size:11px;margin-top:2px}'
+    + '.cd-bn-rc .cd-bn-bar{display:block;height:4px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:6px;overflow:hidden}'
+    + '.cd-bn-rc .cd-bn-bar > span{display:block;height:100%;background:#8deb00;border-radius:2px;margin-top:0}'
     + '@media (prefers-reduced-motion:reduce){'
     +   '.cd-bn-sheet{animation:none}.cd-bn-link:active,.cd-bn-row:active{transform:none}'
     +   '.cd-bn-pill{transition:none}}';
@@ -244,6 +255,145 @@
   }
 
   function iconSVG(name) { return ICONS[name] || ICONS.home; }
+
+  // ---------- profile row (the More sheet's first row, made personal) ----------
+  // The row shows the operator: their photo, name, live stats, a dot when
+  // something is new, and a nudge while the profile is incomplete. Identity
+  // (name/avatar) comes from window.USER, already loaded. Stats, dot, and
+  // nudge need the users doc, so they load lazily the first time the More
+  // sheet opens, then cache in sessionStorage for 5 minutes. Signed-out
+  // visitors and failed reads keep the plain row. Nothing here throws.
+  var PROFILE_CACHE_KEY = 'cd_profile_row';
+  var PROFILE_CACHE_MS = 5 * 60 * 1000;
+  var PROFILE_ABOUT_KEYS = ['challenge', 'shootFrequency', 'learningStyle',
+    'experience', 'primaryGoal', 'ambition', 'contentFormat',
+    'deliveryChannel', 'sixMonthGoal', 'dreamProject'];
+  var profileRowData = { stats: null, unread: false, nudge: null, pct: 0 };
+  var profileRowLoading = false;
+  var profileRowLoadedAt = 0;
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function pick(obj, keys, fallback) {
+    if (!obj) return fallback;
+    for (var i = 0; i < keys.length; i++) {
+      if (obj[keys[i]] !== undefined && obj[keys[i]] !== null) return obj[keys[i]];
+    }
+    return fallback;
+  }
+  function toNum(v, fallback) {
+    var n = Number(v);
+    return isFinite(n) ? n : fallback;
+  }
+  function cdDayKey(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+      + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function fmtNum(n) { return Number(n).toLocaleString('en-US'); }
+
+  function computeProfileRow(data, user) {
+    var xp = toNum(data.totalPoints, 0);
+    var badges = data.badges ? Object.keys(data.badges).length : 0;
+    var tk = cdDayKey();
+    var yd = new Date(); yd.setDate(yd.getDate() - 1);
+    var lastSeen = pick(data, ['lastActivityDate', 'lastActiveDate', 'lastStreakDate', 'lastXpDate'], null);
+    var stored = toNum(pick(data, ['dailyChallengeStreak', 'streakDays', 'streak'], 0), 0);
+    var streak = (lastSeen === tk || lastSeen === cdDayKey(yd)) ? stored : 0;
+    var parts = [];
+    if (xp > 0) parts.push(fmtNum(xp) + ' XP');
+    if (badges > 0) parts.push(badges + (badges === 1 ? ' badge' : ' badges'));
+    if (streak > 0) parts.push(streak + '-day streak');
+    var unread = toNum(pick(data, ['unreadNotifications', 'unreadNotices'], 0), 0) > 0;
+    // Completeness: photo, name, gear section, about section - the same four
+    // the profile page itself treats as the profile (see profile.html).
+    var p = data.profile || {};
+    var hasPhoto = !!(user && user.avatar);
+    var hasName = !!(user && user.name);
+    var hasGear = !!(p.cameraBrand && p.lenses && p.lenses.length && p.interests && p.interests.length);
+    var aboutDone = PROFILE_ABOUT_KEYS.every(function (k) { return !!p[k]; })
+      && !!(p.painPoints && p.painPoints.length);
+    var done = (hasPhoto ? 1 : 0) + (hasName ? 1 : 0) + (hasGear ? 1 : 0) + (aboutDone ? 1 : 0);
+    var nudge = null;
+    if (done < 4) {
+      var next = !hasPhoto ? 'add a photo' : !hasName ? 'add your name'
+        : !hasGear ? 'pick your gear' : 'tell us about you';
+      nudge = 'Your profile is ' + Math.round(done / 4 * 100) + '% done — ' + next;
+    }
+    return { stats: parts.length ? parts.join(' \u00b7 ') : null, unread: unread, nudge: nudge,
+      pct: Math.round(done / 4 * 100) };
+  }
+
+  function profileRowInner() {
+    var user = (typeof window !== 'undefined' && window.USER) || {};
+    if (!user.isLoggedIn) {
+      return '<span class="cd-bn-ic">' + iconSVG('user') + '</span>'
+        + '<span class="cd-bn-rc"><b>Profile</b><span>Account and settings</span></span>';
+    }
+    var avatar = user.avatar
+      ? '<span class="cd-bn-av-wrap"><span class="cd-bn-av-fb">' + iconSVG('user') + '</span>'
+        + '<img class="cd-bn-av" src="' + esc(user.avatar) + '" alt="" onerror="this.remove()">'
+        + (profileRowData.unread ? '<span class="cd-bn-dot" aria-hidden="true"></span>' : '')
+        + '</span>'
+      : '<span class="cd-bn-ic">' + iconSVG('user')
+        + (profileRowData.unread ? '<span class="cd-bn-dot" aria-hidden="true"></span>' : '') + '</span>';
+    return avatar
+      + '<span class="cd-bn-rc"><b>' + esc(user.name ? 'Profile \u00b7 ' + user.name : 'Profile') + '</b>'
+      + '<span>' + esc(profileRowData.stats || 'Account and settings') + '</span>'
+      + (profileRowData.nudge ? '<span class="cd-bn-nudge">' + esc(profileRowData.nudge) + '</span>'
+        + '<span class="cd-bn-bar" aria-hidden="true"><span style="width:' + (profileRowData.pct || 0) + '%"></span></span>' : '')
+      + '</span>';
+  }
+
+  function renderProfileRow() {
+    var row = document.querySelector('[data-cd-profile-row]');
+    if (!row) return;
+    var user = (typeof window !== 'undefined' && window.USER) || {};
+    row.classList.toggle('cd-bn-profile', !!user.isLoggedIn);
+    row.innerHTML = profileRowInner();
+  }
+
+  function applyProfileCache(cached) {
+    if (!cached) return false;
+    try {
+      var c = JSON.parse(cached);
+      if (c && c.at && (Date.now() - c.at) < PROFILE_CACHE_MS) {
+        profileRowData = { stats: c.stats || null, unread: !!c.unread, nudge: c.nudge || null,
+          pct: toNum(c.pct, 0) };
+        profileRowLoadedAt = c.at;
+        renderProfileRow();
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function loadProfileRowData() {
+    var user = (typeof window !== 'undefined' && window.USER) || {};
+    if (!user.isLoggedIn || !user.uid) return;
+    if (profileRowLoading) return;
+    if (profileRowLoadedAt && (Date.now() - profileRowLoadedAt) < PROFILE_CACHE_MS) return;
+    try {
+      if (applyProfileCache(sessionStorage.getItem(PROFILE_CACHE_KEY))) return;
+    } catch (e) {}
+    if (typeof firebase === 'undefined' || !firebase.firestore) return;
+    profileRowLoading = true;
+    firebase.firestore().collection('users').doc(user.uid).get().then(function (doc) {
+      profileRowLoading = false;
+      if (!doc || !doc.exists) return;
+      profileRowData = computeProfileRow(doc.data() || {}, user);
+      profileRowLoadedAt = Date.now();
+      try {
+        sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({
+          at: profileRowLoadedAt, stats: profileRowData.stats,
+          unread: profileRowData.unread, nudge: profileRowData.nudge,
+          pct: profileRowData.pct }));
+      } catch (e) {}
+      renderProfileRow();
+    }).catch(function () { profileRowLoading = false; });
+  }
 
   function buildNav() {
     var nav = document.createElement('nav');
@@ -278,8 +428,11 @@
         }
         var isProfile = (r.title === 'Profile');
         var href = isProfile ? roleConfig().profile : r.href;
-        return '<a class="cd-bn-row" href="' + href + '"'
-             + (isProfile ? ' data-cd-role-link="profile"' : '') + '>'
+        if (isProfile) {
+          return '<a class="cd-bn-row" href="' + href + '" data-cd-role-link="profile" data-cd-profile-row>'
+               + profileRowInner() + '</a>';
+        }
+        return '<a class="cd-bn-row" href="' + href + '">'
              +   '<span class="cd-bn-ic">' + iconSVG(r.icon) + '</span>'
              +   '<span class="cd-bn-rc"><b>' + r.title + '</b><span>' + r.sub + '</span></span>'
              + '</a>';
@@ -397,6 +550,7 @@
     lastFocus = document.activeElement;
     scrim.classList.add('cd-open');
     scrim.setAttribute('aria-hidden', 'false');
+    if (key === 'more') loadProfileRowData();
     document.body.style.overflow = 'hidden';
     setTimeout(function () {
       var close = scrim.querySelector('[data-cd-close]');
@@ -544,6 +698,7 @@
     window.addEventListener('userStateReady', function (e) {
       var r = e && e.detail && e.detail.role;
       if (r) setRole(r);
+      renderProfileRow();
     });
 
     var nav = buildNav();
@@ -554,6 +709,7 @@
     applyActive(nav);
     wire(nav);
     wireTapSlide(nav);
+    renderProfileRow();
 
     window.__CDBottomNav = true;
     window.BottomNav = { updateBadges: updateBadges, close: closeAllSheets, setRole: setRole };
