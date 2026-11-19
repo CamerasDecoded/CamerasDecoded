@@ -629,6 +629,51 @@
     }
   }
 
+  /* Duels stat (stage 2): W-L from duelRecords + a "Your move" flag when a
+     live duel needs this operator — a pending challenge they received, or a
+     submitting duel where their shot isn't in yet. Best-effort: a failed
+     read leaves the em-dash placeholder; the tile still links. */
+  async function loadDuelsStat() {
+    const uid = vm.user && vm.user.uid;
+    const node = $('statDuels');
+    if (!uid || !node || !window.db) return;
+    try {
+      const db = window.db;
+      const recSnap = await db.collection('duelRecords').doc(uid).get();
+      const rec = recSnap.exists ? (recSnap.data() || {}) : {};
+      const wins = Number(rec.wins) || 0;
+      const losses = Number(rec.losses) || 0;
+      let action = false;
+      const now = Date.now();
+      const ms = (ts) => (ts && ts.toMillis ? ts.toMillis() : (ts && ts.seconds ? ts.seconds * 1000 : 0));
+      const [asOpp, asChal] = await Promise.all([
+        db.collection('duels').where('opponentUid', '==', uid).limit(10).get(),
+        db.collection('duels').where('challengerUid', '==', uid).limit(10).get(),
+      ]);
+      const entryChecks = [];
+      const consider = (doc) => {
+        const d = doc.data() || {};
+        if (!d || d.state) return; // settled — nothing needed
+        if (!d.acceptedAt) {
+          if (!d.declinedAt && d.opponentUid === uid && now < ms(d.acceptBy)) action = true;
+          return;
+        }
+        if (d.voteBy) return; // voting — nothing the duelists can do
+        if (now >= ms(d.submitBy)) return; // window passed — the closer settles it
+        entryChecks.push(doc.id);
+      };
+      asOpp.forEach(consider);
+      asChal.forEach(consider);
+      // A submitting duel needs me only when my shot isn't in yet.
+      for (const duelId of entryChecks) {
+        if (action) break;
+        const snap = await db.collection('duels').doc(duelId).collection('entries').doc(uid).get().catch(() => null);
+        if (!snap || !snap.exists) action = true;
+      }
+      node.textContent = wins + '\u2013' + losses + (action ? ' \u00B7 Your move' : '');
+    } catch (e) { /* best-effort: leave the placeholder */ }
+  }
+
   function renderStats() {
     const { streak, xpToday, xpGoal, rank } = vm.stats;
     const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
@@ -1296,6 +1341,7 @@
     renderStreakDots();
     loadXpSparkline();
     loadRankWindow();
+    loadDuelsStat();
     initStatModals();
     renderLearning();
     renderJourneyList();
@@ -1915,7 +1961,7 @@
   }
 
   async function refreshStatData() {
-    try { await Promise.all([loadXpSparkline(), loadRankWindow()]); } catch (e) {}
+    try { await Promise.all([loadXpSparkline(), loadRankWindow(), loadDuelsStat()]); } catch (e) {}
   }
 
   // ---------- Streak calendar ----------

@@ -150,6 +150,8 @@
     .du-winner .t { font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); }
     .du-winner .w { font-size: 22px; font-weight: 700; margin-top: 8px; }
     .du-winner p { color: var(--text-dim); font-size: 14px; margin: 6px 0 0; }
+    .du-winner .du-signal-link { margin-top: 10px; }
+    .du-winner .du-signal-link a { color: var(--green); text-decoration: none; font-weight: 600; }
 
     .du-preview img { width: 100%; display: block; border-radius: 12px; aspect-ratio: 4/3; object-fit: cover; }
     .du-share-row { margin-top: 26px; text-align: center; }
@@ -210,6 +212,7 @@
         <div class="t">Duel winner</div>
         <div class="w" id="duWinnerName">—</div>
         <p id="duWinnerSub">—</p>
+        <p class="du-signal-link" id="duWinnerSignal" hidden><a id="duWinnerSignalLink" href="#">See the result in the Signal</a></p>
       </div>
 
       <div id="duAction"></div>
@@ -294,6 +297,17 @@
         if (votes[i].pick === 'challenger') tallyC++;
         else if (votes[i].pick === 'opponent') tallyO++;
         if (user && votes[i].voterUid === user.uid) myVote = votes[i].pick;
+      }
+      /* Settled by the duel closer — authoritative, never re-derived. */
+      if (duel.state === 'closed') {
+        var wSide = duel.winnerUid === duel.challengerUid ? 'challenger'
+          : (duel.winnerUid === duel.opponentUid ? 'opponent' : null);
+        if (duel.closeReason === 'votes') return { key: 'closed', winner: wSide, byDefault: false, tallyC: tallyC, tallyO: tallyO, myVote: myVote };
+        if (duel.closeReason === 'default') return { key: 'default', winner: wSide, byDefault: true, tallyC: tallyC, tallyO: tallyO, myVote: myVote };
+        if (duel.closeReason === 'expired') return { key: 'expired', tallyC: tallyC, tallyO: tallyO, myVote: myVote };
+        if (duel.closeReason === 'declined') return { key: 'declined', tallyC: tallyC, tallyO: tallyO, myVote: myVote };
+        if (duel.closeReason === 'void') return { key: 'void', tallyC: tallyC, tallyO: tallyO, myVote: myVote };
+        return { key: 'closed', winner: wSide, byDefault: false, tallyC: tallyC, tallyO: tallyO, myVote: myVote };
       }
       function winnerByVotes() {
         if (tallyC === tallyO) {
@@ -420,6 +434,14 @@
         win.hidden = false;
         setText('duWinnerName', wName);
         setText('duWinnerSub', sub);
+        var sigP = el('duWinnerSignal');
+        if (sigP) {
+          var rid = duel.signalPostIds && duel.signalPostIds.result;
+          if (rid) {
+            sigP.hidden = false;
+            el('duWinnerSignalLink').href = '/feed.html#' + encodeURIComponent(rid);
+          } else sigP.hidden = true;
+        }
         el(wSide === 'challenger' ? 'duTagC' : 'duTagO').hidden = false;
         el(wSide === 'challenger' ? 'duOpC' : 'duOpO').classList.add('winner');
         if (entries.challenger) renderEntry(entries.challenger, 'challenger', st, false);
