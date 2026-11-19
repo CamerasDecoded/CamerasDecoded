@@ -252,8 +252,100 @@ padding:8px 4px;cursor:pointer;border-radius:8px}
 .feed-act.loved{color:var(--green)}
 .feed-act.loved svg{fill:var(--green-soft)}
 .feed-act.feed-del{flex:0 0 auto;color:var(--muted-2);padding-left:10px;padding-right:10px}
-.feed-act.feed-del.armed{color:#ff6b6b}
 .feed-card.removing{opacity:0;transform:scale(.98);transition:opacity .25s ease,transform .25s ease}
+/* --- Delete sheet + gulp animation (Signal posts & comments) --- */
+.del-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;
+  opacity:0;pointer-events:none;transition:opacity .28s ease}
+.del-backdrop.open{opacity:1;pointer-events:auto}
+.del-sheet{position:fixed;left:0;right:0;bottom:0;z-index:301;max-width:640px;margin:0 auto;
+  background:#0d0d10;border:1px solid var(--border);border-bottom:none;
+  border-radius:20px 20px 0 0;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 20px);
+  box-shadow:0 -12px 40px rgba(0,0,0,.5);
+  transform:translateY(102%);transition:transform .34s cubic-bezier(.32,.72,.35,1)}
+.del-sheet.open{transform:translateY(0)}
+.del-sheet-grip{width:36px;height:4px;border-radius:2px;background:#2a2a30;margin:0 auto 14px}
+.del-sheet-title{font-size:17px;font-weight:700;color:var(--text);margin:0 0 4px}
+.del-sheet-sub{font-size:13px;color:var(--muted-2);margin:0 0 18px}
+.del-cancel{width:100%;margin-top:14px;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text);font-family:var(--font-b);font-size:15px;font-weight:600;
+  padding:13px;border-radius:12px;cursor:pointer}
+.del-control{position:relative;height:56px;margin:0 auto}
+.del-pill,.del-disc{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  gap:10px;cursor:pointer;border:none;color:#ff6b6b;background:#241014;
+  border-radius:999px;font-family:var(--font-d);font-size:16px;font-weight:700;letter-spacing:.02em;
+  -webkit-tap-highlight-color:transparent}
+.del-disc{opacity:0;pointer-events:none}
+.del-pill .del-label{display:inline-flex;white-space:nowrap}
+.del-letter{display:inline-block;position:relative;will-change:transform,opacity}
+.del-bin{width:22px;height:22px;flex-shrink:0;overflow:visible}
+.del-bin .del-lid{transition:transform .25s ease;transform-origin:20px 4px;transform-box:fill-box}
+.del-bin .del-body{transition:transform .25s ease;transform-origin:12px 20px;transform-box:fill-box}
+.del-bin .del-fill{transform:translateY(100%);transition:transform .3s ease;fill:currentColor;opacity:.9}
+.del-wrap{--p:0;--fx:0%;--rr:999px}
+.del-wrap.eating .del-pill .del-bin{transform:rotate(-14deg);transition:transform .25s ease}
+.del-wrap.eating .del-pill .del-lid{transform:rotate(-32deg)}
+.del-wrap.eating .del-pill .del-fill{transform:translateY(calc((1 - var(--p)) * 100%))}
+.del-wrap.eating .del-pill .del-letter{animation:del-fly .42s cubic-bezier(.45,.05,.55,.95) forwards;
+  animation-delay:var(--fd)}
+@keyframes del-fly{
+  0%{transform:translate(0,0) rotate(0deg) scale(1);opacity:1}
+  45%{transform:translate(calc(var(--dx) * .45),calc(var(--dy) * .45 - 22px)) rotate(-14deg) scale(.95);opacity:1}
+  100%{transform:translate(var(--dx),var(--dy)) rotate(-38deg) scale(.55);opacity:0}
+}
+.del-wrap.furling .del-pill,.del-wrap.armed .del-pill,
+.del-wrap.furling .del-disc,.del-wrap.armed .del-disc,
+.del-wrap.sealing .del-pill,.del-wrap.sealing .del-disc{
+  clip-path:inset(0 var(--fx) 0 var(--fx) round var(--rr));
+  transition:clip-path .52s cubic-bezier(.65,0,.35,1)}
+.del-wrap.furling .del-pill{opacity:0;transition:clip-path .52s cubic-bezier(.65,0,.35,1),opacity .52s ease}
+.del-wrap.armed .del-pill,.del-wrap.sealing .del-pill{opacity:0}
+.del-wrap.furling .del-disc,.del-wrap.armed .del-disc{opacity:1;pointer-events:auto}
+.del-wrap.armed .del-disc .del-fill{transform:translateY(0)}
+.del-wrap.returning .del-pill,.del-wrap.returning .del-disc{
+  clip-path:inset(0 var(--fx) 0 var(--fx) round var(--rr));
+  transition:clip-path .52s cubic-bezier(.65,0,.35,1)}
+.del-wrap.returning .del-pill{opacity:1;transition:clip-path .52s cubic-bezier(.65,0,.35,1),opacity .3s ease .22s}
+.del-wrap.returning .del-disc{opacity:0;transition:opacity .3s ease}
+.del-wrap.returning .del-pill .del-letter{animation:del-fly-back .5s cubic-bezier(.35,.7,.45,1) forwards;
+  animation-delay:var(--fd)}
+@keyframes del-fly-back{
+  0%{transform:translate(var(--dx),var(--dy)) rotate(-38deg) scale(.55);opacity:0}
+  55%{transform:translate(calc(var(--dx) * .45),calc(var(--dy) * .45 - 22px)) rotate(-14deg) scale(.95);opacity:1}
+  100%{transform:translate(0,0) rotate(0deg) scale(1);opacity:1}
+}
+.del-ring{position:absolute;left:50%;top:50%;width:64px;height:64px;transform:translate(-50%,-50%);
+  opacity:0;pointer-events:none}
+.del-ring circle{fill:none;stroke:#8deb00;stroke-width:2.5;stroke-linecap:round;
+  stroke-dasharray:100;stroke-dashoffset:100}
+.del-wrap.sealing .del-ring{opacity:1}
+.del-wrap.sealing .del-ring circle{transition:stroke-dashoffset .4s ease;stroke-dashoffset:0}
+.del-wrap.sealing .del-disc .del-bin{color:#8deb00}
+/* Undo / error toast — clears the bottom nav */
+.del-toast{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 88px);
+  z-index:302;max-width:480px;margin:0 auto;background:#151517;border:1px solid var(--border);
+  border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;box-shadow:0 8px 28px rgba(0,0,0,.5);
+  opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .25s ease,transform .25s ease}
+.del-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
+.del-toast-msg{font-size:14px;color:var(--text)}
+.del-toast-undo{background:none;border:none;color:#8deb00;font-family:var(--font-b);
+  font-size:14px;font-weight:700;cursor:pointer;padding:4px 2px;white-space:nowrap}
+.del-toast-undo[hidden]{display:none}
+/* collapse + restore for deleted cards and comments */
+.feed-card.del-collapsing,.comment.del-collapsing{
+  transform:scaleY(0);opacity:0;transform-origin:top center;
+  transition:transform .3s ease,opacity .3s ease}
+.feed-card.del-restoring,.comment.del-restoring{
+  transform:scaleY(1);opacity:1;transform-origin:top center;
+  transition:transform .3s ease,opacity .3s ease}
+.comment-del{background:none;border:none;color:var(--muted-2);font-family:var(--font-d);
+  font-size:11px;cursor:pointer;padding:2px 0 0;margin-left:8px}
+.comment-del:hover{color:#ff6b6b}
+@media (prefers-reduced-motion: reduce){
+  .del-wrap.eating .del-pill .del-letter,.del-wrap.returning .del-pill .del-letter{animation:none}
+  .del-sheet,.del-backdrop,.del-toast,.feed-card.del-collapsing,.comment.del-collapsing,
+  .feed-card.del-restoring,.comment.del-restoring{transition:none}
+}
 /* premium micro-animations: layered glow + spring physics */
 .feed-act{position:relative;overflow:visible}
 .feed-act::after{content:'';position:absolute;inset:0;margin:auto;width:36px;height:36px;
@@ -1189,10 +1281,12 @@ async function loadFeed() {
         snap.forEach(doc => {
           const c = doc.data();
           const av = c.actorAvatar ? `<img src="${esc(c.actorAvatar)}" alt=""/>` : esc((c.actorName||'?')[0].toUpperCase());
+          const cDel = (u && c.actorUid === u.uid)
+            ? `<button class="comment-del" data-act="del-comment" data-id="${doc.id}" data-item="${itemId}">Delete</button>` : '';
           h += `<div class="comment"><div class="comment-av">${av}</div>` +
             `<div class="comment-body"><div class="comment-name">${esc(c.actorName||'Operator')}</div>` +
             `<div class="comment-text">${esc(c.text||'')}</div>` +
-            `<div class="comment-time">${timeAgo(c.createdAt)}</div></div></div>`;
+            `<div class="comment-time">${timeAgo(c.createdAt)}${cDel}</div></div></div>`;
         });
         if(u){
           h += `<div class="comment-form"><input type="text" placeholder="Write a comment…" data-cinput="${itemId}" maxlength="300"/>` +
@@ -1234,30 +1328,287 @@ async function loadFeed() {
       }
       await ref.delete();
     }
-    async function handleDelete(btn, itemId, card){
-      const label = btn.querySelector('.del-label');
-      if(!btn.dataset.armed){
-        btn.dataset.armed = '1';
-        btn.classList.add('armed');
-        if(label) label.textContent = 'Confirm?';
-        setTimeout(() => {
-          delete btn.dataset.armed;
-          btn.classList.remove('armed');
-          if(label) label.textContent = 'Delete';
-        }, 3500);
+    function handleDelete(btn, itemId, card){
+      if(!card) return;
+      delOpenSheet({ kind: 'post', itemId: itemId, el: card, parent: card.parentNode, next: card.nextElementSibling });
+    }
+    /* --- Delete sheet + gulp animation (your own posts and comments) --- */
+    /* The gulp: tap Delete, the letters fly one by one into the tilted,
+       lid-open bin; the pill shrinks to a disc; tap the disc and a ring
+       seals the delete. Tap Cancel or the backdrop and the letters fly
+       back out. The delete is undoable for 5 seconds. */
+    var delState = 'idle'; /* idle | eating | furling | armed | sealing | returning */
+    var delTarget = null; /* {kind, itemId, commentId, el, parent, next} */
+    var delUndo = null; /* {kind, snap, el, parent, next} */
+    var delUndoTimer = null;
+    var delLanded = 0, delTotal = 0;
+    var delEls = null, delWired = false;
+    function delInit(){
+      if(delWired) return;
+      delEls = {
+        wrap: document.getElementById('delWrap'),
+        pill: document.getElementById('delPill'),
+        disc: document.getElementById('delDisc'),
+        label: document.getElementById('delLabel'),
+        sheet: document.getElementById('delSheet'),
+        backdrop: document.getElementById('delBackdrop'),
+        cancel: document.getElementById('delCancel'),
+        title: document.getElementById('delSheetTitle'),
+        sub: document.getElementById('delSheetSub'),
+        toast: document.getElementById('delToast'),
+        toastMsg: document.getElementById('delToastMsg'),
+        toastUndo: document.getElementById('delToastUndo')
+      };
+      if(!delEls.wrap || !delEls.pill) return;
+      delEls.letters = Array.prototype.slice.call(delEls.label.querySelectorAll('.del-letter'));
+      delEls.mouth = delEls.pill.querySelector('.del-bin');
+      delTotal = delEls.letters.length;
+      delEls.pill.addEventListener('click', delOnPill);
+      delEls.disc.addEventListener('click', delOnDisc);
+      delEls.cancel.addEventListener('click', delRequestClose);
+      delEls.backdrop.addEventListener('click', delRequestClose);
+      delEls.toastUndo.addEventListener('click', delDoUndo);
+      delEls.label.addEventListener('animationend', function(e){
+        if(delState !== 'eating' || !e.target.classList.contains('del-letter')) return;
+        delLanded++;
+        delEls.wrap.style.setProperty('--p', (delLanded / delTotal).toFixed(3));
+        delSlosh();
+        if(delLanded >= delTotal) delFurl();
+      });
+      delWired = true;
+    }
+    function delMeasureFlight(){
+      var mouth = delEls.mouth.getBoundingClientRect();
+      var mx = mouth.left + mouth.width / 2, my = mouth.top + mouth.height * 0.15;
+      delEls.letters.forEach(function(sp, i){
+        var r = sp.getBoundingClientRect();
+        var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        sp.style.setProperty('--dx', (mx - cx).toFixed(1) + 'px');
+        sp.style.setProperty('--dy', (my - cy).toFixed(1) + 'px');
+        sp.style.setProperty('--fd', (i * 90) + 'ms');
+      });
+    }
+    function delSlosh(){
+      var bin = delEls.pill.querySelector('.del-bin');
+      bin.animate(
+        [{ transform: 'rotate(-14deg)' }, { transform: 'rotate(-9deg)' }, { transform: 'rotate(-14deg)' }],
+        { duration: 160, easing: 'ease-in-out' });
+    }
+    function delOnPill(){
+      if(delState !== 'idle') return;
+      delState = 'eating'; delLanded = 0;
+      delEls.wrap.style.setProperty('--p', '0');
+      delMeasureFlight();
+      delEls.wrap.className = 'del-wrap eating';
+    }
+    function delFurl(){
+      delState = 'furling';
+      var w = delEls.wrap.getBoundingClientRect().width;
+      var fx = (((w - 56) / 2) / w * 100).toFixed(1);
+      delEls.wrap.style.setProperty('--fx', fx + '%');
+      delEls.wrap.className = 'del-wrap furling';
+      setTimeout(function(){
+        if(delState !== 'furling') return;
+        delState = 'armed';
+        delEls.wrap.className = 'del-wrap armed';
+      }, 540);
+    }
+    function delOnDisc(){
+      if(delState !== 'armed') return;
+      delState = 'sealing';
+      delEls.wrap.className = 'del-wrap sealing';
+      setTimeout(delRunDelete, 420);
+    }
+    function delResetControl(){
+      delState = 'idle'; delLanded = 0;
+      delEls.wrap.className = 'del-wrap';
+      delEls.wrap.style.setProperty('--p', '0');
+      delEls.wrap.style.setProperty('--fx', '0%');
+      delEls.letters.forEach(function(sp){
+        sp.style.removeProperty('--dx'); sp.style.removeProperty('--dy'); sp.style.removeProperty('--fd');
+      });
+    }
+    function delDisarm(done){
+      if(delState === 'idle'){ if(done) done(); return; }
+      delState = 'returning';
+      delEls.wrap.style.setProperty('--fx', '0%');
+      delEls.wrap.style.setProperty('--p', '0');
+      delEls.letters.forEach(function(sp, i){
+        sp.style.setProperty('--fd', ((delTotal - 1 - i) * 90) + 'ms');
+      });
+      delEls.wrap.className = 'del-wrap returning';
+      setTimeout(function(){ delResetControl(); if(done) done(); }, 540);
+    }
+    function delOpenSheet(target){
+      delInit();
+      if(!delEls || !delEls.wrap) return;
+      delTarget = target;
+      delResetControl();
+      delEls.title.textContent = target.kind === 'post' ? 'Delete this post?' : 'Delete this comment?';
+      delEls.sub.textContent = target.kind === 'post'
+        ? 'It leaves the feed, and you can undo it right after.'
+        : 'It leaves the conversation, and you can undo it right after.';
+      delEls.backdrop.classList.add('open');
+      delEls.sheet.classList.add('open');
+    }
+    function delCloseSheetNow(){
+      if(!delEls) return;
+      delEls.backdrop.classList.remove('open');
+      delEls.sheet.classList.remove('open');
+    }
+    function delRequestClose(){
+      if(delState === 'sealing') return;
+      if(delState === 'idle'){ delCloseSheetNow(); delTarget = null; return; }
+      delDisarm(function(){ delCloseSheetNow(); delTarget = null; });
+    }
+    /* Collapse a card or comment with a FLIP gap-close, then detach it. */
+    function delCollapse(el, parent){
+      if(!el || !parent) return;
+      var followers = [];
+      var sib = el.nextElementSibling;
+      while(sib){ followers.push({ el: sib, top: sib.getBoundingClientRect().top }); sib = sib.nextElementSibling; }
+      el.classList.add('del-collapsing');
+      /* The removal is cancellable: a fast delete failure rolls the card
+         back before this timer fires, and the timer must not remove it
+         after the rollback. */
+      el._delRemoveTimer = setTimeout(function(){
+        el._delRemoveTimer = null;
+        el.remove();
+        followers.forEach(function(f){
+          var dy = f.top - f.el.getBoundingClientRect().top;
+          if(!dy) return;
+          f.el.style.transition = 'none';
+          f.el.style.transform = 'translateY(' + dy + 'px)';
+          requestAnimationFrame(function(){
+            f.el.style.transition = 'transform .3s ease';
+            f.el.style.transform = '';
+          });
+        });
+      }, 320);
+    }
+    /* Put a collapsed element back where it was. If the list re-rendered
+       under us, refresh the feed instead (posts) — a comment's box
+       re-fetches on open, so nothing else is needed there. */
+    function delRestoreEl(el, parent, next){
+      if(!el || !parent) return;
+      if(el._delRemoveTimer){ clearTimeout(el._delRemoveTimer); el._delRemoveTimer = null; }
+      if(parent.isConnected && (!next || next.parentNode === parent)){
+        parent.insertBefore(el, next || null);
+        el.classList.remove('del-collapsing');
+        void el.offsetWidth;
+        el.classList.add('del-restoring');
+        setTimeout(function(){ el.classList.remove('del-restoring'); }, 320);
+      } else if(el.classList && el.classList.contains('feed-card')){
+        try { loadFeed(); } catch(e){}
+      }
+    }
+    /* Snapshot a post (item + comments + reactions) so Undo can put the
+       exact same docs back, same ids. */
+    async function delSnapshotPost(itemId){
+      var db = firebase.firestore();
+      var ref = db.collection('feedItems').doc(itemId);
+      var itemSnap = await ref.get();
+      if(!itemSnap.exists) throw new Error('missing');
+      var snap = { itemId: itemId, item: itemSnap.data(), comments: [], reactions: [] };
+      for(var i = 0; i < 2; i++){
+        var name = i === 0 ? 'comments' : 'reactions';
+        var qs = await ref.collection(name).get();
+        qs.forEach(function(d){ snap[name].push({ id: d.id, data: d.data() }); });
+      }
+      return snap;
+    }
+    async function delRestorePost(snap){
+      var db = firebase.firestore();
+      var ref = db.collection('feedItems').doc(snap.itemId);
+      var batch = db.batch(); var n = 0;
+      async function put(docRef, data){
+        batch.set(docRef, data); n++;
+        if(n === 450){ await batch.commit(); batch = db.batch(); n = 0; }
+      }
+      await put(ref, snap.item);
+      for(var i = 0; i < snap.comments.length; i++)
+        await put(ref.collection('comments').doc(snap.comments[i].id), snap.comments[i].data);
+      for(var j = 0; j < snap.reactions.length; j++)
+        await put(ref.collection('reactions').doc(snap.reactions[j].id), snap.reactions[j].data);
+      if(n) await batch.commit();
+    }
+    async function delSnapshotComment(itemId, commentId){
+      var ref = firebase.firestore().collection('feedItems').doc(itemId).collection('comments').doc(commentId);
+      var snap = await ref.get();
+      if(!snap.exists) throw new Error('missing');
+      return { itemId: itemId, commentId: commentId, data: snap.data() };
+    }
+    async function delRestoreComment(snap){
+      await firebase.firestore().collection('feedItems').doc(snap.itemId)
+        .collection('comments').doc(snap.commentId).set(snap.data);
+    }
+    async function delRunDelete(){
+      var t = delTarget; if(!t) return;
+      delTarget = null;
+      delCloseSheetNow();
+      var el = t.el, parent = t.parent, next = t.next;
+      delCollapse(el, parent);
+      var snap = null;
+      try {
+        snap = t.kind === 'post'
+          ? await delSnapshotPost(t.itemId)
+          : await delSnapshotComment(t.itemId, t.commentId);
+      } catch(e){
+        delRestoreEl(el, parent, next);
+        delShowError('Could not delete — try again.');
         return;
       }
-      btn.disabled = true;
-      if(label) label.textContent = 'Deleting…';
-      try{
-        await deleteFeedItem(itemId);
-        if(card){ card.classList.add('removing'); setTimeout(() => card.remove(), 260); }
-      }catch(err){
-        btn.disabled = false;
-        delete btn.dataset.armed;
-        btn.classList.remove('armed');
-        if(label){ label.textContent = 'Failed — retry'; setTimeout(() => { label.textContent = 'Delete'; }, 2500); }
+      try {
+        if(t.kind === 'post') await deleteFeedItem(t.itemId);
+        else await firebase.firestore().collection('feedItems').doc(t.itemId)
+          .collection('comments').doc(t.commentId).delete();
+      } catch(e){
+        delRestoreEl(el, parent, next);
+        delShowError('Could not delete — try again.');
+        return;
       }
+      delShowUndo(t.kind, snap, el, parent, next);
+    }
+    async function delDoUndo(){
+      var u = delUndo; if(!u) return;
+      delClearUndo();
+      delHideToast();
+      try {
+        if(u.kind === 'post') await delRestorePost(u.snap);
+        else await delRestoreComment(u.snap);
+      } catch(e){
+        delShowError('Could not undo — try again.');
+        return;
+      }
+      delRestoreEl(u.el, u.parent, u.next);
+    }
+    function delShowUndo(kind, snap, el, parent, next){
+      delClearUndo();
+      delUndo = { kind: kind, snap: snap, el: el, parent: parent, next: next };
+      delInit();
+      delEls.toastMsg.textContent = kind === 'post' ? 'Post deleted' : 'Comment deleted';
+      delEls.toastUndo.hidden = false;
+      delEls.toast.classList.add('show');
+      delUndoTimer = setTimeout(function(){ delClearUndo(); delHideToast(); }, 5000);
+    }
+    function delShowError(msg){
+      delClearUndo();
+      delInit();
+      delEls.toastMsg.textContent = msg;
+      delEls.toastUndo.hidden = true;
+      delEls.toast.classList.add('show');
+      delUndoTimer = setTimeout(delHideToast, 3500);
+    }
+    function delClearUndo(){
+      if(delUndoTimer){ clearTimeout(delUndoTimer); delUndoTimer = null; }
+      delUndo = null;
+    }
+    function delHideToast(){ if(delEls && delEls.toast) delEls.toast.classList.remove('show'); }
+    function handleCommentDelete(btn){
+      var cmt = btn.closest('.comment');
+      if(!cmt) return;
+      delOpenSheet({ kind: 'comment', itemId: btn.dataset.item, commentId: btn.dataset.id,
+        el: cmt, parent: cmt.parentNode, next: cmt.nextElementSibling });
     }
     async function sharePost(itemId, d, btn){
       if(btn){ btn.classList.remove('anim-share'); void btn.offsetWidth; btn.classList.add('anim-share');
@@ -1294,6 +1645,7 @@ async function loadFeed() {
         else if(act.dataset.act === 'comment') toggleComments(itemId, act);
         else if(act.dataset.act === 'share' && d) sharePost(itemId, d, act);
         else if(act.dataset.act === 'delete') handleDelete(act, itemId, card);
+        else if(act.dataset.act === 'del-comment') handleCommentDelete(act);
         return;
       }
       /* Plasma (PR B): a tap on a transmission card's body opens that
@@ -1829,5 +2181,55 @@ loadFeed();
 })();
 </script>
 <script src="/scripts/ptr.js?v=20261001a"></script>
+  <!-- Delete sheet: gulp confirm for your own Signal posts and comments -->
+  <div class="del-backdrop" id="delBackdrop"></div>
+  <div class="del-sheet" id="delSheet" role="dialog" aria-modal="true" aria-labelledby="delSheetTitle">
+    <div class="del-sheet-grip"></div>
+    <h3 class="del-sheet-title" id="delSheetTitle">Delete this post?</h3>
+    <p class="del-sheet-sub" id="delSheetSub">You can undo it right after.</p>
+    <div class="del-control">
+      <div class="del-wrap" id="delWrap">
+        <button class="del-pill" id="delPill" type="button" aria-label="Delete">
+          <svg class="del-bin" viewBox="0 0 24 24" aria-hidden="true">
+            <defs>
+              <clipPath id="delBinClipPill"><path d="M6.2 8.4 L7.3 19.4 Q7.4 20.4 8.5 20.4 L15.5 20.4 Q16.6 20.4 16.7 19.4 L17.8 8.4 Z"/></clipPath>
+            </defs>
+            <g class="del-body">
+              <path d="M5 8.2 L6.2 19.6 Q6.4 21 7.8 21 L16.2 21 Q17.6 21 17.8 19.6 L19 8.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <g clip-path="url(#delBinClipPill)"><rect class="del-fill" x="5" y="7" width="14" height="15"/></g>
+              <path d="M10 12v5M14 12v5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </g>
+            <g class="del-lid">
+              <path d="M4 8.2h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M9.5 8.2V6.4a1 1 0 011-1h3a1 1 0 011 1v1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </svg>
+          <span class="del-label" id="delLabel"><span class="del-letter">D</span><span class="del-letter">e</span><span class="del-letter">l</span><span class="del-letter">e</span><span class="del-letter">t</span><span class="del-letter">e</span></span>
+        </button>
+        <button class="del-disc" id="delDisc" type="button" aria-label="Tap again to confirm delete">
+          <svg class="del-bin" viewBox="0 0 24 24" aria-hidden="true">
+            <defs>
+              <clipPath id="delBinClipDisc"><path d="M6.2 8.4 L7.3 19.4 Q7.4 20.4 8.5 20.4 L15.5 20.4 Q16.6 20.4 16.7 19.4 L17.8 8.4 Z"/></clipPath>
+            </defs>
+            <g class="del-body">
+              <path d="M5 8.2 L6.2 19.6 Q6.4 21 7.8 21 L16.2 21 Q17.6 21 17.8 19.6 L19 8.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <g clip-path="url(#delBinClipDisc)"><rect class="del-fill" x="5" y="7" width="14" height="15"/></g>
+              <path d="M10 12v5M14 12v5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </g>
+            <g class="del-lid">
+              <path d="M4 8.2h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              <path d="M9.5 8.2V6.4a1 1 0 011-1h3a1 1 0 011 1v1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </svg>
+        </button>
+        <svg class="del-ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" pathLength="100" transform="rotate(-90 32 32)"/></svg>
+      </div>
+    </div>
+    <button class="del-cancel" id="delCancel" type="button">Cancel</button>
+  </div>
+  <div class="del-toast" id="delToast" role="status">
+    <span class="del-toast-msg" id="delToastMsg">Post deleted</span>
+    <button class="del-toast-undo" id="delToastUndo" type="button">Undo</button>
+  </div>
 </body>
 </html>
