@@ -1,0 +1,46 @@
+name: Duel closer
+
+# Duels scheduled job: settles duel expiries, defaults, and vote crowns;
+# posts duel entries and results to the Signal; sends cross-user duel
+# notifications; updates duelRecords and awards winner XP.
+#
+# Service-account pattern mirrors arena-close.yml exactly:
+#   1. Firebase console → Project settings → Service accounts →
+#      "Generate new private key" (JSON).
+#   2. GitHub repo → Settings → Secrets and variables → Actions →
+#      repo secret named FIREBASE_SERVICE_ACCOUNT, whole JSON pasted.
+# No secrets in chat, no secrets committed.
+#
+# Cadence: hourly UTC. Duel windows end whenever their 24h clocks run out
+# (not at a fixed hour like Arena rounds), so an hourly sweep settles each
+# expiry, default, and crown within the hour.
+# The closer is the SINGLE WRITER for duel settlement, records, duel XP,
+# duel Signal posts, and duel notifications.
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+# Serialize with every other duel-closer execution: the closer stays the
+# single writer for duel state even under dense triggers.
+concurrency:
+  group: duel-closer
+  cancel-in-progress: false
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install firebase-admin
+        run: npm install
+        working-directory: tools/duel-closer
+      - name: Run the duel closer
+        run: node closer.js
+        working-directory: tools/duel-closer
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
