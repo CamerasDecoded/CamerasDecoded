@@ -2725,11 +2725,13 @@ var _pfProCache = null;
        One row per field, each with its own Edit + Save — saving the handle
        never touches the website or the booking link, and a field left
        blank stays blank without affecting the others. Each save writes
-       only its own field: the socials fields write the full socials map
-       built from the loaded values (so the other handle is preserved
-       exactly), the booking link writes its own top-level field. If the
-       load failed, a save updates only its own field path — never an
-       empty value over stored data it never saw. */
+       only its own field: the socials fields update only their own
+       field path (the other handle is never read or written), the
+       booking link writes its own top-level field. The load is a
+       server read, never the cache — a stale cached snapshot once
+       showed saved values as "Not set" and a save built from it
+       wiped the website. If the server read fails, the card says so
+       instead of showing empty rows. */
     var bizLoaded = null;      // {instagram, website, bookingLink} once read; null until loaded
     var bizLoadFailed = false;
     var bizEditing = null;     // 'instagram' | 'website' | 'bookingLink' | null
@@ -2789,7 +2791,12 @@ var _pfProCache = null;
     }
     function bizLoadCard() {
       if (bizLoaded !== null || !currentUser || !db) return;
-      db.collection('publicProfiles').doc(currentUser.uid).get().then(function (snap) {
+      /* Server read, never the cache: on a flaky connection the SDK can
+         serve a stale in-memory snapshot (all empty) and the card would
+         show "Not set" for values that are saved — and a save built from
+         those empty values would wipe them. A failed server read shows
+         the honest load-fail state instead. */
+      db.collection('publicProfiles').doc(currentUser.uid).get({ source: 'server' }).then(function (snap) {
         var info = snap.exists ? (snap.data() || {}) : {};
         var soc = info.socials || {};
         bizLoaded = {
@@ -2840,17 +2847,12 @@ var _pfProCache = null;
       var stamp = firebase.firestore.FieldValue.serverTimestamp();
       if (kind === 'bookingLink') {
         ref.set({ bookingLink: value, bizInfoUpdatedAt: stamp }, { merge: true }).then(done).catch(failed);
-      } else if (bizLoaded !== null) {
-        /* Full socials map from the loaded values, with only this field
-           changed — the other handle is preserved exactly. */
-        var soc = { instagram: bizLoaded.instagram || '', website: bizLoaded.website || '' };
-        soc[kind] = value;
-        ref.set({ socials: soc, bizInfoUpdatedAt: stamp }, { merge: true }).then(done).catch(failed);
       } else {
-        /* Never loaded: update only this field's path, so the other
-           handle — whatever it is — is untouched. If the doc doesn't
+        /* update() on this field's path only — the other handle is never
+           read, never written, whatever the card loaded. A save from a
+           stale or failed load cannot wipe anything. If the doc doesn't
            exist yet, create it with just this field. */
-        var path = {};
+        var path = { bizInfoUpdatedAt: stamp };
         path['socials.' + kind] = value;
         ref.update(path).then(done).catch(function (err) {
           if (err && err.code === 'not-found') {
