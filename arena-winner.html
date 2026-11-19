@@ -491,10 +491,34 @@
               text: name + ' won the Arena: "' + (round.title || 'Untitled round') + '" — judged blind. Proven nightly.',
               url: window.location.href
             };
-            if (navigator.share) { navigator.share(shareData).catch(function () {}); }
-            else if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(shareData.url).then(function () { shareBtn.textContent = 'Link copied'; });
+            /* No share sheet at all: copy the link, as before. */
+            if (!navigator.share) {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shareData.url).then(function () { shareBtn.textContent = 'Link copied'; });
+              }
+              return;
             }
+            /* Share the winning photo itself — Instagram and Threads need
+               an image file to post. Anything that fails (no image, an
+               expired image, CORS, no file support) falls back to the
+               text+link share. A dismissed sheet stays dismissed:
+               AbortError never re-opens it. */
+            function shareText() { return navigator.share(shareData).catch(function () {}); }
+            if (!img) { shareText(); return; }
+            fetch(img).then(function (res) {
+              if (!res.ok) throw new Error('image unavailable');
+              return res.blob();
+            }).then(function (blob) {
+              if (!blob || !blob.size) throw new Error('image empty');
+              var ext = blob.type === 'image/png' ? 'png' : (blob.type === 'image/webp' ? 'webp' : 'jpg');
+              var file = new File([blob], 'arena-winner.' + ext, { type: blob.type || 'image/jpeg' });
+              if (navigator.canShare && !navigator.canShare({ files: [file] })) return shareText();
+              return navigator.share({ files: [file], title: shareData.title, text: shareData.text, url: shareData.url })
+                .catch(function (err) {
+                  if (err && err.name === 'AbortError') return;
+                  return shareText();
+                });
+            }).catch(function () { shareText(); });
           });
         }).catch(function () {
           status('Could not load the crown', 'The round is on record, but its entries would not load. Check your connection and reload.', DOORS);
