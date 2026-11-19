@@ -151,13 +151,19 @@
       '@keyframes cdbcRaysSpin{to{transform:rotate(360deg)}}',
       '@keyframes cdbcHaloPulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:.9;transform:scale(1.08)}}',
       '@keyframes cdbcPillPulse{0%,100%{box-shadow:0 0 12px rgba(212,175,55,.35)}50%{box-shadow:0 0 26px rgba(212,175,55,.7)}}',
-      '.cdbc-wrap{position:fixed;inset:0;z-index:99990;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;transition:opacity .3s ease;pointer-events:none}',
+      '.cdbc-wrap{position:fixed;inset:0;z-index:99990;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;transition:opacity .3s ease;pointer-events:none;background:#040406}',
       '.cdbc-wrap.cdbc-in{opacity:1;pointer-events:auto}',
       '.cdbc-wrap.cdbc-out{opacity:0 !important;pointer-events:none}',
       '.cdbc-card{position:relative}',
       '.cdbc-x{position:absolute;top:10px;right:12px;background:none;border:none;color:#8a8a8f;font-size:28px;line-height:1;cursor:pointer;padding:6px;z-index:5}',
       '.cdbc-x:hover,.cdbc-x:focus-visible{color:#fff;outline:none}',
-      '.cdbc-backdrop{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 36%,rgba(141,235,0,.13),rgba(4,4,6,.94) 72%)}',
+      /* Solid backdrop: the glow gradient sits ON a solid base color, so the
+         celebration is its own moment - the page beneath (a lesson result
+         card, the dashboard) never shows through. The old radial ended at
+         94% dark with a near-clear green center, which let the result card's
+         text collide with the sting's. Matches the site's other stings
+         (goal-crush, quiz, Field Manual), which are all solid black. */
+      '.cdbc-backdrop{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 36%,rgba(141,235,0,.16),rgba(141,235,0,0) 55%),#040406}',
       '.cdbc-card{position:relative;text-align:center;max-width:400px;width:100%;opacity:0}',
       '.cdbc-wrap.cdbc-in .cdbc-card{animation:cdbcCardIn .5s cubic-bezier(.22,1,.36,1) .05s forwards}',
       '.cdbc-kicker{font-size:11px;letter-spacing:4px;font-weight:800;color:#8deb00;margin-bottom:18px;opacity:0}',
