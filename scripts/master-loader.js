@@ -327,6 +327,19 @@
     document.body.appendChild(script);
   }
 
+  // Auth state for the header: user-state.js sets window.USER and dispatches
+  // userStateReady, which header.js needs before it can show the signed-in
+  // header. Pages used to load this tag individually and 21 of them didn't,
+  // so their headers showed Log in / Sign up to signed-in visitors. The
+  // loader owns it now, like the header itself. Skipped when the page
+  // already loads it (212 pages do) so it never runs twice.
+  function loadUserState() {
+    if (document.querySelector('script[src*="user-state.js"]')) return;
+    const script = document.createElement('script');
+    script.src = '/scripts/user-state.js?v=20261014a';
+    document.body.appendChild(script);
+  }
+
   function loadNotifications() {
     if (document.querySelector('script[src*="notifications.js"]')) return;
     const script = document.createElement('script');
@@ -433,6 +446,7 @@
     loadParticles();
     loadCfAnalytics();
     injectFloatingHeader();
+    loadUserState();
     loadHeaderBehavior();
     loadProCheckout();
     loadPaywall();
