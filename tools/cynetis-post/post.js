@@ -9,6 +9,15 @@
  * Writes feedItems/cynetis-<yyyy-MM-dd> (Chicago date) — a deterministic
  * doc id, so reruns and double-fires skip instead of duplicating.
  *
+ * One-off announcements (podcast episodes, etc.) use the same writer with
+ * env overrides — the scheduled daily run never sets these, so its
+ * behavior is unchanged:
+ *   CYNETIS_TEXT   — custom post text (replaces the pool pick)
+ *   CYNETIS_IMAGE  — optional imageUrl for the post
+ *   CYNETIS_DOC_ID — custom doc id (replaces cynetis-<date>); required
+ *                    with CYNETIS_TEXT so a one-off never collides with
+ *                    the daily transmission's doc id.
+ *
  * Env:
  *   SERVICE_ACCOUNT_JSON — repo secret (Firebase service account JSON)
  *   CYNETIS_DATE         — optional yyyy-MM-dd override (testing)
@@ -38,17 +47,25 @@ async function main() {
     fs.readFileSync(path.join(__dirname, "transmissions.json"), "utf8")
   );
   const dateStr = process.env.CYNETIS_DATE || chicagoToday();
+  const customText = process.env.CYNETIS_TEXT || "";
+  const customImage = process.env.CYNETIS_IMAGE || "";
+  const customDocId = process.env.CYNETIS_DOC_ID || "";
+  if (customText && !customDocId) {
+    console.error("CYNETIS_TEXT requires CYNETIS_DOC_ID (never reuse the daily doc id).");
+    process.exit(1);
+  }
   const doc = {
     type: "cynetis_post",
     actorUid: "cynetis-7",
     actorName: "Cynetis-7",
     actorAvatar: "https://camerasdecoded.com/cynetis-avatar.png",
-    text: pickFor(dateStr, pool),
+    text: customText || pickFor(dateStr, pool),
     targetType: "profile",
     targetId: "cynetis-7",
     visibility: "public",
   };
-  const id = "cynetis-" + dateStr;
+  if (customImage) doc.imageUrl = customImage;
+  const id = customDocId || ("cynetis-" + dateStr);
 
   if (process.argv.includes("--dry-run")) {
     console.log(JSON.stringify({ id: id, doc: doc }, null, 2));
@@ -68,7 +85,7 @@ async function main() {
   const ref = db.collection("feedItems").doc(id);
   const existing = await ref.get();
   if (existing.exists) {
-    console.log("Already posted for " + dateStr + " — skipping.");
+    console.log("Already posted " + id + " — skipping.");
     return;
   }
   await ref.set(Object.assign({}, doc, { createdAt: FieldValue.serverTimestamp() }));
