@@ -50,6 +50,7 @@
     quiz:     svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 1 1 3.7 2.4c-.8.4-1.2.9-1.2 1.9"/><circle cx="12" cy="17.2" r="1.1" fill="currentColor" stroke="none"/>'),
     darkroom: svg('<circle cx="12" cy="12" r="9"/><path d="M12 3v9l7.8-4.5M21 12h-9l7.8 4.5M12 21v-9l-7.8 4.5M3 12h9l-7.8-4.5"/>'),
     camera:   svg('<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 7l1.5-2.5h5L16 7"/>'),
+    mic:      svg('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/>'),
     comm:     svg('<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20.5l1.5-4.7A8.4 8.4 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/>'),
     brain:    svg('<path d="M9 3a3 3 0 0 0-3 3v1a3 3 0 0 0 0 6v1a3 3 0 0 0 3 3h1a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/><path d="M15 3a3 3 0 0 1 3 3v1a3 3 0 0 1 0 6v1a3 3 0 0 1-3 3h-1a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>'),
     user:     svg('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/>'),
@@ -94,16 +95,20 @@
       sub: 'Secondary destinations.',
       rows: [
         { href: '/profile.html',          icon: 'user',   title: 'Profile',      sub: 'Account and settings' },
-        { href: '/ask.html',                icon: 'quiz',   title: 'Ask CD',     sub: 'Ask a camera question · Answered from the checked library' },
+        { href: '/snapshot-library.html', icon: 'camera', title: 'Snapshots',    sub: 'Your saved cards' },
+        { header: 'Create' },
         { href: '/shoot-lab.html',          icon: 'practice', title: 'Shoot Lab', sub: 'Nail the exposure triangle' },
         { href: '/darkroom-lab.html',          icon: 'sliders', title: 'Develop Lab', sub: 'Pro photo editor' },
         { href: '/clip-lab.html',             icon: 'camera',  title: 'Clip Lab',   sub: 'Trim, caption, finish clips' },
         { href: '/ai-workbench.html',         icon: 'brain',  title: 'AI Workbench', sub: 'Smart tools' },
-        { href: '/snapshot-library.html', icon: 'camera', title: 'Snapshots',    sub: 'Your saved cards' },
+        { header: 'Learn' },
+        { href: '/ask.html',                icon: 'quiz',   title: 'Ask CD',     sub: 'Ask a camera question · Answered from the checked library' },
         { href: '/protocols.html',       icon: 'library', title: 'Protocols',   sub: 'Training archive' },
-        { href: '/free.html',               icon: 'gift',   title: 'Free',         sub: 'Free drops, cards and downloads' },
+        { href: '/podcast.html',            icon: 'mic',    title: 'Podcast',    sub: 'The Cameras Decoded Podcast' },
+        { header: 'Community' },
         { href: '/leaderboard.html',     icon: 'trophy', title: 'Leaderboard',  sub: 'Top operators this week' },
         { href: '/decoders-crew.html',        icon: 'users',  title: 'Decoders Crew', sub: 'Meet your mentors' },
+        { href: '/free.html',               icon: 'gift',   title: 'Free',         sub: 'Free drops, cards and downloads' },
         // Community cut for launch — returns as a post-launch web-app update.
         { action: 'install',              icon: 'download', title: 'Install app', sub: 'Add Cameras Decoded to your Home Screen' },
         { action: 'logout',               icon: 'exit',   title: 'Log out',      sub: 'End this session' }
@@ -215,6 +220,9 @@
     + '.cd-bn-title{margin:0 0 4px;font-size:18px;font-weight:700;letter-spacing:-.01em}'
     + '.cd-bn-title-art{display:block;height:26px;width:auto}'
     + '.cd-bn-sub{margin:0 0 18px;color:var(--cd-bn-mut);font-size:12px}'
+    + '.cd-bn-group{font-family:"Space Mono",ui-monospace,monospace;font-size:9px;'
+    +   'letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.38);'
+    +   'padding:14px 14px 8px}'
     + '.cd-bn-row{display:flex;align-items:center;gap:14px;min-height:60px;padding:12px 14px;'
     +   'border-radius:12px;border:1px solid var(--cd-bn-border);background:rgba(255,255,255,.02);'
     +   'color:var(--cd-bn-text);text-decoration:none;cursor:pointer;width:100%;'
@@ -420,6 +428,9 @@
     wrap.innerHTML = Object.keys(SHEETS).map(function (key) {
       var s = SHEETS[key];
       var rows = s.rows.map(function (r) {
+        if (r.header) {
+          return '<div class="cd-bn-group" role="presentation">' + r.header + '</div>';
+        }
         if (r.action === 'logout' || r.action === 'install') {
           return '<button type="button" class="cd-bn-row" data-cd-action="' + r.action + '">'
                +   '<span class="cd-bn-ic">' + iconSVG(r.icon) + '</span>'
