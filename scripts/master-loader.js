@@ -406,7 +406,7 @@
     if (document.querySelector('script[src*="bottom-nav.js"]')) return;
     const script = document.createElement('script');
     // ✅ absolute path — dashboard nav, site-wide
-    script.src = '/scripts/bottom-nav.js?v=20261119c';
+    script.src = '/scripts/bottom-nav.js?v=20261121a';
     document.body.appendChild(script);
   }
 

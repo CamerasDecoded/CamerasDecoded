@@ -66,6 +66,7 @@
       { id: 'free',     label: 'Free',          icon: 'fa-gift',             href: '/free.html' },
       { id: 'leaderboard', label: 'Leaderboard', icon: 'fa-trophy',           href: '/leaderboard.html' },
       { id: 'crew',     label: 'Decoders Crew', icon: 'fa-users',            href: '/decoders-crew.html' },
+      { id: 'podcast',  label: 'Podcast',       icon: 'fa-podcast',          href: '/podcast.html' },
     ]}
   ];
 
