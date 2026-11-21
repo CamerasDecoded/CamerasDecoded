@@ -100,8 +100,38 @@
       color:#888;font-family:'Montserrat',sans-serif;font-size:12.5px;cursor:pointer;
       transition:all .2s;}
     .save-btn:hover{border-color:#555;color:#ccc;}
-    .audio-player-container{margin-top:14px;}
+    .audio-player-container{margin-top:14px;display:none;}
+    .audio-player-container.show{display:block;animation:mediaIn .35s ease both;}
     .audio-player-container audio{width:100%;filter:invert(1) hue-rotate(180deg) saturate(3);}
+
+    /* ---- listen / watch toggle ---- */
+    .media-toggle{position:relative;display:inline-flex;margin:0 0 4px;padding:3px;
+      background:#0b0b0d;border:1px solid #242424;border-radius:999px;}
+    .media-toggle-ind{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);
+      border-radius:999px;background:rgba(141,235,0,.16);border:1px solid rgba(141,235,0,.45);
+      transition:transform .35s cubic-bezier(.34,1.4,.44,1);}
+    .media-toggle[data-mode="watch"] .media-toggle-ind{transform:translateX(100%);}
+    .media-toggle-btn{position:relative;z-index:1;flex:1;display:inline-flex;align-items:center;
+      justify-content:center;gap:7px;padding:8px 14px;border:0;background:transparent;color:#888;
+      cursor:pointer;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;
+      letter-spacing:.06em;text-transform:uppercase;transition:color .25s;white-space:nowrap;}
+    .media-toggle-btn.active{color:#8deb00;}
+    .media-toggle-btn i{font-size:12px;}
+
+    /* ---- video player (full card width, phone-reel frame) ---- */
+    .episode-card > .audio-player-container,
+    .episode-card > .video-player-container{grid-column:1/-1;margin-top:0;position:relative;}
+    .video-player-container{margin-top:14px;display:none;}
+    .video-player-container.show{display:block;animation:mediaIn .35s ease both;}
+    .video-player-container video{display:block;width:100%;max-width:400px;margin:0 auto;
+      aspect-ratio:9/16;border-radius:16px;border:1px solid #242424;background:#000;
+      box-shadow:0 0 34px rgba(141,235,0,.12),0 18px 44px rgba(0,0,0,.55);
+      transition:transform .25s,box-shadow .25s;}
+    @media (hover:hover){
+      .video-player-container video:hover{transform:translateY(-2px);
+        box-shadow:0 0 44px rgba(141,235,0,.18),0 22px 48px rgba(0,0,0,.6);}
+    }
+    @keyframes mediaIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 
     /* ---- closing: the one shimmer moment ---- */
     .pc-close{margin:8px 0 0;text-align:center;font-family:'Space Mono',monospace;
@@ -124,6 +154,9 @@
 
     @media (prefers-reduced-motion:reduce){
       .pc-close em{animation:none;}
+      .audio-player-container.show,.video-player-container.show{animation:none;}
+      .media-toggle-ind{transition:none;}
+      .video-player-container video{transition:none;}
       *{text-shadow:none !important;box-shadow:none !important;}
     }
   </style>
@@ -185,7 +218,9 @@
         date: 'November 19, 2026',
         duration: '5:30',
         description: 'Marisol and Zora sort the week\u2019s real camera news \u2014 Panasonic\u2019s SHX1, Nikon\u2019s Z5IIC, Sigma\u2019s FP2 \u2014 from the rumors, and get into the business of getting seen: buy the camera that gets you hired.',
-        audioUrl: '/media/podcast/ep001.mp3'
+        audioUrl: '/media/podcast/ep001.mp3',
+        videoUrl: '/media/podcast/ep001-video.mp4?v=20261121',
+        videoPoster: '/media/podcast/ep001-video-poster.jpg?v=20261121'
       }
     ];
 
@@ -205,74 +240,140 @@
                 <span><i class="far fa-clock"></i> ${ep.duration}</span>
               </div>
               <div class="episode-description">${ep.description}</div>
+              ${ep.videoUrl ? `
+              <div class="media-toggle" data-mode="listen" data-episode="${ep.id}">
+                <span class="media-toggle-ind"></span>
+                <button class="media-toggle-btn active" data-mode="listen" onclick="setMediaMode('${ep.id}','listen')"><i class="fas fa-headphones"></i> Listen</button>
+                <button class="media-toggle-btn" data-mode="watch" onclick="setMediaMode('${ep.id}','watch')"><i class="fas fa-play"></i> Watch</button>
+              </div>` : ''}
               <div class="episode-actions">
                 <button class="btn-play" data-episode="${ep.id}" onclick="togglePlay('${ep.id}')">
                   <i class="fas fa-play"></i> Play
                 </button>
                 <button class="save-btn" onclick="saveEpisode('${ep.id}')">Save to Dashboard</button>
               </div>
-              <div class="audio-player-container" id="audio-${ep.id}" style="display:none;">
-                <audio controls preload="none">
-                  <source src="${ep.audioUrl}" type="audio/mpeg">
-                  Your browser does not support the audio element.
-                </audio>
-              </div>
             </div>
+            <div class="audio-player-container show" id="audio-${ep.id}">
+              <audio controls preload="none">
+                <source src="${ep.audioUrl}" type="audio/mpeg">
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+            ${ep.videoUrl ? `
+            <div class="video-player-container" id="video-${ep.id}">
+              <video controls playsinline preload="none" poster="${ep.videoPoster}">
+                <source src="${ep.videoUrl}" type="video/mp4">
+                Your browser does not support the video element.
+              </video>
+            </div>` : ''}
           </div>
         `;
       });
       episodeList.innerHTML = html;
+
+      // Keep the Play button in sync when media is played via native controls
+      episodeList.querySelectorAll('audio, video').forEach(el => {
+        const card = el.closest('.episode-card');
+        const id = card ? card.getAttribute('data-episode') : null;
+        if (!id) return;
+        el.addEventListener('play', () => {
+          episodeList.querySelectorAll('audio, video').forEach(other => {
+            if (other !== el) other.pause();
+          });
+          const b = document.querySelector(`.btn-play[data-episode="${id}"]`);
+          if (b) { b.innerHTML = '<i class="fas fa-pause"></i> Pause'; b.classList.add('playing'); }
+          currentlyPlaying = id;
+        });
+        el.addEventListener('pause', () => {
+          const b = document.querySelector(`.btn-play[data-episode="${id}"]`);
+          if (b) {
+            b.innerHTML = `<i class="fas fa-play"></i> ${playLabel(mediaMode(id))}`;
+            b.classList.remove('playing');
+          }
+          if (currentlyPlaying === id) currentlyPlaying = null;
+        });
+      });
     }
 
     renderEpisodes();
 
-    // --- PLAY / PAUSE TOGGLE ---
+    // --- LISTEN / WATCH MODE + PLAY / PAUSE ---
     let currentlyPlaying = null;
+    const mediaModes = {};
+
+    function mediaMode(episodeId) {
+      return mediaModes[episodeId] || 'listen';
+    }
+
+    function playLabel(mode) {
+      return mode === 'watch' ? 'Watch' : 'Play';
+    }
+
+    function mediaEl(episodeId) {
+      const mode = mediaMode(episodeId);
+      return document.querySelector(mode === 'watch'
+        ? `#video-${episodeId} video`
+        : `#audio-${episodeId} audio`);
+    }
+
+    function setMediaMode(episodeId, mode) {
+      mediaModes[episodeId] = mode;
+      const toggle = document.querySelector(`.media-toggle[data-episode="${episodeId}"]`);
+      if (toggle) {
+        toggle.setAttribute('data-mode', mode);
+        toggle.querySelectorAll('.media-toggle-btn').forEach(b => {
+          b.classList.toggle('active', b.getAttribute('data-mode') === mode);
+        });
+      }
+      // Pause both media elements and reset the button
+      ['audio', 'video'].forEach(kind => {
+        const el = document.querySelector(`#${kind}-${episodeId} ${kind}`);
+        if (el) el.pause();
+      });
+      const btn = document.querySelector(`.btn-play[data-episode="${episodeId}"]`);
+      if (btn) {
+        btn.classList.remove('playing');
+        btn.innerHTML = `<i class="fas fa-play"></i> ${playLabel(mode)}`;
+      }
+      currentlyPlaying = null;
+      const audioBox = document.getElementById(`audio-${episodeId}`);
+      const videoBox = document.getElementById(`video-${episodeId}`);
+      if (audioBox) audioBox.classList.toggle('show', mode === 'listen');
+      if (videoBox) videoBox.classList.toggle('show', mode === 'watch');
+    }
 
     function togglePlay(episodeId) {
-      const player = document.getElementById(`audio-${episodeId}`);
       const btn = document.querySelector(`.btn-play[data-episode="${episodeId}"]`);
-      if (!player || !btn) return;
+      const media = mediaEl(episodeId);
+      if (!btn || !media) return;
+      const mode = mediaMode(episodeId);
 
-      // If the same episode is clicked, toggle play/pause
-      if (currentlyPlaying === episodeId) {
-        const audio = player.querySelector('audio');
-        if (audio) {
-          if (audio.paused) {
-            audio.play();
-            btn.innerHTML = '<i class="fas fa-pause"></i> Pause';
-            btn.classList.add('playing');
-          } else {
-            audio.pause();
-            btn.innerHTML = '<i class="fas fa-play"></i> Play';
-            btn.classList.remove('playing');
-          }
+      // Pause any other episode that is playing and reset its button
+      if (currentlyPlaying && currentlyPlaying !== episodeId) {
+        const other = mediaEl(currentlyPlaying);
+        if (other) other.pause();
+        const otherBtn = document.querySelector(`.btn-play[data-episode="${currentlyPlaying}"]`);
+        if (otherBtn) {
+          otherBtn.classList.remove('playing');
+          otherBtn.innerHTML = `<i class="fas fa-play"></i> ${playLabel(mediaMode(currentlyPlaying))}`;
         }
-        return;
       }
 
-      // Hide all players and reset buttons
-      document.querySelectorAll('.audio-player-container').forEach(el => el.style.display = 'none');
-      document.querySelectorAll('.btn-play').forEach(b => {
-        b.innerHTML = '<i class="fas fa-play"></i> Play';
-        b.classList.remove('playing');
-      });
-
-      // Show the selected player and play
-      player.style.display = 'block';
-      const audio = player.querySelector('audio');
-      if (audio) {
-        audio.play().catch(() => {});
+      if (media.paused) {
+        media.play().catch(() => {});
         btn.innerHTML = '<i class="fas fa-pause"></i> Pause';
         btn.classList.add('playing');
         currentlyPlaying = episodeId;
-
-        // When audio ends, reset button
-        audio.onended = () => {
-          btn.innerHTML = '<i class="fas fa-play"></i> Play';
+        media.onended = () => {
+          btn.innerHTML = `<i class="fas fa-play"></i> ${playLabel(mode)}`;
           btn.classList.remove('playing');
           currentlyPlaying = null;
         };
+      } else {
+        media.pause();
+        btn.innerHTML = `<i class="fas fa-play"></i> ${playLabel(mode)}`;
+        btn.classList.remove('playing');
+        currentlyPlaying = null;
       }
     }
 
