@@ -301,6 +301,8 @@
     }
     .pp-btn:hover { background: rgba(141,235,0,.08); }
     .pp-btn.following { background: rgba(141,235,0,.12); }
+    /* Busy state while a follow/flash write is in flight (double-tap guard). */
+    .pp-btn:disabled { opacity: .55; cursor: wait; }
     .pp-btn.liked { border-color: var(--green); color: var(--green); background: rgba(141,235,0,.1); }
     .pp-btn .sig-dot {
       width: 8px; height: 8px; border-radius: 50%; background: var(--green);
@@ -3981,8 +3983,16 @@ var _pfProCache = null;
         if (challengeBtn) challengeBtn.style.display = 'none';
       }
 
+      /* Double-tap guard: the follow write is read-then-write, so two fast
+         taps would both read "not following" and double-increment the
+         counts. The flag blocks re-entry; disabled dims the button. */
+      var followBusy = false;
       followBtn.onclick = function () {
+        if (followBusy) return;
         if (needAuth('Sign in to follow operators') || !window.CDSocial) return;
+        followBusy = true;
+        followBtn.disabled = true;
+        function done() { followBusy = false; followBtn.disabled = false; }
         window.CDSocial.isFollowing(info.uid).then(function (f) {
           var p = f ? window.CDSocial.unfollow(info.uid) : window.CDSocial.follow(info.uid);
           p.then(function () {
@@ -3990,16 +4000,24 @@ var _pfProCache = null;
             followBtn.classList.toggle('following', !f);
             var c = document.getElementById('ppFollowers');
             c.textContent = Math.max(0, parseInt(c.textContent || '0', 10) + (f ? -1 : 1));
-          }).catch(function () { window.CDSocial.toast('Could not update follow'); });
-        });
+            done();
+          }).catch(function () { window.CDSocial.toast('Could not update follow'); done(); });
+        }).catch(function () { window.CDSocial.toast('Could not update follow'); done(); });
       };
 
+      /* Same guard on Flash: toggleLike is also read-then-write. */
+      var likeBusy = false;
       likeBtn.onclick = function () {
+        if (likeBusy) return;
         if (needAuth('Sign in to flash operators') || !window.CDSocial) return;
+        likeBusy = true;
+        likeBtn.disabled = true;
+        function done() { likeBusy = false; likeBtn.disabled = false; }
         window.CDSocial.toggleLike(info.uid).then(function (liked) {
           likeLabel.textContent = liked ? 'Flashed' : 'Flash';
           likeBtn.classList.toggle('liked', liked);
-        }).catch(function () { window.CDSocial.toast('Could not flash'); });
+          done();
+        }).catch(function () { window.CDSocial.toast('Could not flash'); done(); });
       };
 
       document.getElementById('ppShareBtn').onclick = function () {
