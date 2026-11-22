@@ -494,8 +494,17 @@
     return 'https://camerasdecoded.com/profile.html?u=' + encodeURIComponent(uid);
   }
 
+  /* Share links go through the per-profile share page (p/<uid>), which
+     carries that person's own Open Graph tags so chat previews show the
+     person, not a bare generic card. Humans landing on it are redirected
+     to the live profile by JS; crawlers never run JS, so they read the
+     tags. Navigation keeps profileUrl() — no redirect hop in-app. */
+  function shareProfileUrl(uid) {
+    return 'https://camerasdecoded.com/p/' + encodeURIComponent(uid);
+  }
+
   function shareProfile(info) {
-    var url = profileUrl(info.uid);
+    var url = shareProfileUrl(info.uid);
     var name = info.displayName || info.username || 'a photographer';
     var stats = [];
     if (info.badgeCount) stats.push(info.badgeCount + ' badges');
