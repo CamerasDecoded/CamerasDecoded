@@ -233,6 +233,8 @@
       displayName: data.displayName || data.name || '',
       username: data.username || '',
       avatarUrl: data.photoURL || '',
+      coverPhoto: data.coverPhoto || '',
+      bio: data.bio || '',
       badgeCount: Object.keys(badges).length,
       streakDays: (data.dailyStreak && data.dailyStreak.count) || data.streak || 0,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
