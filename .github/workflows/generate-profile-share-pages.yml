@@ -1,0 +1,50 @@
+name: Generate profile share pages
+
+# Per-profile link previews: chat apps read the static HTML they fetch,
+# so profile.html?u=<uid> previews as one bare generic card for every
+# profile. tools/profile-share/generate.py writes p/<uid>/index.html for
+# each public profile, carrying that person's own Open Graph tags (name,
+# pitch, avatar) and a JS-only redirect to the live profile. Hourly
+# keeps the cards fresh as profiles change; the generator writes only
+# files whose content changed, so quiet hours commit nothing.
+
+on:
+  schedule:
+    # Hourly, offset from the top of the hour.
+    - cron: '23 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: profile-share-pages
+  cancel-in-progress: false
+
+jobs:
+  generate-share-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate share pages
+        run: python3 tools/profile-share/generate.py
+
+      - name: Commit updated pages
+        run: |
+          git config user.name "cynetis-7"
+          git config user.email "cynetis-7@users.noreply.github.com"
+          git add -A p/
+          if git diff --cached --quiet; then
+            echo "Share pages unchanged, nothing to commit."
+          else
+            git commit -m "Auto-refresh profile share pages"
+            git push
+          fi
