@@ -150,6 +150,27 @@
       /* Subtle gold glow — present, not loud. */
       text-shadow: 0 0 6px rgba(232,193,90,.45);
     }
+    .hero-name-row .tag.pro-tag {
+      /* Bare mark, no pill: the literal word PRO beside the name. Free =
+         dimmed grey (a reminder Pro exists — tapping opens the paywall);
+         Pro = warm reddish-orange glow. Same pattern as the 200 tag. */
+      background: none;
+      border: none;
+      padding: 0;
+      border-radius: 0;
+      box-shadow: none;
+      height: auto;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .hero-name-row .tag.pro-tag.is-pro {
+      color: #ff7b39;
+      /* Soft, subtle reddish-orange glow. */
+      text-shadow: 0 0 10px rgba(255,107,53,.55);
+      cursor: default;
+    }
 
     /* Open to hire toggle: the words ARE the switch. On, they glow soft
        green; off, they sit dimmed. Same pill size as the role tag. Public
@@ -1566,6 +1587,7 @@
         </div>
         <div class="hero-name-row" id="heroNameRow">
           <h2 class="hero-name" id="heroName">—</h2>
+          <button type="button" class="tag pro-tag" id="proTag" aria-label="Upgrade to Pro" hidden>PRO</button>
           <a class="tag founding-tag" id="foundingTag" title="Founding 200 member" href="/founding-200.html" hidden>200</a>
         </div>
         <p class="hero-username" id="heroUsername">—</p>
@@ -2305,6 +2327,7 @@
       document.getElementById('roleTag').textContent = data.role || 'Operator';
       var fTag = document.getElementById('foundingTag');
       if (fTag) fTag.hidden = !(data.foundingDecoder === true);
+      ppRenderProTag(data);
       ppPlaceHeaderBits('ownCover', 'heroNameRow');
       // Basic info card moved to settings.html — guard for removed elements
       var dnd = document.getElementById('displayNameDisplay');
@@ -2706,6 +2729,7 @@ var _pfProCache = null;
           if (typeof pfRenderOwn === 'function') pfRenderOwn();
           if (typeof setupSelectedWork === 'function') setupSelectedWork();
         }
+        if (typeof ppRenderProTag === 'function') ppRenderProTag();
       } catch (e) {}
     }
 
@@ -2991,6 +3015,33 @@ var _pfProCache = null;
       var fTag = document.getElementById('foundingTag');
       var row = document.getElementById(nameRowId);
       if (fTag && row && fTag.parentElement !== row) row.appendChild(fTag);
+    }
+
+    // PRO mark beside the name (own view only): dimmed grey for free
+    // operators — a reminder Pro exists, tapping opens the paywall — and
+    // a warm reddish-orange glow for Pro members. Public view can't show
+    // it: tier lives on the private users doc, not publicProfiles.
+    function ppRenderProTag(data) {
+      var tag = document.getElementById('proTag');
+      if (!tag) return;
+      var isPro = pfIsPro();
+      if (!isPro && data) {
+        try { isPro = String(data.tier || '').toLowerCase() === 'pro'; } catch (e) {}
+      }
+      tag.hidden = false;
+      tag.classList.toggle('is-pro', isPro);
+      tag.setAttribute('aria-label', isPro ? 'Pro member' : 'Upgrade to Pro');
+      if (!tag.dataset.ppBound) {
+        tag.dataset.ppBound = '1';
+        tag.addEventListener('click', function () {
+          // The tag's rendered state is the source of truth: a Pro
+          // member's tap does nothing, a free operator's opens the
+          // paywall. (pfIsPro() alone can lag the users-doc tier.)
+          if (tag.classList.contains('is-pro')) return;
+          if (window.CDPaywall && window.CDPaywall.show) window.CDPaywall.show();
+          else window.location.href = '/pro-checkout.html';
+        });
+      }
     }
 
     // Open to hire toggle (cover banner). One button, two modes: own view it
