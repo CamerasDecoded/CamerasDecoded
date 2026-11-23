@@ -281,17 +281,20 @@
       width: 1px; background: var(--border-dim);
     }
     .hero-stats .pp-stat b { font-size: 22px; }
+    /* Remove-photo button: bare trash icon, no circle (owner, 2026-11-23).
+       The 32px box stays as the tap target; only the visible container
+       is gone. */
     .hero-remove {
       display: none;
-      background: rgba(255,255,255,.06); border: 1px solid var(--border-dim); cursor: pointer;
-      width: 32px; height: 32px; border-radius: 50%;
+      background: transparent; border: none; cursor: pointer;
+      width: 32px; height: 32px; padding: 0;
       align-items: center; justify-content: center;
       color: var(--text-faint);
       /* Inline on the pitch row (JS sets inline-flex): no top margin, or it
          inflates the row's line box and pushes the stats down. */
       vertical-align: middle;
     }
-    .hero-remove:hover { color: #ff7a7a; border-color: #ff7a7a; }
+    .hero-remove:hover { color: #ff7a7a; }
     .hero-remove svg { width: 14px; height: 14px; }
     .hero-status { font-family: var(--mono); font-size: 11px; color: var(--green); min-height: 16px; margin-top: 8px; }
     /* An empty status reserves nothing: it only ever shows a transient
@@ -1306,14 +1309,103 @@
     .pp-cta-sub { display: flex; gap: 10px; margin-top: 10px; }
     .pp-cta-sub .pp-btn { flex: 1; justify-content: center; text-align: center; }
     .pp-stats-wrap { margin-bottom: 20px; }
-    /* Tabs: Portfolio / Awards / Duels / About (own), Portfolio / About (public). */
-    .pp-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-dim); margin-bottom: 16px; }
+    /* Tabs: Portfolio / Posts / Awards / Duels / About (own), Portfolio / Posts / About (public).
+       Five tabs are wider than a 320–360px phone, so the row scrolls
+       horizontally instead of widening the page (no visible scrollbar). */
+    .pp-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-dim); margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .pp-tabs::-webkit-scrollbar { display: none; }
     .pp-tab {
       background: none; border: none; color: var(--text-muted);
       font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 600;
       padding: 10px 12px; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer;
+      flex-shrink: 0; white-space: nowrap;
     }
     .pp-tab.active { color: #fff; border-bottom-color: var(--green); }
+
+    /* CD signature button (canonical: button-variations/signature-button.css,
+       stored 2026-09-25): green-glass gradient + neon text + animated conic
+       chase ring. Inlined here — the profile is the only surface using it
+       so far, and the chase stays reserved for the single primary CTA. */
+    @property --sg-angle { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+    @keyframes sgSpin { to { --sg-angle:360deg; } }
+    .sg {
+      position:relative;
+      display:inline-flex; align-items:center; justify-content:center;
+      width:100%; max-width:340px; height:92px;
+      border-radius:24px;
+      border:1px solid transparent;
+      text-decoration:none; cursor:default;
+      background:
+        linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,0) 42%),
+        linear-gradient(165deg, rgba(141,235,0,.20) 0%, rgba(141,235,0,.07) 60%, rgba(141,235,0,.13) 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.09),
+        0 6px 22px rgba(141,235,0,.10);
+    }
+    .sg::before {
+      content:''; position:absolute; inset:-0.5px; border-radius:inherit;
+      padding:1.5px; opacity:.4; pointer-events:none;
+      background:conic-gradient(from var(--sg-angle,120deg),
+        transparent 20%, #8deb00 40%, transparent 60%, #8deb00 80%, transparent 100%);
+      -webkit-mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+      -webkit-mask-composite:xor;
+              mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+              mask-composite:exclude;
+    }
+    .sg span {
+      font-weight:800; font-size:22px; letter-spacing:.14em;
+      color:#8deb00; text-transform:uppercase;
+      text-shadow:0 0 18px rgba(141,235,0,.45);
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    }
+    .sg-animated::before { animation:sgSpin 6s linear infinite; }
+    .sg-real { height:46px; border-radius:10px; }
+    .sg-real span { font-size:12px; letter-spacing:.06em; }
+    @media (prefers-reduced-motion:reduce) {
+      .sg-animated::before { animation:none; }
+    }
+    /* Share your profile: the signature button at full width (it replaces
+       the old solid-green btn-save), pointer cursor since it is a real
+       <button>, not the canonical <div>. */
+    #ownShareCta.sg { max-width:none; cursor:pointer; }
+
+    /* Profile posts: flat rows in the Signal feed's language — no card
+       per post, divider rows on every width (the flat-mobile rule's
+       spirit, applied here at all widths since a post list is a feed). */
+    .pp-post {
+      display:block; padding:14px 2px; border-bottom:1px solid var(--border-dim);
+      text-decoration:none; color:inherit;
+    }
+    .pp-post:last-child { border-bottom:none; }
+    .pp-post-time {
+      font-family:var(--mono); font-size:11px; color:var(--text-muted);
+      letter-spacing:.5px; margin-bottom:6px;
+    }
+    .pp-post-text {
+      font-size:15px; line-height:1.55; color:var(--text);
+      white-space:pre-line; overflow-wrap:anywhere;
+    }
+    .pp-post-imgs { margin-top:10px; }
+    .pp-post-imgs img {
+      width:100%; border-radius:12px; display:block;
+      border:1px solid var(--border-dim);
+    }
+    .pp-post-imgs.multi { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .pp-post-imgs.multi img { aspect-ratio:1; object-fit:cover; }
+    .pp-posts-more { margin:16px auto 4px; display:block; }
+    .pp-posts-empty, .pp-posts-error {
+      padding:24px 8px; text-align:center; color:var(--text-muted); font-size:14px;
+    }
+
+    /* View-as-public preview bar: only on your own profile seen as a
+       visitor (profile.html?u=<own-uid>&as=public). */
+    #ppPreviewBar {
+      font-family:var(--mono); font-size:11px; letter-spacing:.5px;
+      color:var(--green); background:rgba(141,235,0,.07);
+      border:1px solid rgba(141,235,0,.25); border-radius:10px;
+      padding:10px 12px; margin:0 0 16px; text-align:center;
+    }
+    #ppPreviewBar a { color:#fff; }
     /* Pinned photos: the first three portfolio shots, above the grid. */
     .pp-pins-head {
       font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
@@ -1416,6 +1508,8 @@
 
     <!-- ===== PUBLIC PROFILE VIEW (?u=) ===== -->
     <div id="publicProfileView">
+      <!-- Shown only when viewing your own profile as a visitor. -->
+      <div id="ppPreviewBar" style="display:none;">You&rsquo;re seeing your profile as visitors see it. <a href="profile.html">Back to my profile</a></div>
       <!-- Cover banner: the operator's cover photo, or the CD brand background. -->
       <div class="pp-cover" id="ppCover"></div>
       <div class="pp-card pp-overlap">
@@ -1454,9 +1548,10 @@
         <div class="pp-pins-head">Pinned <span class="tag" id="ppPinsTag"></span></div>
         <div class="pp-pins" id="ppPinsRow"></div>
       </div>
-      <!-- Tabs: Portfolio / About (public view has no duels or badge-case data). -->
+      <!-- Tabs: Portfolio / Posts / About (public view has no duels or badge-case data). -->
       <div class="pp-tabs" id="ppTabsPublic" role="tablist">
         <button type="button" class="pp-tab active" data-tab="portfolio" role="tab">Portfolio</button>
+        <button type="button" class="pp-tab" data-tab="posts" role="tab">Posts</button>
         <button type="button" class="pp-tab" data-tab="about" role="tab">About</button>
       </div>
       <div id="ppTabPublicPortfolio">
@@ -1474,6 +1569,14 @@
         <div class="pp-card" id="ppBookingCard" style="display:none;margin-top:12px;">
           <h3 style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;margin:0 0 8px;">Booking info</h3>
           <div id="ppBookingBody"></div>
+        </div>
+      </div>
+      <div id="ppTabPublicPosts" hidden>
+        <div class="pp-card" id="ppPostsCardPublic" style="margin-top:12px;">
+          <div id="ppPostsListPublic"></div>
+          <div class="pp-posts-empty" id="ppPostsEmptyPublic" hidden>No posts yet.</div>
+          <div class="pp-posts-error" id="ppPostsErrorPublic" hidden>Couldn&rsquo;t load posts. Check your connection and try again.</div>
+          <button type="button" class="pp-btn pp-posts-more" id="ppPostsMorePublic" hidden>Load more</button>
         </div>
       </div>
     </div>
@@ -1539,7 +1642,7 @@
 
       <!-- Share your profile: the loudest action on your own profile. -->
       <div class="pp-cta" id="ownCta">
-        <button type="button" class="btn-save chasing-border" id="ownShareCta"><i class="fas fa-share-alt"></i> Share your profile</button>
+        <button type="button" class="sg sg-animated sg-real" id="ownShareCta"><span><i class="fas fa-share-alt"></i> Share your profile</span></button>
         <div class="pp-cta-sub">
           <a class="pp-btn" id="ownViewPublic" href="#" style="text-decoration:none;">View as public</a>
           <button type="button" class="pp-btn" id="ownEditBooking">Edit booking info</button>
@@ -1564,6 +1667,7 @@
       <!-- Tabs: Portfolio shows everything; other tabs show their section. -->
       <div class="pp-tabs" id="ppTabsOwn" role="tablist">
         <button type="button" class="pp-tab active" data-tab="portfolio" role="tab">Portfolio</button>
+        <button type="button" class="pp-tab" data-tab="posts" role="tab">Posts</button>
         <button type="button" class="pp-tab" data-tab="awards" role="tab">Awards</button>
         <button type="button" class="pp-tab" data-tab="duels" role="tab">Duels</button>
         <button type="button" class="pp-tab" data-tab="about" role="tab">About</button>
@@ -1675,6 +1779,14 @@
       <div id="ppTabAwards" hidden></div>
       <div id="ppTabDuels" hidden></div>
       <div id="ppTabAbout" hidden></div>
+      <div id="ppTabPosts" hidden>
+        <div class="card" id="postsCard">
+          <div id="ppPostsList"></div>
+          <div class="pp-posts-empty" id="ppPostsEmpty" hidden>You haven&rsquo;t posted yet. Your Signal posts will show up here.</div>
+          <div class="pp-posts-error" id="ppPostsError" hidden>Couldn&rsquo;t load posts. Check your connection and try again.</div>
+          <button type="button" class="pp-btn pp-posts-more" id="ppPostsMore" hidden>Load more</button>
+        </div>
+      </div>
 
 
       <footer class="profile-footer">© 2026 Cameras Decoded · All signals locked</footer>
@@ -2286,7 +2398,7 @@
         pfRenderOwn();
       }
       var viewPublic = document.getElementById('ownViewPublic');
-      if (viewPublic && currentUser) viewPublic.href = 'profile.html?u=' + currentUser.uid;
+      if (viewPublic && currentUser) viewPublic.href = 'profile.html?u=' + currentUser.uid + '&as=public';
 
       // Gear & Preferences (structured selectors)
       renderProfileSelectors(data);
@@ -2964,13 +3076,14 @@ var _pfProCache = null;
     // Portfolio shows everything; the other tabs show their section.
     var PP_TAB_CARDS = {
       portfolio: ['portfolioCard', 'selectedWorkCard', 'duelsCard', 'statsCard', 'badgeCard', 'bookingCard'],
+      posts: ['postsCard'],
       awards: ['badgeCard'],
       duels: ['duelsCard'],
       about: ['statsCard', 'bookingCard']
     };
     function ppShowTab(name) {
       _ppActiveTab = name;
-      var panels = { portfolio: 'ppTabPortfolio', awards: 'ppTabAwards', duels: 'ppTabDuels', about: 'ppTabAbout' };
+      var panels = { portfolio: 'ppTabPortfolio', posts: 'ppTabPosts', awards: 'ppTabAwards', duels: 'ppTabDuels', about: 'ppTabAbout' };
       Object.keys(panels).forEach(function (k) {
         var p = document.getElementById(panels[k]);
         if (p) p.hidden = (k !== name);
@@ -2983,16 +3096,22 @@ var _pfProCache = null;
       document.querySelectorAll('#ppTabsOwn .pp-tab').forEach(function (b) {
         b.classList.toggle('active', b.getAttribute('data-tab') === name);
       });
+      // Posts load lazily on first open — no reads for visitors who never
+      // look at the tab.
+      if (name === 'posts') ppOpenPostsTab('own');
     }
     function ppShowTabPublic(name) {
       _ppActivePublicTab = name;
       var port = document.getElementById('ppTabPublicPortfolio');
+      var posts = document.getElementById('ppTabPublicPosts');
       var about = document.getElementById('ppTabPublicAbout');
       if (port) port.hidden = (name !== 'portfolio');
+      if (posts) posts.hidden = (name !== 'posts');
       if (about) about.hidden = (name !== 'about');
       document.querySelectorAll('#ppTabsPublic .pp-tab').forEach(function (b) {
         b.classList.toggle('active', b.getAttribute('data-tab') === name);
       });
+      if (name === 'posts') ppOpenPostsTab('pub');
     }
     function setupProfileTabs() {
       if (window._ppTabsWired) return;
@@ -3003,8 +3122,132 @@ var _pfProCache = null;
       document.querySelectorAll('#ppTabsPublic .pp-tab').forEach(function (b) {
         b.addEventListener('click', function () { ppShowTabPublic(b.getAttribute('data-tab')); });
       });
+      var moreOwn = document.getElementById('ppPostsMore');
+      if (moreOwn) moreOwn.addEventListener('click', function () { ppLoadPosts('own', true); });
+      var morePub = document.getElementById('ppPostsMorePublic');
+      if (morePub) morePub.addEventListener('click', function () { ppLoadPosts('pub', true); });
       // Portfolio is the default tab; make sure its cards are in place.
       ppShowTab('portfolio');
+    }
+
+    /* ---------- Profile posts (Posts tab, own + public) ----------
+       One query per page: feedItems where type == 'post' and
+       actorUid == the profile owner, newest first, 10 at a time.
+       Needs the composite index (feedItems: type ASC, actorUid ASC,
+       createdAt DESC) or the query throws — the tab shows its error
+       state instead of crashing. No per-post subcollection reads: no
+       flash/comment counts on these cards (the reactions live in a
+       subcollection — counting them would cost a read per reaction).
+       Each card links to feed.html#<id>, where the feed scrolls to the
+       post and halos it. No post count anywhere, by design. */
+    var PP_POSTS_PAGE = 10;
+    var ppPostsState = {
+      own: { uid: null, cursor: null, done: false, loading: false, started: false },
+      pub: { uid: null, cursor: null, done: false, loading: false, started: false }
+    };
+    function ppPostsEls(view) {
+      if (view === 'pub') return {
+        list: document.getElementById('ppPostsListPublic'),
+        more: document.getElementById('ppPostsMorePublic'),
+        empty: document.getElementById('ppPostsEmptyPublic'),
+        err: document.getElementById('ppPostsErrorPublic')
+      };
+      return {
+        list: document.getElementById('ppPostsList'),
+        more: document.getElementById('ppPostsMore'),
+        empty: document.getElementById('ppPostsEmpty'),
+        err: document.getElementById('ppPostsError')
+      };
+    }
+    function ppPostCardEl(id, d) {
+      var a = document.createElement('a');
+      a.className = 'pp-post';
+      a.href = 'feed.html#' + encodeURIComponent(id);
+      var ms = (typeof ppTsMs === 'function') ? ppTsMs(d.createdAt) : 0;
+      var time = document.createElement('div');
+      time.className = 'pp-post-time';
+      time.textContent = ppFmtPostDate(ms);
+      a.appendChild(time);
+      if (d.text) {
+        var t = document.createElement('div');
+        t.className = 'pp-post-text';
+        t.textContent = d.text;
+        a.appendChild(t);
+      }
+      var imgs = [];
+      if (d.imageUrl) imgs.push(d.imageUrl);
+      if (Array.isArray(d.imageUrls)) d.imageUrls.forEach(function (u) {
+        if (u && imgs.indexOf(u) === -1) imgs.push(u);
+      });
+      imgs = imgs.slice(0, 4);
+      if (imgs.length) {
+        var wrap = document.createElement('div');
+        wrap.className = 'pp-post-imgs' + (imgs.length > 1 ? ' multi' : '');
+        imgs.forEach(function (u) {
+          var img = document.createElement('img');
+          img.src = u; img.alt = ''; img.loading = 'lazy';
+          wrap.appendChild(img);
+        });
+        a.appendChild(wrap);
+      }
+      return a;
+    }
+    function ppFmtPostDate(ms) {
+      if (!ms) return '';
+      var d = new Date(ms);
+      var now = new Date();
+      if (d.toDateString() === now.toDateString()) {
+        return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+      if (d.getFullYear() === now.getFullYear()) {
+        return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      }
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    function ppLoadPosts(view, more) {
+      var st = ppPostsState[view];
+      var els = ppPostsEls(view);
+      if (!els.list || st.loading || st.done || !st.uid) return;
+      st.loading = true;
+      if (els.more) els.more.disabled = true;
+      var q;
+      try {
+        if (typeof db === 'undefined' || !db) throw new Error('no db');
+        q = db.collection('feedItems').where('type', '==', 'post')
+          .where('actorUid', '==', st.uid).orderBy('createdAt', 'desc').limit(PP_POSTS_PAGE);
+        if (more && st.cursor) q = q.startAfter(st.cursor);
+      } catch (e) {
+        st.loading = false;
+        if (els.more) els.more.disabled = false;
+        if (els.err) els.err.hidden = false;
+        return;
+      }
+      q.get().then(function (snap) {
+        st.loading = false;
+        if (els.more) els.more.disabled = false;
+        var docs = (snap && snap.docs) || [];
+        if (!more && docs.length === 0) {
+          if (els.empty) els.empty.hidden = false;
+          st.done = true;
+          if (els.more) els.more.hidden = true;
+          return;
+        }
+        docs.forEach(function (doc) { els.list.appendChild(ppPostCardEl(doc.id, doc.data() || {})); });
+        if (docs.length) st.cursor = docs[docs.length - 1];
+        st.done = docs.length < PP_POSTS_PAGE;
+        if (els.more) els.more.hidden = st.done;
+      }).catch(function () {
+        st.loading = false;
+        if (els.more) els.more.disabled = false;
+        if (els.err) els.err.hidden = false;
+      });
+    }
+    function ppOpenPostsTab(view) {
+      var st = ppPostsState[view];
+      if (view === 'own' && !st.uid && typeof currentUser !== 'undefined' && currentUser) {
+        st.uid = currentUser.uid;
+      }
+      if (!st.started) { st.started = true; ppLoadPosts(view, false); }
     }
 
     // Own-view CTA: Share delegates to the header's Share button (its
@@ -3020,7 +3263,7 @@ var _pfProCache = null;
         });
       }
       var viewPublic = document.getElementById('ownViewPublic');
-      if (viewPublic && currentUser) viewPublic.href = 'profile.html?u=' + currentUser.uid;
+      if (viewPublic && currentUser) viewPublic.href = 'profile.html?u=' + currentUser.uid + '&as=public';
       var editBooking = document.getElementById('ownEditBooking');
       if (editBooking && !editBooking.dataset.ppBound) {
         editBooking.dataset.ppBound = '1';
@@ -3612,6 +3855,12 @@ var _pfProCache = null;
     var publicUid = (function () {
       try { return new URLSearchParams(location.search).get('u'); } catch (e) { return null; }
     })();
+    // View-as-public preview: profile.html?u=<own-uid>&as=public forces the
+    // public view even for your own uid (without it, the auth gate below
+    // treats self-uid as the own view and the link re-renders the same page).
+    var previewPublic = (function () {
+      try { return new URLSearchParams(location.search).get('as') === 'public'; } catch (e) { return false; }
+    })();
 
     /* ---------- Duels: challenge sheet + own-profile Duels card ---------- */
     var ppChallengeTarget = null;
@@ -4087,6 +4336,9 @@ var _pfProCache = null;
       // Selected Work: showcased galleries (public read)
       swRenderPublic(info.uid);
 
+      // Posts tab: this profile's Signal posts, loaded lazily on first open.
+      ppPostsState.pub.uid = info.uid;
+
       // Tappable stat lists (Facebook-style rows in a bottom sheet).
       var profileName = info.displayName || info.username || 'Operator';
       function bindStat(id, fetchUids, sheetTitle, emptyTitle, emptySub) {
@@ -4147,6 +4399,9 @@ var _pfProCache = null;
         followBtn.style.display = 'none';
         likeBtn.style.display = 'none';
         if (challengeBtn) challengeBtn.style.display = 'none';
+        // View-as-public preview: say so, with a way back.
+        var previewBar = document.getElementById('ppPreviewBar');
+        if (previewBar) previewBar.style.display = 'block';
       }
 
       /* Double-tap guard: the follow write is read-then-write, so two fast
@@ -4202,8 +4457,9 @@ var _pfProCache = null;
     auth.onAuthStateChanged(async (user) => {
       var viewerUid = user ? user.uid : null;
 
-      // Public view takes precedence — works signed-out.
-      if (publicUid && (!viewerUid || publicUid !== viewerUid)) {
+      // Public view takes precedence — works signed-out. &as=public forces
+      // it even for your own uid (the View-as-public preview).
+      if (publicUid && (previewPublic || !viewerUid || publicUid !== viewerUid)) {
         try {
           var info = window.CDSocial ? await window.CDSocial.getPublicProfile(publicUid) : null;
           if (!info) {
