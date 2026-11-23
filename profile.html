@@ -106,13 +106,19 @@
 
     /* Role tag + actions share one row under the title, on every width —
        the header costs two rows instead of three. Wraps if a Founding
-       tag joins the row. */
+       tag joins the row. On phones the row stretches full width and the
+       items share the gaps evenly (see the 640px query below). */
     .header-meta {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: 10px;
     }
+
+    /* One height for the header-meta pills, so the row centers exactly
+       whether or not the icon font has loaded — an unloaded icon
+       collapses to zero height and would otherwise sit 4px low. */
+    .profile-header .tag, .oth-toggle, .header-meta .btn { height: 19px; }
 
     /* All profile titles share one height: 34px desktop, 28px mobile.
        The title PNGs are typeset at one cap height, so equal box height
@@ -143,6 +149,34 @@
       border-color: rgba(232,193,90,.45);
       background: rgba(232,193,90,.08);
     }
+
+    /* Open to hire toggle: the words ARE the switch. On, they glow soft
+       green; off, they sit dimmed. Same pill size as the role tag so the
+       header row stays one line on phones. Public view shows the state
+       with the button disabled — display only, never tappable. */
+    .oth-toggle {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      padding: 2px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border-dim);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color .25s ease, border-color .25s ease, box-shadow .25s ease, text-shadow .25s ease;
+    }
+    .oth-toggle.on {
+      color: var(--green);
+      border-color: rgba(141,235,0,.55);
+      background: rgba(141,235,0,.07);
+      box-shadow: 0 0 14px rgba(141,235,0,.25);
+      text-shadow: 0 0 8px rgba(141,235,0,.6);
+    }
+    /* Disabled must keep our exact colors — browsers grey disabled
+       buttons, which would fake the off state on a glowing public view. */
+    .oth-toggle:disabled { cursor: default; opacity: 1; }
+    .oth-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 
     /* ===== PUBLIC PROFILE VIEW (?u=) ===== */
     #publicProfileView { display: none; }
@@ -399,15 +433,10 @@
     .ppds-result.won { color: var(--green); }
     .ppds-sub { display: block; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .5px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
 
-    .header-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .header-actions .btn {
-      padding: 6px 16px;
+    /* Header Share button (icon-only): 2px vertical padding so the 11px
+       icon fits the shared 19px pill height without overflowing. */
+    .header-meta .btn {
+      padding: 2px 16px;
       border-radius: 8px;
       font-family: 'Space Mono', monospace;
       font-size: 11px;
@@ -423,7 +452,7 @@
       white-space: nowrap;
     }
 
-    .header-actions .btn:hover {
+    .header-meta .btn:hover {
       background: rgba(141,235,0,0.08);
       box-shadow: 0 0 20px rgba(141,235,0,0.1);
     }
@@ -443,9 +472,17 @@
         padding-bottom: 12px;
       }
 
-    .header-actions .btn {
+    .header-meta .btn {
         font-size: 10px;
-        padding: 4px 12px;
+        padding: 2px 12px;
+      }
+
+    .header-meta {
+        /* Even spacing: the row stretches full width and the three pills
+           share the gaps equally, instead of bunching left with dead
+           space on the right. Desktop keeps the grouped-right layout. */
+        width: 100%;
+        justify-content: space-between;
       }
         }
 
@@ -1164,6 +1201,18 @@
     }
     .pp-cover-btn:hover { transform: scale(1.08); }
     .pp-cover-btn:active { transform: scale(.96); }
+    /* Settings gear (own view): center-aligned with the cover camera
+       button above it — both centers sit 29px from the right edge
+       (camera: right 12px + 17px half-width; gear: right 9px + 20px
+       half-width), so the two circles stack in one column. */
+    .hero-settings {
+      position: absolute; top: 16px; right: 9px;
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid var(--border-dim);
+      background: rgba(255,255,255,.06); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
     /* The hero card overlaps the cover's bottom edge (avatar straddles it). */
     .card.profile-hero.pp-overlap { margin-top: -56px; position: relative; z-index: 2; }
     .pp-card.pp-overlap {
@@ -1334,10 +1383,8 @@
       <div class="header-meta">
         <span class="tag" id="roleTag">Operator</span>
         <span class="tag founding-tag" id="foundingTag" hidden>Founding Decoder</span>
-        <div class="header-actions">
-          <a href="operator-dashboard.html" id="dashboardLink" class="btn">Dashboard</a>
-          <button type="button" class="btn" id="shareProfileBtn" title="Share profile"><i class="fas fa-share-alt"></i> Share</button>
-        </div>
+        <button type="button" class="btn" id="shareProfileBtn" title="Share profile" aria-label="Share profile"><i class="fas fa-share-alt"></i></button>
+        <button type="button" class="oth-toggle" id="othToggle" aria-pressed="false" aria-label="Toggle open to hire" disabled>Open to hire</button>
       </div>
     </div>
 
@@ -1420,7 +1467,7 @@
 
       <!-- Profile hero: photo + identity -->
       <div class="card profile-hero pp-overlap" id="profileHero">
-        <a href="/settings.html" style="position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;border:1px solid var(--border-dim);background:rgba(255,255,255,.06);color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;" aria-label="Settings">
+        <a href="/settings.html" class="hero-settings" aria-label="Settings">
           <i class="fas fa-cog"></i>
         </a>
         <div class="hero-photo-wrap">
@@ -2168,7 +2215,6 @@
       heroU.textContent = data.username ? '@' + data.username : '—';
       var emd = document.getElementById('emailDisplay');
       if (emd) emd.textContent = data.email || '—';
-      document.getElementById('dashboardLink').href = 'operator-dashboard.html';
 
       // Avatar
       const avatarPreview = document.getElementById('avatarPreview');
@@ -2829,6 +2875,40 @@ var _pfProCache = null;
       } else {
         avail.style.display = 'none';
       }
+      // Own view: the header toggle shows the stored state and becomes tappable.
+      ppSetOth(bizLoaded && bizLoaded.openToHire === true, true);
+    }
+
+    // Open to hire toggle (header row). One button, two modes: own view it
+    // is a live switch saved to publicProfiles; public view it is display
+    // only (disabled), showing the operator's state. Missing field = off.
+    var othSaving = false;
+    function ppSetOth(on, interactive) {
+      var btn = document.getElementById('othToggle');
+      if (!btn) return;
+      btn.classList.toggle('on', !!on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.disabled = !interactive;
+    }
+    function ppToggleOth() {
+      var btn = document.getElementById('othToggle');
+      if (!btn || othSaving || !currentUser || !db) return;
+      var next = !btn.classList.contains('on');
+      var prev = !next;
+      othSaving = true;
+      ppSetOth(next, false); // optimistic flip; stays disabled while saving
+      var ref = db.collection('publicProfiles').doc(currentUser.uid);
+      var stamp = firebase.firestore.FieldValue.serverTimestamp();
+      ref.set({ openToHire: next, bizInfoUpdatedAt: stamp }, { merge: true }).then(function () {
+        othSaving = false;
+        if (bizLoaded) bizLoaded.openToHire = next;
+        ppSetOth(next, true);
+        cdToast(next ? 'Open to hire — on' : 'Open to hire — off');
+      }).catch(function () {
+        othSaving = false;
+        ppSetOth(prev, true);
+        cdToast('Could not save that. Check your connection and try again.', 'error');
+      });
     }
 
     // Own-view tabs: the cards move into the active panel (their IDs and
@@ -3388,6 +3468,7 @@ var _pfProCache = null;
             location: str(fields.location),
             craft: str(fields.craft),
             availability: str(fields.availability),
+            openToHire: (fields.openToHire && fields.openToHire.booleanValue) === true,
             categories: catVals.map(function (v) { return (v && v.stringValue) || ''; }).filter(Boolean)
           };
           bizLoadFailed = false;
@@ -3939,6 +4020,8 @@ var _pfProCache = null;
           ppAvail.style.display = 'none';
         }
       }
+      // Public view: the header toggle shows the operator's state, display only.
+      ppSetOth(info.openToHire === true, false);
       setupProfileTabs();
       document.getElementById('ppBadges').textContent = info.badgeCount || 0;
       document.getElementById('ppStreak').textContent = info.streakDays || 0;
@@ -4106,6 +4189,12 @@ var _pfProCache = null;
         renderProfile(data);
         ppLoadDuelsCard(user.uid);
         ppLoadDuelsRecord(user.uid); // trophy case: duel wins
+        // Open to hire toggle: own view only, independent of CDSocial.
+        var othBtn = document.getElementById('othToggle');
+        if (othBtn && !othBtn.dataset.othBound) {
+          othBtn.dataset.othBound = '1';
+          othBtn.addEventListener('click', ppToggleOth);
+        }
         // Keep the public card in sync + wire the share button.
         if (window.CDSocial) {
           window.CDSocial.syncPublicProfile(data);
