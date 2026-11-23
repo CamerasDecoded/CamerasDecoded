@@ -237,6 +237,11 @@
       bio: data.bio || '',
       badgeCount: Object.keys(badges).length,
       streakDays: (data.dailyStreak && data.dailyStreak.count) || data.streak || 0,
+      // Public badges: the PRO glow and the Founding 200 mark render on
+      // the public view from these fields (the private users doc is not
+      // readable by visitors). Missing = free / not founding.
+      tier: String(data.tier || 'free').toLowerCase(),
+      foundingDecoder: data.foundingDecoder === true,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     return d.collection('publicProfiles').doc(uid).set(payload, { merge: true }).catch(function () {});

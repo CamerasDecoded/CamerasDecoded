@@ -23,7 +23,7 @@
   <script src="/scripts/haptics.js?v=20261006a"></script>
   <script src="/scripts/gear-awards.js?v=20261001a"></script>
   <script src="/scripts/gear-share.js?v=20261014a"></script>
-  <script src="/scripts/social.js?v=20261122a"></script>
+  <script src="/scripts/social.js?v=20261123a"></script>
 
   <!-- ===== SHARED COMPONENT SCRIPTS ===== -->
   <script src="/header.js?v=20261109a"></script>
@@ -3012,9 +3012,27 @@ var _pfProCache = null;
       var meta = document.getElementById('coverMeta');
       var cover = document.getElementById(coverId);
       if (meta && cover && meta.parentElement !== cover) cover.appendChild(meta);
-      var fTag = document.getElementById('foundingTag');
+      // PRO goes in before the 200 so the row reads name -> PRO -> 200.
+      var pTag = document.getElementById('proTag');
       var row = document.getElementById(nameRowId);
+      if (pTag && row && pTag.parentElement !== row) row.appendChild(pTag);
+      var fTag = document.getElementById('foundingTag');
       if (fTag && row && fTag.parentElement !== row) row.appendChild(fTag);
+    }
+
+    // Public view badges, from the public doc: PRO glows only when the
+    // operator is Pro, the 200 shows only for Founding members — both
+    // hidden otherwise (a free operator's public face shows neither).
+    function ppRenderPublicBadges(info) {
+      var tag = document.getElementById('proTag');
+      if (tag) {
+        var isPro = info && String(info.tier || '').toLowerCase() === 'pro';
+        tag.hidden = !isPro;
+        tag.classList.toggle('is-pro', isPro);
+        tag.setAttribute('aria-label', 'Pro member');
+      }
+      var fTag = document.getElementById('foundingTag');
+      if (fTag) fTag.hidden = !(info && info.foundingDecoder === true);
     }
 
     // PRO mark beside the name (own view only): dimmed grey for free
@@ -4339,6 +4357,7 @@ var _pfProCache = null;
       }
       // Public view: the cover toggle shows the operator's state, display only.
       ppSetOth(info.openToHire === true, false);
+      ppRenderPublicBadges(info);
       ppPlaceHeaderBits('ppCover', 'ppNameRow');
       setupProfileTabs();
       document.getElementById('ppBadges').textContent = info.badgeCount || 0;
