@@ -79,19 +79,17 @@
 
     /* Top clearance tracks the floating header: header top is
        max(12px, safe-area) and the header is ~54px tall on phones, so its
-       bottom sits at safe-area + 54. The old fixed 100px left the title
-       under the header once the body guard removed the 20px the shared
-       sheet used to contribute (100 < 47 + 54 on an iPhone). The formula
-       keeps ~26px of daylight on phones and ~14px where safe-area is 0. */
+       bottom sits at max(12px, safe-area) + 54. The padding mirrors the
+       same max() floor — without it, a zero safe-area (headless, desktop)
+       would eat the 12px the header's own floor adds. +66px leaves 12px
+       of daylight at every safe-area value. */
     @media (max-width: 1024px) {
-    .main-content {padding: calc(env(safe-area-inset-top, 0px) + 80px) 20px 20px;}
+    .main-content {padding: calc(max(12px, env(safe-area-inset-top, 0px)) + 66px) 20px 20px;}
         }
 
+    /* Title-only header: the role tag, Share, and Open to hire live on
+       the cover banner now, and the Founding badge sits by the name. */
     .profile-header {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
       margin-bottom: 28px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--border-dim);
@@ -104,21 +102,11 @@
       gap: 12px;
     }
 
-    /* Role tag + actions share one row under the title, on every width —
-       the header costs two rows instead of three. Wraps if a Founding
-       tag joins the row. On phones the row stretches full width and the
-       items share the gaps evenly (see the 640px query below). */
-    .header-meta {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    /* One height for the header-meta pills, so the row centers exactly
-       whether or not the icon font has loaded — an unloaded icon
-       collapses to zero height and would otherwise sit 4px low. */
-    .profile-header .tag, .oth-toggle, .header-meta .btn { height: 19px; }
+    /* One height for the cover pills and the name badge, so each row
+       centers exactly whether or not the icon font has loaded — an
+       unloaded icon collapses to zero height and would otherwise sit
+       4px low. */
+    .pp-cover-meta .tag, .pp-cover-meta .btn, .oth-toggle, .hero-name-row .tag { height: 19px; }
 
     /* All profile titles share one height: 34px desktop, 28px mobile.
        The title PNGs are typeset at one cap height, so equal box height
@@ -135,7 +123,7 @@
       display: block;
     }
 
-    .profile-header .tag {
+    .pp-cover-meta .tag, .hero-name-row .tag {
       font-size: 11px;
       color: var(--text-muted);
       font-family: 'Space Mono', monospace;
@@ -144,16 +132,29 @@
       border-radius: 20px;
       border: 1px solid var(--border-dim);
     }
-    .profile-header .tag.founding-tag {
+    /* On the banner the tag needs a solid dark back so it reads over any
+       cover photo — the faint default washes out on a bright image. */
+    .pp-cover-meta .tag { background: rgba(12,14,12,.6); }
+    .hero-name-row .tag.founding-tag {
+      /* Bare mark, no pill: just the gold 200 beside the name. */
       color: #e8c15a;
-      border-color: rgba(232,193,90,.45);
-      background: rgba(232,193,90,.08);
+      background: none;
+      border: none;
+      padding: 0;
+      border-radius: 0;
+      box-shadow: none;
+      height: auto;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      /* Subtle gold glow — present, not loud. */
+      text-shadow: 0 0 6px rgba(232,193,90,.45);
     }
 
     /* Open to hire toggle: the words ARE the switch. On, they glow soft
-       green; off, they sit dimmed. Same pill size as the role tag so the
-       header row stays one line on phones. Public view shows the state
-       with the button disabled — display only, never tappable. */
+       green; off, they sit dimmed. Same pill size as the role tag. Public
+       view shows the state with the button disabled — display only, never
+       tappable. */
     .oth-toggle {
       font-family: 'Space Mono', monospace;
       font-size: 11px;
@@ -177,6 +178,10 @@
        buttons, which would fake the off state on a glowing public view. */
     .oth-toggle:disabled { cursor: default; opacity: 1; }
     .oth-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+    /* On the banner the toggle needs a solid dark back so it reads over
+       any cover photo; the on-state green tint goes a touch stronger. */
+    .pp-cover-meta .oth-toggle { background: rgba(12,14,12,.6); }
+    .pp-cover-meta .oth-toggle.on { background: rgba(141,235,0,.14); }
 
     /* ===== PUBLIC PROFILE VIEW (?u=) ===== */
     #publicProfileView { display: none; }
@@ -250,6 +255,12 @@
     .hero-cam:hover { transform: scale(1.08); box-shadow: 0 0 14px rgba(141,235,0,.35); }
     .hero-cam:active { transform: scale(.96); }
     .hero-name { font-size: 21px; font-weight: 800; margin: 0 0 3px; letter-spacing: .01em; }
+    /* Name + Founding badge ride as one centered group, verified-check
+       style: the badge sits right beside the name, not on its own row. */
+    .hero-name-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; flex-wrap: wrap;
+    }
     .hero-username { font-family: var(--mono); font-size: 12px; color: var(--text-faint); margin: 0 0 6px; }
     .hero-tags { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .hero-tags .tag {
@@ -433,9 +444,10 @@
     .ppds-result.won { color: var(--green); }
     .ppds-sub { display: block; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .5px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
 
-    /* Header Share button (icon-only): 2px vertical padding so the 11px
-       icon fits the shared 19px pill height without overflowing. */
-    .header-meta .btn {
+    /* Cover Share button (icon-only): 2px vertical padding so the 11px
+       icon fits the shared 19px pill height without overflowing. Dark
+       back so it reads over any cover photo. */
+    .pp-cover-meta .btn {
       padding: 2px 16px;
       border-radius: 8px;
       font-family: 'Space Mono', monospace;
@@ -447,12 +459,12 @@
       gap: 6px;
       border: 1px solid var(--green);
       color: var(--green);
-      background: transparent;
+      background: rgba(12,14,12,.6);
       transition: all 0.3s ease;
       white-space: nowrap;
     }
 
-    .header-meta .btn:hover {
+    .pp-cover-meta .btn:hover {
       background: rgba(141,235,0,0.08);
       box-shadow: 0 0 20px rgba(141,235,0,0.1);
     }
@@ -463,26 +475,15 @@
       }
 
     .profile-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
         /* Tight below the divider on phones: the header is a label, not
            a section — 28px of margin here was dead space at page load. */
         margin-bottom: 12px;
         padding-bottom: 12px;
       }
 
-    .header-meta .btn {
+    .pp-cover-meta .btn {
         font-size: 10px;
         padding: 2px 12px;
-      }
-
-    .header-meta {
-        /* Even spacing: the row stretches full width and the three pills
-           share the gaps equally, instead of bunching left with dead
-           space on the right. Desktop keeps the grouped-right layout. */
-        width: 100%;
-        justify-content: space-between;
       }
         }
 
@@ -1208,6 +1209,21 @@
     }
     .pp-cover-btn:hover { transform: scale(1.08); }
     .pp-cover-btn:active { transform: scale(.96); }
+    /* Cover stack (bottom-left): Operator tag + Share on the top row,
+       Open to hire below. Sits over the cover's own bottom gradient, so
+       the pills read on any photo. One element, moved into whichever
+       cover is showing — see ppPlaceHeaderBits. */
+    .pp-cover-meta {
+      position: absolute; left: 12px; bottom: 12px; z-index: 2;
+      display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+    }
+    .pp-cover-meta-top { display: flex; gap: 8px; align-items: center; }
+    /* Tiny phones (≤360px): the avatar's circle reaches the stack's
+       bottom-left corner, so the stack rides top-left instead — the
+       camera button owns the top-right, the top-left is free. */
+    @media (max-width: 360px) {
+      .pp-cover-meta { top: 12px; bottom: auto; }
+    }
     /* Settings gear (own view): center-aligned with the cover camera
        button above it — both centers sit 29px from the right edge
        (camera: right 12px + 17px half-width; gear: right 9px + 20px
@@ -1379,18 +1395,12 @@
     </div>
 
     <!-- ===== PROFILE HEADER ===== -->
-    <!-- Title on its own row; the role tag and the actions share one row
-         below it, so the header costs two rows instead of three. -->
+    <!-- Title only. The role tag, Share, and Open to hire live on the
+         cover banner; the Founding badge sits beside the name. -->
     <div class="profile-header">
       <div class="brand">
         <img src="/custom-site-titles/operator-profile.png?v=20261119a" alt="Operator Profile" onerror="this.style.display='none';this.nextElementSibling.hidden=false;" />
         <span class="title-fallback" hidden>Operator Profile</span>
-      </div>
-      <div class="header-meta">
-        <span class="tag" id="roleTag">Operator</span>
-        <span class="tag founding-tag" id="foundingTag" hidden>Founding Decoder</span>
-        <button type="button" class="btn" id="shareProfileBtn" title="Share profile" aria-label="Share profile"><i class="fas fa-share-alt"></i></button>
-        <button type="button" class="oth-toggle" id="othToggle" aria-pressed="false" aria-label="Toggle open to hire" disabled>Open to hire</button>
       </div>
     </div>
 
@@ -1406,7 +1416,9 @@
       <div class="pp-cover" id="ppCover"></div>
       <div class="pp-card pp-overlap">
         <div class="pp-avatar" id="ppAvatar"><i class="fas fa-user"></i></div>
-        <h2 class="pp-name" id="ppName">—</h2>
+        <div class="hero-name-row" id="ppNameRow">
+          <h2 class="pp-name" id="ppName">—</h2>
+        </div>
         <p class="pp-username" id="ppUsername">—</p>
         <p class="pp-spec" id="ppSpec" style="display:none;"></p>
         <p class="pp-bio" id="ppBio" style="display:none;"></p>
@@ -1469,6 +1481,15 @@
       <div class="pp-cover" id="ownCover">
         <button type="button" class="pp-cover-btn" id="coverChangeBtn" title="Change cover photo" aria-label="Change cover photo"><i class="fas fa-camera"></i></button>
         <input type="file" id="coverInput" accept="image/*" style="display:none;" />
+        <!-- Cover stack: role + Share above, Open to hire below. Lives here
+             by default (own view); renderPublicView moves it to #ppCover. -->
+        <div class="pp-cover-meta" id="coverMeta">
+          <div class="pp-cover-meta-top">
+            <span class="tag" id="roleTag">Operator</span>
+            <button type="button" class="btn" id="shareProfileBtn" title="Share profile" aria-label="Share profile"><i class="fas fa-share-alt"></i></button>
+          </div>
+          <button type="button" class="oth-toggle" id="othToggle" aria-pressed="false" aria-label="Toggle open to hire" disabled>Open to hire</button>
+        </div>
       </div>
 
       <!-- Profile hero: photo + identity -->
@@ -1481,7 +1502,10 @@
           <button type="button" class="hero-cam" id="uploadBtn" title="Change photo" aria-label="Change profile photo"><i class="fas fa-camera"></i></button>
           <input type="file" id="avatarInput" accept="image/*" style="display:none;" />
         </div>
-        <h2 class="hero-name" id="heroName">—</h2>
+        <div class="hero-name-row" id="heroNameRow">
+          <h2 class="hero-name" id="heroName">—</h2>
+          <a class="tag founding-tag" id="foundingTag" title="Founding 200 member" href="/founding-200.html" hidden>200</a>
+        </div>
         <p class="hero-username" id="heroUsername">—</p>
         <p class="pp-spec" id="heroSpec" style="display:none;"></p>
         <p class="pp-bio" id="heroBio" style="display:none;"></p>
@@ -2211,6 +2235,7 @@
       document.getElementById('roleTag').textContent = data.role || 'Operator';
       var fTag = document.getElementById('foundingTag');
       if (fTag) fTag.hidden = !(data.foundingDecoder === true);
+      ppPlaceHeaderBits('ownCover', 'heroNameRow');
       // Basic info card moved to settings.html — guard for removed elements
       var dnd = document.getElementById('displayNameDisplay');
       if (dnd) dnd.textContent = data.displayName || data.name || '—';
@@ -2881,11 +2906,24 @@ var _pfProCache = null;
       } else {
         avail.style.display = 'none';
       }
-      // Own view: the header toggle shows the stored state and becomes tappable.
+      // Own view: the cover toggle shows the stored state and becomes tappable.
       ppSetOth(bizLoaded && bizLoaded.openToHire === true, true);
     }
 
-    // Open to hire toggle (header row). One button, two modes: own view it
+    // Cover stack + Founding badge: one stack, one badge, moved into
+    // whichever view is showing (own cover/name row or public). Moving
+    // the nodes keeps every id, listener, and state intact — the toggle
+    // keeps working, the badge keeps its hidden flag.
+    function ppPlaceHeaderBits(coverId, nameRowId) {
+      var meta = document.getElementById('coverMeta');
+      var cover = document.getElementById(coverId);
+      if (meta && cover && meta.parentElement !== cover) cover.appendChild(meta);
+      var fTag = document.getElementById('foundingTag');
+      var row = document.getElementById(nameRowId);
+      if (fTag && row && fTag.parentElement !== row) row.appendChild(fTag);
+    }
+
+    // Open to hire toggle (cover banner). One button, two modes: own view it
     // is a live switch saved to publicProfiles; public view it is display
     // only (disabled), showing the operator's state. Missing field = off.
     var othSaving = false;
@@ -4026,8 +4064,9 @@ var _pfProCache = null;
           ppAvail.style.display = 'none';
         }
       }
-      // Public view: the header toggle shows the operator's state, display only.
+      // Public view: the cover toggle shows the operator's state, display only.
       ppSetOth(info.openToHire === true, false);
+      ppPlaceHeaderBits('ppCover', 'ppNameRow');
       setupProfileTabs();
       document.getElementById('ppBadges').textContent = info.badgeCount || 0;
       document.getElementById('ppStreak').textContent = info.streakDays || 0;
