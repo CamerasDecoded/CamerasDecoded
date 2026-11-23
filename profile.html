@@ -3363,11 +3363,20 @@ var _pfProCache = null;
     }
 
     function setupPortfolio() {
-      // Lightbox controls (global, shared by own + public views)
-      document.getElementById('pfLbClose').onclick = pfLbClose;
-      document.getElementById('pfLbPrev').onclick = function (e) { e.stopPropagation(); pfLbStep(-1); };
-      document.getElementById('pfLbNext').onclick = function (e) { e.stopPropagation(); pfLbStep(1); };
-      document.getElementById('pfLightbox').onclick = function (e) { if (e.target.id === 'pfLightbox') pfLbClose(); };
+      // Lightbox controls (global, shared by own + public views).
+      // Null-guarded: the lightbox markup sits below this script, so an
+      // early auth callback can run setup before the parser reaches it.
+      // An unguarded throw here aborts the rest of renderProfile's setup
+      // block (booking card, tabs, bio editor, cover upload) with no
+      // visible error — the guard flag is already set, so nothing retries.
+      var lbClose = document.getElementById('pfLbClose');
+      if (lbClose) lbClose.onclick = pfLbClose;
+      var lbPrev = document.getElementById('pfLbPrev');
+      if (lbPrev) lbPrev.onclick = function (e) { e.stopPropagation(); pfLbStep(-1); };
+      var lbNext = document.getElementById('pfLbNext');
+      if (lbNext) lbNext.onclick = function (e) { e.stopPropagation(); pfLbStep(1); };
+      var lb = document.getElementById('pfLightbox');
+      if (lb) lb.onclick = function (e) { if (e.target.id === 'pfLightbox') pfLbClose(); };
       document.addEventListener('keydown', function (e) {
         if (!document.getElementById('pfLightbox').classList.contains('open')) return;
         if (e.key === 'Escape') pfLbClose();
@@ -3680,6 +3689,7 @@ var _pfProCache = null;
     var bizLoadFailed = false;
     var bizEditing = null;     // 'instagram' | 'website' | 'bookingLink' | null
     var bizFields = [
+      { kind: 'location', label: 'Location', placeholder: 'City, State \u2014 e.g. Chicago, IL', autocomplete: 'address-level2' },
       { kind: 'instagram', label: 'Instagram', placeholder: '@handle or link' },
       { kind: 'website', label: 'Website', placeholder: 'https://yoursite.com', url: true },
       { kind: 'bookingLink', label: 'Booking link', placeholder: 'https://calendly.com/you', url: true }
@@ -3705,7 +3715,7 @@ var _pfProCache = null;
         /* type=text on purpose: type=url drops a scheme-less address on
            Safari before ppNormUrl can add https://. inputmode=url keeps
            the URL keyboard. */
-        html += '<input type="text" class="biz-row-input" data-input="' + f.kind + '" value="' + ppEsc(v) + '" placeholder="' + f.placeholder + '" ' + (f.url ? 'inputmode="url" ' : '') + 'autocomplete="off" />';
+        html += '<input type="text" class="biz-row-input" data-input="' + f.kind + '" value="' + ppEsc(v) + '" placeholder="' + f.placeholder + '" ' + (f.url ? 'inputmode="url" ' : '') + 'autocomplete="' + (f.autocomplete || 'off') + '" />';
         if (f.kind === 'bookingLink') html += '<p class="biz-row-note">A Calendly link opens your booking calendar right on your profile and winner page.</p>';
         html += '<div class="biz-row-actions"><button type="button" class="btn-save" data-act="save">Save</button><button type="button" class="biz-ghost-btn" data-act="cancel">Cancel</button></div>';
       } else if (unknown) {
@@ -3779,12 +3789,17 @@ var _pfProCache = null;
       var input = rows ? rows.querySelector('[data-input="' + kind + '"]') : null;
       if (!input) return;
       var raw = (input.value || '').trim();
-      var value = (kind === 'instagram') ? raw : ppNormUrl(raw);
+      /* Normalization follows the field definition, not the kind name:
+         only url fields go through ppNormUrl. Location is plain text —
+         running "Chicago, IL" through the URL normalizer would mangle it. */
+      var fieldDef = null;
+      bizFields.forEach(function (f) { if (f.kind === kind) fieldDef = f; });
+      var value = (fieldDef && fieldDef.url) ? ppNormUrl(raw) : raw;
       var prev = bizLoaded ? (bizLoaded[kind] || '') : null;
       if (prev !== null && value === prev) { bizEditing = null; bizRenderRows(); return; }
       if (prev === null && !value) { bizEditing = null; bizRenderRows(); return; }
       if (btn) btn.disabled = true;
-      var label = kind === 'instagram' ? 'Instagram' : (kind === 'website' ? 'Website' : 'Booking link');
+      var label = fieldDef ? fieldDef.label : 'Booking link';
       function done() {
         if (btn) btn.disabled = false;
         bizEditing = null;
@@ -3792,6 +3807,9 @@ var _pfProCache = null;
           bizLoaded[kind] = value;
           bizLoadFailed = false;
           bizRenderRows();
+          /* Location shows in the header specialty line — refresh it so
+             the new city appears without a reload. */
+          ppRenderOwnHeaderMeta();
         } else {
           /* Never loaded: re-read so the rows show the true stored values
              instead of guessing the other fields are empty. */
@@ -3805,8 +3823,13 @@ var _pfProCache = null;
       }
       var ref = db.collection('publicProfiles').doc(currentUser.uid);
       var stamp = firebase.firestore.FieldValue.serverTimestamp();
-      if (kind === 'bookingLink') {
-        ref.set({ bookingLink: value, bizInfoUpdatedAt: stamp }, { merge: true }).then(done).catch(failed);
+      if (kind === 'bookingLink' || kind === 'location') {
+        /* Top-level fields on publicProfiles (location is read from
+           fields.location, not from socials — the missions sheet writes
+           it top-level too). */
+        var top = { bizInfoUpdatedAt: stamp };
+        top[kind] = value;
+        ref.set(top, { merge: true }).then(done).catch(failed);
       } else {
         /* update() on this field's path only — the other handle is never
            read, never written, whatever the card loaded. A save from a
