@@ -302,21 +302,6 @@
       width: 1px; background: var(--border-dim);
     }
     .hero-stats .pp-stat b { font-size: 22px; }
-    /* Remove-photo button: bare trash icon, no circle (owner, 2026-11-23).
-       The 32px box stays as the tap target; only the visible container
-       is gone. */
-    .hero-remove {
-      display: none;
-      background: transparent; border: none; cursor: pointer;
-      width: 32px; height: 32px; padding: 0;
-      align-items: center; justify-content: center;
-      color: var(--text-faint);
-      /* Inline on the pitch row (JS sets inline-flex): no top margin, or it
-         inflates the row's line box and pushes the stats down. */
-      vertical-align: middle;
-    }
-    .hero-remove:hover { color: #ff7a7a; }
-    .hero-remove svg { width: 14px; height: 14px; }
     .hero-status { font-family: var(--mono); font-size: 11px; color: var(--green); min-height: 16px; margin-top: 8px; }
     /* An empty status reserves nothing: it only ever shows a transient
        upload message, so collapsing the empty row removes 24px of dead
@@ -417,6 +402,16 @@
     .pp-sheet h3 { font: 800 18px 'Montserrat', sans-serif; margin: 0 0 10px; letter-spacing: -.01em; }
     .pp-sheet h3 .sig { color: var(--green); }
     .pp-sheet-sub { font-size: 13px; line-height: 1.55; color: var(--text-muted); margin: 0 0 14px; }
+    /* Photo edit sheet rows: change (camera glyph) / remove (red text,
+       no trash glyph — nothing on the profile reads as a bin). */
+    .pp-photo-actions { display: flex; flex-direction: column; }
+    .pp-photo-row { display: flex; align-items: center; gap: 12px; width: 100%;
+      background: none; border: none; border-top: 1px solid var(--border-dim);
+      padding: 16px 4px; font-family: 'Montserrat', sans-serif; font-size: 15px;
+      font-weight: 600; color: #fff; cursor: pointer; text-align: left; }
+    .pp-photo-row:first-child { border-top: none; }
+    .pp-photo-row i { color: var(--green); width: 18px; text-align: center; }
+    .pp-photo-row.danger { color: #ff7a7a; }
     .pp-field-label { display: block; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
     .pp-theme-input {
       width: 100%; padding: 12px 14px; border-radius: 12px; font-size: 15px;
@@ -1582,7 +1577,7 @@
         </a>
         <div class="hero-photo-wrap">
           <div class="hero-photo" id="avatarPreview"><i class="fas fa-user"></i></div>
-          <button type="button" class="hero-cam" id="uploadBtn" title="Change photo" aria-label="Change profile photo"><i class="fas fa-camera"></i></button>
+          <button type="button" class="hero-cam" id="uploadBtn" title="Edit photo" aria-label="Edit profile photo"><i class="fas fa-pen"></i></button>
           <input type="file" id="avatarInput" accept="image/*" style="display:none;" />
         </div>
         <div class="hero-name-row" id="heroNameRow">
@@ -1602,7 +1597,6 @@
           </div>
         </div>
         <div class="pp-avail" id="heroAvail" style="display:none;"><span class="dot"></span><span id="heroAvailText"></span></div>
-        <button type="button" class="hero-remove" id="removeBtn" title="Remove photo" aria-label="Remove profile photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
         <div class="hero-status" id="uploadStatus" aria-live="polite"></div>
       </div>
 
@@ -1767,6 +1761,13 @@
 
       <footer class="profile-footer">© 2026 Cameras Decoded · All signals locked</footer>
     </div>
+  </main>
+
+  <!-- Sheets + veil live at body level, NOT inside <main>: main is a
+       stacking context (position:relative; z-index:2), so a sheet's
+       z-index 9001 never escapes it and the body-level bottom nav
+       (z-50) paints over the sheet's bottom rows. Same trap as the
+       toast container (PR #929). -->
   <div class="pp-veil" id="ppVeil"></div>
   <div class="pp-sheet" id="ppChallengeSheet" role="dialog" aria-modal="true" aria-labelledby="ppChallengeH" hidden>
     <div class="grab" aria-hidden="true"></div>
@@ -1789,7 +1790,19 @@
     <div class="ppds-stats" id="ppdsStats"></div>
     <div id="ppdsBody"><p class="ppd-empty">Loading duels…</p></div>
   </div>
-  </main>
+  <!-- Photo edit sheet: one pencil on the avatar covers both options —
+       change the photo or remove it. No trash icon on the profile. -->
+  <div class="pp-sheet" id="ppPhotoSheet" role="dialog" aria-modal="true" aria-labelledby="ppPhotoH" hidden>
+    <div class="grab" aria-hidden="true"></div>
+    <button class="pp-close" id="ppPhotoClose" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h3 id="ppPhotoH">Profile <span class="sig">photo</span></h3>
+    <div class="pp-photo-actions">
+      <button type="button" class="pp-photo-row" id="ppPhotoChange"><i class="fas fa-camera"></i> Change photo</button>
+      <button type="button" class="pp-photo-row danger" id="ppPhotoRemove">Remove photo</button>
+    </div>
+  </div>
 
   <!-- ===== BOTTOM NAV CONTAINER – with data-role="operator" ===== -->
   <div id="bottomNavContainer" data-role="operator"></div>
@@ -2342,13 +2355,10 @@
 
       // Avatar
       const avatarPreview = document.getElementById('avatarPreview');
-      const removeBtn = document.getElementById('removeBtn');
       if (data.photoURL) {
         avatarPreview.innerHTML = `<img src="${data.photoURL}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
-        removeBtn.style.display = 'inline-flex';
       } else {
         avatarPreview.innerHTML = '<i class="fas fa-user" style="font-size:32px;color:#555;"></i>';
-        removeBtn.style.display = 'none';
       }
 
       // Redesign: cover banner, one-line pitch, trophy case.
@@ -2640,13 +2650,30 @@
     // ---- Event setup ----
     function setupAvatarUpload() {
       const uploadBtn = document.getElementById('uploadBtn');
-      const removeBtn = document.getElementById('removeBtn');
       const fileInput = document.getElementById('avatarInput');
 
-      // Upload button
+      // Edit button (pencil on the avatar): opens the photo sheet, which
+      // covers both options — change the photo or remove it.
       uploadBtn.replaceWith(uploadBtn.cloneNode(true));
       const newUploadBtn = document.getElementById('uploadBtn');
-      newUploadBtn.addEventListener('click', () => fileInput.click());
+      newUploadBtn.addEventListener('click', () => ppOpenPhotoSheet());
+
+      // Photo sheet actions.
+      var photoChange = document.getElementById('ppPhotoChange');
+      if (photoChange) photoChange.addEventListener('click', function () {
+        ppClosePhotoSheet();
+        fileInput.click();
+      });
+      var photoRemove = document.getElementById('ppPhotoRemove');
+      if (photoRemove) photoRemove.addEventListener('click', async function () {
+        ppClosePhotoSheet();
+        if (!confirm('Remove your profile photo?')) return;
+        await userDocRef.update({ photoURL: null });
+        document.getElementById('avatarPreview').innerHTML = '<i class="fas fa-user" style="font-size:32px;color:#555;"></i>';
+        cdToast('Photo removed');
+      });
+      var photoClose = document.getElementById('ppPhotoClose');
+      if (photoClose) photoClose.addEventListener('click', ppClosePhotoSheet);
 
       // File input change
       fileInput.addEventListener('change', async (e) => {
@@ -2665,7 +2692,6 @@
             await userDocRef.update({ photoURL: url });
             document.getElementById('avatarPreview').innerHTML =
               `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
-            document.getElementById('removeBtn').style.display = 'inline-flex';
             statusEl.textContent = 'Done!';
           } else {
             throw new Error('Upload failed');
@@ -2674,15 +2700,6 @@
           statusEl.textContent = 'Upload failed \u2014 check your connection and try again.';
           cdToast('Your profile photo could not be uploaded. Check your connection and try again \u2014 a JPG or PNG under 5MB works best.', 'error');
         }
-      });
-
-      // Remove button (trash icon)
-      removeBtn.addEventListener('click', async () => {
-        if (!confirm('Remove your profile photo?')) return;
-        await userDocRef.update({ photoURL: null });
-        document.getElementById('avatarPreview').innerHTML = '<i class="fas fa-user" style="font-size:32px;color:#555;"></i>';
-        document.getElementById('removeBtn').style.display = 'none';
-        cdToast('Photo removed');
       });
     }
 
@@ -4131,6 +4148,24 @@ var _pfProCache = null;
       if (sh) sh.classList.remove('open');
       setTimeout(function () { if (sh && !sh.classList.contains('open')) sh.hidden = true; }, 340);
     }
+    // Photo edit sheet: same open/close pattern as the duels sheet. The
+    // Remove row only shows when there is a photo to remove.
+    function ppOpenPhotoSheet() {
+      var v = document.getElementById('ppVeil'), sh = document.getElementById('ppPhotoSheet');
+      if (!v || !sh) return;
+      var hasPhoto = !!document.querySelector('#avatarPreview img');
+      var rm = document.getElementById('ppPhotoRemove');
+      if (rm) rm.style.display = hasPhoto ? '' : 'none';
+      sh.hidden = false;
+      requestAnimationFrame(function () { v.classList.add('open'); sh.classList.add('open'); });
+    }
+    function ppClosePhotoSheet() {
+      var v = document.getElementById('ppVeil'), sh = document.getElementById('ppPhotoSheet');
+      var ch = document.getElementById('ppChallengeSheet'), du = document.getElementById('ppDuelsSheet');
+      if (v && !(ch && ch.classList.contains('open')) && !(du && du.classList.contains('open'))) v.classList.remove('open');
+      if (sh) sh.classList.remove('open');
+      setTimeout(function () { if (sh && !sh.classList.contains('open')) sh.hidden = true; }, 340);
+    }
     function ppFmtDuelDate(ms) {
       if (!ms) return '';
       try { return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
@@ -4286,9 +4321,9 @@ var _pfProCache = null;
       var closeBtn = document.getElementById('ppChallengeClose');
       if (closeBtn) closeBtn.addEventListener('click', ppCloseChallengeSheet);
       var veil = document.getElementById('ppVeil');
-      if (veil) veil.addEventListener('click', function () { ppCloseChallengeSheet(); ppCloseDuelsSheet(); });
+      if (veil) veil.addEventListener('click', function () { ppCloseChallengeSheet(); ppCloseDuelsSheet(); ppClosePhotoSheet(); });
       document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { ppCloseChallengeSheet(); ppCloseDuelsSheet(); }
+        if (e.key === 'Escape') { ppCloseChallengeSheet(); ppCloseDuelsSheet(); ppClosePhotoSheet(); }
       });
       var sendBtn = document.getElementById('ppChallengeSend');
       if (sendBtn) sendBtn.addEventListener('click', ppSendChallenge);
