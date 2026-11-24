@@ -669,6 +669,10 @@
       outline: none;
     }
     .biz-row-input:focus { border-color: var(--green); box-shadow: 0 0 20px rgba(141,235,0,0.06); }
+    .biz-loc-results { list-style: none; margin: 6px 0 0; padding: 4px 0; background: rgba(255,255,255,0.03); border: 1px solid var(--border-dim); border-radius: 8px; max-height: 216px; overflow-y: auto; }
+    .biz-loc-results li { padding: 10px 16px; font-size: 15px; cursor: pointer; }
+    .biz-loc-results li.active { background: rgba(141,235,0,0.10); }
+    .biz-loc-results li.loc-loading { color: var(--text-muted); font-size: 14px; cursor: default; }
     .biz-row-actions { display: flex; gap: 10px; margin-top: 10px; }
     .biz-row-note { font-size: 13px; color: var(--text-muted); margin: 8px 0 0; line-height: 1.5; }
     .biz-ghost-btn {
@@ -3003,7 +3007,8 @@ var _pfProCache = null;
       if (!spec || !avail) return;
       var cats = (bizLoaded && bizLoaded.categories) || [];
       var line = cats.length ? cats.join(' \u00b7 ') : ppCraftLabel(bizLoaded && bizLoaded.craft);
-      if (bizLoaded && bizLoaded.location) line = line ? line + ' \u00b7 ' + bizLoaded.location : bizLoaded.location;
+      var locD = ppLocDisplay(bizLoaded && bizLoaded.location);
+      if (locD) line = line ? line + ' \u00b7 ' + locD : locD;
       spec.textContent = line;
       spec.style.display = line ? 'block' : 'none';
       var av = bizLoaded && bizLoaded.availability;
@@ -3672,7 +3677,8 @@ var _pfProCache = null;
       if (cats.length) line = cats.join(' \u00b7 ');
       else if (info.craft) line = ppCraftLabel(info.craft);
       var sub = [];
-      if (info.location) sub.push(info.location);
+      var locD = ppLocDisplay(info.location);
+      if (locD) sub.push(locD);
       if (info.availability === 'open') sub.push('Booking now');
       else if (info.availability === 'booked') sub.push('Currently booked');
       var html = '';
@@ -3719,11 +3725,42 @@ var _pfProCache = null;
        showed saved values as "Not set" and a save built from it
        wiped the website. If the server read fails, the card says so
        instead of showing empty rows. */
+    /* Location display: publicProfiles.location is a plain string on older
+       profiles (free text) and a picked-city map on newer ones. Every
+       reader goes through here so a map never renders "[object Object]". */
+    function ppLocDisplay(loc) {
+      if (!loc) return '';
+      if (typeof loc === 'string') return loc;
+      return loc.display || loc.city || '';
+    }
+    /* Parse the location field out of a Firestore REST document: legacy
+       profiles carry a stringValue, picked cities a mapValue. Numbers
+       arrive as strings in REST (doubleValue / integerValue). */
+    function ppLocFromRest(v) {
+      if (!v) return '';
+      if (v.stringValue) return v.stringValue;
+      var m = (v.mapValue || {}).fields || {};
+      if (!m.display) return '';
+      function ms(k) { return (m[k] && m[k].stringValue) || ''; }
+      function mn(k) {
+        var n = m[k];
+        if (!n) return 0;
+        if (n.doubleValue !== undefined) return Number(n.doubleValue);
+        if (n.integerValue !== undefined) return Number(n.integerValue);
+        return 0;
+      }
+      return {
+        display: ms('display'), city: ms('city'),
+        regionSlug: ms('regionSlug'), citySlug: ms('citySlug'),
+        countryCode: ms('countryCode'), geohash: ms('geohash'),
+        lat: mn('lat'), lng: mn('lng'), geoId: mn('geoId')
+      };
+    }
     var bizLoaded = null;      // {instagram, website, bookingLink} once read; null until loaded
     var bizLoadFailed = false;
     var bizEditing = null;     // 'instagram' | 'website' | 'bookingLink' | null
     var bizFields = [
-      { kind: 'location', label: 'Location', placeholder: 'City, State \u2014 e.g. Chicago, IL', autocomplete: 'address-level2' },
+      { kind: 'location', label: 'Location', placeholder: 'Start typing your city \u2014 e.g. Chicago, IL', autocomplete: 'off' },
       { kind: 'instagram', label: 'Instagram', placeholder: '@handle or link' },
       { kind: 'website', label: 'Website', placeholder: 'https://yoursite.com', url: true },
       { kind: 'bookingLink', label: 'Booking link', placeholder: 'https://calendly.com/you', url: true }
@@ -3738,6 +3775,7 @@ var _pfProCache = null;
     }
     function bizRowHtml(f) {
       var v = bizLoaded ? (bizLoaded[f.kind] || '') : '';
+      if (f.kind === 'location') v = ppLocDisplay(v);
       var unknown = bizLoaded === null;
       var html = '<div class="biz-row" data-kind="' + f.kind + '">';
       html += '<div class="biz-row-head"><span class="biz-row-label">' + f.label + '</span>';
@@ -3750,6 +3788,7 @@ var _pfProCache = null;
            Safari before ppNormUrl can add https://. inputmode=url keeps
            the URL keyboard. */
         html += '<input type="text" class="biz-row-input" data-input="' + f.kind + '" value="' + ppEsc(v) + '" placeholder="' + f.placeholder + '" ' + (f.url ? 'inputmode="url" ' : '') + 'autocomplete="' + (f.autocomplete || 'off') + '" />';
+        if (f.kind === 'location') html += '<ul class="biz-loc-results" id="bizLocResults" hidden></ul>';
         if (f.kind === 'bookingLink') html += '<p class="biz-row-note">A Calendly link opens your booking calendar right on your profile and winner page.</p>';
         html += '<div class="biz-row-actions"><button type="button" class="btn-save" data-act="save">Save</button><button type="button" class="biz-ghost-btn" data-act="cancel">Cancel</button></div>';
       } else if (unknown) {
@@ -3774,7 +3813,10 @@ var _pfProCache = null;
       rows.style.display = 'block';
       if (bizEditing) {
         var input = rows.querySelector('[data-input="' + bizEditing + '"]');
-        if (input) input.focus();
+        if (input) {
+          input.focus();
+          if (bizEditing === 'location') bizWireLocPicker(input);
+        }
       }
     }
     function bizLoadCard() {
@@ -3800,7 +3842,7 @@ var _pfProCache = null;
             instagram: str(soc.instagram),
             website: str(soc.website),
             bookingLink: str(fields.bookingLink),
-            location: str(fields.location),
+            location: ppLocFromRest(fields.location),
             craft: str(fields.craft),
             availability: str(fields.availability),
             openToHire: (fields.openToHire && fields.openToHire.booleanValue) === true,
@@ -3817,6 +3859,136 @@ var _pfProCache = null;
           bizRenderRows();
         });
     }
+    /* ---- Location picker ----
+       The location row is an autocomplete over /assets/cities.json
+       (34,079 cities, GeoNames cities15000, population-sorted). The file
+       is lazy-loaded on first focus of the location input — 0 KB until
+       then — and cached by the browser after. A tap picks a city; the
+       save stores the normalized map (slugs + city-center coordinates,
+       never the user's GPS) so discovery can query it later. Typed text
+       with no pick still saves as plain text: towns under 15k aren't in
+       the dataset, and locking them out would be worse than free text. */
+    var bizCities = null;       // cities.json array once loaded
+    var bizCitiesLoading = null; // in-flight fetch promise
+    var bizLocSelected = null;  // picked city (cities.json entry) or stored map
+    var bizLocActive = -1;      // highlighted result index for keyboard nav
+    var bizLocLastMatches = [];
+    var bizLocDocWired = false; // outside-tap closer, added once
+    function bizLoadCities() {
+      if (bizCities) return Promise.resolve(bizCities);
+      if (bizCitiesLoading) return bizCitiesLoading;
+      bizCitiesLoading = fetch('/assets/cities.json')
+        .then(function (res) { if (!res.ok) throw new Error('cities load failed'); return res.json(); })
+        .then(function (arr) { bizCities = arr; return arr; })
+        .catch(function () { bizCitiesLoading = null; return []; });
+      return bizCitiesLoading;
+    }
+    function bizLocMatches(q) {
+      if (!bizCities || q.length < 2) return [];
+      var prefix = [], sub = [];
+      for (var i = 0; i < bizCities.length; i++) {
+        var label = bizCities[i].d.toLowerCase();
+        if (label.indexOf(q) === 0) { prefix.push(bizCities[i]); if (prefix.length >= 8) break; }
+        else if (label.indexOf(q) !== -1 && sub.length < 8) sub.push(bizCities[i]);
+      }
+      return prefix.concat(sub).slice(0, 8);
+    }
+    function bizLocRenderResults(matches) {
+      var list = document.getElementById('bizLocResults');
+      if (!list) return;
+      bizLocActive = -1;
+      bizLocLastMatches = matches;
+      if (!matches.length) { list.hidden = true; list.innerHTML = ''; return; }
+      list.innerHTML = matches.map(function (c, i) {
+        return '<li data-loc-idx="' + i + '">' + ppEsc(c.d) + '</li>';
+      }).join('');
+      list.hidden = false;
+    }
+    function bizLocPick(city) {
+      var input = document.querySelector('[data-input="location"]');
+      if (!input) return;
+      bizLocSelected = city;
+      input.value = city.d;
+      var list = document.getElementById('bizLocResults');
+      if (list) { list.hidden = true; list.innerHTML = ''; }
+    }
+    /* cities.json entries use short keys; the stored map uses readable
+       ones. A stored map passed back in (re-save unchanged) is returned
+       as-is. */
+    function bizLocToMap(sel) {
+      if (!sel) return null;
+      if (sel.display) return sel;
+      return {
+        display: sel.d, city: sel.c,
+        regionSlug: sel.r, citySlug: sel.s,
+        countryCode: sel.cc, geohash: sel.gh,
+        lat: sel.lat, lng: sel.lng, geoId: sel.id
+      };
+    }
+    function bizWireLocPicker(input) {
+      bizLocSelected = null;
+      bizLocLastMatches = [];
+      /* A stored map pre-selects, so a no-change save keeps the map
+         instead of downgrading it to text. */
+      var cur = bizLoaded ? bizLoaded.location : null;
+      if (cur && typeof cur === 'object' && cur.citySlug) bizLocSelected = cur;
+      input.addEventListener('focus', function () { bizLoadCities(); }, { once: true });
+      input.addEventListener('input', function () {
+        bizLocSelected = null; // typed text is not a pick until they tap one
+        var q = (input.value || '').trim().toLowerCase();
+        if (q.length < 2) { bizLocRenderResults([]); return; }
+        if (!bizCities) {
+          var list = document.getElementById('bizLocResults');
+          if (list) { list.innerHTML = '<li class="loc-loading">Loading cities\u2026</li>'; list.hidden = false; }
+        }
+        bizLoadCities().then(function () {
+          /* Guard against stale renders: only show matches for the query
+             still in the box. */
+          if ((input.value || '').trim().toLowerCase() !== q) return;
+          bizLocRenderResults(bizLocMatches(q));
+        });
+      });
+      input.addEventListener('keydown', function (e) {
+        var list = document.getElementById('bizLocResults');
+        if (!list || list.hidden) return;
+        var items = list.querySelectorAll('li[data-loc-idx]');
+        if (!items.length) return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          bizLocActive = e.key === 'ArrowDown'
+            ? Math.min(bizLocActive + 1, items.length - 1)
+            : Math.max(bizLocActive - 1, 0);
+          for (var i = 0; i < items.length; i++) {
+            if (i === bizLocActive) items[i].classList.add('active');
+            else items[i].classList.remove('active');
+          }
+        } else if (e.key === 'Enter' && bizLocActive >= 0) {
+          e.preventDefault();
+          bizLocPick(bizLocLastMatches[bizLocActive]);
+        } else if (e.key === 'Escape') {
+          list.hidden = true;
+        }
+      });
+      var list = document.getElementById('bizLocResults');
+      if (list) list.addEventListener('click', function (e) {
+        var li = e.target.closest ? e.target.closest('li[data-loc-idx]') : null;
+        if (!li) return;
+        var city = bizLocLastMatches[Number(li.getAttribute('data-loc-idx'))];
+        if (city) bizLocPick(city);
+      });
+      /* Tapping outside the row closes the list without picking. Wired
+         once — bizWireLocPicker runs on every edit-mode render. */
+      if (!bizLocDocWired) {
+        bizLocDocWired = true;
+        document.addEventListener('click', function (e) {
+          var l = document.getElementById('bizLocResults');
+          if (!l || l.hidden) return;
+          var inp = document.querySelector('[data-input="location"]');
+          if (e.target === inp || (l.contains && l.contains(e.target))) return;
+          l.hidden = true;
+        });
+      }
+    }
     function bizSaveField(kind, btn) {
       if (!currentUser || !db) return;
       var rows = document.getElementById('bizRows');
@@ -3829,8 +4001,21 @@ var _pfProCache = null;
       var fieldDef = null;
       bizFields.forEach(function (f) { if (f.kind === kind) fieldDef = f; });
       var value = (fieldDef && fieldDef.url) ? ppNormUrl(raw) : raw;
+      /* Location: a picked city saves as the normalized map (slugs +
+         coordinates, so discovery can query it later); typed text with no
+         pick saves as plain text, as before. */
+      if (kind === 'location' && bizLocSelected) value = bizLocToMap(bizLocSelected);
       var prev = bizLoaded ? (bizLoaded[kind] || '') : null;
-      if (prev !== null && value === prev) { bizEditing = null; bizRenderRows(); return; }
+      /* Location compares by city, not by reference: re-picking the same
+         city is a no-op, but picking the city for a legacy text value
+         upgrades it to the map even when the display matches. */
+      var unchanged = false;
+      if (kind === 'location' && prev && typeof prev === 'object' && value && typeof value === 'object') {
+        unchanged = !!(prev.citySlug && prev.citySlug === value.citySlug);
+      } else if (prev !== null) {
+        unchanged = (value === prev);
+      }
+      if (unchanged) { bizEditing = null; bizRenderRows(); return; }
       if (prev === null && !value) { bizEditing = null; bizRenderRows(); return; }
       if (btn) btn.disabled = true;
       var label = fieldDef ? fieldDef.label : 'Booking link';
@@ -4368,7 +4553,8 @@ var _pfProCache = null;
       if (ppSpec) {
         var cats = Array.isArray(info.categories) ? info.categories.filter(Boolean) : [];
         var specLine = cats.length ? cats.join(' \u00b7 ') : ppCraftLabel(info.craft);
-        if (info.location) specLine = specLine ? specLine + ' \u00b7 ' + info.location : info.location;
+        var locD = ppLocDisplay(info.location);
+        if (locD) specLine = specLine ? specLine + ' \u00b7 ' + locD : locD;
         ppSpec.textContent = specLine;
         ppSpec.style.display = specLine ? 'block' : 'none';
       }
