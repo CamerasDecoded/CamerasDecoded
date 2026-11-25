@@ -206,15 +206,41 @@
     .tp-tier-k { font-family: var(--tp-font-d); font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--green); display: block; margin-bottom: 8px; }
     .tp-tier p { font-size: 15px; line-height: 1.55; color: #e6ece1; }
 
-    /* Prices: two plain blocks. */
+    /* Prices: two tappable blocks — tap jumps to the form with that plan set. */
     .tp-prices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; max-width: 680px; }
     .tp-price {
+      font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%;
+      -webkit-appearance: none; appearance: none;
       border: 1px solid var(--tp-green-border); border-radius: 12px; padding: 18px 16px;
       background: linear-gradient(180deg, rgba(141,235,0,.05), rgba(12,12,14,.6) 65%);
+      transition: border-color .2s, background .2s;
     }
-    .tp-price .amt { font-family: var(--tp-font-d); font-size: 26px; font-weight: 700; color: #ffffff; line-height: 1.2; }
-    .tp-price .per { font-family: var(--tp-font-d); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--tp-muted-2); margin-top: 4px; }
-    .tp-price .note { font-size: 13px; color: var(--tp-muted); margin-top: 8px; line-height: 1.5; }
+    .tp-price:hover { border-color: var(--green); }
+    .tp-price:active { background: linear-gradient(180deg, rgba(141,235,0,.12), rgba(12,12,14,.6) 65%); }
+    .tp-price:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+    .tp-price .amt { display: block; font-family: var(--tp-font-d); font-size: 26px; font-weight: 700; color: #ffffff; line-height: 1.2; }
+    .tp-price .per { display: block; font-family: var(--tp-font-d); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--tp-muted-2); margin-top: 4px; }
+    .tp-price .note { display: block; font-size: 13px; color: var(--tp-muted); margin-top: 8px; line-height: 1.5; }
+    .tp-price .go { display: block; font-family: var(--tp-font-d); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--green); margin-top: 12px; }
+
+    /* Recoup math: worked example under the prices. */
+    .tp-math {
+      margin-top: 12px; max-width: 680px;
+      border: 1px solid var(--tp-line); border-radius: 12px; padding: 16px;
+      background: linear-gradient(180deg, var(--tp-surface-2), var(--tp-surface));
+      position: relative; overflow: hidden;
+    }
+    .tp-math::before {
+      content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+      background: linear-gradient(90deg, rgba(141,235,0,.55), transparent 70%);
+    }
+    .tp-math .tp-math-k { font-family: var(--tp-font-d); font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--green); display: block; margin-bottom: 8px; }
+    .tp-math .tp-math-intro { font-size: 14px; color: var(--tp-muted); }
+    .tp-math-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--tp-line); }
+    .tp-math-eq { font-family: var(--tp-font-d); font-size: 15px; color: #e6ece1; }
+    .tp-math-res { font-family: var(--tp-font-d); font-size: 20px; font-weight: 700; color: #ffffff; flex: none; }
+    .tp-math .tp-math-cap { font-size: 14px; color: var(--tp-muted); margin-top: 4px; }
+    .tp-math .tp-math-note { font-size: 13px; color: var(--tp-muted-2); margin-top: 12px; }
 
     /* Sample instructor link: branded glass, no chase. */
     .tp-sample {
@@ -279,6 +305,8 @@
       .tp-tier::before { display: none; }
       .tp-prices { grid-template-columns: 1fr; gap: 0; }
       .tp-price { background: transparent; border: none; border-radius: 0; padding: 14px 0; border-bottom: 1px solid var(--tp-line); }
+      .tp-math { background: transparent; border: none; border-radius: 0; padding: 14px 0 0; }
+      .tp-math::before { display: none; }
     }
 
     /* ===== Signature button (canonical .sg, in-app size) =====
@@ -379,16 +407,33 @@
       <h3><img class="tp-sectitle-img" src="/custom-site-titles/what-it-costs.png?v=20261125a" alt="What it costs" onerror="this.style.display='none';document.getElementById('tpCostFb').style.display=''"><span id="tpCostFb" style="display:none">What it costs</span></h3>
       <p>Two ways to pay. Either way, your payment covers your starter kit, shipped to your door.</p>
       <div class="tp-prices">
-        <div class="tp-price">
-          <div class="amt">$300</div>
-          <div class="per">per month</div>
-          <p class="note">Monthly billing.</p>
+        <button type="button" class="tp-price" data-plan="monthly" onclick="jumpToSignup(false)" aria-label="Monthly plan, $300 per month — jump to signup">
+          <span class="amt">$300</span>
+          <span class="per">per month</span>
+          <span class="note">Monthly billing.</span>
+          <span class="go">Tap to apply</span>
+        </button>
+        <button type="button" class="tp-price" data-plan="annual" onclick="jumpToSignup(true)" aria-label="Annual plan, $2,500 per year — jump to signup">
+          <span class="amt">$2,500</span>
+          <span class="per">per year, upfront</span>
+          <span class="note">Annual billing — save 30%.</span>
+          <span class="go">Tap to apply</span>
+        </button>
+      </div>
+      <div class="tp-math">
+        <span class="tp-math-k">The math</span>
+        <p class="tp-math-intro">Example only — you set your own class prices.</p>
+        <div class="tp-math-row">
+          <span class="tp-math-eq">10 students at $250</span>
+          <span class="tp-math-res">$2,500</span>
         </div>
-        <div class="tp-price">
-          <div class="amt">$2,500</div>
-          <div class="per">per year, upfront</div>
-          <p class="note">Annual billing — save 30%.</p>
+        <p class="tp-math-cap">One cohort covers the full year. Every cohort after that is yours.</p>
+        <div class="tp-math-row">
+          <span class="tp-math-eq">2 students at $150</span>
+          <span class="tp-math-res">$300</span>
         </div>
+        <p class="tp-math-cap">Two seats cover the month.</p>
+        <p class="tp-math-note">Your results depend on your pricing and your enrollment.</p>
       </div>
     </section>
 
@@ -590,6 +635,29 @@
       document.getElementById('instructorIsAnnual').value = instructorIsAnnual ? 'true' : 'false';
       knob.style.left = instructorIsAnnual ? '26px' : '2px';
       updateInstructorPricingDisplay();
+    };
+
+    /* Price options in "What it costs": set the plan, then jump to the form.
+       Sets the same state toggleInstructorBilling derives (class, flag,
+       hidden input, knob, display) to an absolute value, so the tapped plan
+       is correct from a cold load and the toggle cycles cleanly afterward. */
+    window.selectInstructorPlan = function(annual) {
+      const toggle = document.getElementById('instructorBillingToggle');
+      const knob = document.getElementById('instructorKnob');
+      if (!toggle || !knob) return;
+      toggle.classList.toggle('annual', annual);
+      instructorIsAnnual = annual;
+      document.getElementById('instructorIsAnnual').value = annual ? 'true' : 'false';
+      knob.style.left = annual ? '26px' : '2px';
+      updateInstructorPricingDisplay();
+    };
+
+    window.jumpToSignup = function(annual) {
+      selectInstructorPlan(annual);
+      const target = document.getElementById('signup');
+      if (!target) return;
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      target.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
     };
 
     function updateInstructorPricingDisplay() {
