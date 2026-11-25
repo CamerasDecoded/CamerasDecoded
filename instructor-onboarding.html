@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Instructor Onboarding — Cameras Decoded</title>
+  <meta name="description" content="Set up your Cameras Decoded instructor account: choose your lanes, certification, payment, your starter kit, and your instructor page." />
+  <meta property="og:title" content="Instructor Onboarding — Cameras Decoded" />
+  <meta property="og:description" content="Set up your Cameras Decoded instructor account, one focused step at a time." />
+  <meta property="og:image" content="https://camerasdecoded.com/og-image.jpg" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://camerasdecoded.com/instructor-onboarding.html" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    /* Instructor onboarding — standalone page, same tokens as
+       instructor-signup.html. One focused step per screen. */
+    :root {
+      --green: #8deb00;
+      --green-hi: #a0f520;
+      --green-dim: rgba(141,235,0,0.12);
+      --green-soft: rgba(141,235,0,.08);
+      --green-border: rgba(141,235,0,.28);
+      --green-glow: rgba(141,235,0,0.25);
+      --dark: #0A0A0A;
+      --surface: #0d0e0d;
+      --surface-2: #121413;
+      --border: #1A1A1A;
+      --line: rgba(255,255,255,.09);
+      --text: #f4f7f2;
+      --text-muted: #b4b4b4;
+      --muted: #a9b8a2;
+      --muted-2: #6f7d68;
+      --font-d: 'Space Mono', monospace;
+      --font-b: 'Montserrat', sans-serif;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    /* Body-layout guard: this page claims its own layout. */
+    body {
+      display: block !important;
+      justify-content: normal !important;
+      align-items: normal !important;
+      padding: 0 !important;
+      background: #000;
+      background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 24px 24px;
+      color: var(--text);
+      font-family: var(--font-b);
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow-x: hidden;
+    }
+    h1, h2, h3, .mono { font-family: var(--font-d); }
+    a { text-decoration: none; color: inherit; }
+
+    /* Toast: direct child of body, clears the safe zone and sits below
+       the floating-header zone (standing rule, PR #929). */
+    #toast-container {
+      position: fixed;
+      top: calc(max(12px, env(safe-area-inset-top)) + 66px);
+      left: 50%; transform: translateX(-50%); z-index: 10000;
+      display: flex; flex-direction: column; gap: 10px; align-items: center;
+      pointer-events: none;
+    }
+    .toast {
+      background: #0A0A0A; border: 1px solid var(--green); color: #fff;
+      font-family: var(--font-d); font-size: 13px; padding: 12px 22px;
+      border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      opacity: 0; transform: translateY(-10px); transition: all 0.3s ease;
+      pointer-events: auto; max-width: 90vw; text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { border-color: #ff4a4a; }
+
+    .ob-main {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: calc(max(12px, env(safe-area-inset-top, 0px)) + 24px) 20px 140px;
+      position: relative;
+      z-index: 1;
+      animation: obFadeIn 0.5s ease-in-out forwards;
+    }
+    @keyframes obFadeIn { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+
+    .ob-title-img { display: block; width: min(430px, 100%); max-width: 100%; min-width: 0; height: auto; }
+    #obTitleFb { font-size: 34px; line-height: 1.15; background: linear-gradient(90deg, #1db31b 0%, #c9e265 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+    .ob-progress { margin-top: 20px; }
+    .ob-progress-text {
+      font-family: var(--font-d); font-size: 12px; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--muted-2);
+    }
+    .ob-progress-text b { color: var(--green); font-weight: 700; }
+    .ob-progress-bar {
+      margin-top: 8px; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,.08); overflow: hidden;
+    }
+    #obProgressFill {
+      height: 100%; width: 14.28%; border-radius: 2px;
+      background: linear-gradient(90deg, var(--green), var(--green-hi));
+      box-shadow: 0 0 12px var(--green-glow);
+      transition: width 0.4s ease;
+    }
+
+    .ob-loading { text-align: center; padding: 60px 0; color: var(--text-muted); font-family: var(--font-d); font-size: 14px; }
+    .ob-loading .spinner {
+      border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--green);
+      border-radius: 50%; width: 36px; height: 36px;
+      animation: obSpin 1s linear infinite; margin: 0 auto 16px;
+    }
+    @keyframes obSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .ob-fatal { display: none; margin-top: 24px; border: 1px solid #ff4a4a; border-radius: 12px; padding: 20px; color: #ffb4b4; font-size: 15px; }
+
+    .ob-step { display: none; margin-top: 28px; }
+    .ob-step.active { display: block; animation: obFadeIn 0.35s ease-in-out forwards; }
+    .ob-step h2 { font-size: 24px; color: #fff; line-height: 1.25; }
+    .ob-lead { margin-top: 10px; font-size: 16px; color: var(--text); }
+    .ob-sub { margin-top: 8px; font-size: 14px; color: var(--muted); line-height: 1.55; }
+
+    .ob-info { margin-top: 20px; border-top: 1px solid var(--line); }
+    .ob-info-row {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+      padding: 14px 0; border-bottom: 1px solid var(--line);
+    }
+    .ob-info-k {
+      font-family: var(--font-d); font-size: 11px; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--muted-2); min-width: 150px;
+    }
+    .ob-info-v { font-size: 16px; font-weight: 600; color: #fff; word-break: break-all; }
+    .ob-info-v.green { color: var(--green); font-family: var(--font-d); font-size: 15px; }
+    .ob-copy {
+      margin-left: auto; background: transparent; border: 1px solid var(--green-border);
+      border-radius: 8px; color: var(--green); font-family: var(--font-d);
+      font-size: 11px; padding: 6px 14px; cursor: pointer; transition: 0.2s;
+    }
+    .ob-copy:hover { border-color: var(--green); background: var(--green-soft); }
+
+    .ob-group { margin-top: 24px; }
+    .ob-group h3 {
+      font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--green); margin-bottom: 10px;
+    }
+    .ob-lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .ob-lane {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      min-height: 50px; padding: 12px 16px; text-align: left;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 10px; color: var(--text); font-family: var(--font-b);
+      font-size: 15px; cursor: pointer; transition: all 0.2s;
+    }
+    .ob-lane:hover { border-color: var(--green-border); }
+    .ob-lane .tick {
+      flex: none; width: 18px; height: 18px; border-radius: 5px;
+      border: 1px solid var(--muted-2); position: relative; transition: all 0.2s;
+    }
+    .ob-lane.selected { border-color: var(--green); background: var(--green-soft); }
+    .ob-lane.selected .tick { background: var(--green); border-color: var(--green); }
+    .ob-lane.selected .tick::after {
+      content: ''; position: absolute; left: 5px; top: 2px;
+      width: 5px; height: 9px;
+      border-right: 2px solid #000; border-bottom: 2px solid #000;
+      transform: rotate(45deg);
+    }
+    .ob-lane.selected .lane-name { font-weight: 600; color: #fff; }
+    .ob-error-line { display: none; margin-top: 14px; color: #ff4a4a; font-size: 14px; }
+
+    .ob-scope { margin-top: 16px; border-top: 1px solid var(--line); }
+    .ob-scope li {
+      list-style: none; padding: 10px 0; border-bottom: 1px solid var(--line);
+      font-size: 15px; color: var(--text);
+    }
+    .ob-note {
+      margin-top: 18px; border-left: 3px solid var(--green-border);
+      padding: 4px 0 4px 16px; font-size: 14px; color: var(--muted); line-height: 1.55;
+    }
+
+    .ob-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+    .ob-plan {
+      padding: 20px 16px; text-align: left; cursor: pointer;
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      border: 1px solid var(--line); border-radius: 12px; color: var(--text);
+      font-family: var(--font-b); transition: all 0.2s; position: relative;
+    }
+    .ob-plan:hover { border-color: var(--green-border); }
+    .ob-plan.selected { border-color: var(--green); box-shadow: 0 0 24px rgba(141,235,0,.10); }
+    .ob-plan .amt { font-family: var(--font-d); font-size: 26px; font-weight: 700; color: #fff; }
+    .ob-plan .per { font-size: 12px; color: var(--muted-2); font-family: var(--font-d); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+    .ob-plan .desc { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+    .ob-plan .sel-dot {
+      position: absolute; top: 14px; right: 14px; width: 14px; height: 14px;
+      border-radius: 50%; border: 1px solid var(--muted-2); transition: all 0.2s;
+    }
+    .ob-plan.selected .sel-dot { background: var(--green); border-color: var(--green); box-shadow: 0 0 10px var(--green-glow); }
+    .ob-pay-row { margin-top: 18px; }
+    .ob-btn-secondary {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 12px 22px; border-radius: 10px; cursor: pointer;
+      background: transparent; border: 1px solid var(--green-border);
+      color: var(--green); font-family: var(--font-d); font-size: 13px;
+      font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .ob-btn-secondary:hover { border-color: var(--green); background: var(--green-soft); }
+
+    .ob-kit { margin-top: 16px; border-top: 1px solid var(--line); }
+    .ob-kit li {
+      list-style: none; display: flex; align-items: center; gap: 12px;
+      padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 15px;
+    }
+    .ob-kit .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
+
+    .ob-form { margin-top: 20px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block; color: var(--text-muted); font-size: 11px;
+      font-family: var(--font-d); margin-bottom: 4px; letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .form-group input, .form-group textarea {
+      width: 100%; padding: 12px 16px; background: #0F0F0F;
+      border: 1px solid var(--border); border-radius: 10px; color: #fff;
+      font-family: var(--font-b); font-size: 15px; outline: none;
+      transition: all 0.3s; appearance: none;
+    }
+    .form-group textarea { min-height: 84px; resize: vertical; }
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: var(--green); box-shadow: 0 0 20px rgba(141,235,0,0.06);
+    }
+    .form-group input::placeholder, .form-group textarea::placeholder { color: #555; }
+    .form-group .error-hint { color: #ff4a4a; font-size: 12px; margin-top: 4px; display: none; }
+    .ob-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .ob-form-row .zip { max-width: 160px; }
+
+    .ob-summary { margin-top: 20px; border-top: 1px solid var(--line); }
+    .ob-summary-row { padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .ob-summary-k {
+      font-family: var(--font-d); font-size: 11px; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--muted-2);
+    }
+    .ob-summary-v { margin-top: 4px; font-size: 15px; color: var(--text); line-height: 1.55; }
+    .ob-summary-v b { color: #fff; }
+
+    /* Sticky step navigation: Back (ghost) + Continue (the one primary CTA). */
+    .ob-nav {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+      background: rgba(5,5,5,.88); backdrop-filter: blur(8px);
+      border-top: 1px solid var(--line);
+      padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+    .ob-nav-inner {
+      max-width: 680px; margin: 0 auto;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .ob-btn-ghost {
+      flex: none; padding: 12px 20px; border-radius: 10px; cursor: pointer;
+      background: transparent; border: 1px solid rgba(255,255,255,.14);
+      color: var(--text-muted); font-family: var(--font-d); font-size: 12px;
+      font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .ob-btn-ghost:hover { border-color: var(--green-border); color: var(--green); }
+    .ob-nav .sg { flex: 1; max-width: none; }
+    .ob-nav .sg:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ===== Signature button (canonical .sg, in-app size) =====
+       Chase border lives on the single primary CTA only. */
+    @property --sg-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+    @keyframes sgSpin { to { --sg-angle: 360deg; } }
+    .sg {
+      position: relative;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 100%; max-width: 340px; height: 92px;
+      border-radius: 24px;
+      border: 1px solid transparent;
+      text-decoration: none; cursor: pointer;
+      background:
+        linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,0) 42%),
+        linear-gradient(165deg, rgba(141,235,0,.20) 0%, rgba(141,235,0,.07) 60%, rgba(141,235,0,.13) 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.09),
+        0 6px 22px rgba(141,235,0,.10);
+    }
+    .sg::before {
+      content: ''; position: absolute; inset: -0.5px; border-radius: inherit;
+      padding: 1.5px; opacity: .4; pointer-events: none;
+      background: conic-gradient(from var(--sg-angle,120deg),
+        transparent 20%, #8deb00 40%, transparent 60%, #8deb00 80%, transparent 100%);
+      -webkit-mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+      -webkit-mask-composite: xor;
+              mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+              mask-composite: exclude;
+    }
+    .sg span {
+      font-weight: 800; font-size: 22px; letter-spacing: .14em;
+      color: #8deb00; text-transform: uppercase;
+      text-shadow: 0 0 18px rgba(141,235,0,.45);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .sg-animated::before { animation: sgSpin 6s linear infinite; }
+    .sg-real { height: 46px; border-radius: 10px; }
+    .sg-real span { font-size: 12px; letter-spacing: .06em; }
+    @media (prefers-reduced-motion: reduce) {
+      .sg-animated::before { animation: none; }
+    }
+
+    @media (max-width: 520px) {
+      .ob-plans { grid-template-columns: 1fr; }
+      .ob-info-k { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <main class="ob-main">
+    <h1><img class="ob-title-img" src="/custom-site-titles/onboarding.png?v=20261125a" alt="Onboarding" onerror="this.style.display='none';document.getElementById('obTitleFb').style.display=''"><span id="obTitleFb" style="display:none">Onboarding</span></h1>
+
+    <div class="ob-progress">
+      <div class="ob-progress-text">Step <b id="obStepNow">1</b> of 7</div>
+      <div class="ob-progress-bar"><div id="obProgressFill"></div></div>
+    </div>
+
+    <div class="ob-loading" id="obLoading">
+      <div class="spinner"></div>
+      <p>Loading your signal...</p>
+    </div>
+    <div class="ob-fatal" id="obFatal">We couldn't load your account. Check your connection and refresh — your place is saved.</div>
+
+    <!-- Step 1: Welcome -->
+    <section class="ob-step" id="step1" aria-label="Welcome">
+      <h2>You're in.</h2>
+      <p class="ob-lead">Welcome to the instructor program. Seven short steps, one at a time — then your dashboard opens.</p>
+      <div class="ob-info">
+        <div class="ob-info-row">
+          <span class="ob-info-k">Instructor ID</span>
+          <span class="ob-info-v green" id="obInstructorId">—</span>
+        </div>
+        <div class="ob-info-row">
+          <span class="ob-info-k">Your referral link</span>
+          <span class="ob-info-v" id="obReferralLink">—</span>
+          <button type="button" class="ob-copy" id="obCopyRef">Copy</button>
+        </div>
+      </div>
+      <p class="ob-sub">Students who sign up through your link are credited to you. Keep it handy — you'll share it when you set up shop.</p>
+    </section>
+
+    <!-- Step 2: Choose your lanes -->
+    <section class="ob-step" id="step2" aria-label="Choose your lanes">
+      <h2>Choose your lanes</h2>
+      <p class="ob-lead">Cameras Decoded teaches the surface across the board. You own the deep dive in your lanes.</p>
+      <p class="ob-sub">Pick every specialty that fits your expertise. Lanes are open to all — no exclusivity, no territory limits.</p>
+
+      <div class="ob-group">
+        <h3>People &amp; portraits</h3>
+        <div class="ob-lanes">
+          <button type="button" class="ob-lane" data-lane="Newborn photography" aria-pressed="false"><span class="tick"></span><span class="lane-name">Newborn photography</span></button>
+          <button type="button" class="ob-lane" data-lane="Senior portraits" aria-pressed="false"><span class="tick"></span><span class="lane-name">Senior portraits</span></button>
+          <button type="button" class="ob-lane" data-lane="Family mini-sessions" aria-pressed="false"><span class="tick"></span><span class="lane-name">Family mini-sessions</span></button>
+          <button type="button" class="ob-lane" data-lane="Professional headshots" aria-pressed="false"><span class="tick"></span><span class="lane-name">Professional headshots</span></button>
+          <button type="button" class="ob-lane" data-lane="Pet portraits" aria-pressed="false"><span class="tick"></span><span class="lane-name">Pet portraits</span></button>
+          <button type="button" class="ob-lane" data-lane="Maternity sessions" aria-pressed="false"><span class="tick"></span><span class="lane-name">Maternity sessions</span></button>
+        </div>
+      </div>
+
+      <div class="ob-group">
+        <h3>Events &amp; coverage</h3>
+        <div class="ob-lanes">
+          <button type="button" class="ob-lane" data-lane="Youth sports action" aria-pressed="false"><span class="tick"></span><span class="lane-name">Youth sports action</span></button>
+          <button type="button" class="ob-lane" data-lane="Small weddings &amp; elopements" aria-pressed="false"><span class="tick"></span><span class="lane-name">Small weddings &amp; elopements</span></button>
+          <button type="button" class="ob-lane" data-lane="Quinceañeras &amp; milestone birthdays" aria-pressed="false"><span class="tick"></span><span class="lane-name">Quinceañeras &amp; milestone birthdays</span></button>
+          <button type="button" class="ob-lane" data-lane="Dance &amp; recital photography" aria-pressed="false"><span class="tick"></span><span class="lane-name">Dance &amp; recital photography</span></button>
+          <button type="button" class="ob-lane" data-lane="Church &amp; community events" aria-pressed="false"><span class="tick"></span><span class="lane-name">Church &amp; community events</span></button>
+        </div>
+      </div>
+
+      <div class="ob-group">
+        <h3>Business &amp; commercial</h3>
+        <div class="ob-lanes">
+          <button type="button" class="ob-lane" data-lane="Real estate interiors" aria-pressed="false"><span class="tick"></span><span class="lane-name">Real estate interiors</span></button>
+          <button type="button" class="ob-lane" data-lane="Airbnb &amp; rental photos" aria-pressed="false"><span class="tick"></span><span class="lane-name">Airbnb &amp; rental photos</span></button>
+          <button type="button" class="ob-lane" data-lane="Restaurant &amp; food" aria-pressed="false"><span class="tick"></span><span class="lane-name">Restaurant &amp; food</span></button>
+          <button type="button" class="ob-lane" data-lane="Product photos for online sellers" aria-pressed="false"><span class="tick"></span><span class="lane-name">Product photos for online sellers</span></button>
+          <button type="button" class="ob-lane" data-lane="Brand content retainers" aria-pressed="false"><span class="tick"></span><span class="lane-name">Brand content retainers</span></button>
+          <button type="button" class="ob-lane" data-lane="Car photography" aria-pressed="false"><span class="tick"></span><span class="lane-name">Car photography</span></button>
+        </div>
+      </div>
+
+      <div class="ob-group">
+        <h3>Creative &amp; specialty</h3>
+        <div class="ob-lanes">
+          <button type="button" class="ob-lane" data-lane="Night sky &amp; astro landscape" aria-pressed="false"><span class="tick"></span><span class="lane-name">Night sky &amp; astro landscape</span></button>
+          <button type="button" class="ob-lane" data-lane="Off-camera flash mastery" aria-pressed="false"><span class="tick"></span><span class="lane-name">Off-camera flash mastery</span></button>
+          <button type="button" class="ob-lane" data-lane="Street photography" aria-pressed="false"><span class="tick"></span><span class="lane-name">Street photography</span></button>
+          <button type="button" class="ob-lane" data-lane="Macro" aria-pressed="false"><span class="tick"></span><span class="lane-name">Macro</span></button>
+          <button type="button" class="ob-lane" data-lane="Drone photo &amp; video" aria-pressed="false"><span class="tick"></span><span class="lane-name">Drone photo &amp; video</span></button>
+          <button type="button" class="ob-lane" data-lane="Social video for creators" aria-pressed="false"><span class="tick"></span><span class="lane-name">Social video for creators</span></button>
+          <button type="button" class="ob-lane" data-lane="Film photography" aria-pressed="false"><span class="tick"></span><span class="lane-name">Film photography</span></button>
+        </div>
+      </div>
+
+      <p class="ob-error-line" id="obLaneError">Pick at least one lane to continue.</p>
+    </section>
+
+    <!-- Step 3: Certification -->
+    <section class="ob-step" id="step3" aria-label="Certification">
+      <h2>Certification</h2>
+      <p class="ob-lead">Before you teach under the Cameras Decoded name, you pass a CD exam matched to your teaching scope.</p>
+      <p class="ob-sub">Your exam scope is the lanes you just chose:</p>
+      <ul class="ob-scope" id="obExamScope"></ul>
+      <p class="ob-note">Your exam unlocks here as soon as it's ready — we'll email you when it opens. Your certification status is recorded as <b>pending</b>. Nothing is marked passed until you actually pass. You can keep going with setup now.</p>
+    </section>
+
+    <!-- Step 4: Payment -->
+    <section class="ob-step" id="step4" aria-label="Payment">
+      <h2>Payment</h2>
+      <p class="ob-lead">Two ways to pay. Either way, your payment covers your starter kit, shipped to your door.</p>
+      <div class="ob-plans">
+        <button type="button" class="ob-plan" id="obPlanMonthly" data-plan="monthly" aria-pressed="false">
+          <span class="sel-dot"></span>
+          <div class="amt">$300</div>
+          <div class="per">Per month</div>
+          <div class="desc">Monthly billing.</div>
+        </button>
+        <button type="button" class="ob-plan" id="obPlanAnnual" data-plan="annual" aria-pressed="false">
+          <span class="sel-dot"></span>
+          <div class="amt">$2,500</div>
+          <div class="per">Per year, upfront</div>
+          <div class="desc">Annual billing — save 30%.</div>
+        </button>
+      </div>
+      <div class="ob-pay-row">
+        <button type="button" class="ob-btn-secondary" id="obPayBtn" style="display:none;">Pay with Stripe</button>
+        <p class="ob-note" id="obPayNote" style="margin-top:0;">Payment opens shortly — we'll email your link. Keep going; your kit ships once payment completes.</p>
+      </div>
+    </section>
+
+    <!-- Step 5: Your kit -->
+    <section class="ob-step" id="step5" aria-label="Your kit">
+      <h2>Your kit</h2>
+      <p class="ob-lead">Everything you need to set up shop locally, shipped to your door:</p>
+      <ul class="ob-kit">
+        <li><span class="dot"></span>CD merch</li>
+        <li><span class="dot"></span>Hat</li>
+        <li><span class="dot"></span>Shirt</li>
+        <li><span class="dot"></span>Folders</li>
+        <li><span class="dot"></span>Sheets</li>
+        <li><span class="dot"></span>Marketing materials</li>
+      </ul>
+      <div class="ob-form">
+        <div class="form-group">
+          <label for="shipName">Full name</label>
+          <input type="text" id="shipName" placeholder="Your full name" autocomplete="name" />
+          <div class="error-hint" id="shipNameError">Enter the name for the shipment.</div>
+        </div>
+        <div class="form-group">
+          <label for="shipStreet">Street address</label>
+          <input type="text" id="shipStreet" placeholder="Street and number" autocomplete="street-address" />
+          <div class="error-hint" id="shipStreetError">Enter your street address.</div>
+        </div>
+        <div class="form-group">
+          <label for="shipCity">City</label>
+          <input type="text" id="shipCity" placeholder="City" autocomplete="address-level2" />
+          <div class="error-hint" id="shipCityError">Enter your city.</div>
+        </div>
+        <div class="ob-form-row">
+          <div class="form-group">
+            <label for="shipState">State</label>
+            <input type="text" id="shipState" placeholder="State" autocomplete="address-level1" />
+            <div class="error-hint" id="shipStateError">Enter your state.</div>
+          </div>
+          <div class="form-group zip">
+            <label for="shipZip">ZIP</label>
+            <input type="text" id="shipZip" placeholder="ZIP" inputmode="numeric" autocomplete="postal-code" />
+            <div class="error-hint" id="shipZipError">Enter a valid ZIP code.</div>
+          </div>
+        </div>
+      </div>
+      <p class="ob-note">Your kit ships once payment completes. We'll confirm by email before anything goes out.</p>
+    </section>
+
+    <!-- Step 6: Your instructor page -->
+    <section class="ob-step" id="step6" aria-label="Your instructor page">
+      <h2>Your instructor page</h2>
+      <p class="ob-lead">This is how students find you. You can change all of it later from your dashboard.</p>
+      <div class="ob-form">
+        <div class="form-group">
+          <label for="obDisplayName">Display name</label>
+          <input type="text" id="obDisplayName" placeholder="Your name" autocomplete="name" />
+          <div class="error-hint" id="obDisplayNameError">Enter your display name.</div>
+        </div>
+        <div class="form-group">
+          <label for="obBio">Short bio</label>
+          <textarea id="obBio" placeholder="A sentence or two about how you teach."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="obGear">Favorite camera + lens combo</label>
+          <input type="text" id="obGear" placeholder="e.g. Sony a7 IV + 35mm f/1.4" />
+        </div>
+      </div>
+      <p class="ob-note">Add your photo later from your dashboard — it takes ten seconds there.</p>
+    </section>
+
+    <!-- Step 7: Done -->
+    <section class="ob-step" id="step7" aria-label="Done">
+      <h2>You're set up.</h2>
+      <p class="ob-lead">Here's where everything stands:</p>
+      <div class="ob-summary">
+        <div class="ob-summary-row">
+          <div class="ob-summary-k">Your lanes</div>
+          <div class="ob-summary-v" id="obSumLanes">—</div>
+        </div>
+        <div class="ob-summary-row">
+          <div class="ob-summary-k">Certification exam</div>
+          <div class="ob-summary-v"><b>Pending</b> — we'll email you when your exam opens.</div>
+        </div>
+        <div class="ob-summary-row">
+          <div class="ob-summary-k">Payment</div>
+          <div class="ob-summary-v" id="obSumPayment">—</div>
+        </div>
+        <div class="ob-summary-row">
+          <div class="ob-summary-k">Kit ships to</div>
+          <div class="ob-summary-v" id="obSumKit">—</div>
+        </div>
+      </div>
+      <p class="ob-sub">Your dashboard is next — your page, your students, your referral link, all in one place.</p>
+    </section>
+  </main>
+
+  <nav class="ob-nav" id="obNav" style="display:none;">
+    <div class="ob-nav-inner">
+      <button type="button" class="ob-btn-ghost" id="obBack" style="display:none;">Back</button>
+      <button type="button" class="sg sg-real sg-animated" id="obContinue"><span id="obContinueLabel">Continue</span></button>
+    </div>
+  </nav>
+  <script>
+    /* ================================================================
+       STRIPE PAYMENT LINKS
+       Owner: paste Stripe Payment Links here.
+       Leave a link empty and the payment step shows "Payment opens
+       shortly" instead of a pay button — the flow never blocks and
+       never fakes a charge. paymentStatus stays 'pending' until a
+       payment is verified outside this page.
+       ================================================================ */
+    var STRIPE_MONTHLY_URL = '';
+    var STRIPE_ANNUAL_URL = '';
+
+    var OB_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyB95Vx0i8W6WNfUy1N4TNQyfN5xCxQYnz8",
+      authDomain: "cameras-decoded.firebaseapp.com",
+      projectId: "cameras-decoded",
+      storageBucket: "cameras-decoded.firebasestorage.app",
+      messagingSenderId: "1088920052790",
+      appId: "1:1088920052790:web:2177c1fb31109c1fa02497",
+      measurementId: "G-YN3M01WW0B"
+    };
+
+    var obAuth = null, obDb = null, obUser = null, obData = {};
+    var obStep = 1, obPlan = 'annual', obBusy = false;
+    var TOTAL_STEPS = 7;
+
+    function obToast(message, type) {
+      var container = document.getElementById('toast-container');
+      if (!container) return;
+      var toast = document.createElement('div');
+      toast.className = 'toast' + (type === 'error' ? ' error' : '');
+      toast.textContent = message;
+      container.appendChild(toast);
+      requestAnimationFrame(function() { toast.classList.add('show'); });
+      setTimeout(function() {
+        toast.classList.remove('show');
+        setTimeout(function() { toast.remove(); }, 300);
+      }, 4000);
+    }
+
+    function obFatal() {
+      document.getElementById('obLoading').style.display = 'none';
+      document.getElementById('obFatal').style.display = 'block';
+    }
+
+    function obSave(data) {
+      data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      return obDb.collection('users').doc(obUser.uid).set(data, { merge: true });
+    }
+
+    function selectedLanes() {
+      var out = [];
+      var btns = document.querySelectorAll('.ob-lane.selected');
+      for (var i = 0; i < btns.length; i++) out.push(btns[i].getAttribute('data-lane'));
+      return out;
+    }
+
+    function markLane(name, on) {
+      var btn = document.querySelector('.ob-lane[data-lane="' + name.replace(/"/g, '\\"') + '"]');
+      if (!btn) return;
+      btn.classList.toggle('selected', !!on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+
+    function renderExamScope() {
+      var lanes = selectedLanes();
+      var ul = document.getElementById('obExamScope');
+      ul.innerHTML = '';
+      if (!lanes.length) {
+        var li = document.createElement('li');
+        li.textContent = 'No lanes chosen yet — go back and pick your lanes.';
+        ul.appendChild(li);
+        return;
+      }
+      lanes.forEach(function(name) {
+        var li = document.createElement('li');
+        li.textContent = name;
+        ul.appendChild(li);
+      });
+    }
+
+    function renderPayment() {
+      var monthly = document.getElementById('obPlanMonthly');
+      var annual = document.getElementById('obPlanAnnual');
+      monthly.classList.toggle('selected', obPlan === 'monthly');
+      monthly.setAttribute('aria-pressed', obPlan === 'monthly' ? 'true' : 'false');
+      annual.classList.toggle('selected', obPlan === 'annual');
+      annual.setAttribute('aria-pressed', obPlan === 'annual' ? 'true' : 'false');
+      var url = obPlan === 'annual' ? STRIPE_ANNUAL_URL : STRIPE_MONTHLY_URL;
+      document.getElementById('obPayBtn').style.display = url ? '' : 'none';
+      document.getElementById('obPayNote').style.display = url ? 'none' : '';
+    }
+
+    function collectShipping() {
+      var fields = [
+        ['shipName', 'shipNameError', function(v) { return v.length > 0; }],
+        ['shipStreet', 'shipStreetError', function(v) { return v.length > 0; }],
+        ['shipCity', 'shipCityError', function(v) { return v.length > 0; }],
+        ['shipState', 'shipStateError', function(v) { return v.length > 0; }],
+        ['shipZip', 'shipZipError', function(v) { return /^\d{5}(-\d{4})?$/.test(v); }]
+      ];
+      var ok = true, out = {};
+      var keys = { shipName: 'name', shipStreet: 'street', shipCity: 'city', shipState: 'state', shipZip: 'zip' };
+      fields.forEach(function(f) {
+        var el = document.getElementById(f[0]);
+        var err = document.getElementById(f[1]);
+        var v = el.value.trim();
+        var valid = f[2](v);
+        err.style.display = valid ? 'none' : 'block';
+        if (!valid) ok = false;
+        out[keys[f[0]]] = v;
+      });
+      return ok ? out : null;
+    }
+
+    function collectProfile() {
+      var nameEl = document.getElementById('obDisplayName');
+      var err = document.getElementById('obDisplayNameError');
+      var name = nameEl.value.trim();
+      if (!name) { err.style.display = 'block'; return null; }
+      err.style.display = 'none';
+      return {
+        displayName: name,
+        bio: document.getElementById('obBio').value.trim(),
+        gearLine: document.getElementById('obGear').value.trim()
+      };
+    }
+
+    function renderSummary() {
+      var lanes = selectedLanes();
+      document.getElementById('obSumLanes').textContent = lanes.length ? lanes.join(', ') : '—';
+      document.getElementById('obSumPayment').innerHTML = '<b>Pending</b> — ' +
+        (obPlan === 'annual' ? 'Annual, $2,500/yr upfront.' : 'Monthly, $300/mo.');
+      var name = document.getElementById('shipName').value.trim();
+      var street = document.getElementById('shipStreet').value.trim();
+      var city = document.getElementById('shipCity').value.trim();
+      var state = document.getElementById('shipState').value.trim();
+      var zip = document.getElementById('shipZip').value.trim();
+      var addr = [name, street, [city, state].filter(Boolean).join(', '), zip].filter(Boolean).join(' · ');
+      document.getElementById('obSumKit').textContent = addr || '—';
+    }
+
+    function showStep(n) {
+      obStep = n;
+      for (var i = 1; i <= TOTAL_STEPS; i++) {
+        document.getElementById('step' + i).classList.toggle('active', i === n);
+      }
+      document.getElementById('obStepNow').textContent = n;
+      document.getElementById('obProgressFill').style.width = (n / TOTAL_STEPS * 100) + '%';
+      document.getElementById('obBack').style.display = n > 1 ? '' : 'none';
+      document.getElementById('obContinueLabel').textContent = n === TOTAL_STEPS ? 'Go to my dashboard' : 'Continue';
+      if (n === 3) renderExamScope();
+      if (n === 4) renderPayment();
+      if (n === 7) renderSummary();
+      window.scrollTo(0, 0);
+    }
+
+    function advance(data, next) {
+      obBusy = true;
+      document.getElementById('obContinue').disabled = true;
+      obSave(data).then(function() {
+        obBusy = false;
+        document.getElementById('obContinue').disabled = false;
+        Object.assign(obData, data);
+        showStep(next);
+      }).catch(function(err) {
+        obBusy = false;
+        document.getElementById('obContinue').disabled = false;
+        obToast('Error: ' + err.message, 'error');
+      });
+    }
+
+    function obContinue() {
+      if (obBusy) return;
+      if (obStep === 1) {
+        advance({ onboardingStep: 2 }, 2);
+      } else if (obStep === 2) {
+        var lanes = selectedLanes();
+        if (!lanes.length) {
+          document.getElementById('obLaneError').style.display = 'block';
+          obToast('Pick at least one lane to continue.', 'error');
+          return;
+        }
+        document.getElementById('obLaneError').style.display = 'none';
+        advance({ teachingLanes: lanes, onboardingStep: 3 }, 3);
+      } else if (obStep === 3) {
+        advance({ examScope: selectedLanes(), examStatus: 'pending', onboardingStep: 4 }, 4);
+      } else if (obStep === 4) {
+        advance({ billingInterval: obPlan, paymentStatus: 'pending', onboardingStep: 5 }, 5);
+      } else if (obStep === 5) {
+        var ship = collectShipping();
+        if (!ship) { obToast('Check the shipping fields and try again.', 'error'); return; }
+        advance({ kitShipping: ship, onboardingStep: 6 }, 6);
+      } else if (obStep === 6) {
+        var prof = collectProfile();
+        if (!prof) { obToast('Enter your display name to continue.', 'error'); return; }
+        advance({ displayName: prof.displayName, bio: prof.bio, gearLine: prof.gearLine, onboardingStep: 7 }, 7);
+      } else if (obStep === 7) {
+        obBusy = true;
+        document.getElementById('obContinue').disabled = true;
+        obSave({ onboardingComplete: true, onboardingStep: 7 }).then(function() {
+          window.location.href = 'instructor-profile.html';
+        }).catch(function(err) {
+          obBusy = false;
+          document.getElementById('obContinue').disabled = false;
+          obToast('Error: ' + err.message, 'error');
+        });
+      }
+    }
+
+    function obBack() {
+      if (obBusy || obStep <= 1) return;
+      var prev = obStep - 1;
+      obBusy = true;
+      obSave({ onboardingStep: prev }).then(function() {
+        obBusy = false;
+        showStep(prev);
+      }).catch(function(err) {
+        obBusy = false;
+        obToast('Error: ' + err.message, 'error');
+      });
+    }
+
+    function obSetup(d) {
+      document.getElementById('obInstructorId').textContent = d.instructorId || '—';
+      document.getElementById('obReferralLink').textContent = 'camerasdecoded.com/ref/' + (d.referralCode || '');
+
+      (d.teachingLanes || []).forEach(function(name) { markLane(name, true); });
+
+      obPlan = d.billingInterval === 'monthly' ? 'monthly' : 'annual';
+
+      var ship = d.kitShipping || {};
+      document.getElementById('shipName').value = ship.name || d.displayName || '';
+      document.getElementById('shipStreet').value = ship.street || '';
+      document.getElementById('shipCity').value = ship.city || '';
+      document.getElementById('shipState').value = ship.state || '';
+      document.getElementById('shipZip').value = ship.zip || '';
+
+      document.getElementById('obDisplayName').value = d.displayName || '';
+      document.getElementById('obBio').value = d.bio || '';
+      document.getElementById('obGear').value = d.gearLine || '';
+
+      var s = parseInt(d.onboardingStep, 10);
+      if (!s || s < 1) s = 1;
+      if (s > TOTAL_STEPS) s = TOTAL_STEPS;
+
+      document.getElementById('obLoading').style.display = 'none';
+      document.getElementById('obNav').style.display = '';
+      showStep(s);
+    }
+
+    function obWire() {
+      document.getElementById('obContinue').addEventListener('click', obContinue);
+      document.getElementById('obBack').addEventListener('click', obBack);
+      document.getElementById('obCopyRef').addEventListener('click', function() {
+        var link = document.getElementById('obReferralLink').textContent;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(link).then(function() { obToast('Copied!'); });
+        } else {
+          obToast(link);
+        }
+      });
+      var laneBtns = document.querySelectorAll('.ob-lane');
+      for (var i = 0; i < laneBtns.length; i++) {
+        laneBtns[i].addEventListener('click', function() {
+          var on = !this.classList.contains('selected');
+          this.classList.toggle('selected', on);
+          this.setAttribute('aria-pressed', on ? 'true' : 'false');
+          if (on) document.getElementById('obLaneError').style.display = 'none';
+        });
+      }
+      document.getElementById('obPlanMonthly').addEventListener('click', function() {
+        obPlan = 'monthly'; renderPayment();
+      });
+      document.getElementById('obPlanAnnual').addEventListener('click', function() {
+        obPlan = 'annual'; renderPayment();
+      });
+      document.getElementById('obPayBtn').addEventListener('click', function() {
+        var url = obPlan === 'annual' ? STRIPE_ANNUAL_URL : STRIPE_MONTHLY_URL;
+        if (url) window.open(url, '_blank');
+      });
+    }
+
+    function obInit() {
+      if (typeof firebase === 'undefined' || !firebase.auth || !firebase.firestore) {
+        obFatal();
+        return;
+      }
+      if (!firebase.apps.length) firebase.initializeApp(OB_FIREBASE_CONFIG);
+      obAuth = firebase.auth();
+      obDb = firebase.firestore();
+      obWire();
+      obAuth.onAuthStateChanged(function(user) {
+        if (!user) { window.location.href = 'login.html'; return; }
+        obUser = user;
+        obDb.collection('users').doc(user.uid).get().then(function(doc) {
+          if (!doc.exists) { window.location.href = 'instructor-profile.html'; return; }
+          var d = doc.data() || {};
+          if (d.role && d.role !== 'Instructor') { window.location.href = 'instructor-profile.html'; return; }
+          if (d.onboardingComplete === true) { window.location.href = 'instructor-profile.html'; return; }
+          obData = d;
+          if (d.onboardingStep === undefined) {
+            /* First arrival (fresh from signup): record step 1 so the
+               dashboard gate can send them back here if they bail. */
+            obSave({ onboardingStep: 1 }).catch(function() {});
+          }
+          obSetup(d);
+        }).catch(function() { obFatal(); });
+      });
+    }
+
+    obInit();
+  </script>
+</body>
+</html>
