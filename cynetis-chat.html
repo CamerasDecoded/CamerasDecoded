@@ -30,12 +30,14 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { height: 100%; }
         body {
-            background: #050705;
-            background-image: radial-gradient(circle at 20% 30%, rgba(141, 235, 0, 0.12) 0%, transparent 50%),
-                radial-gradient(circle at 80% 70%, rgba(141, 235, 0, 0.08) 0%, transparent 45%),
-                linear-gradient(rgba(141, 235, 0, 0.04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(141, 235, 0, 0.04) 1px, transparent 1px);
-            background-size: 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+            /* Flat #08080a behind Cynetis-7 so she floats with zero seam:
+               her loop's own background is exactly #08080a. !important
+               because design-system.css loads later via master-loader and
+               would otherwise win with its tint + dot-grid stack. The
+               ambient tint/dots fade back in below her stage via the
+               body::after layer. */
+            background: #08080a !important;
+            background-image: none !important;
             color: #ffffff;
             font-family: 'Montserrat', sans-serif;
             overflow: hidden;
@@ -50,8 +52,29 @@
             padding: 0 !important;
         }
 
+        /* Ambient layer: the platform tint + dot grid, masked out of the
+           top zone so nothing crosses Cynetis-7, fading back in below her
+           stage (stage bottom is ~415px at 402 wide, ~450px on a notched
+           phone — the fade starts at 460px and is fully in by 720px). */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image:
+                radial-gradient(ellipse at 30% 20%, rgba(141, 235, 0, 0.04) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 80%, rgba(141, 235, 0, 0.02) 0%, transparent 50%),
+                radial-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 24px 24px;
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 460px, #000 720px);
+            mask-image: linear-gradient(to bottom, transparent 0, transparent 460px, #000 720px);
+        }
+
         /* ===== APP SHELL ===== */
         .c7p-wrap {
+            position: relative;
+            z-index: 1;
             height: 100vh;
             height: 100dvh;
             display: flex;
