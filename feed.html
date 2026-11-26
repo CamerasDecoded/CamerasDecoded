@@ -146,6 +146,26 @@ body{display:block !important;justify-content:normal !important;align-items:norm
 /* cynetis-7 transmissions */
 .feed-card.cynetis{border-color:rgba(141,235,0,.28);background:linear-gradient(135deg,var(--surface),#0a0f06)}
 .feed-card.cynetis .feed-avatar{border-color:var(--green-border)}
+/* cynetis loop stage: her broadcast visual, built into the card.
+   The video bleeds to the card edges and fades into the card's own
+   background; ring + scanlines sit over her; the header rides the
+   bottom scrim. pointer-events none: taps pass through to the card
+   (tap a transmission card = plasma modal, unchanged). */
+.cyn-stage{position:relative;height:196px;margin:-16px -16px 12px;border-radius:16px 16px 0 0;overflow:hidden;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 42%,rgba(141,235,0,.10) 0%,rgba(141,235,0,.03) 45%,transparent 72%),linear-gradient(180deg,#0b1007 0%,#0a0f06 100%)}
+.cyn-loop{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 44%;opacity:0;transition:opacity .7s ease;
+  -webkit-mask-image:linear-gradient(180deg,#000 58%,transparent 99%);mask-image:linear-gradient(180deg,#000 58%,transparent 99%)}
+.cyn-loop.on{opacity:1}
+.cyn-ring{position:absolute;left:50%;top:44%;width:158px;height:158px;transform:translate(-50%,-50%);border-radius:50%;
+  border:1px solid rgba(141,235,0,.30);pointer-events:none}
+.cyn-ring::before{content:"";position:absolute;inset:-9px;border-radius:50%;border:1px dashed rgba(141,235,0,.18);animation:cynSpin 46s linear infinite}
+.cyn-ring::after{content:"";position:absolute;inset:16px;border-radius:50%;border:1px solid rgba(141,235,0,.13)}
+@keyframes cynSpin{to{transform:rotate(360deg)}}
+.cyn-scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(141,235,0,.045) 0 1px,transparent 1px 4px);pointer-events:none}
+.cyn-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,8,10,.18) 0%,transparent 34%,transparent 55%,rgba(8,10,6,.88) 100%);pointer-events:none}
+.cyn-stage .feed-card-header{position:absolute;left:16px;right:16px;bottom:10px;margin:0;z-index:2}
+#feedList.photos-grid .cyn-stage{margin:-12px -12px 10px;height:170px}
+@media(prefers-reduced-motion:reduce){.cyn-ring::before{animation:none}.cyn-loop{transition:none}}
 /* plasma edge must never be clipped by the card (PR B) */
 .feed-card.cynetis.cdp-edge-live{overflow:visible}
 /* arena winners wear the plasma edge as the celebration record (PR C) */
@@ -1137,6 +1157,30 @@ async function loadFeed() {
       if(d.imageUrl) return [d.imageUrl];
       return [];
     }
+    /* --- cynetis loop: plays only while on screen, poster otherwise.
+       Reduced motion never plays. Fade in on 'playing'. --- */
+    const cynReduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let cynObserver = null;
+    function initCynLoops(root){
+      if (!root) return;
+      root.querySelectorAll('.cyn-loop').forEach(function(v){
+        if (v._cynWired) return;
+        v._cynWired = true;
+        v.addEventListener('playing', function(){ v.classList.add('on'); });
+        if (cynReduceMotion) { v.classList.add('on'); return; }
+        if (!cynObserver && 'IntersectionObserver' in window) {
+          cynObserver = new IntersectionObserver(function(entries){
+            entries.forEach(function(en){
+              var vid = en.target;
+              if (en.isIntersecting) { var p = vid.play(); if (p && p.catch) p.catch(function(){}); }
+              else { try { vid.pause(); } catch (e) {} }
+            });
+          }, { threshold: 0.3 });
+        }
+        if (cynObserver) cynObserver.observe(v);
+        else { var p2 = v.play(); if (p2 && p2.catch) p2.catch(function(){}); }
+      });
+    }
     function initCarousels(root){
       root.querySelectorAll('[data-carousel]').forEach(function(car){
         if(car._init) return; car._init = true;
@@ -1694,6 +1738,7 @@ async function loadFeed() {
             feedList.prepend(card);
             if (typeof loadFlashData === 'function') loadFlashData();
             if (typeof initCarousels === 'function') initCarousels(feedList);
+            if (typeof initCynLoops === 'function') initCynLoops(feedList);
             fillLinkCards(feedList);
           }
         } catch (e) {}
@@ -1786,13 +1831,22 @@ async function loadFeed() {
       el.className = d.type === 'cynetis_post' ? 'feed-card cynetis' : (d.type === 'arena_winner' ? 'feed-card winner' : 'feed-card');
       const typeCls = d.type === 'arena_winner' ? 'feed-type winner' : 'feed-type';
       const avatarHtml = d.actorAvatar ? `<img src="${esc(d.actorAvatar)}" alt=""/>` : esc((d.actorName||'?')[0].toUpperCase());
-      el.innerHTML =
+      const headerHtml =
         `<div class="feed-card-header">` +
           `<div class="feed-avatar">${avatarHtml}</div>` +
           `<div class="feed-meta"><div class="feed-actor">${esc(d.actorName||'Operator')}</div>` +
           `<div class="feed-time">${timeAgo(d.createdAt)}</div></div>` +
           (d.type === 'post' ? '' : `<div class="${typeCls}">${esc(TYPE_LABELS[d.type]||d.type)}</div>`) +
-        `</div>` +
+        `</div>`;
+      /* transmissions carry her loop as the card visual, header over it */
+      const cynStage = d.type === 'cynetis_post' ?
+        `<div class="cyn-stage" aria-hidden="true">` +
+          `<video class="cyn-loop" src="/media/cynetis-7/cynetis-loop.mp4?v=20261125a" poster="/media/cynetis-7/cynetis-loop-poster.jpg?v=20261125a" muted loop playsinline preload="none"></video>` +
+          `<div class="cyn-ring"></div><div class="cyn-scan"></div><div class="cyn-scrim"></div>` +
+          headerHtml +
+        `</div>` : headerHtml;
+      el.innerHTML =
+        cynStage +
         (d.text ? `<div class="feed-text">${esc(d.text)}</div>` : '') +
         linkCardSlotHTML(d) +
         carouselHTML(getImageUrls(d)) +
@@ -1829,6 +1883,7 @@ async function loadFeed() {
       feedList.insertBefore(frag, feedList.firstChild);
       loadFlashData();
       initCarousels(feedList);
+      initCynLoops(feedList);
       fillLinkCards(feedList);
       cdpRefreshTransmissionEdges();
       cdpRefreshWinnerEdges();
@@ -1969,6 +2024,7 @@ async function loadFeed() {
     feedList.appendChild(frag);
     loadFlashData();
     initCarousels(feedList);
+    initCynLoops(feedList);
     fillLinkCards(feedList);
     buildWire(ordered);
     cdpRefreshTransmissionEdges();

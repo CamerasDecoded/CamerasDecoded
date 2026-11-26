@@ -70,16 +70,31 @@
             transition: color 0.2s;
         }
         .c7p-back:hover { color: var(--green); }
-        .c7p-top > video {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            border: 2px solid rgba(141, 235, 0, 0.5);
-            box-shadow: 0 0 14px var(--green-glow);
-            object-fit: cover;
+        /* ===== EMBEDDED PRESENCE (the owner's loop, built into the page) ===== */
+        .c7p-presence {
+            position: relative;
+            width: 48px;
+            height: 48px;
             flex-shrink: 0;
-            background: #000;
+            filter: drop-shadow(0 0 10px rgba(141, 235, 0, 0.35));
+            transition: filter 0.4s, transform 0.4s;
         }
+        .c7p-presence.thinking {
+            filter: drop-shadow(0 0 18px rgba(141, 235, 0, 0.65));
+            transform: scale(1.07);
+        }
+        .c7p-loop {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.7s ease;
+            -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 52%, transparent 71%);
+            mask-image: radial-gradient(circle at 50% 50%, #000 52%, transparent 71%);
+            pointer-events: none;
+        }
+        .c7p-loop.on { opacity: 1; }
         .c7p-who { flex: 1; min-width: 0; }
         .c7p-who strong {
             font-family: 'Space Mono', monospace;
@@ -172,6 +187,12 @@
             white-space: pre-wrap;
             word-wrap: break-word;
         }
+        .c7p-row.c7 > video.c7p-loop {
+            width: 30px;
+            height: 30px;
+            flex-shrink: 0;
+            margin-top: 3px;
+        }
         .c7p-typing { display: inline-flex; gap: 5px; padding: 8px 2px; }
         .c7p-typing span {
             width: 7px;
@@ -196,14 +217,50 @@
             flex-direction: column;
             align-items: center;
         }
-        .c7p-empty > video {
-            width: 88px;
-            height: 88px;
+        /* ===== EMBEDDED STAGE (empty state) ===== */
+        .c7p-stage {
+            position: relative;
+            width: min(64vw, 260px);
+            aspect-ratio: 1 / 1;
+            margin: 0 auto;
+        }
+        .c7p-stage-glow {
+            position: absolute;
+            inset: -22%;
+            background: radial-gradient(circle at 50% 50%, rgba(141, 235, 0, 0.20) 0%, rgba(141, 235, 0, 0.07) 42%, transparent 68%);
+            pointer-events: none;
+        }
+        .c7p-stage .c7p-loop { position: absolute; inset: 0; }
+        .c7p-stage-ring {
+            position: absolute;
+            inset: 7%;
             border-radius: 50%;
-            border: 2px solid rgba(141, 235, 0, 0.55);
-            box-shadow: 0 0 34px var(--green-glow);
-            object-fit: cover;
-            background: #000;
+            border: 1px solid rgba(141, 235, 0, 0.32);
+            pointer-events: none;
+        }
+        .c7p-stage-ring::before {
+            content: "";
+            position: absolute;
+            inset: -7%;
+            border-radius: 50%;
+            border: 1px dashed rgba(141, 235, 0, 0.20);
+            animation: c7p-spin 46s linear infinite;
+        }
+        .c7p-stage-ring::after {
+            content: "";
+            position: absolute;
+            inset: 12%;
+            border-radius: 50%;
+            border: 1px solid rgba(141, 235, 0, 0.14);
+        }
+        @keyframes c7p-spin { to { transform: rotate(360deg); } }
+        .c7p-stage-scan {
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(0deg, rgba(141, 235, 0, 0.05) 0 1px, transparent 1px 4px);
+            -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 52%, transparent 71%);
+            mask-image: radial-gradient(circle at 50% 50%, #000 52%, transparent 71%);
+            pointer-events: none;
         }
         .c7p-empty h1 {
             font-family: 'Space Mono', monospace;
@@ -311,6 +368,9 @@
 
         @media (prefers-reduced-motion: reduce) {
             .c7p-status i, .c7p-typing span { animation: none; }
+            .c7p-stage-ring::before { animation: none; }
+            .c7p-loop { transition: none; }
+            .c7p-presence { transition: none; }
             .c7p-sug:hover { transform: none; }
             .c7p-send:hover:not(:disabled) { transform: none; }
         }
@@ -321,9 +381,9 @@
     <div class="c7p-wrap">
         <header class="c7p-top">
             <a class="c7p-back" href="ai-workbench.html" aria-label="Back to AI Workbench"><i class="fas fa-arrow-left"></i></a>
-            <video autoplay muted loop playsinline preload="auto" poster="cynetis-avatar.png" aria-label="Cynetis-7">
-                <source src="cynetis-7-loop.mp4" type="video/mp4">
-            </video>
+            <div class="c7p-presence" id="c7p-presence">
+                <video class="c7p-loop" src="/media/cynetis-7/cynetis-loop.mp4?v=20261125a" poster="/media/cynetis-7/cynetis-loop-poster.jpg?v=20261125a" autoplay muted loop playsinline preload="auto" aria-label="Cynetis-7"></video>
+            </div>
             <div class="c7p-who">
                 <strong>CYNETIS-7</strong>
                 <span class="c7p-status"><i></i>signal live</span>
@@ -334,9 +394,12 @@
         <main class="c7p-thread" id="c7p-thread">
             <div class="c7p-col" id="c7p-col">
                 <div class="c7p-empty" id="c7p-empty">
-                    <video autoplay muted loop playsinline preload="auto" poster="cynetis-avatar.png" aria-label="Cynetis-7">
-                        <source src="cynetis-7-loop.mp4" type="video/mp4">
-                    </video>
+                    <div class="c7p-stage" aria-hidden="true">
+                        <div class="c7p-stage-glow"></div>
+                        <video class="c7p-loop" src="/media/cynetis-7/cynetis-loop.mp4?v=20261125a" poster="/media/cynetis-7/cynetis-loop-poster.jpg?v=20261125a" autoplay muted loop playsinline preload="auto" aria-label="Cynetis-7"></video>
+                        <div class="c7p-stage-ring"></div>
+                        <div class="c7p-stage-scan"></div>
+                    </div>
                     <h1>Signal <span>acquired.</span></h1>
                     <p>I'm Cynetis-7 — the Signal Keeper. Ask me anything about photography: light, settings, composition, gear, editing.</p>
                     <div class="c7p-suggest" id="c7p-suggest">
@@ -382,10 +445,22 @@
             var history = [];
             var busy = false;
 
+            function wireLoop(v) {
+                if (!v || v._c7wired) return;
+                v._c7wired = true;
+                v.addEventListener('playing', function () { v.classList.add('on'); });
+                if (reduceMotion) {
+                    /* Poster only: drop the source so no motion plays. */
+                    try { v.removeAttribute('src'); v.load(); } catch (e) {}
+                    v.classList.add('on');
+                } else if (!v.paused && v.readyState >= 3) {
+                    v.classList.add('on');
+                }
+            }
+
             function calmVids() {
-                if (!reduceMotion) return;
-                var vids = document.querySelectorAll('.c7p-top > video, .c7p-empty > video');
-                for (var i = 0; i < vids.length; i++) { try { vids[i].pause(); } catch (e) {} }
+                var vids = document.querySelectorAll('.c7p-loop');
+                for (var i = 0; i < vids.length; i++) wireLoop(vids[i]);
             }
 
             function scrollDown() {
@@ -427,15 +502,23 @@
             function setTyping(on) {
                 var old = document.getElementById('c7p-typing');
                 if (old) old.remove();
+                var pres = document.getElementById('c7p-presence');
+                if (pres) pres.classList.toggle('thinking', !!on);
                 if (!on) return;
                 var row = document.createElement('div');
                 row.className = 'c7p-row c7';
                 row.id = 'c7p-typing';
-                var av = document.createElement('img');
-                av.src = 'cynetis-avatar.png';
-                av.alt = 'Cynetis-7';
-                av.onerror = function () { av.style.display = 'none'; };
+                var av = document.createElement('video');
+                av.className = 'c7p-loop';
+                av.src = '/media/cynetis-7/cynetis-loop.mp4?v=20261125a';
+                av.poster = '/media/cynetis-7/cynetis-loop-poster.jpg?v=20261125a';
+                av.muted = true;
+                av.loop = true;
+                av.autoplay = true;
+                av.setAttribute('playsinline', '');
+                av.setAttribute('aria-label', 'Cynetis-7');
                 row.appendChild(av);
+                wireLoop(av);
                 var t = document.createElement('div');
                 t.className = 'c7p-ai';
                 t.innerHTML = '<span class="c7p-typing"><span></span><span></span><span></span></span>';
@@ -531,7 +614,9 @@
                         var d = document.createElement('div');
                         d.className = 'c7p-empty';
                         d.id = 'c7p-empty';
-                        d.innerHTML = '<video autoplay muted loop playsinline preload="auto" poster="cynetis-avatar.png"><source src="cynetis-7-loop.mp4" type="video/mp4"></video>' +
+                        d.innerHTML = '<div class="c7p-stage" aria-hidden="true"><div class="c7p-stage-glow"></div>' +
+                            '<video class="c7p-loop" src="/media/cynetis-7/cynetis-loop.mp4?v=20261125a" poster="/media/cynetis-7/cynetis-loop-poster.jpg?v=20261125a" autoplay muted loop playsinline preload="auto" aria-label="Cynetis-7"></video>' +
+                            '<div class="c7p-stage-ring"></div><div class="c7p-stage-scan"></div></div>' +
                             '<h1>Signal <span>acquired.</span></h1>' +
                             '<p>I\'m Cynetis-7 — the Signal Keeper. Ask me anything about photography: light, settings, composition, gear, editing.</p>' +
                             '<div class="c7p-suggest" id="c7p-suggest">' +
