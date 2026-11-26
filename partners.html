@@ -342,40 +342,86 @@
       letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
       border: 1px solid var(--border); border-radius: 999px; padding: 5px 14px;
     }
-    /* Mobile: the frame becomes a sticky scaled preview pinned below the
-       floating header while the brand-kit controls scroll beneath it, so
-       every change shows instantly — no scroll hunting. Tapping the
-       preview opens the full-size frame in a body-level overlay. */
+    /* Mobile: the frame stays full-size in the section; the brand-kit
+       controls live in floating popup cards (bottom sheets, body-level)
+       opened from a chip bar that sticks to the viewport bottom while
+       the section is on screen — frame visible, controls one tap away,
+       changes apply live behind the card. No scroll hunting. */
+    .pv-chipbar { display: none; }
     @media (max-width: 640px) {
       .pv-mock-stage { display: block; }
-      .pv-mock-left {
-        position: sticky;
-        top: calc(max(12px, env(safe-area-inset-top, 0px)) + 66px);
-        z-index: 40;
-        background: var(--dark);
-        padding-bottom: 10px;
-        box-shadow: 0 16px 28px rgba(0,0,0,.5);
+      .pv-kit { display: none; }
+      .pv-chipbar {
+        display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+        position: sticky; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+        z-index: 45; margin-top: 16px; padding: 8px;
+        background: rgba(10,10,12,.86); backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--border); border-radius: 999px;
+        box-shadow: 0 14px 34px rgba(0,0,0,.55);
       }
-      .pv-phone { cursor: pointer; }
-      .pv-kit { margin: 20px auto 0; }
+      .pv-chip {
+        font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.2px;
+        text-transform: uppercase; color: #ffffff; cursor: pointer;
+        background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16);
+        border-radius: 999px; padding: 10px 14px; min-height: 40px;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .pv-chip.on { background: var(--green-soft); color: var(--green); border-color: var(--green-border); }
     }
-    /* Expanded preview: body-level overlay, full-size frame. */
-    .pv-expand {
+    /* Floating popup cards: body-level bottom sheets in the Next-card
+       language — floating chrome, thumb reach, swipe-to-dismiss.
+       Overlays keep their boxes (the flat-mobile rule does not apply). */
+    .pv-sheets {
       position: fixed; inset: 0; z-index: 200;
-      background: rgba(4,4,6,.94);
-      display: flex; align-items: center; justify-content: center;
-      padding: calc(max(12px, env(safe-area-inset-top, 0px)) + 60px) 16px calc(env(safe-area-inset-bottom, 0px) + 20px);
-      overflow-y: auto;
+      visibility: hidden; pointer-events: none;
     }
-    .pv-expand[hidden] { display: none; }
-    .pv-expand-stage { display: flex; justify-content: center; align-items: flex-start; width: 100%; }
-    .pv-expand-close {
-      position: absolute; top: calc(max(12px, env(safe-area-inset-top, 0px)) + 8px); right: 16px;
-      font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
-      color: #ffffff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25);
-      border-radius: 999px; padding: 9px 18px; cursor: pointer;
+    .pv-sheets.open { visibility: visible; pointer-events: auto; }
+    .pv-sheet-backdrop {
+      position: absolute; inset: 0; background: rgba(4,4,6,.5);
+      opacity: 0; transition: opacity .32s;
+    }
+    .pv-sheets.open .pv-sheet-backdrop { opacity: 1; }
+    .pv-sheet {
+      position: absolute; left: 12px; right: 12px;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      border: 1px solid var(--border); border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.6);
+      padding: 8px 18px 20px; max-height: 74vh; overflow-y: auto;
+      transform: translateY(calc(100% + 24px));
+      transition: transform .32s cubic-bezier(.32,.72,.24,1);
+      visibility: hidden;
+    }
+    .pv-sheet.open { transform: translateY(0); visibility: visible; }
+    .pv-sheet-grab {
+      width: 44px; height: 5px; border-radius: 999px;
+      background: rgba(255,255,255,.28); margin: 4px auto 10px;
+    }
+    .pv-sheet-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .pv-sheet-title {
+      font-family: var(--font-mono); font-size: 12px; letter-spacing: 1.8px;
+      text-transform: uppercase; color: #ffffff;
+    }
+    .pv-sheet-close {
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px;
+      text-transform: uppercase; color: #ffffff; cursor: pointer;
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25);
+      border-radius: 999px; padding: 8px 16px; min-height: 36px;
       -webkit-tap-highlight-color: transparent;
     }
+    .pv-sheet-body { display: flex; flex-direction: column; gap: 16px; }
+    .pv-sheet input[type="text"] {
+      width: 100%; padding: 12px 14px; background: #0f0f0f;
+      border: 1px solid var(--border); border-radius: 10px; color: #fff;
+      font-family: var(--font-sans); font-size: 15px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .pv-sheet input[type="text"]:focus { border-color: var(--green-border); }
+    .pv-sheet input[type="text"]::placeholder { color: #555; }
     /* Brand kit: the partner's settings, styled like onboarding. */
     .pv-kit {
       width: min(340px, 100%); border: 1px solid var(--border); border-radius: 16px;
@@ -462,6 +508,25 @@
     /* Light swatches: a white selected ring vanishes on them — use the
        brand green ring instead so the selection always reads. */
     .pv-swatch-light[aria-pressed="true"] { border-color: var(--green); }
+    /* Custom color square: opens the native picker for the full spectrum.
+       A label wraps the input so the whole square is the tap target; the
+       input itself covers it invisibly. Inactive = spectrum gradient;
+       active = the picked color with the selected ring. */
+    .pv-custom {
+      position: relative; width: 40px; height: 40px; border-radius: 10px;
+      cursor: pointer; flex: none; overflow: hidden;
+      border: 2px solid rgba(255,255,255,.18); padding: 0;
+      background: conic-gradient(#ff5c7a, #ffc49b, #ffe08a, #7ff0c4, #8fd0ff, #b388ff, #ff5c7a);
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .pv-custom:hover { transform: scale(1.06); }
+    .pv-custom.on { border-color: #ffffff; transform: scale(1.06); }
+    .pv-custom.on.light { border-color: var(--green); }
+    .pv-custom input[type="color"] {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      opacity: 0; cursor: pointer; border: 0; padding: 0; margin: 0;
+    }
     .pv-mock-note { margin: 18px auto 0; text-align: center; font-size: 14px; color: #c9c9c9; max-width: 560px; }
     .pv-mock-note strong { color: #ffffff; }
     /* Private vs shared: the partner's choice. */
@@ -576,6 +641,7 @@
         padding: 14px 0 10px;
       }
       .pv-kit {
+        display: none;
         background: transparent; border: none; border-radius: 0; padding: 4px 0 0;
       }
       .pv-choice { grid-template-columns: 1fr; gap: 0; }
@@ -821,15 +887,15 @@
               <div class="pv-kit-head">Brand Kit</div>
               <p class="pv-kit-sub">Every setting here is one field on your partner record. Set it once — it applies everywhere your people land.</p>
             </div>
-            <div>
+            <div data-group="name">
               <label class="pv-field-label" for="pvNameInput">Partner name</label>
               <input type="text" id="pvNameInput" value="Your Studio" maxlength="32" autocomplete="off" placeholder="Your Studio">
             </div>
-            <div>
+            <div data-group="name">
               <label class="pv-field-label" for="pvTagInput">Tagline</label>
               <input type="text" id="pvTagInput" value="Learn. Prove it nightly." maxlength="48" autocomplete="off" placeholder="Learn. Prove it nightly.">
             </div>
-            <div>
+            <div data-group="logo">
               <span class="pv-field-label">Logo</span>
               <div class="pv-logo-row">
                 <label class="pv-logo-btn" for="pvLogoInput">Upload logo</label>
@@ -839,7 +905,7 @@
               <input type="file" id="pvLogoInput" accept="image/*" hidden>
               <p class="pv-logo-note">Preview only — the image never leaves your browser.</p>
             </div>
-            <div>
+            <div data-group="type">
               <span class="pv-field-label">Type pairing</span>
               <div class="pv-font-opts">
                 <button type="button" class="pv-font-opt" data-font="signal" aria-pressed="true">
@@ -856,7 +922,7 @@
                 </button>
               </div>
             </div>
-            <div class="pv-swatch-group">
+            <div class="pv-swatch-group" data-group="colors">
               <span class="pv-field-label">Primary color</span>
               <div class="pv-swatches">
                 <button type="button" class="pv-swatch" data-slot="primary" data-color="#8deb00" style="background:#8deb00" aria-pressed="true" aria-label="Primary CD Green"></button>
@@ -871,9 +937,10 @@
                 <button type="button" class="pv-swatch pv-swatch-light" data-slot="primary" data-color="#ffe08a" style="background:#ffe08a" aria-pressed="false" aria-label="Primary Butter"></button>
                 <button type="button" class="pv-swatch pv-swatch-light" data-slot="primary" data-color="#d3b8ff" style="background:#d3b8ff" aria-pressed="false" aria-label="Primary Lilac"></button>
                 <button type="button" class="pv-swatch pv-swatch-light" data-slot="primary" data-color="#ffb3c2" style="background:#ffb3c2" aria-pressed="false" aria-label="Primary Blush"></button>
+                <label class="pv-custom" data-slot="primary" title="Custom primary color"><input type="color" data-slot="primary" value="#8deb00" aria-label="Custom primary color"></label>
               </div>
             </div>
-            <div class="pv-swatch-group">
+            <div class="pv-swatch-group" data-group="colors">
               <span class="pv-field-label">Accent color</span>
               <div class="pv-swatches">
                 <button type="button" class="pv-swatch" data-slot="accent" data-color="#8deb00" style="background:#8deb00" aria-pressed="true" aria-label="Accent CD Green"></button>
@@ -888,9 +955,10 @@
                 <button type="button" class="pv-swatch pv-swatch-light" data-slot="accent" data-color="#ffe08a" style="background:#ffe08a" aria-pressed="false" aria-label="Accent Butter"></button>
                 <button type="button" class="pv-swatch pv-swatch-light" data-slot="accent" data-color="#d3b8ff" style="background:#d3b8ff" aria-pressed="false" aria-label="Accent Lilac"></button>
                 <button type="button" class="pv-swatch pv-swatch-light" data-slot="accent" data-color="#ffb3c2" style="background:#ffb3c2" aria-pressed="false" aria-label="Accent Blush"></button>
+                <label class="pv-custom" data-slot="accent" title="Custom accent color"><input type="color" data-slot="accent" value="#8deb00" aria-label="Custom accent color"></label>
               </div>
             </div>
-            <div class="pv-swatch-group">
+            <div class="pv-swatch-group" data-group="colors">
               <span class="pv-field-label">Background</span>
               <div class="pv-swatches">
                 <button type="button" class="pv-swatch" data-slot="background" data-color="#08080a" style="background:#08080a" aria-pressed="true" aria-label="Background CD Black"></button>
@@ -901,13 +969,14 @@
                 <button type="button" class="pv-swatch" data-slot="background" data-color="#101014" style="background:#101014" aria-pressed="false" aria-label="Background Charcoal"></button>
                 <button type="button" class="pv-swatch pv-swatch-light" data-slot="background" data-color="#ffffff" style="background:#ffffff" aria-pressed="false" aria-label="Background White"></button>
                 <button type="button" class="pv-swatch pv-swatch-light" data-slot="background" data-color="#e9e9ee" style="background:#e9e9ee" aria-pressed="false" aria-label="Background Light Grey"></button>
+                <label class="pv-custom" data-slot="background" title="Custom background color"><input type="color" data-slot="background" value="#08080a" aria-label="Custom background color"></label>
               </div>
             </div>
-            <div>
+            <div data-group="town">
               <label class="pv-field-label" for="pvTownInput">Your town</label>
               <input type="text" id="pvTownInput" value="Your Town" maxlength="32" autocomplete="off" placeholder="Your Town">
             </div>
-            <div>
+            <div data-group="room">
               <span class="pv-field-label">Your room</span>
               <div class="pv-seg" role="group" aria-label="Private or shared network">
                 <button type="button" data-mode="private" aria-pressed="false">Private</button>
@@ -915,6 +984,14 @@
               </div>
             </div>
           </div>
+        </div>
+        <div class="pv-chipbar" id="pvChipBar" role="group" aria-label="Brand kit">
+          <button type="button" class="pv-chip" data-sheet="name">Name</button>
+          <button type="button" class="pv-chip" data-sheet="logo">Logo</button>
+          <button type="button" class="pv-chip" data-sheet="type">Type</button>
+          <button type="button" class="pv-chip" data-sheet="colors">Colors</button>
+          <button type="button" class="pv-chip" data-sheet="town">Town</button>
+          <button type="button" class="pv-chip" data-sheet="room">Room</button>
         </div>
         <p class="pv-mock-note">Your brand, your colors, your name where your people land. <strong>Powered by Cameras Decoded</strong> stays where it can't be missed — because the nightly crowd is the product.</p>
       </div>
@@ -964,10 +1041,41 @@
     </footer>
   </main>
 
-  <!-- Expanded preview overlay: body-level per the standing overlay rule. -->
-  <div class="pv-expand" id="pvExpand" hidden role="dialog" aria-modal="true" aria-label="Expanded preview">
-    <button type="button" class="pv-expand-close" id="pvExpandClose">Close</button>
-    <div class="pv-expand-stage" id="pvExpandStage"></div>
+  <!-- Floating popup cards (mobile brand kit): body-level bottom sheets
+       per the standing overlay rule. Control groups relocate here from
+       the desktop kit panel at <=640px. -->
+  <div class="pv-sheets" id="pvSheets">
+    <div class="pv-sheet-backdrop" id="pvSheetBackdrop"></div>
+    <div class="pv-sheet" data-sheet="name" role="dialog" aria-modal="true" aria-label="Name settings">
+      <div class="pv-sheet-grab"></div>
+      <div class="pv-sheet-head"><span class="pv-sheet-title">Name</span><button type="button" class="pv-sheet-close">Done</button></div>
+      <div class="pv-sheet-body"></div>
+    </div>
+    <div class="pv-sheet" data-sheet="logo" role="dialog" aria-modal="true" aria-label="Logo settings">
+      <div class="pv-sheet-grab"></div>
+      <div class="pv-sheet-head"><span class="pv-sheet-title">Logo</span><button type="button" class="pv-sheet-close">Done</button></div>
+      <div class="pv-sheet-body"></div>
+    </div>
+    <div class="pv-sheet" data-sheet="type" role="dialog" aria-modal="true" aria-label="Type settings">
+      <div class="pv-sheet-grab"></div>
+      <div class="pv-sheet-head"><span class="pv-sheet-title">Type</span><button type="button" class="pv-sheet-close">Done</button></div>
+      <div class="pv-sheet-body"></div>
+    </div>
+    <div class="pv-sheet" data-sheet="colors" role="dialog" aria-modal="true" aria-label="Color settings">
+      <div class="pv-sheet-grab"></div>
+      <div class="pv-sheet-head"><span class="pv-sheet-title">Colors</span><button type="button" class="pv-sheet-close">Done</button></div>
+      <div class="pv-sheet-body"></div>
+    </div>
+    <div class="pv-sheet" data-sheet="town" role="dialog" aria-modal="true" aria-label="Town settings">
+      <div class="pv-sheet-grab"></div>
+      <div class="pv-sheet-head"><span class="pv-sheet-title">Town</span><button type="button" class="pv-sheet-close">Done</button></div>
+      <div class="pv-sheet-body"></div>
+    </div>
+    <div class="pv-sheet" data-sheet="room" role="dialog" aria-modal="true" aria-label="Room settings">
+      <div class="pv-sheet-grab"></div>
+      <div class="pv-sheet-head"><span class="pv-sheet-title">Room</span><button type="button" class="pv-sheet-close">Done</button></div>
+      <div class="pv-sheet-body"></div>
+    </div>
   </div>
 
   <script>
@@ -1113,7 +1221,6 @@
         phone.style.setProperty('--pv-card-shadow', light ? '0 1px 4px rgba(20,20,25,.07)' : 'none');
         phone.style.setProperty('--pv-pro', light ? '#c74e14' : '#ff7b39');
         phone.style.setProperty('--pv-pro-line', light ? 'rgba(199,78,20,.5)' : 'rgba(255,123,57,.45)');
-        fitPreview();
       }
 
       /* partner.name / partner.tagline / partner.town */
@@ -1167,8 +1274,14 @@
         });
       });
 
-      /* partner.colors.primary / accent / background */
+      /* partner.colors.primary / accent / background — preset swatches */
       var swatches = document.querySelectorAll('.pv-swatch');
+      var pickers = document.querySelectorAll('.pv-custom input[type="color"]');
+      function syncPicker(slot) {
+        pickers.forEach(function (inp) {
+          if (inp.getAttribute('data-slot') === slot) inp.value = partner.colors[slot];
+        });
+      }
       swatches.forEach(function (btn) {
         btn.addEventListener('click', function () {
           var slot = btn.getAttribute('data-slot');
@@ -1180,8 +1293,37 @@
               b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
             }
           });
+          /* A preset tap returns the slot to the preset: the custom square
+             drops its active state and its value follows the preset. */
+          document.querySelectorAll('.pv-custom[data-slot="' + slot + '"]').forEach(function (lbl) {
+            lbl.classList.remove('on', 'light');
+            lbl.style.background = '';
+          });
+          syncPicker(slot);
           renderMock();
         });
+      });
+
+      /* partner.colors.* — custom square: the native picker, full spectrum.
+         Still just a value in the same config field. */
+      pickers.forEach(function (inp) {
+        function applyPick() {
+          var slot = inp.getAttribute('data-slot');
+          if (!slot || !(slot in partner.colors)) return;
+          partner.colors[slot] = inp.value;
+          swatches.forEach(function (b) {
+            if (b.getAttribute('data-slot') === slot) b.setAttribute('aria-pressed', 'false');
+          });
+          var lbl = inp.closest('.pv-custom');
+          if (lbl) {
+            lbl.classList.add('on');
+            lbl.classList.toggle('light', lumOf(hexToRgb(inp.value)) > 0.18);
+            lbl.style.background = inp.value;
+          }
+          renderMock();
+        }
+        inp.addEventListener('input', applyPick);
+        inp.addEventListener('change', applyPick);
       });
 
       /* partner.mode — private cohort vs shared network */
@@ -1213,81 +1355,96 @@
         });
       });
 
-      /* Mobile sticky preview: at <=640px the frame scales down into a
-         pinned stage (CSS makes .pv-mock-left sticky below the floating
-         header) so brand-kit changes show instantly while the controls
-         scroll beneath. Tapping the pinned preview moves the frame into
-         the body-level overlay at full size; close puts it back. Desktop
-         is untouched: no scale, no sticky, no overlay. */
-      var stage = document.getElementById('pvPhoneStage');
-      var expand = document.getElementById('pvExpand');
-      var expandStage = document.getElementById('pvExpandStage');
-      var expandClose = document.getElementById('pvExpandClose');
-      var chip = document.getElementById('pvPreviewChip');
-      var chipText = chip ? chip.textContent : '';
+      /* Mobile floating popup cards: at <=640px the brand-kit control
+         groups relocate from the desktop kit panel into body-level
+         bottom sheets. A sticky chip bar (Name / Logo / Type / Colors /
+         Town / Room) floats at the viewport bottom while the section is
+         on screen; tapping a chip floats its card up over the full-size
+         frame; changes apply live behind the card. Dismiss: swipe down,
+         backdrop tap, Done button, or Escape. Desktop is untouched:
+         groups stay in the kit panel, no chips, no sheets. */
+      var kit = document.querySelector('.pv-kit');
+      var groups = kit ? Array.prototype.slice.call(kit.querySelectorAll('[data-group]')) : [];
+      var sheetsWrap = document.getElementById('pvSheets');
+      var sheetBackdrop = document.getElementById('pvSheetBackdrop');
+      var chips = document.querySelectorAll('.pv-chip[data-sheet]');
       var mqMobile = window.matchMedia('(max-width: 640px)');
-      var expanded = false;
+      var openGroup = null;
 
-      function fitPreview() {
-        if (!stage || expanded) return;
+      function sheetFor(group) {
+        return sheetsWrap ? sheetsWrap.querySelector('.pv-sheet[data-sheet="' + group + '"]') : null;
+      }
+      function placeGroups() {
+        if (!kit) return;
         if (mqMobile.matches) {
-          var h = phone.offsetHeight;
-          if (!h) return;
-          var target = Math.round(window.innerHeight * 0.40);
-          var s = Math.min(1, target / h);
-          phone.style.transform = 'scale(' + s + ')';
-          stage.style.height = Math.round(h * s) + 'px';
-          if (chip) chip.textContent = 'Preview — tap to expand';
+          groups.forEach(function (g) {
+            var sheet = sheetFor(g.getAttribute('data-group'));
+            if (sheet) sheet.querySelector('.pv-sheet-body').appendChild(g);
+          });
         } else {
-          phone.style.transform = '';
-          stage.style.height = '';
-          if (chip) chip.textContent = chipText;
+          closeSheet();
+          groups.forEach(function (g) { kit.appendChild(g); });
         }
       }
-      function openExpand() {
-        if (expanded || !expand || !expandStage) return;
-        expanded = true;
-        expandStage.appendChild(phone);
-        phone.style.transform = '';
-        expand.hidden = false;
+      function openSheet(group) {
+        var sheet = sheetFor(group);
+        if (!sheet || !sheetsWrap) return;
+        if (openGroup && openGroup !== group) {
+          var prev = sheetFor(openGroup);
+          if (prev) { prev.classList.remove('open'); prev.style.transform = ''; }
+        }
+        openGroup = group;
+        sheetsWrap.classList.add('open');
+        sheet.classList.add('open');
+        sheet.style.transform = '';
         document.body.style.overflow = 'hidden';
-        var h = phone.offsetHeight, avail = window.innerHeight - 90;
-        if (h > avail) {
-          var s = avail / h;
-          phone.style.transform = 'scale(' + s + ')';
-          expandStage.style.height = Math.round(h * s) + 'px';
-        } else {
-          expandStage.style.height = '';
-        }
+        chips.forEach(function (c) {
+          c.classList.toggle('on', c.getAttribute('data-sheet') === group);
+        });
       }
-      function closeExpand() {
-        if (!expanded) return;
-        expanded = false;
-        stage.appendChild(phone);
-        expand.hidden = true;
+      function closeSheet() {
+        if (!sheetsWrap) return;
+        var sheet = openGroup ? sheetFor(openGroup) : null;
+        if (sheet) { sheet.classList.remove('open'); sheet.style.transform = ''; }
+        sheetsWrap.classList.remove('open');
+        openGroup = null;
         document.body.style.overflow = '';
-        expandStage.style.height = '';
-        fitPreview();
+        chips.forEach(function (c) { c.classList.remove('on'); });
       }
-      if (stage) stage.addEventListener('click', function (e) {
-        if (mqMobile.matches && !expanded) {
-          e.preventDefault();
-          e.stopPropagation();
-          openExpand();
-        }
-      }, true);
-      if (expandClose) expandClose.addEventListener('click', closeExpand);
-      if (expand) expand.addEventListener('click', function (e) {
-        if (e.target === expand) closeExpand();
+      chips.forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          var group = chip.getAttribute('data-sheet');
+          if (openGroup === group) closeSheet(); else openSheet(group);
+        });
+      });
+      if (sheetBackdrop) sheetBackdrop.addEventListener('click', closeSheet);
+      if (sheetsWrap) sheetsWrap.querySelectorAll('.pv-sheet-close').forEach(function (btn) {
+        btn.addEventListener('click', closeSheet);
       });
       document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeExpand();
+        if (e.key === 'Escape') closeSheet();
       });
-      window.addEventListener('resize', function () {
-        if (!mqMobile.matches && expanded) closeExpand();
-        fitPreview();
+      /* Swipe-to-dismiss: drag the card down past 80px to close. */
+      if (sheetsWrap) sheetsWrap.querySelectorAll('.pv-sheet').forEach(function (sheet) {
+        var startY = null, dy = 0;
+        sheet.addEventListener('touchstart', function (e) {
+          startY = e.touches[0].clientY; dy = 0;
+          sheet.style.transition = 'none';
+        }, { passive: true });
+        sheet.addEventListener('touchmove', function (e) {
+          if (startY === null) return;
+          dy = Math.max(0, e.touches[0].clientY - startY);
+          sheet.style.transform = 'translateY(' + dy + 'px)';
+        }, { passive: true });
+        sheet.addEventListener('touchend', function () {
+          sheet.style.transition = '';
+          if (dy > 80) closeSheet(); else sheet.style.transform = '';
+          startY = null; dy = 0;
+        });
       });
-      window.addEventListener('load', fitPreview);
+      if (mqMobile.addEventListener) mqMobile.addEventListener('change', placeGroups);
+      else if (mqMobile.addListener) mqMobile.addListener(placeGroups);
+      placeGroups();
 
       renderMock();
     })();
