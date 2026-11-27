@@ -336,7 +336,19 @@
   function loadUserState() {
     if (document.querySelector('script[src*="user-state.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/scripts/user-state.js?v=20261014a';
+    script.src = '/scripts/user-state.js?v=20261127a';
+    document.body.appendChild(script);
+  }
+
+  // Partner tenant seats: partner-seats.js picks up a stashed join code
+  // after signup (seat claim), applies partner branding from the tenant
+  // config record, and exposes window.CDPartner. Loader-owned like
+  // user-state; skipped when the page loads it directly (join.html does).
+  function loadPartnerSeats() {
+    if (document.querySelector('script[src*="partner-seats.js"]')) return;
+    if (window.CDPartner) return;
+    const script = document.createElement('script');
+    script.src = '/scripts/partner-seats.js?v=20261127a';
     document.body.appendChild(script);
   }
 
@@ -447,6 +459,7 @@
     loadCfAnalytics();
     injectFloatingHeader();
     loadUserState();
+    loadPartnerSeats();
     loadHeaderBehavior();
     loadProCheckout();
     loadPaywall();

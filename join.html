@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join — Cameras Decoded</title>
+  <meta name="description" content="Join your group on Cameras Decoded. Claim your seat, learn your camera, prove it in the nightly Arena." />
+  <meta property="og:title" content="Join — Cameras Decoded" />
+  <meta property="og:description" content="Claim your seat in your group on Cameras Decoded." />
+  <meta property="og:image" content="https://camerasdecoded.com/images/arena-hero.jpg" />
+
+  <!-- ===== MASTER LOADER (injects header HTML + bottom nav container, loads shared CSS & bottom-nav.js) ===== -->
+  <script src="/scripts/master-loader.js?v=20261127a"></script>
+
+  <!-- ===== FIREBASE SDKs ===== -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ===== FIREBASE INIT ===== -->
+  <script src="/scripts/firebase-init.js?v=20261007b"></script>
+
+  <!-- ===== PARTNER SEATS (claim flow + branding; also loaded by master-loader, deduped there) ===== -->
+  <script src="/scripts/partner-seats.js?v=20261127a"></script>
+
+  <style>
+    /* Body-layout guard: design-system.css (loaded later via master-loader)
+       forces flex centering; this page owns its layout. */
+    body {
+      display: block !important;
+      justify-content: normal !important;
+      align-items: normal !important;
+      padding: calc(max(12px, env(safe-area-inset-top, 0px)) + 80px) 16px 96px !important;
+      background: #08080a;
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+    }
+    .join-wrap { max-width: 560px; margin: 0 auto; }
+    .join-title-img { display: block; width: 100%; max-width: 320px; min-width: 0; height: auto; margin: 0 auto 8px; }
+    .join-title-fallback {
+      font-family: 'Space Mono', monospace; font-weight: 700; letter-spacing: .12em;
+      font-size: 34px; text-align: center; color: #8deb00; margin: 0 0 8px;
+    }
+    .join-card {
+      background: rgba(12, 12, 14, 0.92);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
+      padding: 28px 22px;
+      text-align: center;
+      margin-top: 18px;
+    }
+    .join-logo { display: none; max-width: 120px; max-height: 80px; object-fit: contain; margin: 0 auto 14px; }
+    .join-partner-name {
+      font-size: 26px; font-weight: 800; line-height: 1.2; margin: 0 0 6px;
+      color: var(--partner-name-ink, #ffffff);
+    }
+    .join-tagline { font-size: 15px; color: #b4b4b4; margin: 0 0 4px; }
+    .join-powered {
+      font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .22em;
+      text-transform: uppercase; color: #6f6f76; margin: 10px 0 0;
+    }
+    .join-seats {
+      display: inline-block; margin: 18px 0 4px; padding: 6px 14px;
+      border: 1px solid rgba(141,235,0,.35); border-radius: 999px;
+      font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: .08em; color: #8deb00;
+    }
+    .join-seats.full { border-color: rgba(255,123,57,.5); color: #ff7b39; }
+    .join-msg { font-size: 15px; line-height: 1.55; color: #d8d8dc; margin: 14px 0 0; }
+    .join-msg:empty { display: none; }
+    .join-cta { margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .join-alt { font-size: 13px; color: #b4b4b4; }
+    .join-alt a { color: #8deb00; text-decoration: none; }
+    .join-alt a:hover { text-decoration: underline; }
+
+    /* ===== Signature button (canonical .sg, in-app size) =====
+       Chase border lives on the single primary CTA only. */
+    @property --sg-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+    @keyframes sgSpin { to { --sg-angle: 360deg; } }
+    .sg {
+      position: relative;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 100%; max-width: 340px; height: 92px;
+      border-radius: 24px;
+      border: 1px solid transparent;
+      text-decoration: none; cursor: pointer;
+      background:
+        linear-gradient(120deg, rgba(255,255,255,.10), rgba(255,255,255,0) 42%),
+        linear-gradient(165deg, rgba(141,235,0,.20) 0%, rgba(141,235,0,.07) 60%, rgba(141,235,0,.13) 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.09),
+        0 6px 22px rgba(141,235,0,.10);
+    }
+    .sg::before {
+      content: ''; position: absolute; inset: -0.5px; border-radius: inherit;
+      padding: 1.5px; opacity: .4; pointer-events: none;
+      background: conic-gradient(from var(--sg-angle,120deg),
+        transparent 20%, #8deb00 40%, transparent 60%, #8deb00 80%, transparent 100%);
+      -webkit-mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+      -webkit-mask-composite: xor;
+              mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+              mask-composite: exclude;
+    }
+    .sg span {
+      font-weight: 800; font-size: 22px; letter-spacing: .14em;
+      color: #8deb00; text-transform: uppercase;
+      text-shadow: 0 0 18px rgba(141,235,0,.45);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .sg-animated::before { animation: sgSpin 6s linear infinite; }
+    .sg-real { height: 46px; border-radius: 10px; }
+    .sg-real span { font-size: 12px; letter-spacing: .06em; }
+    @media (prefers-reduced-motion: reduce) {
+      .sg-animated::before { animation: none; }
+    }
+
+    /* Flat-mobile rule: sections go transparent at phone widths. */
+    @media (max-width: 640px) {
+      .join-card { background: transparent; border: none; border-radius: 0; padding: 18px 2px; }
+      .join-title-img { max-width: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="join-wrap">
+    <h1><img class="join-title-img" src="/custom-site-titles/join.png?v=20261127a" alt="Join" onerror="this.style.display='none';document.getElementById('joinTitleFb').style.display='block'"><span id="joinTitleFb" class="join-title-fallback" style="display:none">JOIN</span></h1>
+
+    <div class="join-card" id="joinCard">
+      <img class="join-logo" id="joinLogo" alt="" />
+      <p class="join-partner-name" id="joinName">Cameras Decoded</p>
+      <p class="join-tagline" id="joinTagline">Learn your camera. Prove it nightly.</p>
+      <p class="join-powered">Powered by Cameras Decoded</p>
+      <div><span class="join-seats" id="joinSeats" style="display:none"></span></div>
+      <p class="join-msg" id="joinMsg">Loading your group&hellip;</p>
+      <div class="join-cta" id="joinCta"></div>
+    </div>
+  </main>
+
+  <script>
+    // Join landing (partner seats pilot): resolves the join code's
+    // public subset, paints the partner's branding, stashes the code
+    // for post-signup pickup, and claims the seat immediately when
+    // already signed in. The claim itself lives in partner-seats.js.
+    (function () {
+      'use strict';
+      function setText(id, value) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = value;
+      }
+      function setMsg(text) { setText('joinMsg', text); }
+      function setCta(html) {
+        var el = document.getElementById('joinCta');
+        if (el) el.innerHTML = html;
+      }
+      function primaryBtn(href, label) {
+        return '<a class="sg sg-real sg-animated" href="' + href + '"><span>' + label + '</span></a>';
+      }
+      function altLink(href, text, linkText) {
+        return '<span class="join-alt">' + text + ' <a href="' + href + '">' + linkText + '</a></span>';
+      }
+
+      var code = '';
+      try { code = new URLSearchParams(window.location.search).get('p') || ''; } catch (e) {}
+      // Stash immediately: even if the visitor wanders off and signs
+      // up later, the seat claim picks up on their landing page.
+      try { if (code) localStorage.setItem('signup_partner', code); } catch (e) {}
+
+      function showInvalid() {
+        setText('joinName', 'Cameras Decoded');
+        setText('joinTagline', 'Learn your camera. Prove it nightly.');
+        setMsg('This join link is not valid. You can still join Cameras Decoded free.');
+        setCta(primaryBtn('/signup.html', 'Join free'));
+      }
+      function showClosed(name) {
+        setMsg(name + ' is not accepting new members right now. You can still join Cameras Decoded free.');
+        setCta(primaryBtn('/signup.html', 'Join free'));
+      }
+      function showWelcome(pub) {
+        var name = (pub.branding && pub.branding.name) || 'your group';
+        setMsg('Join ' + name + ' on Cameras Decoded. Create your free account and your seat is claimed automatically.');
+        setCta(
+          primaryBtn('/signup.html', 'Create your free account') +
+          altLink('/login.html', 'Already have an account?', 'Log in')
+        );
+      }
+      function showResult(result, pub) {
+        var name = (pub && pub.branding && pub.branding.name) || 'your group';
+        if (!result) { showWelcome(pub); return; }
+        if (result.reason === 'claimed' || result.reason === 'already-member') {
+          var dest = (result.partner && result.partner.groupId)
+            ? '/group.html?id=' + encodeURIComponent(result.partner.groupId)
+            : '/missions.html';
+          setMsg(result.reason === 'claimed'
+            ? 'You are in. Your seat with ' + name + ' is claimed.'
+            : 'You are in — you already hold a seat with ' + name + '.');
+          setCta(primaryBtn(dest, 'Enter Cameras Decoded'));
+        } else if (result.reason === 'full') {
+          setMsg('This group is full right now. We have let ' + name + ' know — we will tell you the moment a spot opens. Your Cameras Decoded account is yours either way.');
+          setCta(primaryBtn('/missions.html', 'Enter Cameras Decoded'));
+        } else if (result.reason === 'closed') {
+          showClosed(name);
+        } else if (result.reason === 'other-partner') {
+          setMsg('You already hold a seat with another group. One seat per person for now — leave that group first if you want to switch.');
+          setCta(primaryBtn('/missions.html', 'Enter Cameras Decoded'));
+        } else if (result.reason === 'bad-code' || result.reason === 'no-partner') {
+          showInvalid();
+        } else {
+          setMsg('Something hiccuped on our end. Your seat claim will retry the next time you open Cameras Decoded — your account is safe either way.');
+          setCta(primaryBtn('/missions.html', 'Enter Cameras Decoded'));
+        }
+      }
+
+      function paintBranding(pub) {
+        var b = (pub && pub.branding) || {};
+        if (b.name) setText('joinName', b.name);
+        if (b.tagline) setText('joinTagline', b.tagline);
+        var logo = document.getElementById('joinLogo');
+        if (logo && b.logoUrl) {
+          logo.src = b.logoUrl;
+          logo.alt = b.name || '';
+          logo.style.display = 'block';
+          logo.onerror = function () { logo.style.display = 'none'; };
+        }
+        var seatsEl = document.getElementById('joinSeats');
+        if (seatsEl && pub) {
+          if (pub.seatPool === null || pub.seatPool === undefined) {
+            seatsEl.textContent = 'Spots are open';
+            seatsEl.style.display = 'inline-block';
+          } else {
+            var left = Math.max(0, pub.seatPool - (pub.seatsUsed || 0));
+            seatsEl.textContent = left > 0
+              ? left + ' of ' + pub.seatPool + ' spots left'
+              : 'All ' + pub.seatPool + ' spots claimed';
+            if (left === 0) seatsEl.classList.add('full');
+            seatsEl.style.display = 'inline-block';
+          }
+        }
+        if (window.CDPartner && pub.partnerId) {
+          window.CDPartner.applyBranding(pub.partnerId, b, 'shared');
+        }
+      }
+
+      function waitForPartner(cb) {
+        var tries = 0;
+        var iv = setInterval(function () {
+          tries++;
+          if (window.CDPartner) { clearInterval(iv); cb(window.CDPartner); }
+          else if (tries > 60) { clearInterval(iv); cb(null); }
+        }, 100);
+      }
+
+      if (!code) { showInvalid(); return; }
+
+      waitForPartner(function (seats) {
+        if (!seats) {
+          setMsg('Cameras Decoded could not load just now. Check your connection and try again.');
+          setCta(primaryBtn('/signup.html', 'Join free'));
+          return;
+        }
+        seats.resolveJoinCode(code).then(function (pub) {
+          if (!pub || !pub.partnerId) { showInvalid(); return; }
+          paintBranding(pub);
+          if (pub.joinEnabled === false) {
+            showClosed((pub.branding && pub.branding.name) || 'This group');
+            return;
+          }
+          var auth = window.auth || (typeof firebase !== 'undefined' ? firebase.auth() : null);
+          if (!auth) { showWelcome(pub); return; }
+          var handled = false;
+          auth.onAuthStateChanged(function (user) {
+            if (handled) return;
+            handled = true;
+            if (!user) { showWelcome(pub); return; }
+            setMsg('Claiming your seat…');
+            setCta('');
+            seats.claimSeat(code, user).then(function (result) {
+              showResult(result, pub);
+            }).catch(function () {
+              showResult({ ok: false, reason: 'error' }, pub);
+            });
+          });
+        }).catch(function () {
+          setMsg('Cameras Decoded could not load just now. Check your connection and try again.');
+          setCta(primaryBtn('/signup.html', 'Join free'));
+        });
+      });
+    })();
+  </script>
+  <script src="/scripts/ptr.js?v=20261001a"></script>
+</body>
+</html>

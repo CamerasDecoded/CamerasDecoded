@@ -7,7 +7,7 @@
   <meta name="description" content="Analytics, agreements, and resources for Cameras Decoded partners." />
 
   <!-- ===== MASTER LOADER (injects header HTML + bottom nav container, loads shared CSS & bottom-nav.js) ===== -->
-  <script src="/scripts/master-loader.js?v=20261126a"></script>
+  <script src="/scripts/master-loader.js?v=20261127a"></script>
 
   <!-- ===== FIREBASE SDKs ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -385,6 +385,57 @@
     }
     .commission-section .header .reset-demo:hover { border-color:#ff4444; color:#ff4444; }
     .commission-list { display:flex; flex-direction:column; gap:8px; }
+
+    /* ===== Partner seats (tenant pilot) ===== */
+    .seat-section {
+      background:var(--bg-panel);
+      border:1px solid var(--border-dim);
+      border-radius:var(--radius);
+      padding:20px 24px;
+      margin-bottom:30px;
+    }
+    .seat-counter-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+    .seat-counter-num { font-size:40px; font-weight:700; color:var(--green); text-shadow:0 0 20px rgba(141,235,0,0.2); }
+    .seat-counter-num.amber { color:#e0b12d; text-shadow:0 0 20px rgba(224,177,45,0.25); }
+    .seat-counter-num.full { color:#ff7b39; text-shadow:0 0 20px rgba(255,123,57,0.3); }
+    .seat-counter-lbl { font-size:12px; color:#666; font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; }
+    .seat-bar-wrap { height:10px; background:#151515; border-radius:5px; margin:14px 0 10px; overflow:hidden; }
+    .seat-bar { height:100%; background:var(--green); border-radius:5px; transition:width 0.4s ease; }
+    .seat-bar.amber { background:#e0b12d; }
+    .seat-bar.full { background:#ff7b39; }
+    .seat-note { font-size:13px; color:var(--text-muted); line-height:1.5; }
+    .seat-note:empty { display:none; }
+    .seat-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .member-list { display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+    .member-item {
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      padding:10px 14px; background:#0F0F0F; border-radius:6px; border-left:3px solid var(--green);
+      font-size:14px;
+    }
+    .member-item .who { display:flex; align-items:center; gap:10px; min-width:0; }
+    .member-item .who img { width:32px; height:32px; border-radius:50%; object-fit:cover; background:#1a1a1a; }
+    .member-item .who .nm { color:#fff; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .member-item .who .dt { font-size:12px; color:#666; }
+    .member-empty { color:#666; font-size:14px; padding:10px 2px; }
+    .pack-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:6px; }
+    .pack-btn {
+      background:#0F0F0F; border:1px solid var(--border-dim); border-radius:10px;
+      padding:16px 10px; cursor:pointer; text-align:center; color:#fff;
+      font-family:'Montserrat',sans-serif; transition:border-color 0.2s, box-shadow 0.2s;
+    }
+    .pack-btn:hover { border-color:var(--green); box-shadow:0 0 18px rgba(141,235,0,0.12); }
+    .pack-btn .qty { font-size:24px; font-weight:700; color:var(--green); }
+    .pack-btn .per { font-size:12px; color:#666; font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; }
+    .pack-btn .price { font-size:15px; font-weight:600; margin-top:4px; }
+    .req-item {
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      padding:10px 14px; background:#0F0F0F; border-radius:6px; border-left:3px solid var(--gold);
+      font-size:14px; margin-top:8px;
+    }
+    .req-item .st { font-family:'Space Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--gold); }
+    @media (max-width: 600px) {
+      .pack-grid { grid-template-columns:1fr; }
+    }
     .commission-item {
       display:flex; justify-content:space-between; align-items:center;
       padding:10px 14px; background:#0F0F0F; border-radius:6px; border-left:3px solid var(--green);
@@ -540,6 +591,50 @@
         <div class="profile-item"><span class="label">Company</span><span class="value" id="profileCompany">—</span></div>
         <div class="profile-item"><span class="label">License Tier</span><span class="value green" id="profileLicense">—</span></div>
         <div class="profile-item"><span class="label">Billing</span><span class="value" id="profileBilling">—</span></div>
+      </div>
+
+      <!-- Partner seats (tenant pilot) — shown only when a partners
+           record exists for this account; hidden otherwise. -->
+      <div id="seatSections" style="display:none;">
+        <div class="section-header reveal"><h2>Seats</h2></div>
+
+        <div class="seat-section reveal">
+          <div class="seat-counter-row">
+            <span class="seat-counter-num" id="seatUsedNum">0</span>
+            <span class="seat-counter-lbl" id="seatPoolLbl">of 0 seats claimed</span>
+          </div>
+          <div class="seat-bar-wrap"><div class="seat-bar" id="seatBar" style="width:0%"></div></div>
+          <p class="seat-note" id="seatNote"></p>
+          <p class="seat-note" id="seatWaitlistNote"></p>
+        </div>
+
+        <div class="seat-section reveal">
+          <div class="link-area" style="margin-bottom:6px;">
+            <div class="label" style="font-size:12px;color:#666;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;">Your Join Link</div>
+            <div class="link" id="joinLink" style="font-family:'Space Mono',monospace;color:var(--green);word-break:break-all;margin-top:4px;">—</div>
+          </div>
+          <p class="seat-note">Your people open this link and claim their own seat when they sign up. No invites to send, no accounts to make for them.</p>
+          <div class="seat-actions">
+            <button class="btn-sm" id="copyJoinBtn" onclick="copyJoinLink()"><i class="fas fa-copy"></i> Copy link</button>
+            <button class="btn-sm" id="rotateJoinBtn" onclick="rotateJoinCode()">Rotate code</button>
+            <button class="btn-sm" id="toggleJoinBtn" onclick="toggleJoinEnabled()">Pause joins</button>
+          </div>
+        </div>
+
+        <div class="seat-section reveal">
+          <h3 style="font-family:'Space Mono',monospace;color:var(--green);font-size:16px;margin-bottom:10px;">Members</h3>
+          <div class="member-list" id="memberList">
+            <div class="member-empty">No members yet. Share your join link to fill your first seats.</div>
+          </div>
+        </div>
+
+        <div class="seat-section reveal" id="addSeatsSection">
+          <h3 style="font-family:'Space Mono',monospace;color:var(--green);font-size:16px;margin-bottom:6px;">Add Seats</h3>
+          <p class="seat-note">Seat packs at $2 per seat per month, added on top of your plan. Or upgrade your tier for a bigger pool.</p>
+          <div class="pack-grid" id="packGrid"></div>
+          <div class="seat-actions" id="upgradeActions"></div>
+          <div id="seatRequestsList"></div>
+        </div>
       </div>
 
       <!-- Referral -->
@@ -889,6 +984,326 @@
       });
     }
 
+    // ---- Partner seats (tenant pilot) ----
+    // Owner: paste Stripe Payment Links here when ready. Empty = the
+    // dashboard presents the offer only — no charge is faked, nothing
+    // is written. When a link is set, buying writes a pending
+    // partnerSeatRequests doc; the owner approves it in the admin
+    // dashboard after verifying payment in Stripe (the Pro pattern).
+    var STRIPE_SEATS_10_URL = '';
+    var STRIPE_SEATS_25_URL = '';
+    var STRIPE_SEATS_50_URL = '';
+    var STRIPE_UPGRADE_URL = '';
+
+    var seatPartner = null;      // partners/{id} data
+    var seatPartnerId = null;
+    var seatCurrentUser = null;
+
+    function seatSetText(id, value) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+    function waitForCDPartner(cb) {
+      var tries = 0;
+      var iv = setInterval(function () {
+        tries++;
+        if (window.CDPartner) { clearInterval(iv); cb(window.CDPartner); }
+        else if (tries > 50) { clearInterval(iv); cb(null); }
+      }, 100);
+    }
+    function seatPoolOf(p) {
+      if (!p || p.seatPool === null || p.seatPool === undefined) return null;
+      return p.seatPool + (p.seatsAddon || 0);
+    }
+
+    async function loadSeatSections(user, userData) {
+      seatCurrentUser = user;
+      var partnerId = userData && userData.partnerId;
+      if (!partnerId) return; // legacy partner account: no tenant record yet
+      try {
+        var snap = await db.collection('partners').doc(partnerId).get();
+        if (!snap.exists) return;
+        var p = snap.data() || {};
+        if (p.ownerUid !== user.uid && userData.partnerRole !== 'partner_admin') return;
+        seatPartner = p;
+        seatPartnerId = partnerId;
+        var wrap = document.getElementById('seatSections');
+        if (wrap) wrap.style.display = 'block';
+        renderSeatCounter();
+        renderJoinLink();
+        renderPackGrid();
+        await loadSeatMembers();
+        await loadSeatWaitlist();
+        await loadSeatRequests();
+      } catch (err) {
+        // Rules not pasted yet or offline: seat sections stay hidden,
+        // the rest of the dashboard is unaffected.
+        console.warn('Seat sections unavailable:', err && err.message);
+      }
+    }
+
+    function renderSeatCounter() {
+      var p = seatPartner; if (!p) return;
+      var used = p.seatsUsed || 0;
+      var pool = seatPoolOf(p);
+      var numEl = document.getElementById('seatUsedNum');
+      var barEl = document.getElementById('seatBar');
+      var tierLabel = (p.tier || 'signal');
+      tierLabel = tierLabel.charAt(0).toUpperCase() + tierLabel.slice(1);
+      if (numEl) numEl.textContent = used;
+      if (pool === null) {
+        seatSetText('seatPoolLbl', 'seats claimed · ' + tierLabel + ' (unlimited)');
+        if (barEl) { barEl.style.width = '100%'; barEl.className = 'seat-bar'; }
+        if (numEl) numEl.className = 'seat-counter-num';
+        seatSetText('seatNote', 'Unlimited seats on ' + tierLabel + '. Your join link never fills up.');
+      } else {
+        var pct = pool > 0 ? Math.min(100, Math.round(used / pool * 100)) : 100;
+        var state = used >= pool ? 'full' : (pct >= 80 ? 'amber' : '');
+        seatSetText('seatPoolLbl', 'of ' + pool + ' seats claimed · ' + tierLabel);
+        if (barEl) { barEl.style.width = pct + '%'; barEl.className = 'seat-bar' + (state ? ' ' + state : ''); }
+        if (numEl) numEl.className = 'seat-counter-num' + (state ? ' ' + state : '');
+        seatSetText('seatNote', used >= pool
+          ? 'Your pool is full. New joins land on the waitlist until you add seats or upgrade.'
+          : (pct >= 80 ? 'Your pool is nearly full. Add a seat pack or upgrade before it fills.' : ''));
+      }
+    }
+
+    function joinUrl() {
+      if (!seatPartner || !seatPartner.joinCode) return '';
+      return 'https://camerasdecoded.com/join.html?p=' + encodeURIComponent(seatPartner.joinCode);
+    }
+    function renderJoinLink() {
+      seatSetText('joinLink', joinUrl() || '—');
+      var btn = document.getElementById('toggleJoinBtn');
+      if (btn) btn.textContent = seatPartner && seatPartner.joinEnabled === false ? 'Resume joins' : 'Pause joins';
+    }
+    window.copyJoinLink = function () {
+      var url = joinUrl(); if (!url) return;
+      navigator.clipboard.writeText(url).then(function () { cdToast('Join link copied!'); })
+        .catch(function () { cdToast('Copy failed — long-press the link to copy it.', 'error'); });
+    };
+    window.rotateJoinCode = async function () {
+      if (!seatPartnerId || !seatPartner) return;
+      if (!confirm('Rotate the join code? The current link stops working immediately.')) return;
+      try {
+        var newCode = 'JOIN-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        var oldCode = seatPartner.joinCode;
+        var batch = db.batch();
+        batch.set(db.collection('partnerJoinCodes').doc(newCode), {
+          partnerId: seatPartnerId,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          branding: seatPartner.branding || {},
+          seatPool: seatPoolOf(seatPartner),
+          seatsUsed: seatPartner.seatsUsed || 0,
+          joinEnabled: seatPartner.joinEnabled !== false
+        });
+        if (oldCode) batch.delete(db.collection('partnerJoinCodes').doc(oldCode));
+        batch.update(db.collection('partners').doc(seatPartnerId), {
+          joinCode: newCode, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await batch.commit();
+        seatPartner.joinCode = newCode;
+        renderJoinLink();
+        cdToast('Join code rotated. Share the new link.');
+      } catch (err) { cdToast('Rotate failed: ' + err.message, 'error'); }
+    };
+    window.toggleJoinEnabled = async function () {
+      if (!seatPartnerId || !seatPartner) return;
+      var next = seatPartner.joinEnabled === false;
+      try {
+        var batch = db.batch();
+        batch.update(db.collection('partners').doc(seatPartnerId), {
+          joinEnabled: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        if (seatPartner.joinCode) {
+          batch.update(db.collection('partnerJoinCodes').doc(seatPartner.joinCode), { joinEnabled: next });
+        }
+        await batch.commit();
+        seatPartner.joinEnabled = next;
+        renderJoinLink();
+        cdToast(next ? 'Joins resumed.' : 'Joins paused. Your link shows a closed message.');
+      } catch (err) { cdToast('Update failed: ' + err.message, 'error'); }
+    };
+
+    async function loadSeatMembers() {
+      var list = document.getElementById('memberList');
+      if (!list || !seatPartnerId) return;
+      try {
+        var snap = await db.collection('partners').doc(seatPartnerId)
+          .collection('members').orderBy('claimedAt', 'asc').limit(200).get();
+        var members = [];
+        snap.forEach(function (d) { var m = d.data() || {}; m.uid = d.id; members.push(m); });
+        if (!members.length) {
+          list.innerHTML = '<div class="member-empty">No members yet. Share your join link to fill your first seats.</div>';
+          return;
+        }
+        // Names/avatars come from publicProfiles (world-readable).
+        var profiles = {};
+        await Promise.all(members.map(function (m) {
+          return db.collection('publicProfiles').doc(m.uid).get().then(function (s) {
+            if (s.exists) profiles[m.uid] = s.data() || {};
+          }).catch(function () {});
+        }));
+        list.innerHTML = '';
+        members.forEach(function (m) {
+          var prof = profiles[m.uid] || {};
+          var item = document.createElement('div');
+          item.className = 'member-item';
+          var who = document.createElement('div'); who.className = 'who';
+          var img = document.createElement('img');
+          img.alt = '';
+          if (prof.avatarUrl) img.src = prof.avatarUrl;
+          img.onerror = function () { img.style.visibility = 'hidden'; };
+          var texts = document.createElement('div');
+          var nm = document.createElement('div'); nm.className = 'nm';
+          nm.textContent = prof.displayName || prof.username || m.uid.slice(0, 8);
+          var dt = document.createElement('div'); dt.className = 'dt';
+          var when = '';
+          try { if (m.claimedAt && m.claimedAt.toDate) when = 'Joined ' + m.claimedAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) {}
+          dt.textContent = when;
+          texts.appendChild(nm); texts.appendChild(dt);
+          who.appendChild(img); who.appendChild(texts);
+          var btn = document.createElement('button');
+          btn.className = 'btn-sm'; btn.textContent = 'Remove';
+          btn.addEventListener('click', function () { removeSeatMember(m.uid, nm.textContent, btn); });
+          item.appendChild(who); item.appendChild(btn);
+          list.appendChild(item);
+        });
+      } catch (err) {
+        console.warn('Could not load members:', err && err.message);
+      }
+    }
+    function removeSeatMember(memberUid, label, btn) {
+      if (!confirm('Remove ' + label + ' from your group? Their seat returns to your pool. Their Cameras Decoded account stays theirs.')) return;
+      btn.disabled = true; btn.textContent = 'Removing…';
+      waitForCDPartner(function (seats) {
+        if (!seats) { btn.disabled = false; btn.textContent = 'Remove'; cdToast('Seat tools still loading — try again in a moment.', 'error'); return; }
+        seats.releaseSeat(seatPartnerId, memberUid, seatCurrentUser && seatCurrentUser.uid).then(function (r) {
+          if (r && r.ok) {
+            cdToast('Member removed. Seat returned to your pool.');
+            return db.collection('partners').doc(seatPartnerId).get().then(function (s) {
+              if (s.exists) { seatPartner = s.data() || {}; renderSeatCounter(); }
+              return loadSeatMembers();
+            });
+          }
+          btn.disabled = false; btn.textContent = 'Remove';
+          cdToast('Remove failed. Try again.', 'error');
+        }).catch(function () {
+          btn.disabled = false; btn.textContent = 'Remove';
+          cdToast('Remove failed. Try again.', 'error');
+        });
+      });
+    }
+
+    async function loadSeatWaitlist() {
+      if (!seatPartnerId) return;
+      try {
+        var snap = await db.collection('partners').doc(seatPartnerId).collection('waitlist').limit(500).get();
+        seatSetText('seatWaitlistNote', snap.size > 0
+          ? snap.size + (snap.size === 1 ? ' person is' : ' people are') + ' on the waitlist for a seat.'
+          : '');
+      } catch (err) { /* waitlist note is best-effort */ }
+    }
+
+    function renderPackGrid() {
+      var grid = document.getElementById('packGrid');
+      var upWrap = document.getElementById('upgradeActions');
+      if (!grid || !seatPartner) return;
+      grid.innerHTML = '';
+      [10, 25, 50].forEach(function (qty) {
+        var btn = document.createElement('button');
+        btn.className = 'pack-btn';
+        btn.innerHTML = '<div class="qty">+' + qty + '</div><div class="per">seats</div><div class="price">$' + (qty * 2) + '/mo</div>';
+        btn.addEventListener('click', function () { buySeatPack(qty, btn); });
+        grid.appendChild(btn);
+      });
+      if (upWrap) {
+        upWrap.innerHTML = '';
+        var order = ['signal', 'operator', 'enterprise'];
+        var i = order.indexOf(seatPartner.tier || 'signal');
+        if (i >= 0 && i < order.length - 1) {
+          var next = order[i + 1];
+          var pools = { signal: '100 seats', operator: '300 seats', enterprise: 'unlimited seats' };
+          var prices = { signal: '$175/mo', operator: '$495/mo', enterprise: '$995/mo' };
+          var upBtn = document.createElement('button');
+          upBtn.className = 'btn-sm';
+          upBtn.textContent = 'Upgrade to ' + next.charAt(0).toUpperCase() + next.slice(1) + ' — ' + pools[next] + ' · ' + prices[next];
+          upBtn.addEventListener('click', function () { upgradeSeatTier(next, upBtn); });
+          upWrap.appendChild(upBtn);
+        }
+      }
+    }
+    function seatPackUrl(qty) {
+      return qty === 10 ? STRIPE_SEATS_10_URL : qty === 25 ? STRIPE_SEATS_25_URL : STRIPE_SEATS_50_URL;
+    }
+    async function writeSeatRequest(type, extra) {
+      var data = {
+        partnerId: seatPartnerId, type: type, status: 'pending',
+        requestedBy: seatCurrentUser ? seatCurrentUser.uid : null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      Object.keys(extra || {}).forEach(function (k) { data[k] = extra[k]; });
+      await db.collection('partnerSeatRequests').add(data);
+    }
+    async function buySeatPack(qty, btn) {
+      var url = seatPackUrl(qty);
+      if (!url) {
+        cdToast('Seat packs open shortly. To add seats now, contact Cameras Decoded and we will set it up.', '');
+        return;
+      }
+      btn.disabled = true;
+      try {
+        await writeSeatRequest('add_seats', { qty: qty });
+        window.open(url, '_blank');
+        cdToast('Request noted. Your seats land once payment is verified.');
+        loadSeatRequests();
+      } catch (err) { cdToast('Could not file the request: ' + err.message, 'error'); }
+      btn.disabled = false;
+    }
+    async function upgradeSeatTier(next, btn) {
+      if (!STRIPE_UPGRADE_URL) {
+        cdToast('Tier upgrades open shortly. To upgrade now, contact Cameras Decoded and we will set it up.', '');
+        return;
+      }
+      btn.disabled = true;
+      try {
+        await writeSeatRequest('upgrade', { fromTier: seatPartner.tier || 'signal', toTier: next });
+        window.open(STRIPE_UPGRADE_URL, '_blank');
+        cdToast('Request noted. Your upgrade lands once payment is verified.');
+        loadSeatRequests();
+      } catch (err) { cdToast('Could not file the request: ' + err.message, 'error'); }
+      btn.disabled = false;
+    }
+    async function loadSeatRequests() {
+      var wrap = document.getElementById('seatRequestsList');
+      if (!wrap || !seatCurrentUser) return;
+      try {
+        var snap = await db.collection('partnerSeatRequests')
+          .where('requestedBy', '==', seatCurrentUser.uid).limit(20).get();
+        var reqs = [];
+        snap.forEach(function (d) { reqs.push(d.data() || {}); });
+        reqs.sort(function (a, b) {
+          var ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+          var tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+          return tb - ta;
+        });
+        wrap.innerHTML = '';
+        reqs.slice(0, 10).forEach(function (r) {
+          var item = document.createElement('div');
+          item.className = 'req-item';
+          var left = document.createElement('span');
+          left.textContent = r.type === 'add_seats' ? ('Add ' + (r.qty || 0) + ' seats')
+            : r.type === 'upgrade' ? ('Upgrade to ' + (r.toTier || ''))
+            : (r.type || 'Request');
+          var st = document.createElement('span');
+          st.className = 'st';
+          st.textContent = r.status === 'pending' ? 'Waiting on approval' : (r.status || '');
+          item.appendChild(left); item.appendChild(st);
+          wrap.appendChild(item);
+        });
+      } catch (err) { /* requests list is best-effort */ }
+    }
+
     // ---- Main load ----
     var loadingEl = document.getElementById('loadingState');
     var contentEl = document.getElementById('dashboardContent');
@@ -915,6 +1330,10 @@
 
         // 3. Render main content
         renderMainContent(userData);
+
+        // 3b. Partner seats (tenant pilot) — hidden unless a tenant
+        // record exists; never blocks the rest of the dashboard.
+        loadSeatSections(user, userData);
 
         // 4. Load commissions (if any)
         await loadCommissions();

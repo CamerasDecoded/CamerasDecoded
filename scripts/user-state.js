@@ -14,6 +14,8 @@ window.USER = {
   avatar: null,
   role: null,
   tier: null,
+  partnerId: null,
+  partnerRole: null,
   createdAt: null
 };
 
@@ -58,6 +60,8 @@ async function loadUserData(uid) {
         avatar: data.photoURL || null,
         role: data.role || 'Operator',
         tier: data.tier || 'free',
+        partnerId: data.partnerId || null,
+        partnerRole: data.partnerRole || null,
         createdAt: data.createdAt || null
       };
       

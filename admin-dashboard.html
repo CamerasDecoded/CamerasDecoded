@@ -6,7 +6,7 @@
   <title>Admin Dashboard — Cameras Decoded</title>
 
   <!-- ===== MASTER LOADER (injects header HTML + bottom nav container, loads shared CSS & bottom-nav.js) ===== -->
-  <script src="/scripts/master-loader.js?v=20261126a"></script>
+  <script src="/scripts/master-loader.js?v=20261127a"></script>
 
   <!-- ===== FIREBASE SDKs ===== -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -676,6 +676,50 @@
       </div>
     </div>
 
+    <!-- PARTNER TENANTS (seat pilot: create tenant record + join code) -->
+    <div class="notif-panel" id="partnerTenantsPanel">
+      <div class="panel-header">
+        <h3><i class="fas fa-building"></i> Partner Tenants</h3>
+        <span style="font-size:12px; color:var(--text-muted);">Create the tenant record for a signed partner · seats are claimed by members themselves</span>
+      </div>
+      <div class="bc-form">
+        <input id="ptOwnerUid" type="text" placeholder="Partner owner UID (from their account)" autocomplete="off">
+        <input id="ptCompany" type="text" maxlength="80" placeholder="Company / group name — e.g. River City Photo Club" autocomplete="off">
+        <div class="bc-row">
+          <select id="ptTier" aria-label="Tier">
+            <option value="signal">Signal — 100 seats · $175/mo</option>
+            <option value="operator">Operator — 300 seats · $495/mo</option>
+            <option value="enterprise">Enterprise — unlimited · $995/mo</option>
+          </select>
+          <select id="ptMode" aria-label="Mode">
+            <option value="shared">Shared network</option>
+            <option value="private">Private group</option>
+          </select>
+          <select id="ptBilling" aria-label="Billing">
+            <option value="monthly">Monthly</option>
+            <option value="annual">Annual</option>
+          </select>
+        </div>
+        <div class="panel-actions">
+          <button class="btn-publish" id="ptCreate">Create partner tenant</button>
+        </div>
+      </div>
+      <div id="ptList" class="bc-list" aria-live="polite">
+        <p class="bc-empty">Loading partners…</p>
+      </div>
+    </div>
+
+    <!-- PARTNER SEAT REQUESTS (add-seats / upgrade approvals) -->
+    <div class="notif-panel" id="partnerSeatRequestsPanel">
+      <div class="panel-header">
+        <h3><i class="fas fa-chair"></i> Partner Seat Requests <span id="psrCount" class="pro-req-count" hidden></span></h3>
+        <span style="font-size:12px; color:var(--text-muted);">Verify each payment in Stripe, then approve · approval applies the seats or tier</span>
+      </div>
+      <div id="psrList" class="bc-list" aria-live="polite">
+        <p class="bc-empty">Loading requests…</p>
+      </div>
+    </div>
+
     <!-- FOUNDING WALL CLAIMS (review queue for the founding-200.html wall) -->
     <div class="notif-panel" id="wallClaimsPanel">
       <div class="panel-header">
@@ -1290,6 +1334,271 @@
       }
     }
 
+    /* ---------------- partner tenants (seat pilot) ----------------
+       The owner creates one tenant record per signed partner here.
+       Creation is create-only: an existing partners/{id} is never
+       overwritten. The partner owner account must already exist
+       (partner-signup creates it); their existing partnerId is
+       reused so their dashboard picks the record up. */
+    var PT_TIERS = {
+      signal:     { seatPool: 100, monthly: 175, annual: 1680 },
+      operator:   { seatPool: 300, monthly: 495, annual: 4750 },
+      enterprise: { seatPool: null, monthly: 995, annual: 9550 }
+    };
+    function ptGenPartnerId() {
+      return 'PART-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+    function ptGenJoinCode() {
+      return 'JOIN-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+    function ptEffectivePool(p) {
+      if (!p || p.seatPool === null || p.seatPool === undefined) return null;
+      return p.seatPool + (p.seatsAddon || 0);
+    }
+
+    async function loadPartnerTenants() {
+      var list = document.getElementById('ptList');
+      if (!list) return;
+      try {
+        var snap = await db.collection('partners').limit(50).get();
+        var docs = [];
+        snap.forEach(function (d) { docs.push(d); });
+        if (!docs.length) {
+          list.innerHTML = '<p class="bc-empty">No partner tenants yet. Create the first one above when a partner signs.</p>';
+          return;
+        }
+        list.innerHTML = '';
+        docs.forEach(function (d) {
+          var p = d.data() || {};
+          var pool = ptEffectivePool(p);
+          var item = document.createElement('div');
+          item.className = 'pro-req-item';
+          item.innerHTML =
+            '<div class="pro-req-main">' +
+              '<div class="pro-req-email"></div>' +
+              '<div class="pro-req-meta"><span></span><span></span><span></span><span></span></div>' +
+            '</div>';
+          item.querySelector('.pro-req-email').textContent =
+            ((p.branding && p.branding.name) || p.companyName || d.id) + ' · ' + d.id;
+          var meta = item.querySelectorAll('.pro-req-meta span');
+          meta[0].textContent = 'Tier: ' + (p.tier || '—');
+          meta[1].textContent = 'Seats: ' + (p.seatsUsed || 0) + ' / ' + (pool === null ? 'unlimited' : pool);
+          meta[2].textContent = 'Mode: ' + (p.mode || 'shared');
+          meta[3].textContent = 'Join: ' + (p.joinEnabled === false ? 'paused' : 'open') + (p.joinCode ? ' · ' + p.joinCode : '');
+          list.appendChild(item);
+        });
+      } catch (e) {
+        list.innerHTML = '<p class="bc-empty">Could not load partners. If the seat rules are not pasted yet, this panel stays empty until they are.</p>';
+      }
+    }
+
+    async function createPartnerTenant() {
+      var btn = document.getElementById('ptCreate');
+      var ownerUid = (document.getElementById('ptOwnerUid').value || '').trim();
+      var company = (document.getElementById('ptCompany').value || '').trim();
+      var tier = document.getElementById('ptTier').value;
+      var mode = document.getElementById('ptMode').value;
+      var billing = document.getElementById('ptBilling').value;
+      if (!ownerUid || !company) { cdToast('Owner UID and company name are required.', 'error'); return; }
+      if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+      try {
+        var ownerSnap = await db.collection('users').doc(ownerUid).get();
+        if (!ownerSnap.exists) {
+          cdToast('No account with that UID. The partner owner signs up first (partner-signup), then you create the tenant.', 'error');
+          return;
+        }
+        var ownerData = ownerSnap.data() || {};
+        var partnerId = ownerData.partnerId || ptGenPartnerId();
+        var existing = await db.collection('partners').doc(partnerId).get();
+        if (existing.exists) {
+          cdToast('A tenant record already exists for ' + partnerId + '. Nothing overwritten.', 'error');
+          return;
+        }
+        var t = PT_TIERS[tier] || PT_TIERS.signal;
+        var joinCode = ptGenJoinCode();
+        var branding = {
+          name: company, tagline: '', logoUrl: '',
+          colors: { primary: '#8deb00', accent: '#8deb00', background: '#08080a', nameText: '' },
+          town: ''
+        };
+        var groupRef = db.collection('groups').doc();
+        var ownerName = ownerData.displayName || ownerData.username || company;
+        var batch = db.batch();
+        batch.set(db.collection('partners').doc(partnerId), {
+          ownerUid: ownerUid,
+          companyName: company,
+          tier: tier,
+          seatPool: t.seatPool,
+          seatsAddon: 0,
+          seatsUsed: 0,
+          mode: mode,
+          status: 'active',
+          billing: billing,
+          priceMonthly: t.monthly,
+          priceAnnual: t.annual,
+          joinCode: joinCode,
+          joinEnabled: true,
+          groupId: groupRef.id,
+          branding: branding,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: currentUser ? currentUser.uid : null,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        batch.set(db.collection('partnerJoinCodes').doc(joinCode), {
+          partnerId: partnerId,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          branding: branding,
+          seatPool: t.seatPool,
+          seatsUsed: 0,
+          joinEnabled: true
+        });
+        batch.set(groupRef, {
+          name: company,
+          description: company + ' on Cameras Decoded.',
+          type: 'cohort',
+          ownerUid: ownerUid,
+          ownerName: ownerName,
+          memberCount: 1,
+          visibility: mode === 'private' ? 'private' : 'public',
+          partnerId: partnerId,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        batch.set(groupRef.collection('members').doc(ownerUid), {
+          role: 'owner',
+          joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        batch.update(db.collection('users').doc(ownerUid), {
+          partnerId: partnerId,
+          partnerRole: 'partner_admin',
+          role: 'Partner'
+        });
+        await batch.commit();
+        cdToast('Partner tenant created: ' + partnerId + ' · join code ' + joinCode, 'success');
+        loadPartnerTenants();
+      } catch (e) {
+        cdToast(e.message || 'Create failed', 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Create partner tenant'; }
+      }
+    }
+
+    /* ---------------- partner seat requests ----------------
+       Partners file add-seats / upgrade requests from their
+       dashboard (after paying via a Stripe Payment Link). Approval
+       here is the gate: verify payment in Stripe, then approve. */
+    var psrUnsub = null;
+    function loadPartnerSeatRequests() {
+      try { if (psrUnsub) psrUnsub(); } catch (e) {}
+      psrUnsub = db.collection('partnerSeatRequests').where('status', '==', 'pending').limit(50)
+        .onSnapshot(renderPartnerSeatRequests, function (err) {
+          console.error('Partner seat requests listener error:', err);
+          var list = document.getElementById('psrList');
+          if (list) list.innerHTML = '<p class="bc-empty">Could not load seat requests.</p>';
+        });
+    }
+    function renderPartnerSeatRequests(snap) {
+      var list = document.getElementById('psrList');
+      var count = document.getElementById('psrCount');
+      if (!list) return;
+      var docs = [];
+      snap.forEach(function (d) { docs.push(d); });
+      if (count) {
+        count.hidden = docs.length === 0;
+        count.textContent = docs.length;
+      }
+      if (!docs.length) {
+        list.innerHTML = '<p class="bc-empty">No pending seat requests. Partners file them from their dashboard.</p>';
+        return;
+      }
+      list.innerHTML = '';
+      docs.forEach(function (d) {
+        var r = d.data() || {};
+        var item = document.createElement('div');
+        item.className = 'pro-req-item';
+        var when = '';
+        try { if (r.createdAt && r.createdAt.toDate) when = r.createdAt.toDate().toLocaleString(); } catch (e) {}
+        var label = r.type === 'add_seats' ? ('Add ' + (r.qty || 0) + ' seats · $' + ((r.qty || 0) * 2) + '/mo')
+          : r.type === 'upgrade' ? ('Upgrade ' + (r.fromTier || '') + ' to ' + (r.toTier || ''))
+          : (r.type || 'Request');
+        item.innerHTML =
+          '<div class="pro-req-main">' +
+            '<div class="pro-req-email"></div>' +
+            '<div class="pro-req-meta"><span></span><span></span></div>' +
+          '</div>' +
+          '<div class="pro-req-actions">' +
+            '<button class="btn-approve">Approve</button>' +
+            '<button class="btn-decline">Decline</button>' +
+          '</div>';
+        item.querySelector('.pro-req-email').textContent = label + ' · ' + (r.partnerId || '');
+        var meta = item.querySelectorAll('.pro-req-meta span');
+        meta[0].textContent = 'Requested by ' + (r.requestedBy || '—');
+        meta[1].textContent = when;
+        var approveBtn = item.querySelector('.btn-approve');
+        var declineBtn = item.querySelector('.btn-decline');
+        approveBtn.addEventListener('click', function () { approvePartnerSeatRequest(d.id, approveBtn, declineBtn); });
+        declineBtn.addEventListener('click', function () { declinePartnerSeatRequest(d.id, approveBtn, declineBtn); });
+        list.appendChild(item);
+      });
+    }
+    async function approvePartnerSeatRequest(reqId, approveBtn, declineBtn) {
+      approveBtn.disabled = true; declineBtn.disabled = true;
+      approveBtn.textContent = 'Approving…';
+      try {
+        var reqSnap = await db.collection('partnerSeatRequests').doc(reqId).get();
+        var r = (reqSnap.exists && reqSnap.data()) || {};
+        if (!r.partnerId) throw new Error('Request has no partnerId.');
+        var pRef = db.collection('partners').doc(r.partnerId);
+        var pSnap = await pRef.get();
+        if (!pSnap.exists) throw new Error('Partner record not found.');
+        var p = pSnap.data() || {};
+        var batch = db.batch();
+        var partnerPatch = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if (r.type === 'add_seats') {
+          partnerPatch.seatsAddon = (p.seatsAddon || 0) + (r.qty || 0);
+        } else if (r.type === 'upgrade') {
+          var t = PT_TIERS[r.toTier];
+          if (!t) throw new Error('Unknown tier: ' + r.toTier);
+          partnerPatch.tier = r.toTier;
+          partnerPatch.seatPool = t.seatPool;
+          partnerPatch.priceMonthly = t.monthly;
+          partnerPatch.priceAnnual = t.annual;
+        } else {
+          throw new Error('Unknown request type: ' + r.type);
+        }
+        var newPool = ptEffectivePool({
+          seatPool: partnerPatch.seatPool !== undefined ? partnerPatch.seatPool : p.seatPool,
+          seatsAddon: partnerPatch.seatsAddon !== undefined ? partnerPatch.seatsAddon : (p.seatsAddon || 0)
+        });
+        batch.update(pRef, partnerPatch);
+        if (p.joinCode) {
+          batch.update(db.collection('partnerJoinCodes').doc(p.joinCode), { seatPool: newPool });
+        }
+        batch.update(db.collection('partnerSeatRequests').doc(reqId), {
+          status: 'approved',
+          approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          approvedBy: currentUser ? currentUser.uid : null
+        });
+        await batch.commit();
+        loadPartnerTenants();
+        cdToast('Seat request approved', 'success');
+      } catch (e) {
+        approveBtn.disabled = false; declineBtn.disabled = false;
+        approveBtn.textContent = 'Approve';
+        cdToast(e.message || 'Approval failed', 'error');
+      }
+    }
+    async function declinePartnerSeatRequest(reqId, approveBtn, declineBtn) {
+      if (!confirm('Decline this seat request? Nothing changes for the partner.')) return;
+      approveBtn.disabled = true; declineBtn.disabled = true;
+      try {
+        await db.collection('partnerSeatRequests').doc(reqId).update({ status: 'rejected' });
+        cdToast('Seat request declined', 'success');
+      } catch (e) {
+        approveBtn.disabled = false; declineBtn.disabled = false;
+        cdToast(e.message || 'Decline failed', 'error');
+      }
+    }
+
     /* ---------------- founding wall claims ----------------
        Members claim on founding-200.html; the doc lands approved:false.
        Approving flips approved:true \u2014 the wall reads approved docs
@@ -1785,6 +2094,7 @@
       }
     }
 
+    document.getElementById('ptCreate').addEventListener('click', createPartnerTenant);
     document.getElementById('bcPublish').addEventListener('click', async function () {
       var title = document.getElementById('bcTitle').value.trim();
       var body = document.getElementById('bcBody').value.trim();
@@ -1868,6 +2178,8 @@
         loadAndListenAnnouncement();
         loadBroadcasts();
         loadProRequests();
+        loadPartnerTenants();
+        loadPartnerSeatRequests();
         loadWallClaims();
         loadRetakeRequests();
         loadReviews();
