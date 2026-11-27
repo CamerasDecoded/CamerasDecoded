@@ -323,11 +323,29 @@ async function closeRound(db, roundRef, round) {
     }
   } catch (e) {}
 
-  batch.update(roundRef, { state: "closed", winnerEntryId, winnerUid });
+  // Verified Arena wins counter (profile trophy case): the crown adds
+  // exactly one to the winner's arenaWins — on the user record AND the
+  // public profile, in this same batch, so the two surfaces can never
+  // disagree and the count can never land without the crown (or the
+  // crown without the count). winsCounted stamps the round in the same
+  // batch: a re-run or repair re-close never counts a crown twice.
+  // Counts start at zero and grow from the next crown — no backfill.
+  const countWin = logic.shouldCountWin(round);
+  if (countWin) {
+    batch.set(db.collection("users").doc(winnerUid),
+      { arenaWins: FieldValue.increment(1) }, { merge: true });
+    batch.set(db.collection("publicProfiles").doc(winnerUid),
+      { arenaWins: FieldValue.increment(1) }, { merge: true });
+    batch.update(roundRef, { state: "closed", winnerEntryId, winnerUid, winsCounted: true });
+  } else {
+    loud(`round ${roundId}: winsCounted already set — crown NOT counted again (winner ${winnerUid})`);
+    batch.update(roundRef, { state: "closed", winnerEntryId, winnerUid });
+  }
   await batch.commit();
   log(
     `round ${roundId} closed: winner ${winnerEntryId} (${winnerName}) ` +
-    `with ${winnerTally.weightedTotal} weighted votes across ${entries.length} entries`
+    `with ${winnerTally.weightedTotal} weighted votes across ${entries.length} entries` +
+    (countWin ? `; arenaWins +1 for ${winnerUid} (users + publicProfiles)` : "; arenaWins unchanged (already counted)")
   );
 
   await broadcast(db, {
