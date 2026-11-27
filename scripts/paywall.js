@@ -132,6 +132,18 @@
     'padding:4px 12px;border-radius:999px;box-shadow:0 2px 12px rgba(0,0,0,.35);}',
     '.pw-pnote{grid-column:1/-1;text-align:center;font-size:11.5px;color:#c9f27e;margin-top:2px;}',
 
+    /* who-it's-for + guarantee: right under the plans, at the decision point */
+    '.pw-who{text-align:center;margin:9px 4px 0;font-size:12.5px;color:rgba(255,255,255,.62);}',
+    '.pw-guarantee{text-align:center;margin:8px 4px 0;font-size:14px;font-weight:700;color:#c9f27e;letter-spacing:.01em;}',
+
+    /* short FAQ under the plans: biggest objections first */
+    '.pw-faq{margin:16px 2px 0;padding-top:14px;border-top:1px solid rgba(255,255,255,.09);text-align:left;}',
+    '.pw-faq h3{margin:0 0 10px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#8deb00;text-align:center;}',
+    '.pw-faq-item{margin:0 0 12px;}',
+    '.pw-faq-item:last-child{margin-bottom:0;}',
+    '.pw-faq-item b{display:block;color:#fff;font-size:13.5px;font-weight:700;margin-bottom:3px;}',
+    '.pw-faq-item p{margin:0;font-size:12.5px;line-height:1.55;color:rgba(255,255,255,.62);}',
+
     /* signature chase continue button (page-unique .pw-go) */
     '@property --pw-angle{syntax:"<angle>";initial-value:0deg;inherits:false;}',
     '@keyframes pwSpin{to{--pw-angle:360deg;}}',
@@ -170,6 +182,17 @@
     '.pw-sheet.pw-bleed .pw-title img{width:100%;height:100%;object-fit:cover;object-position:center bottom;margin:0;filter:none;}',
     '.pw-sheet.pw-bleed .pw-body{position:absolute;left:0;right:0;bottom:0;z-index:2;',
     'padding:0 18px calc(12px + env(safe-area-inset-bottom,0px));}',
+    /* The overlay box keeps its green-zone height; added lines scroll inside it. */
+    '.pw-sheet.pw-bleed .pw-body{box-sizing:border-box;max-height:34dvh;overflow-y:auto;overscroll-behavior:contain;',
+    '-webkit-overflow-scrolling:touch;padding-top:12px;scrollbar-width:none;}',
+    '.pw-sheet.pw-bleed .pw-body::-webkit-scrollbar{display:none;}',
+    '.pw-sheet.pw-bleed .pw-who{font-size:11px;margin-top:6px;color:rgba(255,255,255,.55);}',
+    '.pw-sheet.pw-bleed .pw-guarantee{font-size:12.5px;margin-top:6px;}',
+    '.pw-sheet.pw-bleed .pw-faq{background:rgba(0,0,0,.55);border:1px solid rgba(141,235,0,.12);',
+    'border-radius:14px;padding:12px 14px;margin-top:12px;}',
+    '.pw-sheet.pw-bleed .pw-faq h3{font-size:11px;margin-bottom:8px;}',
+    '.pw-sheet.pw-bleed .pw-faq-item b{font-size:12.5px;}',
+    '.pw-sheet.pw-bleed .pw-faq-item p{font-size:11.5px;}',
     '.pw-sheet.pw-bleed .pw-founding{display:none;}', /* founding stays desktop-only, per owner */
     '.pw-sheet.pw-bleed .pw-pnote{display:block;text-align:center;font-size:10.5px;margin:7px 2px 0;color:rgba(255,255,255,.55);font-weight:400;}',
     '.pw-sheet.pw-bleed .pw-cancel{display:block;text-align:center;font-size:10.5px;margin:7px 0 0;color:rgba(255,255,255,.42);}',
@@ -200,8 +223,10 @@
     '.pw-sheet.pw-bleed .pw-plan .pw-pper{display:none;}',
     '.pw-sheet.pw-bleed .pw-plan .pw-save{top:-7px;font-size:8px;padding:2px 7px;}',
     '.pw-sheet.pw-bleed .pw-go{min-height:40px;margin-top:6px;font-size:12.5px;}',
+    '.pw-sheet.pw-bleed .pw-who{font-size:10.5px;margin-top:5px;}',
+    '.pw-sheet.pw-bleed .pw-guarantee{font-size:11.5px;margin-top:5px;}',
     '.pw-sheet.pw-bleed .pw-foot{margin-top:4px;padding-top:4px;font-size:11px;}',
-    '.pw-sheet.pw-bleed .pw-body{padding:0 18px calc(6px + env(safe-area-inset-bottom,0px));}',
+    '.pw-sheet.pw-bleed .pw-body{padding:12px 18px calc(6px + env(safe-area-inset-bottom,0px));}',
     '}',
 
     '@media(prefers-reduced-motion:reduce){',
@@ -276,10 +301,17 @@
       '<div class="pw-feats">' + feats + '</div>' +
       '<div class="pw-founding"><b>Founding Decoder</b> — locked pricing for the first 200. When they\u2019re gone, they\u2019re gone.</div>' +
       '<div class="pw-plans" role="radiogroup" aria-label="Choose a plan">' + plans + '</div>' +
+      '<p class="pw-who">Pro is for photographers building proof that books clients.</p>' +
+      '<p class="pw-guarantee">30-day money-back guarantee on annual plans.</p>' +
       '<button class="pw-go"><span>' + planLabel(selectedPlan) + '</span></button>' +
       '<p class="pw-note" hidden></p>' +
       '<p class="pw-cancel">Cancel anytime. Streaks, leaderboard and daily drill stay free forever.</p>' +
       '<p class="pw-renew">Renews automatically at the price shown until you cancel. Cancel anytime \u2014 Pro stays on until the end of the paid period. <a href="/terms.html">Terms</a></p>' +
+      '<div class="pw-faq"><h3>Questions</h3>' +
+      '<div class="pw-faq-item"><b>Can I cancel anytime?</b><p>Anytime, in two taps from Settings \u2014 Pro stays on until the end of the period you paid for.</p></div>' +
+      '<div class="pw-faq-item"><b>What\u2019s free vs Pro?</b><p>Free keeps the Daily Drill, streaks, leaderboard, and the nightly challenge. Pro unlocks the full curriculum, every mission, and full Arena access.</p></div>' +
+      '<div class="pw-faq-item"><b>Does annual include the Camera Confidence Guide?</b><p>Yes \u2014 the $97 guide is included free with annual.</p></div>' +
+      '</div>' +
       '<div class="pw-foot"><a href="/protocols.html">Protocols</a><i>|</i><a href="/blog-updates.html">Blog</a><i>|</i><a href="/faq.html">FAQ</a><i>|</i><button type="button" class="pw-share">Share</button></div>' +
       '</div></div>';
 
