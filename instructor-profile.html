@@ -639,7 +639,16 @@
 
       userDocRef.get().then(function(doc) {
         if (doc.exists) {
-          renderProfile(doc.data());
+          var _d = doc.data();
+          // Onboarding gate: instructors who started onboarding but have not
+          // finished go back to finish it. Accounts without onboardingStep
+          // (pre-existing) are never gated.
+          if ((_d.role === 'Instructor' || !_d.role) &&
+              _d.onboardingStep !== undefined && _d.onboardingComplete !== true) {
+            window.location.href = 'instructor-onboarding.html';
+            return;
+          }
+          renderProfile(_d);
         } else {
           var defaultData = getDefaultUserData(user);
           userDocRef.set(defaultData, { merge: true }).then(function() {
