@@ -4848,6 +4848,61 @@ var _pfProCache = null;
     window.addEventListener('storage', updateCartUI);
     document.addEventListener('DOMContentLoaded', updateCartUI);
   </script>
+<script src="/scripts/cd-next.js?v=20261116a"></script>
+<script>
+  /* ---- Onboarding Next card ----
+     A brand-new signup lands here with ?welcome=onboarding (signup.html
+     sends them here when no ?next= door was used). Show ONE first step —
+     tonight's challenge — on the shared CDNext sheet, the same card the
+     Drill-done moment uses. Once per signup: a per-user localStorage
+     marker is set when the card shows, and CDNext guards repeats per
+     session. Lead, don't nag: dismissing returns to the profile as-is. */
+  (function () {
+    'use strict';
+    try {
+      var q = new URLSearchParams(window.location.search);
+      if (q.get('welcome') !== 'onboarding') return;
+    } catch (e) { return; }
+
+    function whenVeilGone(fn) {
+      /* Cold open shows a tap-to-enter boot veil; never cover its tap.
+         The veil hangs off <html> (master-loader appends it to
+         documentElement), so observe there, not body. */
+      if (!document.getElementById('cdBootVeil')) { fn(); return; }
+      var mo = new MutationObserver(function () {
+        if (!document.getElementById('cdBootVeil')) { mo.disconnect(); fn(); }
+      });
+      mo.observe(document.documentElement, { childList: true });
+      setTimeout(function () { mo.disconnect(); if (!document.getElementById('cdBootVeil')) fn(); }, 30000);
+    }
+
+    function maybeShow(uid) {
+      var mark = 'cd_onboarding_next_' + uid;
+      try { if (localStorage.getItem(mark) === '1') return; } catch (e) {}
+      if (!window.CDNext) return;
+      var shown = window.CDNext.show({
+        id: 'onboarding-arena',
+        image: '/images/arena-hero.jpg?v=20261001c',
+        title: 'Your first night starts here.',
+        body: 'Tonight\u2019s challenge is open \u2014 enter a photo and get judged blind.',
+        ctaLabel: 'Enter tonight\u2019s challenge free',
+        ctaHref: '/missions.html'
+      });
+      if (shown) { try { localStorage.setItem(mark, '1'); } catch (e) {} }
+    }
+
+    try {
+      if (typeof firebase === 'undefined' || typeof firebase.auth !== 'function') return;
+      var unsub = firebase.auth().onAuthStateChanged(function (user) {
+        if (!user || !user.uid) return;
+        unsub();
+        whenVeilGone(function () {
+          setTimeout(function () { maybeShow(user.uid); }, 500);
+        });
+      });
+    } catch (e) {}
+  })();
+</script>
 <script src="/scripts/ptr.js?v=20261014a"></script>
 <!-- Portfolio lightbox -->
 <div class="pf-lightbox" id="pfLightbox" role="dialog" aria-label="Photo viewer">
