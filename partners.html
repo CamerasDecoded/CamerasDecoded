@@ -302,7 +302,8 @@
     .pv-xp-strip { display: flex; align-items: center; gap: 12px; }
     .pv-xp-ring {
       width: 46px; height: 46px; border-radius: 50%; flex: none;
-      background: conic-gradient(var(--pv-accent) 0 68%, var(--pv-track) 68% 100%);
+      --pv-xp-pct: 68%;
+      background: conic-gradient(var(--pv-accent) 0 var(--pv-xp-pct), var(--pv-track) var(--pv-xp-pct) 100%);
       display: flex; align-items: center; justify-content: center;
     }
     .pv-xp-ring-in {
@@ -520,7 +521,7 @@
       width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
       border: 2px solid transparent; padding: 0;
       -webkit-tap-highlight-color: transparent;
-      transition: transform 0.15s, border-color 0.15s;
+      transition: transform .3s cubic-bezier(0.34,1.4,0.64,1), border-color .2s ease;
     }
     .pv-swatch:hover { transform: scale(1.08); }
     .pv-swatch[aria-pressed="true"] { border-color: #ffffff; transform: scale(1.08); }
@@ -541,7 +542,7 @@
       border: 2px solid rgba(255,255,255,.18); padding: 0;
       background: conic-gradient(#ff5c7a, #ffc49b, #ffe08a, #7ff0c4, #8fd0ff, #b388ff, #ff5c7a);
       -webkit-tap-highlight-color: transparent;
-      transition: transform 0.15s, border-color 0.15s;
+      transition: transform .3s cubic-bezier(0.34,1.4,0.64,1), border-color .2s ease;
     }
     .pv-custom:hover { transform: scale(1.06); }
     .pv-custom.on { border-color: #ffffff; transform: scale(1.06); }
@@ -676,14 +677,148 @@
       .pv-step-t { font-size: 13px; }
       .pv-step-s { font-size: 11px; }
     }
+
+    /* ===== Premium micro-animations (owner, 2026-11-27) =====
+       Motion language: springy natural-physics eases, transform/opacity
+       only, restraint over quantity. Ambient loops 3.2-3.6s; reveals
+       650ms with a slight overshoot; press responses spring back.
+       Everything here collapses under prefers-reduced-motion (end of
+       block), and the scroll reveals are progressive enhancement: the
+       pre-reveal state exists only under html.pv-motion, which the
+       reveal script adds when it runs — no JS, no hidden content. */
+
+    /* Cycle chevrons: a soft directional pulse traveling left to right —
+       the cycle moving. Brief swell, then rest; the second chevron runs
+       half a second behind the first. */
+    @keyframes pvChevFlow {
+      0%, 100% { transform: rotate(45deg) translate(0, 0); opacity: .55; filter: drop-shadow(0 0 0 rgba(141,235,0,0)); }
+      16% { transform: rotate(45deg) translate(1.8px, -1.8px); opacity: 1; filter: drop-shadow(0 0 6px rgba(141,235,0,.55)); }
+      34% { transform: rotate(45deg) translate(0, 0); opacity: .55; filter: drop-shadow(0 0 0 rgba(141,235,0,0)); }
+    }
+    .pv-chev { animation: pvChevFlow 3.2s ease-in-out infinite; }
+    .pv-cycle-row > .pv-chev:nth-child(4) { animation-delay: .5s; }
+
+    /* Card diamonds: a breathing glow, staggered per card so the four
+       marks never move in lockstep. The brand-kit diamond breathes too. */
+    @keyframes pvDiamondBreathe {
+      0%, 100% { transform: rotate(45deg) scale(1); box-shadow: 0 0 8px rgba(141,235,0,.45); opacity: .85; }
+      50% { transform: rotate(45deg) scale(1.22); box-shadow: 0 0 15px rgba(141,235,0,.85); opacity: 1; }
+    }
+    .pv-card h4::before, .pv-kit-head::before { animation: pvDiamondBreathe 3.6s ease-in-out infinite; }
+    .pv-grid .pv-card:nth-child(2) h4::before { animation-delay: .9s; }
+    .pv-grid .pv-card:nth-child(3) h4::before { animation-delay: 1.8s; }
+    .pv-grid .pv-card:nth-child(4) h4::before { animation-delay: 2.7s; }
+    .pv-kit-head::before { animation-delay: 1.35s; }
+
+    /* Hero photo: an extremely slow drift (Ken Burns-lite). The gradient
+       scrim is a separate layer and does not move. */
+    @keyframes pvHeroDrift {
+      from { transform: scale(1.03) translateY(0); }
+      to { transform: scale(1.09) translateY(-1.2%); }
+    }
+    .pv-hero-img { animation: pvHeroDrift 28s ease-in-out infinite alternate; }
+
+    /* Scroll reveals: rise + fade on a spring ease, staggered inside
+       each group. Transform/opacity only — no layout shift. */
+    html.pv-motion .pv-reveal {
+      opacity: 0; transform: translateY(16px);
+      transition: opacity .65s cubic-bezier(0.16,1,0.3,1), transform .65s cubic-bezier(0.34,1.25,0.64,1), border-color .35s ease;
+    }
+    html.pv-motion .pv-reveal.pv-in { opacity: 1; transform: translateY(0); }
+    /* Load choreography above the fold. */
+    html.pv-motion .pv-hero { transition-delay: .08s; }
+    html.pv-motion .pv-hero-cta { transition-delay: .16s; }
+    /* Group staggers (capped well under a third of a second total). */
+    html.pv-motion .pv-grid .pv-card:nth-child(2) { transition-delay: .07s; }
+    html.pv-motion .pv-grid .pv-card:nth-child(3) { transition-delay: .14s; }
+    html.pv-motion .pv-grid .pv-card:nth-child(4) { transition-delay: .21s; }
+    html.pv-motion .pv-cycle-row > .pv-step:nth-child(3) { transition-delay: .09s; }
+    html.pv-motion .pv-cycle-row > .pv-step:nth-child(5) { transition-delay: .18s; }
+    html.pv-motion .pv-how .pv-how-row:nth-child(2) { transition-delay: .08s; }
+    html.pv-motion .pv-how .pv-how-row:nth-child(3) { transition-delay: .16s; }
+    html.pv-motion .pv-choice .pv-choice-card:nth-child(2) { transition-delay: .08s; }
+    html.pv-motion .pv-rows .pv-row:nth-child(2) { transition-delay: .08s; }
+    /* How-it-works number circles pop in just after their row lands. */
+    html.pv-motion .pv-how-row .pv-how-n {
+      transform: scale(.6);
+      transition: transform .6s cubic-bezier(0.34,1.5,0.64,1) .18s;
+    }
+    html.pv-motion .pv-how-row.pv-in .pv-how-n { transform: scale(1); }
+
+    /* Press responses: real controls dip and spring back. Static cards
+       get a border glow on hover-capable screens only — no fake
+       clickability. */
+    .pv-btn, .pv-ghost-link, .pv-text-link, .sg,
+    .pv-chip, .pv-font-opt, .pv-seg button, .pv-logo-btn, .pv-sheet-close {
+      transition: transform .3s cubic-bezier(0.34,1.4,0.64,1), color .2s ease, border-color .2s ease;
+    }
+    .pv-btn:active, .pv-ghost-link:active, .pv-text-link:active, .sg:active { transform: scale(.97); }
+    /* Inline links need a box for the press scale to render. */
+    .pv-ghost-link, .pv-text-link { display: inline-block; }
+    .pv-chip:active, .pv-font-opt:active, .pv-seg button:active,
+    .pv-logo-btn:active, .pv-sheet-close:active { transform: scale(.95); }
+    .pv-footer a { transition: color .2s ease; }
+    @media (hover: hover) {
+      .pv-card, .pv-choice-card { transition: border-color .35s ease; }
+      .pv-card:hover, .pv-choice-card:hover { border-color: var(--green-border); }
+    }
+
+    /* Mock phone color changes repaint instantly, following the picker
+       under the finger — a trailing crossfade here would lag the drag,
+       so the vars deliberately carry no transition. */
+
+    /* Mock tab switches: the incoming screen's cards rise in sequence,
+       progress bars grow, the XP ring fills. The tab handler adds
+       .pv-panel-in to the newly shown panel. */
+    @keyframes pvPanelIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .pv-panel.pv-panel-in > * { animation: pvPanelIn .5s cubic-bezier(0.16,1,0.3,1) both; }
+    .pv-panel.pv-panel-in > *:nth-child(2) { animation-delay: .05s; }
+    .pv-panel.pv-panel-in > *:nth-child(3) { animation-delay: .1s; }
+    .pv-panel.pv-panel-in > *:nth-child(4) { animation-delay: .15s; }
+    .pv-panel.pv-panel-in > *:nth-child(5) { animation-delay: .2s; }
+    @keyframes pvBarGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .pv-panel.pv-panel-in .pv-bar-fill {
+      transform-origin: left center;
+      animation: pvBarGrow .7s .18s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    @property --pv-xp-pct { syntax: '<percentage>'; inherits: false; initial-value: 68%; }
+    @keyframes pvXpFill { from { --pv-xp-pct: 0%; } to { --pv-xp-pct: 68%; } }
+    .pv-panel.pv-panel-in .pv-xp-ring { animation: pvXpFill .85s .2s cubic-bezier(0.16,1,0.3,1) both; }
+    /* Tab bar: labels ease between states; the active dot swells. */
+    .pv-phone-nav button { transition: color .3s ease, transform .3s cubic-bezier(0.34,1.4,0.64,1); }
+    .pv-phone-nav button:active { transform: scale(.95); }
+    .pv-nav-dot { transition: transform .35s cubic-bezier(0.34,1.4,0.64,1), opacity .3s ease, box-shadow .3s ease; }
+    .pv-phone-nav button.on .pv-nav-dot { transform: scale(1.4); }
+
+    /* Reduced motion: ambient loops stop, reveals land instantly,
+       presses and crossfades collapse to state changes. */
+    @media (prefers-reduced-motion: reduce) {
+      .pv-chev, .pv-card h4::before, .pv-kit-head::before, .pv-hero-img { animation: none !important; }
+      html.pv-motion .pv-reveal, html.pv-motion .pv-reveal.pv-in {
+        opacity: 1 !important; transform: none !important; transition: none !important;
+      }
+      html.pv-motion .pv-how-row .pv-how-n { transform: none !important; transition: none !important; }
+      .pv-panel.pv-panel-in > *, .pv-panel.pv-panel-in .pv-bar-fill,
+      .pv-panel.pv-panel-in .pv-xp-ring { animation: none !important; }
+      .pv-btn, .pv-ghost-link, .pv-text-link, .sg, .pv-chip, .pv-font-opt,
+      .pv-seg button, .pv-logo-btn, .pv-sheet-close, .pv-phone-nav button,
+      .pv-nav-dot, .pv-swatch, .pv-custom { transition: none !important; }
+      .pv-btn:active, .pv-ghost-link:active, .pv-text-link:active, .sg:active,
+      .pv-chip:active, .pv-font-opt:active, .pv-seg button:active,
+      .pv-logo-btn:active, .pv-sheet-close:active,
+      .pv-phone-nav button:active { transform: none !important; }
+    }
   </style>
 </head>
 <body>
   <main class="main-content">
 
     <!-- HERO -->
-    <h1><img class="pv-title-img" src="/custom-site-titles/partners.png?v=20261126a" alt="Partners" onerror="this.style.display='none';document.getElementById('pvTitleFb').style.display=''"><span id="pvTitleFb" style="display:none">Partners</span></h1>
-    <div class="pv-hero">
+    <h1 class="pv-reveal"><img class="pv-title-img" src="/custom-site-titles/partners.png?v=20261126a" alt="Partners" onerror="this.style.display='none';document.getElementById('pvTitleFb').style.display=''"><span id="pvTitleFb" style="display:none">Partners</span></h1>
+    <div class="pv-hero pv-reveal">
       <img class="pv-hero-img" src="/media/partner-handshake.jpg?v=20261126a" alt="" aria-hidden="true">
       <div class="pv-hero-text">
         <p class="pv-promise">Your photos, judged blind every night — building the proof that books you clients</p>
@@ -691,76 +826,76 @@
         <p class="pv-place">Cameras Decoded is the headquarters for mirrorless owners</p>
       </div>
     </div>
-    <div class="pv-hero-cta">
+    <div class="pv-hero-cta pv-reveal">
       <a class="sg sg-real sg-animated" href="/partner-signup.html"><span>Become a Partner</span></a>
       <a class="pv-ghost-link" href="#how-it-works">See how it works</a>
     </div>
 
     <!-- WHAT YOU GET -->
     <section class="pv-section">
-      <h3><img class="pv-sectitle-img" src="/custom-site-titles/what-you-get.png?v=20261125a" alt="What you get" onerror="this.style.display='none';document.getElementById('pvGetFb').style.display=''"><span id="pvGetFb" style="display:none">What you get</span></h3>
-      <p class="pv-lede">Your customers, students, or members get a place to <strong>learn, compete, and get hired</strong>. You get a community that comes back every night.</p>
+      <h3 class="pv-reveal"><img class="pv-sectitle-img" src="/custom-site-titles/what-you-get.png?v=20261125a" alt="What you get" onerror="this.style.display='none';document.getElementById('pvGetFb').style.display=''"><span id="pvGetFb" style="display:none">What you get</span></h3>
+      <p class="pv-lede pv-reveal">Your customers, students, or members get a place to <strong>learn, compete, and get hired</strong>. You get a community that comes back every night.</p>
       <div class="pv-grid">
-        <div class="pv-card">
+        <div class="pv-card pv-reveal">
           <h4>The Nightly Arena</h4>
           <p>A new challenge every day. Entries close at 7 PM, the crowd votes blind, and a winner is crowned at 11 PM. Nobody wins on reputation — the photo wins or it doesn't. Your people get a reason to shoot today, not someday.</p>
         </div>
-        <div class="pv-card">
+        <div class="pv-card pv-reveal">
           <h4>The Signal Room</h4>
           <p>The town square. Your people post, comment, and flash each other's work between rounds — the community that keeps them coming back after the challenge is over.</p>
         </div>
-        <div class="pv-card">
+        <div class="pv-card pv-reveal">
           <h4>The Learning Path</h4>
           <p>The Field Manual teaches the craft chapter by chapter. Camera Select teaches the exact camera in their hands, dial by dial. No more guessing at settings — they learn their camera, then they use it.</p>
         </div>
-        <div class="pv-card">
+        <div class="pv-card pv-reveal">
           <h4>Booking Tools</h4>
           <p>Proof becomes work. Operator profiles carry their wins, their portfolio, and a booking page — so the photos your people prove in the Arena can turn into paid shoots.</p>
         </div>
       </div>
       <div class="pv-cycle">
         <div class="pv-cycle-row">
-          <div class="pv-step">
+          <div class="pv-step pv-reveal">
             <div class="pv-step-n">Step 1</div>
             <div class="pv-step-t">Learn it</div>
             <div class="pv-step-s">Manual + Camera Select</div>
           </div>
           <div class="pv-chev"></div>
-          <div class="pv-step">
+          <div class="pv-step pv-reveal">
             <div class="pv-step-n">Step 2</div>
             <div class="pv-step-t">Prove it</div>
             <div class="pv-step-s">Judged blind in the Arena</div>
           </div>
           <div class="pv-chev"></div>
-          <div class="pv-step">
+          <div class="pv-step pv-reveal">
             <div class="pv-step-n">Step 3</div>
             <div class="pv-step-t">Sell it</div>
             <div class="pv-step-s">Booked through their profile</div>
           </div>
         </div>
-        <p class="pv-cycle-note">Real work reveals what to learn next. The cycle feeds itself.</p>
+        <p class="pv-cycle-note pv-reveal">Real work reveals what to learn next. The cycle feeds itself.</p>
       </div>
     </section>
 
     <!-- HOW IT WORKS -->
     <section class="pv-section" id="how-it-works">
-      <h3><img class="pv-sectitle-img" src="/custom-site-titles/how-it-works.png?v=20261125a" alt="How it works" onerror="this.style.display='none';document.getElementById('pvHowFb').style.display=''"><span id="pvHowFb" style="display:none">How it works</span></h3>
+      <h3 class="pv-reveal"><img class="pv-sectitle-img" src="/custom-site-titles/how-it-works.png?v=20261125a" alt="How it works" onerror="this.style.display='none';document.getElementById('pvHowFb').style.display=''"><span id="pvHowFb" style="display:none">How it works</span></h3>
       <div class="pv-how">
-        <div class="pv-how-row">
+        <div class="pv-how-row pv-reveal">
           <div class="pv-how-n">1</div>
           <div>
             <h4>Your people join</h4>
             <p>They create a Cameras Decoded account and start learning — the Field Manual, Camera Select lessons for the camera they own, and the daily Drill.</p>
           </div>
         </div>
-        <div class="pv-how-row">
+        <div class="pv-how-row pv-reveal">
           <div class="pv-how-n">2</div>
           <div>
             <h4>They prove it nightly</h4>
             <p>Every night they can enter the Arena, get judged blind, and build a public record of wins on their profile — proof that doesn't depend on anyone's opinion of them.</p>
           </div>
         </div>
-        <div class="pv-how-row">
+        <div class="pv-how-row pv-reveal">
           <div class="pv-how-n">3</div>
           <div>
             <h4>They get hired</h4>
@@ -772,17 +907,17 @@
 
     <!-- TEACH IN YOUR TOWN -->
     <section class="pv-section">
-      <h3><img class="pv-sectitle-img" src="/custom-site-titles/teach-in-your-town.png?v=20261126a" alt="Teach in your town" onerror="this.style.display='none';document.getElementById('pvTeachFb').style.display=''"><span id="pvTeachFb" style="display:none">Teach in your town</span></h3>
-      <p class="pv-lede">Certified local instructors teach under the Cameras Decoded name — the full curriculum, the word-for-word instructor script, and a physical starter kit, gated by a certification exam. <strong>CD teaches the breadth; your local instructors own the depth.</strong></p>
-      <p style="margin-top:14px;"><a class="pv-text-link" href="/instructor-signup.html">Teach on Cameras Decoded</a></p>
+      <h3 class="pv-reveal"><img class="pv-sectitle-img" src="/custom-site-titles/teach-in-your-town.png?v=20261126a" alt="Teach in your town" onerror="this.style.display='none';document.getElementById('pvTeachFb').style.display=''"><span id="pvTeachFb" style="display:none">Teach in your town</span></h3>
+      <p class="pv-lede pv-reveal">Certified local instructors teach under the Cameras Decoded name — the full curriculum, the word-for-word instructor script, and a physical starter kit, gated by a certification exam. <strong>CD teaches the breadth; your local instructors own the depth.</strong></p>
+      <p class="pv-reveal" style="margin-top:14px;"><a class="pv-text-link" href="/instructor-signup.html">Teach on Cameras Decoded</a></p>
     </section>
 
     <!-- POWERED BY CAMERAS DECODED — WHITE-LABEL PREVIEW -->
     <section class="pv-section" id="brand-preview">
-      <h3><img class="pv-lockup-img" src="/custom-site-titles/powered-by-cameras-decoded.png?v=20261126a" alt="Powered by Cameras Decoded" onerror="this.style.display='none';document.getElementById('pvPbFb').style.display=''"><span id="pvPbFb" style="display:none">Powered by Cameras Decoded</span></h3>
-      <p class="pv-lede">Your name on the front door. The Cameras Decoded engine underneath. This is a <strong>preview</strong> of what a partner-branded Cameras Decoded looks like — one platform wearing your name, not a separate product and not a fork.</p>
+      <h3 class="pv-reveal"><img class="pv-lockup-img" src="/custom-site-titles/powered-by-cameras-decoded.png?v=20261126a" alt="Powered by Cameras Decoded" onerror="this.style.display='none';document.getElementById('pvPbFb').style.display=''"><span id="pvPbFb" style="display:none">Powered by Cameras Decoded</span></h3>
+      <p class="pv-lede pv-reveal">Your name on the front door. The Cameras Decoded engine underneath. This is a <strong>preview</strong> of what a partner-branded Cameras Decoded looks like — one platform wearing your name, not a separate product and not a fork.</p>
 
-      <div class="pv-mock-wrap">
+      <div class="pv-mock-wrap pv-reveal">
         <div class="pv-mock-stage">
           <div class="pv-mock-left">
             <div class="pv-phone-stage" id="pvPhoneStage">
@@ -1026,41 +1161,41 @@
       </div>
 
       <div class="pv-choice">
-        <div class="pv-choice-card">
+        <div class="pv-choice-card pv-reveal">
           <h4>Private Cohort</h4>
           <p>Only your people. They chat, compete, and learn in a room of their own — built for a class, a club, or a store community with its own rhythm.</p>
         </div>
-        <div class="pv-choice-card">
+        <div class="pv-choice-card pv-reveal">
           <h4>Shared Network</h4>
           <p>Your door, everyone's crowd. Your brand on the front; your people compete in the same Arena and the same Signal as the whole network.</p>
         </div>
       </div>
 
       <div class="pv-rows">
-        <div class="pv-row">
+        <div class="pv-row pv-reveal">
           <h4>Your Documents in Ask CD</h4>
           <p>Your enrollment dates, course information, store hours, and inventory become a second knowledge source next to CD's verified content. Answers cite both, labeled by source — and update the moment you edit your documents. No retraining, no waiting.</p>
         </div>
-        <div class="pv-row">
+        <div class="pv-row pv-reveal">
           <h4>Institution Analytics</h4>
           <p>You see what your people are doing: who's learning, who's entering, who's improving, who needs help. That's how you justify the program — and how you know it's working.</p>
         </div>
       </div>
 
-      <p class="pv-pilot"><strong>We start with one pilot partner at a time, on one platform.</strong> Never a fork per partner — your version updates when Cameras Decoded updates, and your people are never stranded on an old build.</p>
+      <p class="pv-pilot pv-reveal"><strong>We start with one pilot partner at a time, on one platform.</strong> Never a fork per partner — your version updates when Cameras Decoded updates, and your people are never stranded on an old build.</p>
     </section>
 
     <!-- BECOME A PARTNER -->
     <section class="pv-section pv-close">
-      <h3><img class="pv-sectitle-img" src="/custom-site-titles/become-a-partner.png?v=20261126a" alt="Become a partner" onerror="this.style.display='none';document.getElementById('pvBpFb').style.display=''"><span id="pvBpFb" style="display:none">Become a partner</span></h3>
-      <p class="pv-close-line">Bring your people. We'll bring the nightly crowd.</p>
-      <div class="pv-close-cta">
+      <h3 class="pv-reveal"><img class="pv-sectitle-img" src="/custom-site-titles/become-a-partner.png?v=20261126a" alt="Become a partner" onerror="this.style.display='none';document.getElementById('pvBpFb').style.display=''"><span id="pvBpFb" style="display:none">Become a partner</span></h3>
+      <p class="pv-close-line pv-reveal">Bring your people. We'll bring the nightly crowd.</p>
+      <div class="pv-close-cta pv-reveal">
         <a class="pv-btn" href="/partner-signup.html">Become a Partner</a>
         <a class="pv-ghost-link" href="/contact.html">Questions first? Talk to us</a>
       </div>
     </section>
 
-    <footer class="pv-footer">
+    <footer class="pv-footer pv-reveal">
       <div>© 2026 Cameras Decoded. All rights reserved.</div>
       <div class="pv-flinks">
         <a href="/contact.html">Contact</a>
@@ -1381,6 +1516,13 @@
           panels.forEach(function (p) {
             p.hidden = p.getAttribute('data-panel') !== key;
           });
+          /* Entrance motion for the incoming screen (CSS .pv-panel-in). */
+          var active = phone.querySelector('.pv-panel[data-panel="' + key + '"]');
+          if (active) {
+            active.classList.remove('pv-panel-in');
+            void active.offsetWidth;
+            active.classList.add('pv-panel-in');
+          }
         });
       });
 
@@ -1476,6 +1618,38 @@
       placeGroups();
 
       renderMock();
+    })();
+  </script>
+  <script>
+    /* Scroll reveals (progressive enhancement): content is visible by
+       default. Only when this runs — and the visitor has not asked for
+       reduced motion — does the page take the pre-reveal state
+       (html.pv-motion) and let the observer land each block as it
+       scrolls in. If this script never runs, nothing is ever hidden. */
+    (function () {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      if (!('IntersectionObserver' in window)) return;
+      var targets = document.querySelectorAll('.pv-reveal');
+      if (!targets.length) return;
+      document.documentElement.classList.add('pv-motion');
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            e.target.classList.add('pv-in');
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -6% 0px' });
+      targets.forEach(function (el) { io.observe(el); });
+      /* Safety net: anything on screen that the observer somehow missed
+         still lands — a hidden block must never survive on screen. */
+      setTimeout(function () {
+        targets.forEach(function (el) {
+          if (el.classList.contains('pv-in')) return;
+          var r = el.getBoundingClientRect();
+          if (r.top < window.innerHeight && r.bottom > 0) el.classList.add('pv-in');
+        });
+      }, 1200);
     })();
   </script>
   <script src="/scripts/ptr.js?v=20261111a"></script>
