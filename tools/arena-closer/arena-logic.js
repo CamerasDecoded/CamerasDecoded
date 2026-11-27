@@ -101,6 +101,18 @@ function applyScoreDelta(prev, delta) {
   };
 }
 
+/**
+ * Verified Arena wins counter (profile trophy case): a crown counts toward
+ * the winner's arenaWins total exactly once. The closer stamps winsCounted
+ * on the round doc in the same batch as the increment, so a round that was
+ * already counted (re-run, repair re-close) never counts again.
+ * @param {Object|null} round  the round doc data being closed
+ * @returns {boolean} true when this close should increment the winner's count
+ */
+function shouldCountWin(round) {
+  return !!round && round.winsCounted !== true;
+}
+
 module.exports = {
   POINTS_SUBMIT,
   POINTS_VOTE_RECEIVED_PER_WEIGHT,
@@ -113,4 +125,5 @@ module.exports = {
   pickWinner,
   scoreDelta,
   applyScoreDelta,
+  shouldCountWin,
 };

@@ -94,4 +94,12 @@ s = L.applyScoreDelta({ score: 490, submissions: 9, votesReceived: 40, wins: 1 }
 assert.deepEqual([s.score, s.tier], [570, 2]);
 console.log("490 -> 570 crosses 500 -> tier 2 (Decisive eye) — OK");
 
+// ---- verified wins counter: a crown counts exactly once ----
+assert.equal(L.shouldCountWin({ state: "voting" }), true);
+assert.equal(L.shouldCountWin({ state: "voting", winsCounted: false }), true);
+assert.equal(L.shouldCountWin({ state: "closed", winsCounted: true }), false);
+assert.equal(L.shouldCountWin(null), false);
+assert.equal(L.shouldCountWin(undefined), false);
+console.log("wins counter: uncounted crown counts, already-counted crown never recounts — OK");
+
 console.log("\nALL SELF-TESTS PASSED");
