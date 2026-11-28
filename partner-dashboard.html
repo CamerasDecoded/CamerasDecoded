@@ -417,16 +417,18 @@
     .member-item .who .nm { color:#fff; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .member-item .who .dt { font-size:12px; color:#666; }
     .member-empty { color:#666; font-size:14px; padding:10px 2px; }
-    .pack-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:6px; }
-    .pack-btn {
-      background:#0F0F0F; border:1px solid var(--border-dim); border-radius:10px;
-      padding:16px 10px; cursor:pointer; text-align:center; color:#fff;
-      font-family:'Montserrat',sans-serif; transition:border-color 0.2s, box-shadow 0.2s;
+    .pack-grid { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:10px; }
+    .seat-stepper { display:flex; align-items:center; gap:10px; }
+    .step-btn {
+      width:40px; height:40px; border-radius:8px; cursor:pointer;
+      background:#0F0F0F; border:1px solid var(--border-dim); color:#fff;
+      font-size:20px; font-weight:700; font-family:'Montserrat',sans-serif;
+      transition:border-color 0.2s, box-shadow 0.2s;
     }
-    .pack-btn:hover { border-color:var(--green); box-shadow:0 0 18px rgba(141,235,0,0.12); }
-    .pack-btn .qty { font-size:24px; font-weight:700; color:var(--green); }
-    .pack-btn .per { font-size:12px; color:#666; font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; }
-    .pack-btn .price { font-size:15px; font-weight:600; margin-top:4px; }
+    .step-btn:hover { border-color:var(--green); box-shadow:0 0 18px rgba(141,235,0,0.12); }
+    .step-btn:disabled { opacity:0.35; cursor:default; box-shadow:none; }
+    .seat-count { font-size:24px; font-weight:700; color:var(--green); min-width:44px; text-align:center; }
+    .seat-count-lbl { font-size:12px; color:#666; font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; }
     .req-item {
       display:flex; justify-content:space-between; align-items:center; gap:12px;
       padding:10px 14px; background:#0F0F0F; border-radius:6px; border-left:3px solid var(--gold);
@@ -434,7 +436,7 @@
     }
     .req-item .st { font-family:'Space Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--gold); }
     @media (max-width: 600px) {
-      .pack-grid { grid-template-columns:1fr; }
+      .pack-grid { gap:10px; }
     }
     .commission-item {
       display:flex; justify-content:space-between; align-items:center;
@@ -630,7 +632,7 @@
 
         <div class="seat-section reveal" id="addSeatsSection">
           <h3 style="font-family:'Space Mono',monospace;color:var(--green);font-size:16px;margin-bottom:6px;">Add Seats</h3>
-          <p class="seat-note">Seat packs at $2 per seat per month, added on top of your plan. Or upgrade your tier for a bigger pool.</p>
+          <p class="seat-note" id="addSeatsNote">Add seats at $2 per seat per month, added on top of your plan. Or upgrade your tier for a bigger pool.</p>
           <div class="pack-grid" id="packGrid"></div>
           <div class="seat-actions" id="upgradeActions"></div>
           <div id="seatRequestsList"></div>
@@ -985,19 +987,20 @@
     }
 
     // ---- Partner seats (tenant pilot) ----
-    // Owner: paste Stripe Payment Links here when ready. Empty = the
-    // dashboard presents the offer only — no charge is faked, nothing
-    // is written. When a link is set, buying writes a pending
-    // partnerSeatRequests doc; the owner approves it in the admin
-    // dashboard after verifying payment in Stripe (the Pro pattern).
-    var STRIPE_SEATS_10_URL = '';
-    var STRIPE_SEATS_25_URL = '';
-    var STRIPE_SEATS_50_URL = '';
+    // Owner's Stripe Payment Link for the seat add-on ($2/seat) —
+    // Signal and Operator tiers only; Enterprise is unlimited and
+    // never sees the Add Seats control. Buying writes a pending
+    // partnerSeatRequests doc first; the owner approves it in the
+    // admin dashboard after verifying payment in Stripe (the Pro
+    // pattern). The upgrade link stays empty for now: empty = the
+    // dashboard presents the offer only, nothing is written.
+    var STRIPE_SEATS_URL = 'https://buy.stripe.com/bJe3cxdhD2DRbZudI23gk06';
     var STRIPE_UPGRADE_URL = '';
 
     var seatPartner = null;      // partners/{id} data
     var seatPartnerId = null;
     var seatCurrentUser = null;
+    var seatAddCount = 10;       // Add Seats picker value (min 1)
 
     function seatSetText(id, value) {
       var el = document.getElementById(id);
@@ -1064,7 +1067,7 @@
         if (numEl) numEl.className = 'seat-counter-num' + (state ? ' ' + state : '');
         seatSetText('seatNote', used >= pool
           ? 'Your pool is full. New joins land on the waitlist until you add seats or upgrade.'
-          : (pct >= 80 ? 'Your pool is nearly full. Add a seat pack or upgrade before it fills.' : ''));
+          : (pct >= 80 ? 'Your pool is nearly full. Add seats or upgrade before it fills.' : ''));
       }
     }
 
@@ -1208,15 +1211,61 @@
     function renderPackGrid() {
       var grid = document.getElementById('packGrid');
       var upWrap = document.getElementById('upgradeActions');
+      var note = document.getElementById('addSeatsNote');
       if (!grid || !seatPartner) return;
       grid.innerHTML = '';
-      [10, 25, 50].forEach(function (qty) {
-        var btn = document.createElement('button');
-        btn.className = 'pack-btn';
-        btn.innerHTML = '<div class="qty">+' + qty + '</div><div class="per">seats</div><div class="price">$' + (qty * 2) + '/mo</div>';
-        btn.addEventListener('click', function () { buySeatPack(qty, btn); });
-        grid.appendChild(btn);
+      // The $2/seat add-on applies to finite pools only (Signal /
+      // Operator). Unlimited (Enterprise) never sees the Add Seats
+      // section at all — there is nothing to add.
+      var section = document.getElementById('addSeatsSection');
+      var unlimited = seatPoolOf(seatPartner) === null;
+      if (section) section.style.display = unlimited ? 'none' : '';
+      grid.style.display = unlimited ? 'none' : '';
+      if (note) note.style.display = unlimited ? 'none' : '';
+      if (upWrap) upWrap.style.display = unlimited ? 'none' : '';
+      if (unlimited) return;
+
+      var stepper = document.createElement('div');
+      stepper.className = 'seat-stepper';
+      var minusBtn = document.createElement('button');
+      minusBtn.className = 'step-btn';
+      minusBtn.textContent = '−';
+      minusBtn.setAttribute('aria-label', 'Fewer seats');
+      var countEl = document.createElement('span');
+      countEl.className = 'seat-count';
+      countEl.id = 'seatAddCountEl';
+      var countLbl = document.createElement('span');
+      countLbl.className = 'seat-count-lbl';
+      countLbl.textContent = 'seats';
+      var plusBtn = document.createElement('button');
+      plusBtn.className = 'step-btn';
+      plusBtn.textContent = '+';
+      plusBtn.setAttribute('aria-label', 'More seats');
+      stepper.appendChild(minusBtn);
+      stepper.appendChild(countEl);
+      stepper.appendChild(countLbl);
+      stepper.appendChild(plusBtn);
+
+      var buyBtn = document.createElement('button');
+      buyBtn.className = 'btn-sm';
+      buyBtn.id = 'buySeatsBtn';
+
+      function paintPicker() {
+        countEl.textContent = seatAddCount;
+        minusBtn.disabled = seatAddCount <= 1;
+        buyBtn.textContent = 'Add ' + seatAddCount + (seatAddCount === 1 ? ' seat' : ' seats') + ' — $' + (seatAddCount * 2) + '/mo';
+      }
+      minusBtn.addEventListener('click', function () {
+        if (seatAddCount > 1) { seatAddCount--; paintPicker(); }
       });
+      plusBtn.addEventListener('click', function () {
+        if (seatAddCount < 500) { seatAddCount++; paintPicker(); }
+      });
+      buyBtn.addEventListener('click', function () { buySeats(buyBtn); });
+      paintPicker();
+
+      grid.appendChild(stepper);
+      grid.appendChild(buyBtn);
       if (upWrap) {
         upWrap.innerHTML = '';
         var order = ['signal', 'operator', 'enterprise'];
@@ -1233,9 +1282,6 @@
         }
       }
     }
-    function seatPackUrl(qty) {
-      return qty === 10 ? STRIPE_SEATS_10_URL : qty === 25 ? STRIPE_SEATS_25_URL : STRIPE_SEATS_50_URL;
-    }
     async function writeSeatRequest(type, extra) {
       var data = {
         partnerId: seatPartnerId, type: type, status: 'pending',
@@ -1245,16 +1291,16 @@
       Object.keys(extra || {}).forEach(function (k) { data[k] = extra[k]; });
       await db.collection('partnerSeatRequests').add(data);
     }
-    async function buySeatPack(qty, btn) {
-      var url = seatPackUrl(qty);
-      if (!url) {
-        cdToast('Seat packs open shortly. To add seats now, contact Cameras Decoded and we will set it up.', '');
+    async function buySeats(btn) {
+      if (!STRIPE_SEATS_URL) {
+        cdToast('Adding seats opens shortly. To add seats now, contact Cameras Decoded and we will set it up.', '');
         return;
       }
+      var qty = Math.max(1, seatAddCount || 1);
       btn.disabled = true;
       try {
         await writeSeatRequest('add_seats', { qty: qty });
-        window.open(url, '_blank');
+        window.open(STRIPE_SEATS_URL, '_blank');
         cdToast('Request noted. Your seats land once payment is verified.');
         loadSeatRequests();
       } catch (err) { cdToast('Could not file the request: ' + err.message, 'error'); }
